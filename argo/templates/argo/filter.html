@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+{% load staticfiles %}
+<link rel="stylesheet" href="http://cdn.datatables.net/1.10.5/css/jquery.dataTables.css" type="text/css" media="screen">
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="http://cdn.datatables.net/1.10.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript">
+function filterREGEX () {
+    $('#db_list').DataTable().search(
+        $('#global_filter').val(),
+        true,
+        false
+    ).draw();
+}
+
+$(document).ready(function() {
+    $('#db_list').DataTable({
+         "iDisplayLength": 100,
+         "order": [[ 0, "desc" ]],
+         "columnDefs":[
+               { "width": "85px", "targets": 5 },
+               { "width": "35px", "targets": 0 },
+               { "width": "50px", "targets": 4 },
+               { "width": "50px", "targets": 7 },
+               { "width": "50px", "targets": 8 }
+            ],
+      });
+
+    $('#global_filter').on( 'keyup click', function () {
+        filterREGEX();
+    } );
+} );
+</script>
+</head>
+
+<body>
+   Type here to search with a REGEX  <input type="text" id="global_filter"> </br></br>
+   <table id='db_list' class='display'>
+      <thead>
+      <tr> <th id="id"> Job Num. </th>
+           <th id="job_id"> Job ID </th>
+           <th id="group_identifier"> Group ID </th>
+           <th id="job_site"> Subjob Site  </th>
+           <th id="total_jobs"> Num. Subjobs </th>
+           <th id="time_received"> Start Time </th>
+           <th id="state_current"> Job State </th>
+           <th id="current_job"> Current Subjob </th>
+           <th id="state_job"> Subjob State </th>
+      </tr>
+      </thead>
+      <tbody>
+{% if argo_jobs %}
+      {% for job in argo_jobs %}
+         <tr> <td class='dt-center'> <a href="{% url 'job_display' job.id %}" target="_blank"> {{ job.id }} </a> </td> 
+              <td class='dt-center'> {{ job.job_id }} </td>
+              <td class='dt-center'> {{ job.group_identifier }} </td>
+              <td class='dt-center'> {{ job.job_site }} </td>
+              <td class='dt-center'> {{ job.total_jobs }} </td>
+              <td class='dt-center'> {{ job.time_received }} </td>
+              <td class='dt-center'> {{ job.state_current }} </td>
+              <td class='dt-center'> {{ job.current_job|add:"1" }} </td>
+              <td class='dt-center'> {{ job.state_job }} </td>
+         </tr>
+      {% endfor %}
+{% else %}
+      <tr> <td> No Argo Jobs Found </td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr>
+{% endif %}
+      </tbody>
+   </table>
+
+
+
+</body>
+</html>

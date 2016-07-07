@@ -1,0 +1,11 @@
+.*
+!.gitignore
+*.pyc
+exe
+log
+argojobs
+balsamjobs
+argobalsam_env
+db.sqlite3
+argo/migrations
+balsam/migrations

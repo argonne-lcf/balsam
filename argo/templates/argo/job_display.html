@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript">
+
+function output(inp) {
+    document.body.appendChild(document.createElement('pre')).innerHTML = inp;
+}
+
+function syntaxHighlight(json) {
+   if (typeof json != 'string') {
+      json = JSON.stringify(json, undefined, 2);
+   }
+   json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+   return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+         var cls = 'number';
+         if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+               cls = 'key';
+            } else {
+               cls = 'string';
+            }
+         } else if (/true|false/.test(match)) {
+            cls = 'boolean';
+         } else if (/null/.test(match)) {
+            cls = 'null';
+         }
+      return '<span class="' + cls + '">' + match + '</span>';
+   });
+}
+
+function Encode() {
+   text = document.getElementById("job_list_text").innerHTML;
+   document.getElementById("job_list_text").innerHTML = "Listed Below";
+   output(syntaxHighlight(text));
+}
+
+</script>
+<style>
+pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
+.string { color: green; }
+.number { color: darkorange; }
+.boolean { color: blue; }
+.null { color: magenta; }
+.key { color: red; }
+</style>
+</head>
+
+
+<body onload="Encode()">
+
+{% if argo_job %}
+<form action="#" method="post">
+{% csrf_token %}
+<H2> Job Display for Database Entry: {{ argo_job.pk }} </H2>
+<table>
+   <tr>
+      <td> argo_job_id </td> <td> {{ argo_job.argo_job_id }} </td>
+   </tr> <tr>
+      <td> user_id </td> <td> {{ argo_job.user_id }} </td>
+   </tr> <tr>
+      <td> name </td> <td> {{ argo_job.name }} </td>
+   </tr> <tr>
+      <td> description </td> <td> {{ argo_job.description }} </td>
+   </tr> <tr>
+      <td> group_identifier </td> <td> {{ form.group_identifier }} </td>
+   </tr> <tr>
+      <td> working_directory </td> <td> {{ argo_job.working_directory }} </td>
+   </tr> <tr>
+      <td> time_created </td> <td> {{ argo_job.time_created }} </td>
+   </tr> <tr>
+      <td> time_modified </td> <td> {{ argo_job.time_modified }} </td>
+   </tr> <tr>
+      <td> time_finished </td> <td> {{ argo_job.time_finished }} </td>
+   </tr> <tr>
+       <td> state </td> <td> {{ form.state }} </td>
+   </tr> <tr>
+      <td> username </td> <td> {{ argo_job.username }} </td>
+   </tr> <tr>
+      <td> email </td> <td> {{ form.email }} </td>
+   </tr> <tr>
+      <td> input_url </td> <td> {{ argo_job.input_url }} </td>
+   </tr> <tr>
+      <td> output_url </td> <td> {{ argo_job.output_url }} </td>
+   </tr> <tr>
+      <td> subjob_pk_list </td> <td> {{ argo_job.subjob_pk_list }} </td>
+   </tr> <tr>
+      <td> current_subjob_pk_index </td> <td> {{ form.current_subjob }} </td>
+   </tr> <tr>
+      <td> job_status_routing_key </td> <td> {{ argo_job.job_status_routing_key }} </td>
+   </tr>
+<table>
+<input type="submit" value="Save to Database" name='save_to_database'></br>
+<input type="submit" value="Delete Entry" name='delete_from_database'> {{ form.confirm_delete }} Yes, I'm sure.
+</form>
+
+{% else %}
+Job ID {{ job_num }} not found.
+{% endif %}
+
+{% if argo_subjobs %}
+    <table id='db_list' class='display'>
+      <thead>
+      <tr> <th id="pk" title="pk"> DB# </th>
+           <th id="site" title="site"> site </th>
+           <th id="state" title="Current Job State"> state </th>
+           <th id="name" title="User Defined Job Name"> name </th>
+           <th id="description" title="User Defined Job Description"> description </th>
+           <th id="subjob_id" title="SubJob ID"> SubJob ID </th>
+           <th id="argo_job_id" title="Argo Job ID"> ArgoJob ID </th>
+           <th id="queue" title="Site specific scheduler queue"> queue </th>
+           <th id="project" title="Site specific project name"> project </th>
+           <th id="wall_time_minutes" title="Wall Time to use when submitting to scheduler."> wall time (min.) </th>
+           <th id="job_shape" title="Number of Nodes by Ranks per Node"> shape </th>
+           <th id="scheduler_config" title="scheduler configuration"> SchedConfig </th>
+           <th id="scheduler_id" title="scheduler id"> SchedID </th>
+           <th id="application" title="Application name"> App </th>
+           <th id="config_file" title="Application configuration file."> AppConfigFile </th>
+           <th id="input_url" title="Input URL"> Input URL </th>
+           <th id="output_url" title="Output URL"> Output URL </th>
+      </tr>
+      </thead>
+      {% for job in argo_subjobs %}
+         <tr> 
+              <td class='dt-center'> {{ job.pk }} </td>
+              <td class='dt-center'> {{ job.site }} </td>
+              <td class='dt-center'> {{ job.state }} </td>
+              <td class='dt-center'> {{ job.name }} </td>
+              <td class='dt-center'> {{ job.description }} </td>
+              <td class='dt-center'> {{ job.subjob_id }} </td>
+              <td class='dt-center'> {{ job.argo_job_id }} </td>
+              <td class='dt-center'> {{ job.queue }} </td>
+              <td class='dt-center'> {{ job.project }} </td>
+              <td class='dt-center'> {{ job.wall_time_minutes }} </td>
+              <td class='dt-center'> {{ job.num_nodes }}x{{ job.processes_per_node }} </td>
+              <td class='dt-center'> {{ job.scheduler_config }} </td>
+              <td class='dt-center'> {{ job.scheduler_id }} </td>
+              <td class='dt-center'> {{ job.application }} </td>
+              <td class='dt-center'> {{ job.config_file }} </td>
+              <td class='dt-center'> {{ job.input_url }} </td>
+              <td class='dt-center'> {{ job.output_url }} </td>
+         </tr>
+      {% endfor %}
+{% else %}
+   <br><br>No subjobs found.
+{% endif %}
+
+
+</body>
+</html>
