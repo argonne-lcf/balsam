@@ -12,5 +12,7 @@ source argobalsam_env/bin/activate
 argobalsam_env/bin/pip install django
 argobalsam_env/bin/pip install pika
 export ARGOBALSAM_INSTALL_PATH=$PWD
+mkdir log argojobs balsamjobs
 ./manage -h
+
 ```
