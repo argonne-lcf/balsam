@@ -13,6 +13,18 @@ argobalsam_env/bin/pip install django
 argobalsam_env/bin/pip install pika
 export ARGOBALSAM_INSTALL_PATH=$PWD
 mkdir log argojobs balsamjobs
-./manage -h
-
 ```
+
+# Configure Databases
+You can find many settings to change. There are Django specific settings in `argobalsam/settings.py` and Edge Service settings in `user_settings.py`.
+
+To create and initialize the default sqlite3 database without password protections do:
+```
+./manage.py makemigrations argo
+./manage.py makemigrations balsam
+./manage.py migrate
+./manage -h
+```
+
+
+
