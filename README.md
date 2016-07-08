@@ -1,7 +1,10 @@
 # HPC Edge Service
+**Authors:** J. Taylor Childers (Argonne National Laboratory), Tom Uram (Argonne National Laboratory), Doug Benjamin (Duke University)
 
 An HPC Edge Service to manage remote job submission. The goal of this service is to provide a secure interface for submitting jobs to large computing resources.
 
+# Prerequisites
+This Edge Service uses [RabbitMQ](https://www.rabbitmq.com/) to communicate between the outside (Argo) and inside (Balsam) services. This service must be running on an accessible server machine to use this Edge Service.
 
 # Installation
 ```
