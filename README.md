@@ -1,9 +1,10 @@
-**HPC Edge Service**
+# HPC Edge Service
 
 An HPC Edge Service to manage remote job submission. The goal of this service is to provide a secure interface for submitting jobs to large computing resources.
 
 
-** Installation **
+# Installation
+```
 git clone git@github.com:hep-cce/hpc-edge-service.git
 cd hpc-edge-service
 virtualenv argobalsam_env
@@ -12,3 +13,4 @@ argobalsam_env/bin/pip install django
 argobalsam_env/bin/pip install pika
 export ARGOBALSAM_INSTALL_PATH=$PWD
 ./manage -h
+```
