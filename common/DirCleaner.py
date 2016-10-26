@@ -1,4 +1,4 @@
-from common_core.file_tools import delete_old_files_directories
+from common.file_tools import delete_old_files_directories
 import time
 
 class DirCleaner:

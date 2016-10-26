@@ -96,21 +96,29 @@ class LocalHandler:
    def pre_stage_hook(self):
       pass
 
-   def stage_in( self, source_url, destination_directory ):
-      parts = urlparse.urlparse( source_url )
-      command = 'cp -p -r %s/* %s' % (parts.path, destination_directory)
-      print 'transfer.stage_in: command=' + command 
-      ret = os.system(command)
-      if ret:
-         raise Exception("Error in stage_in: %d" % ret)
+   def stage_in(self, source_url, destination_directory):
+      try:
+         parts = urlparse.urlparse( source_url )
+         command = 'cp -p -r /%s%s* %s' % (parts.netloc,parts.path,destination_directory)
+         logger.debug('transfer.stage_in: command=' + command )
+         ret = os.system(command)
+         if ret:
+            raise Exception("Error in stage_in: %d" % ret)
+      except Exception as e:
+         logger.exception('Exception in stage_in: ' + str(e))
+         raise
 
    def stage_out( self, source_directory, destination_url ):
-      parts = urlparse.urlparse( destination_url )
-      command = 'cp -r %s/* %s' % (source_directory, parts.path)
-      print 'transfer.stage_out: command=' + command
-      ret = os.system(command)
-      if ret:
-         raise Exception("Error in stage_out: %d" % ret)
+      try:
+         parts = urlparse.urlparse( destination_url )
+         command = 'cp -r %s/* /%s/%s' % (source_directory,parts.netloc,parts.path)
+         logger.debug( 'transfer.stage_out: command=' + command )
+         ret = os.system(command)
+         if ret:
+            raise Exception("Error in stage_out: %d" % ret)
+      except Exception as e:
+         logger.exception('Exception in stage_out: ' + str(e))
+         raise
 
 # - SCP implementation
 
@@ -149,18 +157,22 @@ def get_handler(url):
       handler = handler_class()
    else:
       raise Exception('Unknown transfer protocol: %s' % proto)
-   return handler    
+   return handler
 
 # def pre_stage_hook(url):
 #     handler = get_handler(url)
 #     handler.pre_stage_hook()
 
 def stage_in( source_url, destination_directory ):
-   handler = get_handler(source_url)
-   logger.debug('pre-stage hook')
-   handler.pre_stage_hook()
-   logger.debug('stage-in')
-   handler.stage_in( source_url, destination_directory )
+   try:
+      handler = get_handler(source_url)
+      logger.debug('pre-stage hook')
+      handler.pre_stage_hook()
+      logger.debug('stage-in')
+      handler.stage_in( source_url, destination_directory )
+   except Exception as e:
+      logger.exception('Exception: ' + str(e))
+      raise
 
 def stage_out( source_directory, destination_url ):
    handler = get_handler(destination_url)

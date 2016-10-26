@@ -16,6 +16,7 @@ fields_to_skip = [
    'working_directory',
    'time_modified',
    'id',
+   'argo_job_id',
    ]
 
 class Command(BaseCommand):
@@ -33,7 +34,8 @@ class Command(BaseCommand):
          raise Exception(' File already exists: ' + output_filename)
 
       with open(output_filename,'w') as outfile:
-         outfile.write('''
+         outfile.write('''import json
+
 class ArgoUserJob:
    def __init__(self):
 ''')
@@ -43,5 +45,13 @@ class ArgoUserJob:
             if isinstance(val,str):
                val = "'" + val + "'"
             outfile.write('      self.' + var + ' = ' + str(val) + '\n')
+         outfile.write('''      self.subjobs = []
 
+   def serialize(self):
+      return json.dumps(self.__dict__)
+
+   def add_subjob(self,subjob):
+      self.subjobs.append(subjob.__dict__)
+
+''')
 

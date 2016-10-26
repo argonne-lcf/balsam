@@ -7,10 +7,10 @@ logger = logging.getLogger(__name__)
 from django.db import utils,connections,DEFAULT_DB_ALIAS,models
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
-from django.core import serializers
+from django.core import serializers as django_serializers
 from django.core.validators import validate_comma_separated_integer_list
 
-from argo import QueueMessage
+from argo import QueueMessage,ArgoJobStatus
 from common import log_uncaught_exceptions,MessageInterface
 from common import Serializer,transfer,Mail,db_tools
 from balsam.models import BalsamJob
@@ -46,8 +46,11 @@ def submit_subjob(job):
       # opening blocking connection which will close at the end of this function
       msgInt.open_blocking_connection()
 
+      # create message queue for site in case not already done
+      msgInt.create_queue(subjob.site,subjob.site)
+
       # serialize subjob for message
-      body = serializers.serialize('json',[subjob])
+      body = django_serializers.serialize('json',[subjob])
 
       # submit job
       msgInt.send_msg(body,subjob.site)
@@ -86,10 +89,10 @@ def stage_in(job):
    if job.input_url != '':
       try:
          transfer.stage_in(job.input_url + '/',job.working_directory + '/')
-         self.state = STAGED_IN.name
+         job.state = STAGED_IN.name
       except Exception,e:
          message = 'Exception received during stage_in: ' + str(e)
-         logger.error(message)
+         logger.exception(message)
          job.state = STAGE_IN_FAILED.name
    else:
       # no input url specified so stage in is complete
@@ -108,7 +111,7 @@ def stage_out(job):
          job.state = STAGED_OUT.name
       except Exception,e:
          message = 'Exception received during stage_out: ' + str(e)
-         logger.error(message)
+         logger.exception(message)
          job.state = STAGE_OUT_FAILED.name
    else:
       # no input url specified so stage in is complete
@@ -134,35 +137,35 @@ def send_status_message(job,message=None):
          return
       
       # construct body of email
-      body = ' Your job has reached state ' + STATES_BY_ID[job.state_id].name + '\n'
+      body = ' Your job has reached state ' + job.state + '\n'
       if message is not None:
         body += '    with the message: ' + str(message)
       body += '------------------------------------------------------------------- \n'
       body += 'Job Data: \n'
-      body += serializers.serialize('json',[job])
+      body += django_serializers.serialize('json',[job])
       body += '------------------------------------------------------------------- \n'
       body += 'Subjob Data: \n'
-      body += serializers.serialize('json',ArgoSubJob.objects.get(id==Serializer.deserialize(job.subjob_pk_list)))
+      body += django_serializers.serialize('json',ArgoSubJob.objects.filter(pk__in=Serializer.deserialize(job.subjob_pk_list)))
       
       # send notification email to user
-      send_mail(
-                sender    = sender,
+      Mail.send_mail(
+                sender    = settings.ARGO_JOB_STATUS_EMAIL_SENDER,
                 receiver  = receiver,
                 subject   = 'ARGO Job Status Report',
                 body      = body,
                )
    except Exception,e:
-      logger.error('exception received while trying to send status email. Exception: ' + str(e))
+      logger.exception('exception received while trying to send status email. Exception: ' + str(e))
 
    # if job has an argo job status routing key, send a message there
-   if self.job_status_routing_key is not None and send_status_message:
-      logger.info('sending job status message with routing key: ' + self.job_status_routing_key)
+   if job.job_status_routing_key != '' and send_status_message:
+      logger.info('sending job status message with routing key: ' + job.job_status_routing_key)
       try:
-         msg = ArgoJobStatus()
-         msg.state = STATES_BY_ID[job.state_id].name
+         msg = ArgoJobStatus.ArgoJobStatus()
+         msg.state = job.state
          msg.message = message
          msg.job_id = job.argo_job_id
-         mi                = MessageInterface()
+         mi                = MessageInterface.MessageInterface()
          mi.host           = settings.RABBITMQ_SERVER_NAME
          mi.port           = settings.RABBITMQ_SERVER_PORT
          mi.exchange_name  = settings.RABBITMQ_USER_EXCHANGE_NAME
@@ -172,7 +175,7 @@ def send_status_message(job,message=None):
          mi.ssl_ca_certs   = settings.RABBITMQ_SSL_CA_CERTS
          logger.debug( ' open blocking connection to send status message ' )
          mi.open_blocking_connection()
-         mi.send_msg(msg.get_serialized_message(),self.job_status_routing_key)
+         mi.send_msg(msg.get_serialized_message(),job.job_status_routing_key)
          mi.close()
       except:
          logger.exception('Exception while sending status message to user job queue')
@@ -312,13 +315,18 @@ class ArgoJob(models.Model):
    job_status_routing_key  = models.TextField(default='')
 
    def get_current_subjob(self):
-      subjob_list = Serializer.deserialize(self.subjob_pk_list)
+      subjob_list = self.get_subjob_pk_list()
       if self.current_subjob_pk_index < len(subjob_list):
          logger.debug('getting subjob index ' + str(self.current_subjob_pk_index) + ' of ' + str(len(subjob_list)))
          return ArgoSubJob.objects.get(pk=subjob_list[self.current_subjob_pk_index])
       else:
          logger.debug('current_subjob_pk_index=' + str(self.current_subjob_pk_index) + ' number of subjobs = ' + str(len(subjob_list)) + ' subjobs = ' + str(subjob_list))
          raise SubJobIndexOutOfRange
+
+   def add_subjob(self,subjob):
+      subjob_list = self.get_subjob_pk_list()
+      subjob_list.append(subjob.pk)
+      self.subjob_pk_list = Serializer.serialize(subjob_list)
 
    def get_subjob_pk_list(self):
       return Serializer.deserialize(self.subjob_pk_list)

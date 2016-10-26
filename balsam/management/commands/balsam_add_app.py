@@ -1,8 +1,11 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from balsam import models
-from builtins import input
-import logging
+try:
+    input = raw_input
+except NameError:
+    pass
+import logging,os
 logger = logging.getLogger('console')
 
 class Command(BaseCommand):
@@ -14,8 +17,8 @@ class Command(BaseCommand):
       parser.add_argument('-d','--description',dest='description',help='application description',required=True)
       parser.add_argument('-e','--executable',dest='executable',help='application executable with full path',required=True)
       parser.add_argument('-c','--config-script',dest='config_script',help='configuration script takes a single file and parses its content to output the command line, therefore allowing users to pass command line args in a safe way.',required=True)
-      parser.add_argument('-r','--preprocess',dest='preprocess',help='preprocessing script with full path that can be used to process data in the job working directory before the job is submitted to the local batch queue.',required=True)
-      parser.add_argument('-o','--postprocess',dest='postprocess',help='postprocessing script with full path that can be used to postprocess data in the job working directory after the job is submitted to the local batch queue.',required=True)
+      parser.add_argument('-r','--preprocess',dest='preprocess',help='preprocessing script with full path that can be used to process data in the job working directory before the job is submitted to the local batch queue.',default='')
+      parser.add_argument('-o','--postprocess',dest='postprocess',help='postprocessing script with full path that can be used to postprocess data in the job working directory after the job is submitted to the local batch queue.',default='')
       parser.add_argument('-w','--no-checks',dest='no_checks',help='Typically an exception is thrown if one of the paths specified does not exist, but this flag disables that behavior.',action='store_true')
 
     def handle(self, *args, **options):
@@ -31,11 +34,11 @@ class Command(BaseCommand):
             raise Exception('config-script not found: ' + str(options['config_script']))
 
          logger.info('      preprocess       = ' + options['preprocess'])
-         if not os.path.exists(options['preprocess']) or options['no_checks']:
+         if options['preprocess'] != '' and (not os.path.exists(options['preprocess']) or options['no_checks']):
             raise Exception('preprocess not found: ' + str(options['preprocess']))
 
          logger.info('      postprocess      = ' + options['postprocess'])
-         if not os.path.exists(options['postprocess']) or options['no_checks']:
+         if options['postprocess'] != '' and (not os.path.exists(options['postprocess']) or options['no_checks']):
             raise Exception('postprocess not found: ' + str(options['postprocess']))
 
          answer = str(input(' Enter "yes" to continue:'))

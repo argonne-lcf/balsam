@@ -21,6 +21,8 @@ fields_to_skip = [
    'scheduler_id',
    'time_modified',
    'balsam_job_id',
+   'output_url',
+   'input_url',
    ]
 
 class Command(BaseCommand):
@@ -50,6 +52,7 @@ class BalsamUserJob:
             if isinstance(val,str):
                val = "'" + val + "'"
             outfile.write('      self.' + var + ' = ' + str(val) + '\n')
+
 
 
          

@@ -1,4 +1,4 @@
-from common_core.MessageInterface import MessageInterface
+from common.MessageInterface import MessageInterface
 from django.conf import settings
 import logging,sys,multiprocessing,time,os
 logger = logging.getLogger(__name__)

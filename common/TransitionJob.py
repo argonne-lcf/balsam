@@ -2,8 +2,8 @@ import multiprocessing,logging
 logger = logging.getLogger(__name__)
 
 from django.db import utils,connections,DEFAULT_DB_ALIAS
-from balsam_core import QueueMessage
-from common_core import db_tools
+from balsam import QueueMessage
+from common import db_tools
 
 class TransitionJob(multiprocessing.Process):
    ''' spawns subprocess which finds the DB entry for the given id
