@@ -34,7 +34,7 @@ def submit(job,cmd):
    else:
       options = ''
    
-   command = '%s --run_project -A %s -q %s -n %d -t %d --cwd %s %s %s' % (, 
+   command = '%s --run_project -A %s -q %s -n %d -t %d --cwd %s %s %s' % (settings.BALSAM_SCHEDULER_SUBMIT_EXE, 
              job.project,
              job.queue,
              job.num_nodes,

@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
-. /users/hpcusers/argobalsam/dev/argobalsam_env/bin/activate
 
-export ARGOBALSAM_INSTALL_PATH=/users/hpcusers/argobalsam/dev
-export ARGOBALSAM_DATA_PATH=/users/hpcusers/argobalsam/dev
-export ARGOBALSAM_EXE_PATH=/users/hpcusers/argobalsam/dev/exe
+####
+# you can place additional environment needs here
+#########
 
+
+#####
+# set pathas for edge service
+################################
+export ARGOBALSAM_INSTALL_PATH=FIXME
+export ARGOBALSAM_DATA_PATH=$ARGOBALSAM_INSTALL_PATH
+export ARGOBALSAM_EXE_PATH=$ARGOBALSAM_INSTALL_PATH/exe
+
+#####
+# activate the virtualenv 
+################################
+. $ARGOBALSAM_INSTALL_PATH/argobalsam_env/bin/activate
+
+
+#####
+# setup the certificate info
+#######################################
 . grid_setup.sh
+
+
 
