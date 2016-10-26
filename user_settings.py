@@ -44,10 +44,9 @@ BALSAM_DELETE_OLD_WORK              = True # enable deletion of old folders in B
 BALSAM_DELETE_OLD_WORK_PERIOD       = 86400 # once a day check for old work folders older than the BALSAM_DELETE_OLD_WORK_AGE
 BALSAM_DELETE_OLD_WORK_AGE          = 86400 * 31 # delete work folders that are older than 31 days
 BALSAM_SERVICE_LOG_FILENAME         = os.path.join(BALSAM_LOGGING_DIRECTORY, 'balsam_service.log')
-BALSAM_SCHEDULER_SUBMIT_EXE         = '/usr/bin/condor_submit'
-BALSAM_SCHEDULER_SUBMIT_DAG_EXE     = '/usr/bin/condor_submit_dag'
-BALSAM_SCHEDULER_STATUS_EXE         = '/usr/bin/condor_q'
-BALSAM_SCHEDULER_HISTORY_EXE        = '/usr/bin/condor_history'
+BALSAM_SCHEDULER_SUBMIT_EXE         = '/usr/bin/qsub'
+BALSAM_SCHEDULER_STATUS_EXE         = '/usr/bin/qstat'
+BALSAM_SCHEDULER_HISTORY_EXE        = '/usr/bin/'
 BALSAM_SERVICE_PERIOD               = 10 # seconds between service loop execution
 BALSAM_MAX_QUEUED                   = 20 # the maximum number of jobs allowed on the local queue
 BALSAM_SUBMIT_JOBS                  = True # submit jobs to queue, turn off when testing
@@ -55,7 +54,7 @@ BALSAM_DEFAULT_QUEUE                = '' # default local queue name
 BALSAM_DEFAULT_PROJECT              = '' # default local project name
 BALSAM_ALLOWED_EXECUTABLE_DIRECTORY = ALLOWED_EXE_PATH # path to allowed executables
 BALSAM_SITE                         = 'argo_cluster_dev' # local balsam site name
-BALSAM_SCHEDULER_CLASS              = 'CondorScheduler' # local scheduler in use
+BALSAM_SCHEDULER_CLASS              = 'CobaltScheduler' # local scheduler in use
 BALSAM_SCHEDULER_SUBMIT_SCRIPT      = os.path.join(BALSAM_ALLOWED_EXECUTABLE_DIRECTORY,'submit.sh')
 BALSAM_SCHEDULER_USE_SUBMIT_SCRIPT  = True
 BALSAM_MAX_CONCURRENT_TRANSITIONS   = 5 # maximum number of sub threads spawned by Balsam
@@ -77,7 +76,7 @@ ARGO_MAX_CONCURRENT_TRANSITIONS     = 5 # maximum number of sub threads spawned 
 # GRID FTP SERVER INFO
 #------------------------------
 
-GRIDFTP_BIN                         = '/usr/bin'
+GRIDFTP_BIN                         = '/soft/data-transfer/globus/bin'
 GRIDFTP_GLOBUS_URL_COPY             = os.path.join(GRIDFTP_BIN,'globus-url-copy')
 GRIDFTP_PROXY_INFO                  = os.path.join(GRIDFTP_BIN,'grid-proxy-info')
 GRIDFTP_PROXY_INIT                  = os.path.join(GRIDFTP_BIN,'grid-proxy-init')
