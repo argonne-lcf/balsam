@@ -12,8 +12,10 @@ git clone git@github.com:hep-cce/hpc-edge-service.git
 cd hpc-edge-service
 virtualenv argobalsam_env
 source argobalsam_env/bin/activate
-argobalsam_env/bin/pip install django
-argobalsam_env/bin/pip install pika
+pip install pip --upgrade
+pip install django
+pip install pika
+pip install future
 export ARGOBALSAM_INSTALL_PATH=$PWD
 mkdir log argojobs balsamjobs exe
 ```
