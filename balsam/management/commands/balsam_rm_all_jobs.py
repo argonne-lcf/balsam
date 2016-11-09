@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from balsam.models import Job
+from balsam import models
 import logging
 logging.basicConfig(
                     level=logging.INFO,
@@ -13,7 +13,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         
-         jobs = Job.objects.all()
+         jobs = models.BalsamJob.objects.all()
          for job in jobs:
              logger.info(' removing job: ' + str(job.id) )
              job.delete()
