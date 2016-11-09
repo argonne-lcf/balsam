@@ -53,15 +53,6 @@ class Command(BaseCommand):
       for job in jobs:
          logger.info('removing job: ' + str(job.pk) + ' ' + str(job.argo_job_id) )
          logger.info(' job contains subjobs: ' + job.subjob_pk_list)
-         if options['delete_subjobs']:
-            subjob_pks = Serializer.deserialize(job.subjob_pk_list)
-            for subjob_pk in subjob_pks:
-               subjob = ArgoSubJob.objects.get(pk=subjob_pk)
-               logger.info('removing subjob: ' + str(subjob.pk) + ' ' + str(subjob.subjob_id) )
-               subjob.delete()
-
-
-
          job.delete()
       
 
