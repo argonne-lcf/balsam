@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from argo.UserJobReceiver import UserJobReceiver
-from argo.models import ArgoDbEntry
+from argo.models import ArgoJob
 import os,sys,time,multiprocessing
 import logging
 logging.basicConfig(
@@ -41,7 +41,7 @@ class Command(BaseCommand):
 
    def handle(self, *args, **options):
       
-      jobs = ArgoDbEntry.objects.all()
+      jobs = ArgoJob.objects.all()
       for job in jobs:
          logger.info('removing job: ' + str(job.id) )
          job.delete()
