@@ -354,7 +354,7 @@ class ArgoJob(models.Model):
          same_jobs = ArgoJob.objects.filter(argo_job_id=job_id)
       return job_id
 
-   def delete(self):
+   def delete(self,delete_subjobs=True):
       # delete local argo job path
       if os.path.exists(self.working_directory):
          try:
@@ -362,6 +362,12 @@ class ArgoJob(models.Model):
             logger.info('removed job path: ' + str(self.working_directory))
          except Exception,e:
             logger.error('Error trying to remove argo job path: ' + str(self.working_directory) + ' Exception: ' + str(e))
+
+      # delete subjobs
+      if delete_subjobs:
+         subjobs = ArgoSubJob.objects.filter(pk__in=self.get_subjob_pk_list())
+         for subjob in subjobs:
+            subjob.delete()
 
       # call base class delete function
       try:
