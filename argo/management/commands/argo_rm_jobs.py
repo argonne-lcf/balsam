@@ -51,7 +51,7 @@ class Command(BaseCommand):
       jobs = ArgoJob.objects.filter(pk__in=options['pk'])
       
       for job in jobs:
-         logger.info('removing job: ' + str(job.pk) + ' ' + str(job.argo_job_id) )
+         logger.info('removing job: ' + str(job.pk) + ' ' + str(job.job_id) )
          logger.info(' job contains subjobs: ' + job.subjob_pk_list)
          job.delete()
       
