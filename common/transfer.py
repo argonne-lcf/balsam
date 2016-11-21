@@ -12,7 +12,7 @@ import tempfile
 logger = logging.getLogger(__name__)
 
 # - GridFTP implementation
-
+GRIDFTP_PROTOCOL='gsiftp'
 class GridFTPHandler:
    def pre_stage_hook(self):
       # check to see if proxy already exists
@@ -91,37 +91,32 @@ class GridFTPHandler:
 
 
 # - Local implementation
-
+LOCAL_PROTOCOL='local'
 class LocalHandler:
    def pre_stage_hook(self):
       pass
 
    def stage_in(self, source_url, destination_directory):
-      try:
-         parts = urlparse.urlparse( source_url )
-         command = 'cp -p -r /%s%s* %s' % (parts.netloc,parts.path,destination_directory)
-         logger.debug('transfer.stage_in: command=' + command )
-         ret = os.system(command)
-         if ret:
-            raise Exception("Error in stage_in: %d" % ret)
-      except Exception as e:
-         logger.exception('Exception in stage_in: ' + str(e))
-         raise
+      parts = urlparse.urlparse( source_url )
+      command = 'cp -p -r /%s%s* %s' % (parts.netloc,parts.path,destination_directory)
+      logger.debug('transfer.stage_in: command=' + command )
+      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+      stdout,stderr = p.communicate()
+      if p.returncode != 0:
+         raise Exception("Error in stage_in: %d output:\n" % (p.returncode,stdout))
 
    def stage_out( self, source_directory, destination_url ):
-      try:
-         parts = urlparse.urlparse( destination_url )
-         command = 'cp -r %s/* /%s/%s' % (source_directory,parts.netloc,parts.path)
-         logger.debug( 'transfer.stage_out: command=' + command )
-         ret = os.system(command)
-         if ret:
-            raise Exception("Error in stage_out: %d" % ret)
-      except Exception as e:
-         logger.exception('Exception in stage_out: ' + str(e))
-         raise
+      
+      parts = urlparse.urlparse( destination_url )
+      command = 'cp -r %s/* /%s/%s' % (source_directory,parts.netloc,parts.path)
+      logger.debug( 'transfer.stage_out: command=' + command )
+      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+      stdout,stderr = p.communicate()
+      if p.returncode != 0:
+         raise Exception("Error in stage_out: %d output:\n" % (p.returncode,stdout))
 
 # - SCP implementation
-
+SCP_PROTOCOL='scp'
 class SCPHandler:
    def pre_stage_hook(self):
       pass
@@ -147,9 +142,9 @@ class SCPHandler:
 
 def get_handler(url):
    handlers = {
-     'gsiftp':GridFTPHandler,
-     'scp'   :SCPHandler,
-     'local' :LocalHandler
+     GRIDFTP_PROTOCOL:GridFTPHandler,
+     SCP_PROTOCOL    :SCPHandler,
+     LOCAL_PROTOCOL  :LocalHandler
    }
    proto = url.split(':')[0]
    if proto in handlers.keys():
