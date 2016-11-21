@@ -62,9 +62,9 @@ class UserJobReceiver(MessageReceiver.MessageReceiver):
          # create ArgoJob and initialize it
          try:
             argojob = models.ArgoJob()
-            argojob.argo_job_id              = models.ArgoJob.generate_job_id()
-            logger.debug(' created ArgoJob with id: ' + str(argojob.argo_job_id) )
-            argojob.working_directory        = CreateWorkingPath(argojob.argo_job_id)
+            argojob.job_id              = models.ArgoJob.generate_job_id()
+            logger.debug(' created ArgoJob with id: ' + str(argojob.job_id) )
+            argojob.working_directory        = CreateWorkingPath(argojob.job_id)
             argojob.user_id                  = userjob['user_id']
             argojob.job_name                 = userjob['name']
             argojob.job_description          = userjob['description']
@@ -92,10 +92,10 @@ class UserJobReceiver(MessageReceiver.MessageReceiver):
             for usersubjob in userjob['subjobs']:
                argosubjob                       = models.ArgoSubJob()
                argosubjob.site                  = usersubjob['site']
-               argosubjob.subjob_id             = models.ArgoJob.generate_job_id()
+               argosubjob.job_id                = models.ArgoJob.generate_job_id()
                argosubjob.name                  = usersubjob['name']
                argosubjob.description           = usersubjob['description']
-               argosubjob.argo_job_id           = argojob.argo_job_id
+               argosubjob.argo_job_id           = argojob.job_id
                argosubjob.queue                 = usersubjob['queue']
                argosubjob.project               = usersubjob['project']
                argosubjob.wall_time_minutes     = usersubjob['wall_time_minutes']
@@ -116,7 +116,7 @@ class UserJobReceiver(MessageReceiver.MessageReceiver):
             argojob.save()
             self.process_queue.put(QueueMessage.QueueMessage(argojob.pk,0,'new job received'))
          except Exception,e:
-            message = 'received an exception while parsing the incomping user job. Exception: ' + str(e) + '; userjob id = ' + str(userjob['user_id']) + '; argo_job_id = ' + str(argojob.argo_job_id) + '; job_name = ' + userjob['name']
+            message = 'received an exception while parsing the incomping user job. Exception: ' + str(e) + '; userjob id = ' + str(userjob['user_id']) + '; job_id = ' + str(argojob.job_id) + '; job_name = ' + userjob['name']
             logger.error(message)
 
          # delete DB connection
