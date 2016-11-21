@@ -22,7 +22,7 @@ class Command(BaseCommand):
    def handle(self, *args, **options):
       
       job = ArgoJob.objects.get(pk=options['pk'])
-      logger.info('editing ArgoJob pk=' + str(job.pk) + ' argo_job_id=' + str(job.argo_job_id))
+      logger.info('editing ArgoJob pk=' + str(job.pk) + ' job_id=' + str(job.job_id))
 
       if hasattr(job,options['attribute']):
          attr = getattr(job,options['attribute'])
