@@ -4,7 +4,6 @@ logger = logging.getLogger(__name__)
 from common import MessageReceiver,db_tools
 from balsam import models
 
-from django.core import serializers
 from django.conf import settings
 from django.db import utils,connections,DEFAULT_DB_ALIAS
 
@@ -30,9 +29,10 @@ class BalsamJobReceiver(MessageReceiver.MessageReceiver):
 
          logger.debug(' received message: ' + body )
          try:
-            jobs = serializers.deserialize('json',body)
+            job = models.BalsamJob()
+            job.deserialize(body)
          except Exception,e:
-            logger.error('error deserializing incoming job. body = ' + body + ' not conitnuing with this job.')
+            logger.exception('error deserializing incoming job. body = ' + body + ' not conitnuing with this job.')
             channel.basic_ack(method_frame.delivery_tag)
             return
          # should be some failure notice to argo
@@ -44,14 +44,13 @@ class BalsamJobReceiver(MessageReceiver.MessageReceiver):
             db_conn = db_backend.DatabaseWrapper(connections.databases[DEFAULT_DB_ALIAS], db_connection_id)
             connections[db_connection_id] = db_conn
          except Exception,e:
-            logger.error(' received exception while creating DB connection, exception message: ' + str(e))
+            logger.exception(' received exception while creating DB connection, exception message: ')
             # acknoledge message
             channel.basic_ack(method_frame.delivery_tag)
             return
 
-         for job in jobs:
-            job.save()
-            models.send_status_message(job)
+         job.save()
+         models.send_status_message(job)
 
       else:
          logger.error(' consume_msg called, but body is None ')
