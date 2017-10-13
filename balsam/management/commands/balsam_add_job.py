@@ -25,6 +25,7 @@ class Command(BaseCommand):
 
       parser.add_argument('-i','--input-url',dest='input_url',type=str,help='Input URL from which input files are copied.',required=False,default='')
       parser.add_argument('-o','--output-url',dest='output_url',type=str,help='Output URL to which output files are copied.',required=False,default='')
+      parser.add_argument('-y',dest='yes',help='Skip prompt confirming job details.',required=False,action='store_true')
 
     def handle(self, *args, **options):
          logger.info(' Adding BalsamJob to DB:')
@@ -41,15 +42,18 @@ class Command(BaseCommand):
          logger.info('      config file         = ' + options['config_file'])
          logger.info('      input url           = ' + options['input_url'])
          logger.info('      output url          = ' + options['output_url'])
-         answer = str(raw_input(' Enter "yes" to continue:'))
+         if options['yes']:
+             answer = 'yes'
+         else:
+             answer = str(raw_input(' Enter "yes" to continue:'))
          if answer == 'yes':
             app = models.ApplicationDefinition.objects.get(name=options['application'])
             if app is None:
                logger.error(' Application "' + options['application'] + '" does not exist in database, failed to add job to DB.')
                return
             job                        = models.BalsamJob()
-            job.balsam_job_id          = models.BalsamJob.generate_job_id()
-            job.working_directory      = models.BalsamJob.create_working_path(job.balsam_job_id)
+            job.job_id          = models.BalsamJob.generate_job_id()
+            job.working_directory      = models.BalsamJob.create_working_path(job.job_id)
             job.site                   = settings.BALSAM_SITE
             job.job_name               = options['name']
             job.job_description        = options['description']
@@ -67,7 +71,7 @@ class Command(BaseCommand):
             job.save()
             logger.info('BalsamJob Added to DB')
             logger.info('   pk = ' + str(app.pk))
-            logger.info('  balsam id = ' + str(job.balsam_job_id))
+            logger.info('  balsam id = ' + str(job.job_id))
             logger.info('  working directory = ' + job.working_directory)
          else:
             logger.info('Application not added to DB')
