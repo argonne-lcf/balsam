@@ -94,7 +94,6 @@ try:
    RABBITMQ_SSL_CA_CERTS            = os.environ['X509_CACERTS']
 except KeyError,e:
    logger.error('Environment variable undefined: ' + str(e))
-   raise
 
 RABBITMQ_USER_EXCHANGE_NAME         = 'argo_users_dev'
 RABBITMQ_USER_JOB_QUEUE_NAME        = 'argo_service_dev'
@@ -198,12 +197,12 @@ for d in [
       BALSAM_ALLOWED_EXECUTABLE_DIRECTORY,
       ARGO_LOGGING_DIRECTORY,
       ARGO_WORK_DIRECTORY,
-      GRIDFTP_GLOBUS_URL_COPY,
-      GRIDFTP_PROXY_INFO,
-      GRIDFTP_PROXY_INIT,
-      RABBITMQ_SSL_CERT,
-      RABBITMQ_SSL_KEY,
-      RABBITMQ_SSL_CA_CERTS,
+      #GRIDFTP_GLOBUS_URL_COPY,
+      #GRIDFTP_PROXY_INFO,
+      #GRIDFTP_PROXY_INIT,
+      #RABBITMQ_SSL_CERT,
+      #RABBITMQ_SSL_KEY,
+      #RABBITMQ_SSL_CA_CERTS,
    ]:
    if not os.path.exists(d):
       raise Exception('Path does not exist: ' + d)
