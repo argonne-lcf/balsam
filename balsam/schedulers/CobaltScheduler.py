@@ -13,10 +13,10 @@ def submit(job,cmd):
    logger.debug("Submitting command: " + cmd)
 
    # set options base on cpus_per_node
-   # if job.scheduler_opts are set, ignore this.
+   # if job.scheduler_config are set, ignore this.
    options = ''
-   if job.scheduler_opts != '':
-      options = job.scheduler_opts
+   if job.scheduler_config != '':
+      options = job.scheduler_config
    elif job.processes_per_node < 2:
       options = '--mode c1'
    elif job.processes_per_node < 3:
@@ -38,7 +38,7 @@ def submit(job,cmd):
              job.project,
              job.queue,
              job.num_nodes,
-             job.queue_time_minutes,
+             job.wall_time_minutes,
              job.working_directory,
              options,
              cmd)
