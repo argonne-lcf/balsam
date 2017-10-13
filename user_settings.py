@@ -6,8 +6,8 @@ logger.info('loading settings')
 
 try:
    INSTALL_PATH                        = os.environ['ARGOBALSAM_INSTALL_PATH']
-   DATA_PATH                           = os.environ['ARGOBALSAM_DATA_PATH']
-   ALLOWED_EXE_PATH                    = os.environ['ARGOBALSAM_EXE_PATH']
+   DATA_PATH                           = os.path.join(INSTALL_PATH,'data')
+   ALLOWED_EXE_PATH                    = os.path.join(INSTALL_PATH,'exe')
 except KeyError,e:
    logger.error('Environment not setup: ' + str(e))
    raise
@@ -205,7 +205,7 @@ for d in [
       #RABBITMQ_SSL_CA_CERTS,
    ]:
    if not os.path.exists(d):
-      raise Exception('Path does not exist: ' + d)
+      os.makedirs(d)
 
 
 
