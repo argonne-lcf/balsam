@@ -32,7 +32,6 @@ class Command(BaseCommand):
             subprocesses['BalsamJobReceiver'] = p
          except Exception,e:
              logger.exception(' Received Exception while trying to start job receiver: ' + str(e))
-             raise
          
          # setup timer for cleaning the work folder of old files
          logger.debug('creating DirCleaner')
