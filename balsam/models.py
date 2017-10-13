@@ -69,18 +69,22 @@ def preprocess(job):
    # get the task that is running
    try:
       app = ApplicationDefinition.objects.get(name=job.application)
-      if os.path.exists(app.preprocess):
-         stdout = run_subprocess.run_subprocess(app.preprocess)
-         # write stdout to log file
-         f = open(os.path.join(job.working_directory,app.name+'.preprocess.log.pid' + str(os.getpid())),'w')
-         f.write(stdout)
-         f.close()
-         job.state = PREPROCESSED.name
+      if app.preprocess:
+          if os.path.exists(app.preprocess):
+             stdout = run_subprocess.run_subprocess(app.preprocess)
+             # write stdout to log file
+             f = open(os.path.join(job.working_directory,app.name+'.preprocess.log.pid' + str(os.getpid())),'w')
+             f.write(stdout)
+             f.close()
+             job.state = PREPROCESSED.name
+          else:
+             message = ('Preprocess, "' + app.preprocess + '", of application, "' + str(job.application) 
+                   + '", does not exist on filesystem.')
+             logger.error(message)
+             job.state = PREPROCESS_FAILED.name
       else:
-         message = ('Preprocess, "' + app.preprocess + '", of application, "' + str(job.application) 
-               + '", does not exist on filesystem.')
-         logger.error(message)
-         job.state = PREPROCESS_FAILED.name
+         logger.debug('No preprocess specified for this job; skipping')
+         job.state = PREPROCESSED.name
    except run_subprocess.SubprocessNonzeroReturnCode,e:
       message = ('Preprocess, "' + app.preprocess + '", of application, "' + str(job.application) 
                + '", exited with non-zero return code: ' + str(returncode))
@@ -152,18 +156,22 @@ def postprocess(job):
    message = 'Job postprocess complete'
    try:
       app = ApplicationDefinition.objects.get(name=job.application)
-      if os.path.exists(app.postprocess):
-         stdout = run_subprocess.run_subprocess(app.postprocess)
-         # write stdout to log file
-         f = open(os.path.join(job.working_directory,app.name+'.postprocess.log.pid' + str(os.getpid())),'w')
-         f.write(stdout)
-         f.close()
-         job.state = POSTPROCESSED.name
+      if app.postprocess:
+          if os.path.exists(app.postprocess):
+             stdout = run_subprocess.run_subprocess(app.postprocess)
+             # write stdout to log file
+             f = open(os.path.join(job.working_directory,app.name+'.postprocess.log.pid' + str(os.getpid())),'w')
+             f.write(stdout)
+             f.close()
+             job.state = POSTPROCESSED.name
+          else:
+             message = ('Postprocess, "' + app.postprocess + '", of application, "' + str(job.application) 
+                   + '", does not exist on filesystem.')
+             logger.error(message)
+             job.state = POSTPROCESS_FAILED.name
       else:
-         message = ('Postprocess, "' + app.postprocess + '", of application, "' + str(job.application) 
-               + '", does not exist on filesystem.')
-         logger.error(message)
-         job.state = POSTPROCESS_FAILED.name
+         logger.debug('No postprocess specified for this job; skipping')
+         job.state = POSTPROCESSED.name
    except run_subprocess.SubprocessNonzeroReturnCode,e:
       message = ('Postprocess, "' + app.postprocess + '", of application, "' + str(job.application) 
                + '", exited with non-zero return code: ' + str(returncode))
