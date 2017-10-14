@@ -13,7 +13,7 @@ from balsam import BalsamJobStatus
 from common import transfer,MessageInterface,run_subprocess
 from common import log_uncaught_exceptions,db_tools,Serializer
 from balsam import scheduler,BalsamJobMessage
-from schedulers import exceptions
+from balsam.schedulers import exceptions
 
 # assign this function to the system exception hook
 sys.excepthook = log_uncaught_exceptions.log_uncaught_exceptions
@@ -28,7 +28,7 @@ def stage_in(job):
       try:
          transfer.stage_in( job.input_url + '/', job.working_directory + '/' )
          job.state = STAGED_IN.name
-      except Exception,e:
+      except Exception as e:
          message = 'Exception received during stage_in: ' + str(e)
          logger.error(message)
          job.state = STAGE_IN_FAILED.name
@@ -49,7 +49,7 @@ def stage_out(job):
       try:
          transfer.stage_out( self.working_directory + '/', self.output_url + '/' )
          job.state = STAGED_OUT.name
-      except Exception,e:
+      except Exception as e:
          message = 'Exception received during stage_out: ' + str(e)
          logger.error(message)
          job.state = STAGE_OUT_FAILED.name
@@ -85,21 +85,21 @@ def preprocess(job):
       else:
          logger.debug('No preprocess specified for this job; skipping')
          job.state = PREPROCESSED.name
-   except run_subprocess.SubprocessNonzeroReturnCode,e:
+   except run_subprocess.SubprocessNonzeroReturnCode as e:
       message = ('Preprocess, "' + app.preprocess + '", of application, "' + str(job.application) 
                + '", exited with non-zero return code: ' + str(returncode))
       logger.error(message)
       job.state = PREPROCESS_FAILED.name
-   except run_subprocess.SubprocessFailed,e:
+   except run_subprocess.SubprocessFailed as e:
       message = ('Received exception while running preprocess, "' + app.preprocess 
                + '", of application, "' + str(job.application) + '", exception: ' + str(e))
       logger.error(message)
       job.state = PREPROCESS_FAILED.name
-   except ObjectDoesNotExist,e:
+   except ObjectDoesNotExist as e:
       message = 'application,' + str(job.application) + ', does not exist.'
       logger.error(message)
       job.state = PREPROCESS_FAILED.name
-   except Exception,e:
+   except Exception as e:
       message = 'Received exception while in preprocess, "' + app.preprocess + '", for application ' + str(job.application)
       logger.exception(message)
       job.state = PREPROCESS_FAILED.name
@@ -124,19 +124,19 @@ def submit(job):
          message = 'Job entered SUBMITTED state'
       else:
          message = 'Job submission delayed due to local queue limits'
-   except exceptions.SubmitNonZeroReturnCode,e:
+   except exceptions.SubmitNonZeroReturnCode as e:
       message = 'scheduler returned non-zero value during submit command: ' + str(e)
       logger.error(message)
       job.state = SUBMIT_FAILED.name
-   except exceptions.SubmitSubprocessFailed,e:
+   except exceptions.SubmitSubprocessFailed as e:
       message = 'subprocess in scheduler submit failed: ' + str(e)
       logger.error(message)
       job.state = SUBMIT_FAILED.name
-   except exceptions.JobSubmissionDisabled,e:
+   except exceptions.JobSubmissionDisabled as e:
       message = 'scheduler job submission is currently disabled: ' + str(e)
       logger.error(message)
       job.state = SUBMIT_DISABLED.name
-   except Exception,e:
+   except Exception as e:
       message = 'received exception while calling scheduler submit for job ' + str(job.job_id) + ', exception: ' + str(e)
       logger.exception(message)
       job.state = SUBMIT_FAILED.name
@@ -172,21 +172,21 @@ def postprocess(job):
       else:
          logger.debug('No postprocess specified for this job; skipping')
          job.state = POSTPROCESSED.name
-   except run_subprocess.SubprocessNonzeroReturnCode,e:
+   except run_subprocess.SubprocessNonzeroReturnCode as e:
       message = ('Postprocess, "' + app.postprocess + '", of application, "' + str(job.application) 
                + '", exited with non-zero return code: ' + str(returncode))
       logger.error(message)
       job.state = POSTPROCESS_FAILED.name
-   except run_subprocess.SubprocessFailed,e:
+   except run_subprocess.SubprocessFailed as e:
       message = ('Received exception while running postprocess, "' + app.preprocess 
                + '", of application, "' + str(job.application) + '", exception: ' + str(e))
       logger.error(message)
       job.state = POSTPROCESS_FAILED.name
-   except ObjectDoesNotExist,e:
+   except ObjectDoesNotExist as e:
       message = 'application,' + str(job.application) + ', does not exist.'
       logger.error(message)
       job.state = POSTPROCESS_FAILED.name
-   except Exception,e:
+   except Exception as e:
       message = 'Received exception while in postprocess, "' + app.postprocess + '", for application ' + str(job.application)
       logger.error(message)
       job.state = POSTPROCESS_FAILED.name
@@ -203,6 +203,7 @@ def finish_job(job):
 
 def send_status_message(job,message=''):
    ''' send a status message describing a job state '''
+   return
    logger.debug('in send_status_message')
    # setup message interface
    try:
@@ -219,7 +220,7 @@ def send_status_message(job,message=''):
       statmsg = BalsamJobStatus.BalsamJobStatus(job,message)
       p.send_msg(statmsg.serialize(), settings.RABBITMQ_BALSAM_JOB_STATUS_ROUTING_KEY)
       p.close()
-   except Exception,e:
+   except Exception as e:
       logger.exception('job(pk='+str(job.pk)+',id='+str(job.job_id)+
            '): Failed to send BalsamJobStatus message, received exception')
 
