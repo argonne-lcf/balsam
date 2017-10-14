@@ -181,7 +181,7 @@ class MessageInterface:
                                     body             = message_body,
                                     properties       = properties,
                                    )
-      except Exception,e:
+      except Exception as e:
          logger.exception('exception received while trying to send message')
          raise Exception('exception received while trying to send message' + str(e))
    

@@ -1,8 +1,10 @@
 
 from django.conf import settings
 
-_temp = __import__('schedulers.'+settings.BALSAM_SCHEDULER_CLASS, globals(), locals(), 
-                   ['submit','get_job_status','postprocess'], -1)
+#_temp = __import__('schedulers.'+settings.BALSAM_SCHEDULER_CLASS, globals(), locals(), 
+                   #['submit','get_job_status','postprocess'], -1)
+from importlib import import_module
+_temp = import_module('balsam.schedulers.'+settings.BALSAM_SCHEDULER_CLASS)
 submit = _temp.submit
 #status = _temp.status
 #get_queue_state = _temp.get_queue_state

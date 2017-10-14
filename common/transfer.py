@@ -2,7 +2,10 @@ from django.conf import settings
 import subprocess
 import logging
 import os,sys,traceback
-import urlparse
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 
 # temporary 
 import shutil
@@ -24,13 +27,13 @@ class GridFTPHandler:
          try:
             p = subprocess.Popen(command.split(' '),stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out,err = p.communicate()
-         except OSError,e:
+         except OSError as e:
             logger.error('command failed with OSError, exception: ' + str(e))
             raise Exception('Error in pre_stage_hook, OSError raised')
-         except ValueError,e:
+         except ValueError as e:
             logger.error('command failed with ValueError, exception: ' + str(e))
             raise Exception('Error in pre_stage_hook, ValueError raised')
-         except Exception,e:
+         except Exception as e:
             logger.error('command failed, exception traceback: \n' + traceback.format_exc() )
             raise Exception('Error in stage_in, unknown exception raised')
 
@@ -51,13 +54,13 @@ class GridFTPHandler:
       try:
          p = subprocess.Popen(command.split(' '),stdout=subprocess.PIPE,stderr=subprocess.PIPE)
          out,err = p.communicate()
-      except OSError,e:
+      except OSError as e:
          logger.error('command failed with OSError, exception: ' + str(e))
          raise Exception('Error in stage_in, OSError raised')
-      except ValueError,e:
+      except ValueError as e:
          logger.error('command failed with ValueError, exception: ' + str(e))
          raise Exception('Error in stage_in, ValueError raised')
-      except Exception,e:
+      except Exception as e:
          logger.error('command failed, exception traceback: \n' + traceback.format_exc() )
          raise Exception('Error in stage_in, unknown exception raised')
       if p.returncode:
@@ -75,13 +78,13 @@ class GridFTPHandler:
       try:
          p = subprocess.Popen(command.split(' '),stdout=subprocess.PIPE,stderr=subprocess.PIPE)
          out,err = p.communicate()
-      except OSError,e:
+      except OSError as e:
          logger.error('command failed with OSError, exception: ' + str(e))
          raise Exception('Error in stage_out, OSError raised')
-      except ValueError,e:
+      except ValueError as e:
          logger.error('command failed with ValueError, exception: ' + str(e))
          raise Exception('Error in stage_out, ValueError raised')
-      except Exception,e:
+      except Exception as e:
          logger.error('command failed, exception traceback: \n' + traceback.format_exc() )
          raise Exception('Error in stage_out, unknown exception raised')
 
@@ -124,7 +127,7 @@ class SCPHandler:
    def stage_in( self, source_url, destination_directory ):
       parts = urlparse.urlparse( source_url )
       command = 'scp -p -r %s:%s %s' % (source_url, destination_directory)
-      print 'transfer.stage_in: command=' + command 
+      print('transfer.stage_in: command=' + command )
       ret = os.system(command)
       if ret:
          raise Exception("Error in stage_in: %d" % ret)
@@ -132,7 +135,7 @@ class SCPHandler:
    def stage_out( self, source_directory, destination_url ):
       # ensure that source and destination each have a trailing '/'
       command = 'scp -p -r %s %s' % (source_directory, destination_url)
-      print 'transfer.stage_out: command=' + command
+      print('transfer.stage_out: command=' + command)
       ret = os.system(command)
       if ret:
          raise Exception("Error in stage_out: %d" % ret)
