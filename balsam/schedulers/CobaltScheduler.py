@@ -15,6 +15,7 @@ def submit(job,cmd):
    # set options base on cpus_per_node
    # if job.scheduler_config are set, ignore this.
    options = ''
+   """
    if job.scheduler_config != '':
       options = job.scheduler_config
    elif job.processes_per_node < 2:
@@ -33,8 +34,10 @@ def submit(job,cmd):
       options = '--mode c64'
    else:
       options = ''
+   """
    
-   command = '%s --run_project -A %s -q %s -n %d -t %d --cwd %s %s %s' % (settings.BALSAM_SCHEDULER_SUBMIT_EXE, 
+   #command = '%s --run_project -A %s -q %s -n %d -t %d --cwd %s %s %s' % (settings.BALSAM_SCHEDULER_SUBMIT_EXE, 
+   command = '%s -A %s -q %s -n %d -t %d --cwd %s %s %s' % (settings.BALSAM_SCHEDULER_SUBMIT_EXE, 
              job.project,
              job.queue,
              job.num_nodes,
@@ -49,9 +52,9 @@ def submit(job,cmd):
          output = output.strip()
          logger.debug('CobaltScheduler job (pk=' + str(job.pk) + ') submitted to scheduler as job ' + str(output))
          job.scheduler_id = output
-      except run_subprocess.SubprocessNonzeroReturnCode,e:
+      except run_subprocess.SubprocessNonzeroReturnCode as e:
          raise exceptions.SubmitNonZeroReturnCode('CobaltScheduler submit command returned non-zero value. command = "' + command +'", exception: ' + str(e))
-      except run_subprocess.SubprocessFailed,e:
+      except run_subprocess.SubprocessFailed as e:
          raise exceptions.SubmitSubprocessFailed('CobaltScheduler subprocess to run commit command failed with exception: ' + str(e))
    else:
      raise exceptions.JobSubmissionDisabled('CobaltScheduler Job submission disabled')
