@@ -146,17 +146,17 @@ class Command(BaseCommand):
                elif qmsg.code == QueueMessage.TransitionDbConnectionFailed:
                   logger.error('Transition DB connection failed: ' + qmsg.message)
                   job = models.BalsamJob.objects.get(pk=qmsg.pk)
-                  job.state = models.STATE_BY_NAME[job.state].failed_state
+                  job.state = models.STATES_BY_NAME[job.state].failed_state
                   job.save(update_fields=['state'])
                elif qmsg.code == QueueMessage.TransitionDbRetrieveFailed:
                   logger.error('Transition failed to retrieve job from DB: ' + qmsg.message)
                   job = models.BalsamJob.objects.get(pk=qmsg.pk)
-                  job.state = models.STATE_BY_NAME[job.state].failed_state
+                  job.state = models.STATES_BY_NAME[job.state].failed_state
                   job.save(update_fields=['state'])
                elif qmsg.code == QueueMessage.TransitionFunctionException:
                   logger.error('Exception received while running transition function: ' + qmsg.message)
                   job = models.BalsamJob.objects.get(pk=qmsg.pk)
-                  job.state = models.STATE_BY_NAME[job.state].failed_state
+                  job.state = models.STATES_BY_NAME[job.state].failed_state
                   job.save(update_fields=['state'])
                else:
                   logger.error('No recognized QueueMessage code')
