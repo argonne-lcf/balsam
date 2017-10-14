@@ -25,7 +25,7 @@ class TransitionJob(multiprocessing.Process):
          db_backend = utils.load_backend(connections.databases[DEFAULT_DB_ALIAS]['ENGINE'])
          db_conn = db_backend.DatabaseWrapper(connections.databases[DEFAULT_DB_ALIAS], db_connection_id)
          connections[db_connection_id] = db_conn
-      except Exception,e:
+      except Exception as e:
          self.queue.put(QueueMessage.QueueMessage(self.entry_pk,QueueMessage.TransitionDbConnectionFailed,
                    'Failed to get local connection to DB. Exception: ' + str(e)))
          return
@@ -35,7 +35,7 @@ class TransitionJob(multiprocessing.Process):
       # retreive job from DB
       try:
          job = self.job_base_class.objects.get(pk=self.entry_pk)
-      except Exception,e:
+      except Exception as e:
          self.queue.put(QueueMessage.QueueMessage(self.entry_pk,QueueMessage.TransitionDbRetrieveFailed,
                    'Failed to retrieve job id ' + str(self.entry_pk) + ' from DB for base_class ' + str(self.job_base_class.__name__) + '. Exception: ' + str(e)))
          return
@@ -50,7 +50,7 @@ class TransitionJob(multiprocessing.Process):
          else:
             logger.debug(' pk='+str(job.pk) + ' state='+job.state + ' transition_function is None')
          logger.debug(' pk='+str(job.pk) + ' state='+job.state + ' transition_function=' + str(self.transition_function.__name__) + ' completed') 
-      except Exception,e:
+      except Exception as e:
          message = 'Transition function, '
          if self.transition_function is None:
             message += 'None'

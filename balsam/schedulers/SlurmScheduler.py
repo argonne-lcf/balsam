@@ -109,7 +109,7 @@ def get_job_status(job):
     cmd = settings.BALSAM_SCHEDULER_STATUS_EXE + ' -j ' + str(job.scheduler_id) + ' -o state -n'
     try:
        p = subprocess.Popen(shlex.split(cmd),stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-    except Exception,e:
+    except Exception as e:
        logger.error(' exception while trying get job status for job id = ' + job.originating_source_id + ': ' + str(e))
        raise
 

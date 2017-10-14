@@ -31,7 +31,7 @@ class BalsamJobReceiver(MessageReceiver.MessageReceiver):
          try:
             job = models.BalsamJob()
             job.deserialize(body)
-         except Exception,e:
+         except Exception as e:
             logger.exception('error deserializing incoming job. body = ' + body + ' not conitnuing with this job.')
             channel.basic_ack(method_frame.delivery_tag)
             return
@@ -43,7 +43,7 @@ class BalsamJobReceiver(MessageReceiver.MessageReceiver):
             db_backend = utils.load_backend(connections.databases[DEFAULT_DB_ALIAS]['ENGINE'])
             db_conn = db_backend.DatabaseWrapper(connections.databases[DEFAULT_DB_ALIAS], db_connection_id)
             connections[db_connection_id] = db_conn
-         except Exception,e:
+         except Exception as e:
             logger.exception(' received exception while creating DB connection, exception message: ')
             # acknoledge message
             channel.basic_ack(method_frame.delivery_tag)

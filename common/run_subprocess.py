@@ -12,6 +12,6 @@ def run_subprocess(cmd,ignore_nonzero_return=False):
       if p.returncode != 0 and not ignore_nonzero_return:
          raise SubprocessNonzeroReturnCode(stdout)
       return stdout
-   except Exception,e:
+   except Exception as e:
       logger.exception('exception received')
       raise SubprocessFailed(str(e))

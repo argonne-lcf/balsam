@@ -62,7 +62,7 @@ def submit_subjob(job):
    except SubJobIndexOutOfRange:
       message = 'All Subjobs Completed'
       job.state = SUBJOBS_COMPLETED.name
-   except Exception,e:
+   except Exception as e:
       message = ('Exception received while submitting subjob to ' 
          + subjob.site + ' for job pk=' + str(job.pk) + ' argo_id=' 
          + str(job.job_id) + ': ' + str(e))
@@ -91,7 +91,7 @@ def stage_in(job):
       try:
          transfer.stage_in(job.input_url + '/',job.working_directory + '/')
          job.state = STAGED_IN.name
-      except Exception,e:
+      except Exception as e:
          message = 'Exception received during stage_in: ' + str(e)
          logger.exception(message)
          job.state = STAGE_IN_FAILED.name
@@ -110,7 +110,7 @@ def stage_out(job):
       try:
          transfer.stage_out(str(job.working_directory) + '/', str(job.output_url) + '/')
          job.state = STAGED_OUT.name
-      except Exception,e:
+      except Exception as e:
          message = 'Exception received during stage_out: ' + str(e)
          logger.exception(message)
          job.state = STAGE_OUT_FAILED.name
@@ -155,7 +155,7 @@ def send_status_message(job,message=None):
                 subject   = 'ARGO Job Status Report',
                 body      = body,
                )
-   except Exception,e:
+   except Exception as e:
       logger.exception('exception received while trying to send status email. Exception: ' + str(e))
 
    # if job has an argo job status routing key, send a message there
@@ -361,7 +361,7 @@ class ArgoJob(models.Model):
          try:
             shutil.rmtree(self.working_directory)
             logger.info('removed job path: ' + str(self.working_directory))
-         except Exception,e:
+         except Exception as e:
             logger.error('Error trying to remove argo job path: ' + str(self.working_directory) + ' Exception: ' + str(e))
 
       # delete subjobs
@@ -373,7 +373,7 @@ class ArgoJob(models.Model):
       # call base class delete function
       try:
          super(ArgoJob,self).delete()
-      except Exception,e:
+      except Exception as e:
          logger.error('pk='+str(self.pk) + ' Received exception during "delete": ' + str(e))
 
 # must do this to force django to create a DB table for ARGO independent of the one created for Balsam

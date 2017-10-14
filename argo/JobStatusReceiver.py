@@ -46,7 +46,7 @@ class JobStatusReceiver(MessageReceiver.MessageReceiver):
             # get the subjob for this message
             try:
                subjob = ArgoSubJob.objects.get(job_id=statusMsg.job_id)
-            except Exception,e:
+            except Exception as e:
                logger.error(' exception received while retreiving ArgoSubJob with id = ' + str(statusMsg.job_id) + ': ' + str(e))
                # acknoledge message
                channel.basic_ack(method_frame.delivery_tag)
@@ -59,7 +59,7 @@ class JobStatusReceiver(MessageReceiver.MessageReceiver):
             # get the argo job for this subjob
             try:
                argojob = ArgoJob.objects.get(job_id=subjob.job_id)
-            except Exception,e:
+            except Exception as e:
                logger.error(' exception received while retrieving ArgoJob with id = ' + str(subjob.job_id + ': ' + str(e)))
                # acknoledge message
                channel.basic_ack(method_frame.delivery_tag)
@@ -127,7 +127,7 @@ class JobStatusReceiver(MessageReceiver.MessageReceiver):
             self.process_queue.put(QueueMessage.QueueMessage(argojob.job_id,
                            QueueMessage.JobStatusReceiverMessageNoBody))
       
-      except Exception,e:
+      except Exception as e:
          logger.exception("Error consuming status message: " + str(e))
          self.process_queue.put(QueueMessage.QueueMessage(0,
                         QueueMessage.JobStatusReceiverFailed))

@@ -86,7 +86,7 @@ class ArgoUserJob:
          tmp = copy.deepcopy(self)
          tmp.subjobs = serial_subjobs
          return Serializer.serialize(tmp.__dict__)
-      except Exception,e:
+      except Exception as e:
          raise Exception('Exception received while serializing ArgoUserJob: ' + str(e))
 
    @staticmethod
@@ -100,7 +100,7 @@ class ArgoUserJob:
             tmp = ArgoUserSubJob.deserialize(subjob)
             subjobs.append(tmp)
          tmp.subjobs = subjobs
-      except Exception,e:
+      except Exception as e:
          raise Exception('Exception received while deserializing ArgoUserJob: ' + str(e))
 
       # convert unicode strings to strings

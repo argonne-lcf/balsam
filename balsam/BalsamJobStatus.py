@@ -18,7 +18,7 @@ class BalsamJobStatus:
       self.job_id = job.job_id
       try:
          self.serialized_job = job.serialize()
-      except Exception,e:
+      except Exception as e:
          logger.exception('serialize failed: ' + str(job.__dict__))
          raise SerializeFailed('Received exception while serializing BalsamJob')
 
@@ -27,7 +27,7 @@ class BalsamJobStatus:
          try:
             job.deserialize(self.serialized_job)
             return job
-         except Exception,e:
+         except Exception as e:
             logger.exception('deserialize failed: ' + str(self.serialized_job))
          raise DeserializeFailed('Received exception while deserializing BalsamJob')
       return None
@@ -35,7 +35,7 @@ class BalsamJobStatus:
    def serialize(self):
       try:
          return Serializer.serialize(self.__dict__)
-      except Exception,e:
+      except Exception as e:
          logger.exception('serialize failed: ' + str(self.__dict__))
          raise SerializeFailed('Received exception while serializing BalsamJobStatus: ' + str(e))
 
@@ -43,6 +43,6 @@ class BalsamJobStatus:
       try:
          self.__dict__ = Serializer.deserialize(text)
          self.job_id = int(str(self.job_id))
-      except Exception,e:
+      except Exception as e:
          logger.exception('deserialize failed')
          raise DeserializeFailed('Received exception while deserializing BalsamJobStatus: ' + str(e))

@@ -41,7 +41,7 @@ class UserJobReceiver(MessageReceiver.MessageReceiver):
          # convert body text to ArgoUserJob
          try:
             userjob = Serializer.deserialize(body)
-         except Exception,e:
+         except Exception as e:
             logger.error(' received exception while deserializing message to create ArgoUserJob, \nexception message: ' + str(e) + '\n message body: \n' + body + ' \n cannot continue with this job, ignoring it and moving on.')
             # acknoledge message
             channel.basic_ack(method_frame.delivery_tag)
@@ -53,7 +53,7 @@ class UserJobReceiver(MessageReceiver.MessageReceiver):
             db_backend = load_backend(connections.databases[DEFAULT_DB_ALIAS]['ENGINE'])
             db_conn = db_backend.DatabaseWrapper(connections.databases[DEFAULT_DB_ALIAS], db_connection_id)
             connections[db_connection_id] = db_conn
-         except Exception,e:
+         except Exception as e:
             logger.error(' received exception while creating DB connection, exception message: ' + str(e) + ' \n job id: ' + str(userjob['user_id']) + ' job user: ' + userjob['username'] + ' job description: ' + userjob['description'] + '\n cannot continue with this job, moving on.')
             # acknoledge message
             channel.basic_ack(method_frame.delivery_tag)
@@ -115,7 +115,7 @@ class UserJobReceiver(MessageReceiver.MessageReceiver):
             argojob.subjob_pk_list = Serializer.serialize(subjob_pks)
             argojob.save()
             self.process_queue.put(QueueMessage.QueueMessage(argojob.pk,0,'new job received'))
-         except Exception,e:
+         except Exception as e:
             message = 'received an exception while parsing the incomping user job. Exception: ' + str(e) + '; userjob id = ' + str(userjob['user_id']) + '; job_id = ' + str(argojob.job_id) + '; job_name = ' + userjob['name']
             logger.error(message)
 
