@@ -8,7 +8,7 @@ try:
    INSTALL_PATH                        = os.environ['ARGOBALSAM_INSTALL_PATH']
    DATA_PATH                           = os.path.join(INSTALL_PATH,'data')
    ALLOWED_EXE_PATH                    = os.path.join(INSTALL_PATH,'exe')
-except KeyError,e:
+except KeyError as e:
    logger.error('Environment not setup: ' + str(e))
    raise
 
@@ -92,7 +92,7 @@ try:
    RABBITMQ_SSL_CERT                = os.environ['X509_USER_CERT']
    RABBITMQ_SSL_KEY                 = os.environ['X509_USER_KEY']
    RABBITMQ_SSL_CA_CERTS            = os.environ['X509_CACERTS']
-except KeyError,e:
+except KeyError as e:
    logger.error('Environment variable undefined: ' + str(e))
 
 RABBITMQ_USER_EXCHANGE_NAME         = 'argo_users_dev'
@@ -116,7 +116,7 @@ if 'argo_service' in sys.argv:
    LOG_HANDLER_FILENAME = ARGO_SERVICE_LOG_FILENAME
 elif 'balsam_service' in sys.argv:
    LOG_HANDLER_FILENAME = BALSAM_SERVICE_LOG_FILENAME
-print 'logging to ' + str(LOG_HANDLER_FILENAME)
+print('logging to ' + str(LOG_HANDLER_FILENAME))
 
 LOGGING = {
    'version': 1,
