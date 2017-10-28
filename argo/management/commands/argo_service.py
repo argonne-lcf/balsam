@@ -1,4 +1,4 @@
-import os,sys,time,multiprocessing,Queue,logging
+import os,sys,time,multiprocessing,queue,logging
 logger = logging.getLogger(__name__)
 
 from django.core.management.base import BaseCommand, CommandError
@@ -30,7 +30,7 @@ class Command(BaseCommand):
              p = UserJobReceiver.UserJobReceiver(process_queue=argo_service_queue)
              p.start()
              subprocesses['UserJobReceiver'] = p
-         except Exception,e:
+         except Exception as e:
              logger.exception(' Received Exception while trying to start job receiver: ' + str(e))
              raise
          logger.debug(' Launching balsam job status receiver ')
@@ -38,7 +38,7 @@ class Command(BaseCommand):
              p = JobStatusReceiver.JobStatusReceiver(process_queue=argo_service_queue)
              p.start()
              subprocesses['JobStatusReceiver'] = p
-         except Exception,e:
+         except Exception as e:
              logger.exception(' Received exception while trying to start balsam job status receiver: ' + str(e))
              raise
 
@@ -90,7 +90,7 @@ class Command(BaseCommand):
                      + str(settings.ARGO_MAX_CONCURRENT_TRANSITIONS))
 
             # loop over running process and check status
-            for name,proc in subprocesses.iteritems():
+            for name,proc in subprocesses.items():
                if not proc.is_alive():
                   logger.info(' subprocess ' + name + ' has stopped with returncode ' + str(proc.exitcode) )
 
@@ -119,7 +119,7 @@ class Command(BaseCommand):
                   job.save(update_fields=['state'])
                else:
                   logger.error('Unrecognized QueueMessage code: ' + str(qmsg.code))
-            except Queue.Empty:
+            except queue.Empty:
                logger.debug(' no objects on queue ')
 
             
@@ -127,7 +127,7 @@ class Command(BaseCommand):
             if settings.ARGO_DELETE_OLD_WORK:
                workDirCleaner.clean() 
             
-         for key,item in receivers.iteritems():
+         for key,item in receivers.items():
              item.terminate()
              item.join()
 

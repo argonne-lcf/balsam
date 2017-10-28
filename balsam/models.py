@@ -463,7 +463,7 @@ class BalsamJob(models.Model):
 
    def deserialize(self,serial_data):
       d = Serializer.deserialize(serial_data)
-      for field,value in d.iteritems():
+      for field,value in d.items():
          if field in DATETIME_FIELDS and value != None:
             self.__dict__[field] = datetime.datetime.strptime(value,"%Y-%m-%d %H:%M:%S %z")
          else:

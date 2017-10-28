@@ -58,7 +58,7 @@ class JobStatusReceiver(MessageReceiver.MessageReceiver):
 
             # get the argo job for this subjob
             try:
-               argojob = ArgoJob.objects.get(job_id=subjob.job_id)
+               argojob = ArgoJob.objects.get(job_id=subjob.job_id) # BUG !
             except Exception as e:
                logger.error(' exception received while retrieving ArgoJob with id = ' + str(subjob.job_id + ': ' + str(e)))
                # acknoledge message
@@ -72,9 +72,9 @@ class JobStatusReceiver(MessageReceiver.MessageReceiver):
             # get the deserialized balsam job
             try:
                balsam_job = models.BalsamJob()
-               statusMsg.get_job(balsam_job)
+               statusMsg.get_job(balsam_job) # statusMsg.serialzed_job gets loaded into balsam_job
                logger.debug('balsam_job = ' + str(balsam_job))
-            except BalsamJobStatus.DeserializeFailed,e:
+            except BalsamJobStatus.DeserializeFailed as e:
                logger.error('Failed to deserialize BalsamJob for BalsamJobStatus message for argojob: ' + str(argojob.job_id) + ' subjob_id: ' + str(subjob.job_id))
                # acknoledge message
                channel.basic_ack(method_frame.delivery_tag)
@@ -84,7 +84,8 @@ class JobStatusReceiver(MessageReceiver.MessageReceiver):
                               QueueMessage.JobStatusReceiverRetrieveArgoJobFailed))
                return
 
-            # parse balsam_job into subjob and argojob
+            # parse balsam_job (just received from balsam, new status) into
+            # subjob and argojob (need to be synced)
             if balsam_job is not None:
 
                # copy scheduler id to subjob
@@ -98,7 +99,7 @@ class JobStatusReceiver(MessageReceiver.MessageReceiver):
                try:
                   argojob.state = BALSAM_JOB_TO_SUBJOB_STATE_MAP[balsam_job.state].name
                   logger.debug(' receieved subjob state = ' + subjob.state + ' setting argo job state to ' + argojob.state)
-               except KeyError,e:
+               except KeyError as e:
                   logger.error(' could not map balsam_job state: ' + str(balsam_job.state) + ' to an ArgoJob state for job id: ' + str(argojob.job_id))
                   # acknoledge message
                   channel.basic_ack(method_frame.delivery_tag)

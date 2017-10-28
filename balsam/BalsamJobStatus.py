@@ -8,6 +8,8 @@ class DeserializeFailed(Exception): pass
 
 class BalsamJobStatus:
    def __init__(self,job=None,message=None):
+      '''Constructed with a BalsamJob, but only contains simple id,
+      serialized_job, and message attributes'''
       self.job_id          = None
       self.serialized_job  = None
       self.message         = message

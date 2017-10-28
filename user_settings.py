@@ -86,7 +86,7 @@ GRIDFTP_SERVER                      = 'atlasgridftp02.hep.anl.gov'
 #------------------------------
 # RABBITMQ/PIKA CONFIG
 #------------------------------
-RABBITMQ_SERVER_NAME                = 'atlasgridftp02.hep.anl.gov'
+RABBITMQ_SERVER_NAME                = 'localhost'
 RABBITMQ_SERVER_PORT                = 5671
 try:
    RABBITMQ_SSL_CERT                = os.environ['X509_USER_CERT']
@@ -94,6 +94,9 @@ try:
    RABBITMQ_SSL_CA_CERTS            = os.environ['X509_CACERTS']
 except KeyError as e:
    logger.error('Environment variable undefined: ' + str(e))
+   RABBITMQ_SSL_CERT                = ''
+   RABBITMQ_SSL_KEY                 = ''
+   RABBITMQ_SSL_CA_CERTS            = ''
 
 RABBITMQ_USER_EXCHANGE_NAME         = 'argo_users_dev'
 RABBITMQ_USER_JOB_QUEUE_NAME        = 'argo_service_dev'

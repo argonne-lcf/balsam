@@ -1,4 +1,4 @@
-import os,sys,logging,multiprocessing,Queue,traceback
+import os,sys,logging,multiprocessing,queue,traceback
 logger = logging.getLogger(__name__)
 
 from django.core.management.base import BaseCommand, CommandError
@@ -30,7 +30,7 @@ class Command(BaseCommand):
             p = BalsamJobReceiver.BalsamJobReceiver()
             p.start()
             subprocesses['BalsamJobReceiver'] = p
-         except Exception,e:
+         except Exception as e:
              logger.exception(' Received Exception while trying to start job receiver: ' + str(e))
          
          # setup timer for cleaning the work folder of old files
@@ -77,12 +77,12 @@ class Command(BaseCommand):
                      continue # jump to next job, skip remaining actions
                   job.save(update_fields=['state'])
                   models.send_status_message(job,'Job entered ' + job.state + ' state')
-               except exceptions.JobStatusFailed,e:
+               except exceptions.JobStatusFailed as e:
                   message = 'get_job_status failed for pk='+str(job.pk)+': ' + str(e)
                   logger.error(message)
                   # TODO: Should I fail the job?
                   models.send_status_message(job,message)
-               except Exception,e:
+               except Exception as e:
                   message = 'failed to get status for pk='+str(job.pk)+', exception: ' + str(e)
                   logger.error(message)
                   # TODO: Should I fail the job?
@@ -129,7 +129,7 @@ class Command(BaseCommand):
                workDirCleaner.clean()
 
             # loop over running process and check status
-            for name,proc in subprocesses.iteritems():
+            for name,proc in subprocesses.items():
                if not proc.is_alive():
                   logger.info(' subprocess ' + name + ' has stopped with returncode ' + str(proc.exitcode) )
 
@@ -160,12 +160,12 @@ class Command(BaseCommand):
                   job.save(update_fields=['state'])
                else:
                   logger.error('No recognized QueueMessage code')
-            except Queue.Empty,e:
+            except queue.Empty as e:
                logger.debug('no messages on queue')
 
       
          logger.info(' Balsam Service Exiting ')
-      except KeyboardInterrupt,e:
+      except KeyboardInterrupt as e:
          logger.info('Balsam Service Exiting')
          return
 
