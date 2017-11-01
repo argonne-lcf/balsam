@@ -47,7 +47,7 @@ def stage_out(job):
    message = None
    if job.output_url != '':
       try:
-         transfer.stage_out( self.working_directory + '/', self.output_url + '/' )
+         transfer.stage_out(job.working_directory + '/', job.output_url + '/' )
          job.state = STAGED_OUT.name
       except Exception as e:
          message = 'Exception received during stage_out: ' + str(e)

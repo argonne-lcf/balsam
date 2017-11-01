@@ -103,17 +103,18 @@ class LocalHandler:
       parts = urlparse.urlparse( source_url )
       command = 'cp -p -r /%s%s* %s' % (parts.netloc,parts.path,destination_directory)
       logger.debug('transfer.stage_in: command=' + command )
-      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+              shell=True)
       stdout,stderr = p.communicate()
       if p.returncode != 0:
          raise Exception("Error in stage_in: %d output:\n" % (p.returncode,stdout))
 
    def stage_out( self, source_directory, destination_url ):
-      
       parts = urlparse.urlparse( destination_url )
       command = 'cp -r %s/* /%s/%s' % (source_directory,parts.netloc,parts.path)
       logger.debug( 'transfer.stage_out: command=' + command )
-      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT, 
+              shell=True)
       stdout,stderr = p.communicate()
       if p.returncode != 0:
          raise Exception("Error in stage_out: %d output:\n" % (p.returncode,stdout))
