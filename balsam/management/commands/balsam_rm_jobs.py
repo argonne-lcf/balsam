@@ -3,6 +3,10 @@ from django.conf import settings
 from balsam import models
 import logging
 logger = logging.getLogger('console')
+try:
+    input = raw_input
+except NameError:
+    pass
 
 class Command(BaseCommand):
    help = 'Remove BalsamJobs'
@@ -17,7 +21,7 @@ class Command(BaseCommand):
       
          for job in jobs:
             logger.info('About to delete BalsamJob pk = ' + str(job.pk) + ' \n' + str(job))
-            answer = raw_input(' Enter "yes" to continue: ')
+            answer = input(' Enter "yes" to continue: ')
             if answer == 'yes':
                job.delete()
                logger.info('BalsamJob deleted')

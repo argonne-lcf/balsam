@@ -91,7 +91,8 @@ class Command(BaseCommand):
 
 
             # first loop over jobs in transition and remove entries that are complete
-            for pk in jobs_in_transition_by_id.keys():
+            # 2-->3 bug: have to cast keys from iterator to list 
+            for pk in list(jobs_in_transition_by_id.keys()):
                proc = jobs_in_transition_by_id[pk]
                if not proc.is_alive():
                   # did subprocess exit cleanly with exitcode == 0

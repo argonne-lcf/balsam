@@ -113,16 +113,15 @@ class MessageInterface:
                            
       #logger.debug(str(ssl_options_dict))
       # setup our connection parameters
-      self.parameters = pika.ConnectionParameters('localhost')
-      #self.parameters = pika.ConnectionParameters(
-      #                                            host               = self.host,
-      #                                            port               = self.port,
-      #                                            virtual_host       = self.virtual_host,
-      #                                            credentials        = self.credentials,
-      #                                            socket_timeout     = self.socket_timeout,
-      #                                            ssl                = True,
-      #                                            ssl_options        = ssl_options_dict,
-      #                                           )
+      self.parameters = pika.ConnectionParameters(
+                                                  host               = self.host,
+                                                  port               = self.port,
+                                                  virtual_host       = self.virtual_host,
+                                                  credentials        = self.credentials,
+                                                  socket_timeout     = self.socket_timeout,
+                                                  ssl                = True,
+                                                  ssl_options        = ssl_options_dict,
+                                                 )
 
    def create_queue(self,name,routing_key):
       # declare a random queue which this job will use to receive messages

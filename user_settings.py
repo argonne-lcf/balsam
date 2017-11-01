@@ -50,10 +50,10 @@ BALSAM_SCHEDULER_HISTORY_EXE        = '/usr/bin/'
 BALSAM_SERVICE_PERIOD               = 10 # seconds between service loop execution
 BALSAM_MAX_QUEUED                   = 20 # the maximum number of jobs allowed on the local queue
 BALSAM_SUBMIT_JOBS                  = True # submit jobs to queue, turn off when testing
-BALSAM_DEFAULT_QUEUE                = 'default' # default local queue name
-BALSAM_DEFAULT_PROJECT              = 'visualization' # default local project name
+BALSAM_DEFAULT_QUEUE                = 'debug-cache-quad' # default local queue name
+BALSAM_DEFAULT_PROJECT              = 'datascience' # default local project name
 BALSAM_ALLOWED_EXECUTABLE_DIRECTORY = ALLOWED_EXE_PATH # path to allowed executables
-BALSAM_SITE                         = 'cooley' # local balsam site name
+BALSAM_SITE                         = 'theta' # local balsam site name
 BALSAM_SCHEDULER_CLASS              = 'CobaltScheduler' # local scheduler in use
 BALSAM_SCHEDULER_SUBMIT_SCRIPT      = os.path.join(BALSAM_ALLOWED_EXECUTABLE_DIRECTORY,'submit.sh')
 BALSAM_SCHEDULER_USE_SUBMIT_SCRIPT  = True
@@ -81,7 +81,7 @@ GRIDFTP_GLOBUS_URL_COPY             = os.path.join(GRIDFTP_BIN,'globus-url-copy'
 GRIDFTP_PROXY_INFO                  = os.path.join(GRIDFTP_BIN,'grid-proxy-info')
 GRIDFTP_PROXY_INIT                  = os.path.join(GRIDFTP_BIN,'grid-proxy-init')
 GRIDFTP_PROTOCOL                    = 'gsiftp://'
-GRIDFTP_SERVER                      = 'atlasgridftp02.hep.anl.gov'
+GRIDFTP_SERVER                      = ''
 
 #------------------------------
 # RABBITMQ/PIKA CONFIG
@@ -93,7 +93,7 @@ try:
    RABBITMQ_SSL_KEY                 = os.environ['X509_USER_KEY']
    RABBITMQ_SSL_CA_CERTS            = os.environ['X509_CACERTS']
 except KeyError as e:
-   logger.error('Environment variable undefined: ' + str(e))
+   #logger.error('Environment variable undefined: ' + str(e))
    RABBITMQ_SSL_CERT                = ''
    RABBITMQ_SSL_KEY                 = ''
    RABBITMQ_SSL_CA_CERTS            = ''

@@ -17,7 +17,7 @@ class Command(BaseCommand):
       
          for app in apps:
             logger.info('About to remove App pk = ' + str(app.pk) + ' \n' + str(app))
-            answer = raw_input(' Enter "yes" to continue: ')
+            answer = input(' Enter "yes" to continue: ')
             if answer == 'yes':
                app.delete()
                logger.info('App deleted')

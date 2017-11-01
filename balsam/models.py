@@ -73,7 +73,7 @@ def preprocess(job):
           if os.path.exists(app.preprocess):
              stdout = run_subprocess.run_subprocess(app.preprocess)
              # write stdout to log file
-             f = open(os.path.join(job.working_directory,app.name+'.preprocess.log.pid' + str(os.getpid())),'w')
+             f = open(os.path.join(job.working_directory,app.name+'.preprocess.log.pid' + str(os.getpid())),'wb')
              f.write(stdout)
              f.close()
              job.state = PREPROCESSED.name
@@ -160,7 +160,7 @@ def postprocess(job):
           if os.path.exists(app.postprocess):
              stdout = run_subprocess.run_subprocess(app.postprocess)
              # write stdout to log file
-             f = open(os.path.join(job.working_directory,app.name+'.postprocess.log.pid' + str(os.getpid())),'w')
+             f = open(os.path.join(job.working_directory,app.name+'.postprocess.log.pid' + str(os.getpid())),'wb')
              f.write(stdout)
              f.close()
              job.state = POSTPROCESSED.name
@@ -412,7 +412,7 @@ class BalsamJob(models.Model):
       cmd = app.executable + ' '
       if self.config_file != '':
          stdout = run_subprocess.run_subprocess(app.config_script + ' ' + self.config_file)
-         cmd += stdout
+         cmd += stdout.decode('utf-8')
       return cmd
 
    @staticmethod

@@ -3,6 +3,10 @@ from django.conf import settings
 from balsam import models
 import logging
 logger = logging.getLogger('console')
+try:
+    input = raw_input
+except NameError:
+    pass
 
 class Command(BaseCommand):
     help = 'Add BalsamJob to DB'
@@ -45,7 +49,7 @@ class Command(BaseCommand):
          if options['yes']:
              answer = 'yes'
          else:
-             answer = str(raw_input(' Enter "yes" to continue:'))
+             answer = str(input(' Enter "yes" to continue:'))
          if answer == 'yes':
             app = models.ApplicationDefinition.objects.get(name=options['application'])
             if app is None:

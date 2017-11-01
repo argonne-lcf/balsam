@@ -50,8 +50,12 @@ def submit(job,cmd):
       try:
          output = run_subprocess.run_subprocess(command)
          output = output.strip()
+         try:
+             scheduler_id = int(output)
+         except ValueError:
+             scheduler_id = int(output.split()[-1])
          logger.debug('CobaltScheduler job (pk=' + str(job.pk) + ') submitted to scheduler as job ' + str(output))
-         job.scheduler_id = output
+         job.scheduler_id = scheduler_id
       except run_subprocess.SubprocessNonzeroReturnCode as e:
          raise exceptions.SubmitNonZeroReturnCode('CobaltScheduler submit command returned non-zero value. command = "' + command +'", exception: ' + str(e))
       except run_subprocess.SubprocessFailed as e:
@@ -140,6 +144,8 @@ class QStat:
          logger.exception(' received exception while trying to run qstat: ' + str(sys.exc_info()[1]))
 
       stdout,stderr = p.communicate()
+      stdout = stdout.decode('utf-8')
+      stderr = stderr.decode('utf-8')
       logger.debug(' qstat ouput: \n' + stdout )
       if p.returncode != 0:
          logger.exception(' return code for qstat is non-zero. stdout = \n' + stdout + '\n stderr = \n' + stderr )
