@@ -1,98 +1,53 @@
-from common.MessageInterface import MessageInterface
+from common import PikaMessageInterface, NoMessageInterface
 from django.conf import settings
 import logging,sys,multiprocessing,time,os
 logger = logging.getLogger(__name__)
 
-QUEUE_NAME  = None
-ROUTING_KEY = None
+RECEIVER_MAP = {
+    'pika' : PikaMessageInterface.PikaMessageInterface,
+    'no_message' : NoMessageInterface.NoMessageInterface
+}
 
 class MessageReceiver(multiprocessing.Process):
-   ''' subscribes to a queue and executes the given callback'''
+    ''' subscribes to a queue and executes the given callback'''
+    
+    def __init__(self, settings):
+        # execute multiprocessing.Process superconstructor
+        super(MessageReceiver,self).__init__()
 
-   # this method should be re-defined by the user via inheritance
-   def consume_msg(self,channel,method_frame,header_frame,body):
-      pass
-  
-   def __init__(self,
-                msg_queue,
-                msg_routing_key,
-                msg_host,
-                msg_port,
-                msg_exchange_name,
-                msg_ssl_cert,
-                msg_ssl_key,
-                msg_ssl_ca_certs,
-               ):
-      # execute super constructor
-      super(MessageReceiver,self).__init__()
-      
-      #self.exit = multiprocessing.Event()
-      self.messageInterface = MessageInterface()
-      self.messageInterface.host          = msg_host
-      self.messageInterface.port          = msg_port
-      self.messageInterface.exchange_name = msg_exchange_name
+        receiver_mode = settings['mode']
+        MessageClass = RECEIVER_MAP[receiver_mode]
+        self.messageInterface = MessageClass(settings)
+        self.consume_msg = getattr(self, '%s_consume_msg' % receiver_mode)
 
-      self.messageInterface.ssl_cert      = msg_ssl_cert
-      self.messageInterface.ssl_key       = msg_ssl_key
-      self.messageInterface.ssl_ca_certs  = msg_ssl_ca_certs
-
-      self.message_queue                  = msg_queue
-      self.message_routing_key            = msg_routing_key
+    def handle_msg(self, msg_body):
+        '''This handles the message in a protocol-independent way'''
+        raise NotImplementedError
    
-   def run(self):
-      logger.debug(' in run ')
-      
-      # setup receiving queue and exchange
-      logger.debug( ' open blocking connection to setup queue ' )
-      self.messageInterface.open_blocking_connection()
-      self.messageInterface.create_queue(self.message_queue,self.message_routing_key)
-      self.messageInterface.close()
-      
-      logger.debug( ' open select connection ' )
-      # start consuming incoming messages
-      try:
-         self.messageInterface.open_select_connection(self.on_connection_open)
-      except:
-         logger.exception(' Received exception while opening select connection: ' + str(sys.exc_info()[1]))
-         raise
-      
-      logger.debug( ' start message consumer ' )
-      try:
-         self.messageInterface.connection.ioloop.start()
-      except:
-         logger.exception(' Received exception while starting ioloop for message consumer: ' + str(sys.exc_info()[1]))
-         raise
-      
-   
-   # not working... connection is None for some reason
-   def shutdown(self):
-      logger.debug(' stopping message consumer ')
-      try:
-         logger.debug(' message connection: ' + str(self.messageInterface.connection) )
-         logger.debug(' message ioloop: ' + str(self.messageInterface.connection.ioloop) )
-         self.messageInterface.connection.ioloop.stop()
-         logger.debug( ' after stopping message consumer ')
-      except:
-         logger.exception(' Received exception while stopping ioloop for the message consumer: ' + str(sys.exc_info()[1]))
-         raise
-      #self.exit.set()
-   
-   def on_connection_open(self,connection):
-      logger.debug(' in on_connection_open')
-      try:
-         connection.channel(self.on_channel_open)
-      except:
-         logger.exception(' Received exception while opening connection to message server: ' + str(sys.exc_info()[1]))
-         raise
-   
-   def on_channel_open(self,channel):
-      logger.debug(' in on_channel_open')
-      try:
-         channel.basic_consume(self.consume_msg,self.message_queue)
-      except:
-         logger.exception(' Received exception while creating message consumer: ' + str(sys.exc_info()[1]))
-         raise
-   
+    def run(self):
+       logger.debug(' in run ')
+       self.messageInterface.setup_receive(self.consume_msg)
+       self.messageInterface.start_receive_loop()
 
+    def pika_consume_msg(self,channel,method_frame,header_frame,body):
+       logger.debug('in pika_consume_msg' )
+       if body is not None:
+           logger.debug(' received message: ' + body )
+           try:
+               self.handle_msg(body)
+           except Exception as e:
+               logger.exception('failed to handle_msg. not continuing with this job')
+               channel.basic_ack(method_frame.delivery_tag)
+               return
+           else:
+               logger.error(' consume_msg called, but body is None ')
+               # should be some failure notice to argo
+               # acknowledge receipt of message
+               channel.basic_ack(method_frame.delivery_tag)
 
+    def no_message_consume_msg(self):
+       pass
 
+    def shutdown(self):
+       logger.debug(' stopping message consumer ')
+       self.messageInterface.stop_receive_loop()

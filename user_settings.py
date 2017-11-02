@@ -84,28 +84,60 @@ GRIDFTP_PROTOCOL                    = 'gsiftp://'
 GRIDFTP_SERVER                      = ''
 
 #------------------------------
-# RABBITMQ/PIKA CONFIG
+# MESSAGING CONFIG
+# Specify everything in a SENDER_CONFIG for BalsamStatusSender
+# And in RECEIVER_CONFIG for BalsamJobReceiver
 #------------------------------
-RABBITMQ_SERVER_NAME                = 'localhost'
-RABBITMQ_SERVER_PORT                = 5671
-try:
-   RABBITMQ_SSL_CERT                = os.environ['X509_USER_CERT']
-   RABBITMQ_SSL_KEY                 = os.environ['X509_USER_KEY']
-   RABBITMQ_SSL_CA_CERTS            = os.environ['X509_CACERTS']
-except KeyError as e:
-   #logger.error('Environment variable undefined: ' + str(e))
-   RABBITMQ_SSL_CERT                = ''
-   RABBITMQ_SSL_KEY                 = ''
-   RABBITMQ_SSL_CA_CERTS            = ''
+#SENDER_CONFIG = {
+#    "mode"                          : "pika",
+#    "username"                      : '',
+#    "password"                      : '',
+#    "host"                          : '',
+#    "port"                          : '',
+#    "virtual_host"                  : '',
+#    "socket_timeout"                : '',
+#    "exchange_name"                 : '',
+#    "exchange_type"                 : '',
+#    "exchange_durable"              : '',
+#     "exchange_auto_delete"         : '',
+#    "queue_name"                    : '',
+#    "queue_is_durable"              : '',
+#    "queue_is_exclusive"            : '',
+#    "queue_is_auto_delete"          : '',
+#    "default_routing_key"           : '',
+#     "ssl_cert"                     : '',
+#    "ssl_key"                       : '',
+#     "ssl_ca_cer"                   : ''
+#}
+#RECEIVER_CONFIG = {
+#    "mode"                          : "pika",
+#    "username"                      : '',
+#    "password"                      : '',
+#    "host"                          : '',
+#    "port"                          : '',
+#    "virtual_host"                  : '',
+#    "socket_timeout"                : '',
+#    "exchange_name"                 : '',
+#    "exchange_type"                 : '',
+#    "exchange_durable"              : '',
+#     "exchange_auto_delete"         : '',
+#    "queue_name"                    : '',
+#    "queue_is_durable"              : '',
+#    "queue_is_exclusive"            : '',
+#    "queue_is_auto_delete"          : '',
+#    "default_routing_key"           : '',
+#     "ssl_cert"                     : '',
+#    "ssl_key"                       : '',
+#     "ssl_ca_cer"                   : ''
+#}
 
-RABBITMQ_USER_EXCHANGE_NAME         = 'argo_users_dev'
-RABBITMQ_USER_JOB_QUEUE_NAME        = 'argo_service_dev'
-RABBITMQ_USER_JOB_ROUTING_KEY       = 'argo_job_dev'
+RECEIVER_CONFIG = {
+    "mode" : "no_message"
+}
 
-RABBITMQ_BALSAM_EXCHANGE_NAME       = 'hpc_dev'
-
-RABBITMQ_BALSAM_JOB_STATUS_QUEUE    = 'balsam_job_status_dev'
-RABBITMQ_BALSAM_JOB_STATUS_ROUTING_KEY = 'balsam_job_status_dev'
+SENDER_CONFIG = {
+    "mode" : "no_message"
+}
 
 
 #------------------------------
