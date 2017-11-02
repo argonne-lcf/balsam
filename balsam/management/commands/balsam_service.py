@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 
-from balsam import models,BalsamJobReceiver,QueueMessage
+from balsam import models,BalsamJobReceiver,QueueMessage,BalsamStatusSender
 from common import DirCleaner,log_uncaught_exceptions,TransitionJob
 from balsam import scheduler
 from balsam.schedulers import exceptions,jobstates
@@ -27,12 +27,15 @@ class Command(BaseCommand):
          subprocesses = {}
          # start the balsam job receiver in separate thread
          try:
-            p = BalsamJobReceiver.BalsamJobReceiver()
+            p = BalsamJobReceiver.BalsamJobReceiver(settings.RECEIVER_CONFIG)
             p.start()
             subprocesses['BalsamJobReceiver'] = p
          except Exception as e:
              logger.exception(' Received Exception while trying to start job receiver: ' + str(e))
          
+         # Balsam status message sender
+         status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
+
          # setup timer for cleaning the work folder of old files
          logger.debug('creating DirCleaner')
          workDirCleaner = DirCleaner.DirCleaner(settings.BALSAM_WORK_DIRECTORY,
@@ -76,17 +79,17 @@ class Command(BaseCommand):
                      logger.debug('job pk=' + str(job.pk) + ' remains in state ' + str(jobstate))
                      continue # jump to next job, skip remaining actions
                   job.save(update_fields=['state'])
-                  models.send_status_message(job,'Job entered ' + job.state + ' state')
+                  status_sender.send_status(job,'Job entered ' + job.state + ' state')
                except exceptions.JobStatusFailed as e:
                   message = 'get_job_status failed for pk='+str(job.pk)+': ' + str(e)
                   logger.error(message)
                   # TODO: Should I fail the job?
-                  models.send_status_message(job,message)
+                  status_sender.send_status(job,message)
                except Exception as e:
                   message = 'failed to get status for pk='+str(job.pk)+', exception: ' + str(e)
                   logger.error(message)
                   # TODO: Should I fail the job?
-                  models.send_status_message(job,message)
+                  status_sender.send_status(job,message)
 
 
 

@@ -9,7 +9,7 @@ from django.db import utils,connections,DEFAULT_DB_ALIAS
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 
-from balsam import BalsamJobStatus
+from balsam import BalsamStatusSender
 from common import transfer,MessageInterface,run_subprocess
 from common import log_uncaught_exceptions,db_tools,Serializer
 from balsam import scheduler,BalsamJobMessage
@@ -37,7 +37,8 @@ def stage_in(job):
       job.state = STAGED_IN.name
 
    job.save(update_fields=['state'],using=db_tools.get_db_connection_id(job.pk))
-   send_status_message(job,message)
+   status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
+   status_sender.send_status(job,message)
 
 # stage out files for a job
 def stage_out(job):
@@ -58,7 +59,8 @@ def stage_out(job):
       job.state = STAGED_OUT.name
 
    job.save(update_fields=['state'],using=db_tools.get_db_connection_id(job.pk))
-   send_status_message(job,message)
+   status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
+   status_sender.send_status(job,message)
 
 # preprocess a job
 def preprocess(job):
@@ -105,7 +107,8 @@ def preprocess(job):
       job.state = PREPROCESS_FAILED.name
    
    job.save(update_fields=['state'],using=db_tools.get_db_connection_id(job.pk))
-   send_status_message(job,message)
+   status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
+   status_sender.send_status(job,message)
 
 # submit the job to the local scheduler
 def submit(job):
@@ -143,7 +146,8 @@ def submit(job):
    
    job.save(update_fields=['state','scheduler_id'],using=db_tools.get_db_connection_id(job.pk))
    logger.debug('sending status message')
-   send_status_message(job,message)
+   status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
+   status_sender.send_status(job,message)
    logger.debug('submit done')
 
    
@@ -192,37 +196,16 @@ def postprocess(job):
       job.state = POSTPROCESS_FAILED.name
    
    job.save(update_fields=['state'],using=db_tools.get_db_connection_id(job.pk))
-   send_status_message(job,message)
+   status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
+   status_sender.send_status(job,message)
    
 def finish_job(job):
    ''' simply change state to Finished and send status to user '''
    job.state = JOB_FINISHED.name
    job.save(update_fields=['state'],using=db_tools.get_db_connection_id(job.pk))
-   send_status_message(job,'Job finished')
+   status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
+   status_sender.send_status(job,message)
 
-
-def send_status_message(job,message=''):
-   ''' send a status message describing a job state '''
-   return
-   logger.debug('in send_status_message')
-   # setup message interface
-   try:
-      p = MessageInterface.MessageInterface(
-                          host           =  settings.RABBITMQ_SERVER_NAME,
-                          port           =  settings.RABBITMQ_SERVER_PORT,
-                          exchange_name  =  settings.RABBITMQ_BALSAM_EXCHANGE_NAME,
-                          ssl_cert       =  settings.RABBITMQ_SSL_CERT,
-                          ssl_key        =  settings.RABBITMQ_SSL_KEY,
-                          ssl_ca_certs   =  settings.RABBITMQ_SSL_CA_CERTS,
-                         )
-      p.open_blocking_connection()
-   
-      statmsg = BalsamJobStatus.BalsamJobStatus(job,message)
-      p.send_msg(statmsg.serialize(), settings.RABBITMQ_BALSAM_JOB_STATUS_ROUTING_KEY)
-      p.close()
-   except Exception as e:
-      logger.exception('job(pk='+str(job.pk)+',id='+str(job.job_id)+
-           '): Failed to send BalsamJobStatus message, received exception')
 
 # -------- Job States ------------------------
 
