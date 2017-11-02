@@ -117,7 +117,7 @@ class Command(BaseCommand):
                            models.BalsamJob,
                            models.STATES_BY_NAME[job.state].transition_function
                         )
-                  logger.debug(' start ')
+                  logger.debug(' starting TransitionJob process ')
                   proc.start()
                   jobs_in_transition_by_id[job.pk] = proc
                else:
