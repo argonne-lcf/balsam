@@ -40,7 +40,7 @@ class TransitionJob(multiprocessing.Process):
                    'Failed to retrieve job id ' + str(self.entry_pk) + ' from DB for base_class ' + str(self.job_base_class.__name__) + '. Exception: ' + str(e)))
          return
       
-      logger.debug('retreived pk=' + str(self.entry_pk) + ' state='+job.state)
+      logger.debug('retrieved pk=' + str(self.entry_pk) + ' state='+job.state)
        
       # transition state
       try:
