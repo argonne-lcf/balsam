@@ -203,6 +203,7 @@ def finish_job(job):
    ''' simply change state to Finished and send status to user '''
    job.state = JOB_FINISHED.name
    job.save(update_fields=['state'],using=db_tools.get_db_connection_id(job.pk))
+   message= "Success!"
    status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
    status_sender.send_status(job,message)
 

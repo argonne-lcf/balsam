@@ -18,7 +18,7 @@ class BalsamStatusSender(object):
         MessageClass = SENDER_MAP[sender_mode]
         self.messageInterface = MessageClass(settings)
 
-    def send_status(job,message=''):
+    def send_status(self,job,message=''):
         '''send a status message describing a job state'''
         p = self.messageInterface
         try:
