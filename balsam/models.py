@@ -303,7 +303,6 @@ class BalsamJob(models.Model):
    scheduler_id                  = models.IntegerField('Scheduler ID',help_text='The ID assigned this job after being submitted to the queue.',default=0)
    
    # task attributes
-   # task_id specifies the task to run
    application                   = models.TextField('Application to Run',help_text='This is the name of an application that lives in the database as an ApplicationDefinition.',default='')
    config_file                   = models.TextField('Configuration File',help_text='This is the input file provided by the users which is used to configure the application. This may be options that are typically included on the command line. It depends on the applications.',default='')
 

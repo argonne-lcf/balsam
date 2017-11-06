@@ -35,4 +35,4 @@ class BalsamJobReceiver(MessageReceiver.MessageReceiver):
        job.save()
        del connections[db_connection_id]
        status_sender = BalsamStatusSender.BalsamStatusSender(settings.SENDER_CONFIG)
-       status_sender.send_status(job)
+       status_sender.send_status(job, message='Receiver has added job to database')

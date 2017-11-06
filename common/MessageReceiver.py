@@ -5,7 +5,8 @@ logger = logging.getLogger(__name__)
 
 RECEIVER_MAP = {
     'pika' : PikaMessageInterface.PikaMessageInterface,
-    'no_message' : NoMessageInterface.NoMessageInterface
+    'no_message' : NoMessageInterface.NoMessageInterface,
+    'zmq' : ZMQMessageInterface.ZMQMessageInterface
 }
 
 class MessageReceiver(multiprocessing.Process):
@@ -39,14 +40,26 @@ class MessageReceiver(multiprocessing.Process):
                logger.exception('failed to handle_msg. not continuing with this job')
                channel.basic_ack(method_frame.delivery_tag)
                return
-           else:
-               logger.error(' consume_msg called, but body is None ')
-               # should be some failure notice to argo
-               # acknowledge receipt of message
-               channel.basic_ack(method_frame.delivery_tag)
+       else:
+           logger.error(' consume_msg called, but body is None ')
+           # should be some failure notice to argo
+           # acknowledge receipt of message
+           channel.basic_ack(method_frame.delivery_tag)
 
     def no_message_consume_msg(self):
        pass
+
+   def zmq_consume_msg(self, body):
+       logger.debug(' in zmq_message_consume_msg')
+       if body:
+           logger.debug(' received ZMQmessage: ' + body)
+           try:
+               self.handle_msg(body)
+            except Exception as e:
+                logger.exception('failed to handle_msg. not continuing with this job')
+                return
+        else:
+            logger.error(' consume_msg called, but body is empty or None'))
 
     def shutdown(self):
        logger.debug(' stopping message consumer ')
