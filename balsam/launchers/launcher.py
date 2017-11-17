@@ -2,6 +2,7 @@
 scheduling service and submits directly to a local job queue, or by the
 Balsam service metascheduler'''
 import argparse
+from collections import namedtuple
 import os
 import time
 
@@ -13,6 +14,9 @@ from balsam.models import BalsamJob, ApplicationDefinition
 START_TIME = time.time() + 10.0
 
 class BalsamLauncherException(Exception): pass
+
+Worker = namedtuple('Worker', ['id', 'shape', 'block', 'corner', 
+                               'ranks_per_worker'])
 
 SIGTIMEOUT = 'TIMEOUT!'
 SIGNALS = {

@@ -2,7 +2,7 @@ from collections import namedtuple
 from contextlib import nested
 import os
 import sys
-from subprocess import Popen
+from subprocess import Popen, STDOUT
 
 from mpi4py import MPI
 from runners import cd
@@ -35,7 +35,7 @@ def run(job):
     with nested(cd(job.workdir), open(outname, 'wb')) as (_,outf):
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
-            proc = Popen(job.cmd, stdout=outf, stderr=outf)
+            proc = Popen(job.cmd, stdout=outf, stderr=STDOUT)
             retcode = proc.wait()
         except Exception as e:
             status_msg(job.id, "RUN_ERROR", msg=str(e))

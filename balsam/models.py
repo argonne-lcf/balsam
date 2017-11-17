@@ -186,6 +186,10 @@ class BalsamJob(models.Model):
         'Number of hyperthreads per physical core (if applicable)',
         help_text='Number of hyperthreads per physical core.',
         default=1)
+    environ_vars = models.TextField(
+        'Environment variables specific to this job',
+        help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
+        default='')
     
     launcher_info = models.TextField(
         'Scheduler ID',
@@ -197,17 +201,28 @@ class BalsamJob(models.Model):
         'Application to Run',
         help_text='The application to run; located in Applications database',
         default='')
+    application_args = models.TextField(
+        'Command-line args to the application exe',
+        help_text='Command line arguments used by the Balsam job runner',
+        default='')
+
+    direct_command = models.TextField(
+        'Command line to execute (specified with balsam qsub <args> <command>)',
+        help_text="Instead of creating BalsamJobs that point to a pre-defined "
+        "application, users can directly add jobs consisting of a single command "
+        "line with `balsam qsub`.  This direct command is then invoked by the  "
+        "Balsam job launcher.",
+        default='')
+
     preprocess = models.TextField(
         'Preprocessing Script',
         help_text='A script that is run in a job working directory prior to submitting the job to the queue.'
-        ' If blank, will default to the default_preprocess script defined for the
-        application.',
+        ' If blank, will default to the default_preprocess script defined for the application.',
         default='')
     postprocess = models.TextField(
         'Postprocessing Script',
         help_text='A script that is run in a job working directory after the job has completed.'
-        ' If blank, will default to the default_postprocess script defined for the
-        application.',
+        ' If blank, will default to the default_postprocess script defined for the application.',
         default='')
 
     state = models.TextField(
