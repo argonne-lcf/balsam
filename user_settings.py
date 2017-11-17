@@ -2,6 +2,12 @@ import os,sys,logging
 logger = logging.getLogger(__name__)
 import socket
 
+def log_uncaught_exceptions(exctype, value, tb,logger=logger):
+   logger = logging.getLogger('console')
+   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+
+sys.excepthook = log_uncaught_exceptions
+
 logger.info('loading settings')
 
 try:
@@ -15,6 +21,7 @@ except KeyError as e:
 #------------------------------
 # DATABASE CONFIG INFO
 #------------------------------
+CONCURRENCY_ENABLED = True
 USING_DB_LOGIN                      = False
 DBUSER                              = ''
 DBPASS                              = ''
@@ -55,8 +62,6 @@ BALSAM_DEFAULT_PROJECT              = 'datascience' # default local project name
 BALSAM_ALLOWED_EXECUTABLE_DIRECTORY = ALLOWED_EXE_PATH # path to allowed executables
 BALSAM_SITE                         = 'theta' # local balsam site name
 BALSAM_SCHEDULER_CLASS              = 'CobaltScheduler' # local scheduler in use
-BALSAM_SCHEDULER_SUBMIT_SCRIPT      = os.path.join(BALSAM_ALLOWED_EXECUTABLE_DIRECTORY,'submit.sh')
-BALSAM_SCHEDULER_USE_SUBMIT_SCRIPT  = True
 BALSAM_MAX_CONCURRENT_TRANSITIONS   = 5 # maximum number of sub threads spawned by Balsam
 
 #------------------------------
@@ -241,7 +246,5 @@ for d in [
    ]:
    if not os.path.exists(d):
       os.makedirs(d)
-
-
 
 

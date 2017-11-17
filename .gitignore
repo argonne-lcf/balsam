@@ -6,6 +6,7 @@ log
 argojobs
 balsamjobs
 argobalsam_env
+env
 db.sqlite3
 argo/migrations
 balsam/migrations

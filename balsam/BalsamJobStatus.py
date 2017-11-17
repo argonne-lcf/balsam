@@ -1,4 +1,3 @@
-
 import logging,sys
 logger = logging.getLogger(__name__)
 from common import Serializer

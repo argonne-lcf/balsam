@@ -74,7 +74,6 @@ class Command(BaseCommand):
                      job.state = models.QUEUED.name
                   elif jobstate == jobstates.JOB_FINISHED and job.state != models.EXECUTION_FINISHED.name:
                      job.state = models.EXECUTION_FINISHED.name
-                     #scheduler.postprocess(job) <<< check on this...
                   else:
                      logger.debug('job pk=' + str(job.pk) + ' remains in state ' + str(jobstate))
                      continue # jump to next job, skip remaining actions
