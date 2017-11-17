@@ -1,9 +1,0 @@
-/one/test/path /apps/super.py --doit 3 --now 3
-
-fsdf
-
-
-
-/that/crazy/job/dir /home/msalim/bin/nwchem.x in.nw
-0 0
-/Users/misha /home/msalim/bin/nwchem.x fksdj
