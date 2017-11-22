@@ -1,29 +1,31 @@
-'''BalsamJob pre and post execution Transitions'''
+'''BalsamJob pre and post execution'''
+from collections import namedtuple
 import logging
-from common import transfer, MessageInterface, run_subprocess
-from common import db_tools
-logger = logging.getLogger(__name__)
 
-from balsam import BalsamStatusSender
-#from django.db import utils, connections, DEFAULT_DB_ALIAS
 from django.core.exceptions import ObjectDoesNotExist
-from balsam.schedulers import exceptions
 
-def main(job_queue, status_queue):
-    while True:
-        job, process_function = job_queue.get()
-        process_function(job)
-        
+from common import transfer
+
+logger = logging.getLogger(__name__)
+class ProcessingError(Exception): pass
 
 def check_parents(job):
-    pass
+    parents = job.get_parents()
+    ready = all(p.state == 'JOB_FINISHED' for p in parents)
+    if ready:
+        job.update_state('READY', 'dependencies satisfied')
+    elif job.state == 'CREATED':
+        job.update_state('NOT_READY', 'awaiting dependencies')
 
 
 def stage_in(job):
-    ''' if the job an input_url defined,
-        the files are copied to the local working_directory '''
+    # Create workdirs for jobs: use job.create_working_path
     logger.debug('in stage_in')
-    message = 'job staged in'
+    job.update_state('STAGING_IN')
+
+    if not os.path.exists(job.working_directory):
+        job.create_working_path()
+
     if job.input_url != '':
         try:
             transfer.stage_in(job.input_url + '/', job.working_directory + '/')
@@ -36,16 +38,7 @@ def stage_in(job):
         # no input url specified so stage in is complete
         job.state = STAGED_IN.name
 
-    job.save(
-        update_fields=['state'],
-        using=db_tools.get_db_connection_id(
-            job.pk))
-    status_sender = BalsamStatusSender.BalsamStatusSender(
-        settings.SENDER_CONFIG)
-    status_sender.send_status(job, message)
-
-# stage out files for a job
-
+    job.update_state('STAGE_IN_DONE')
 
 def stage_out(job):
     ''' if the job has files defined via the output_files and an output_url is defined,
@@ -130,53 +123,6 @@ def preprocess(job):
         settings.SENDER_CONFIG)
     status_sender.send_status(job, message)
 
-# submit the job to the local scheduler
-
-
-def submit(job):
-    ''' this function submits the job to the local batch system '''
-    logger.debug('in submit')
-    message = ''
-    try:
-        # some schedulers have limits on the number of jobs that can
-        # be queued, so check to see if we are at that number
-        # If so, don't submit the job
-        jobs_queued = BalsamJob.objects.filter(state=QUEUED.name)
-        if len(jobs_queued) <= settings.BALSAM_MAX_QUEUED:
-            cmd = job.get_application_command()
-            scheduler.submit(job, cmd)
-            job.state = SUBMITTED.name
-            message = 'Job entered SUBMITTED state'
-        else:
-            message = 'Job submission delayed due to local queue limits'
-    except exceptions.SubmitNonZeroReturnCode as e:
-        message = 'scheduler returned non-zero value during submit command: ' + \
-            str(e)
-        logger.error(message)
-        job.state = SUBMIT_FAILED.name
-    except exceptions.SubmitSubprocessFailed as e:
-        message = 'subprocess in scheduler submit failed: ' + str(e)
-        logger.error(message)
-        job.state = SUBMIT_FAILED.name
-    except exceptions.JobSubmissionDisabled as e:
-        message = 'scheduler job submission is currently disabled: ' + str(e)
-        logger.error(message)
-        job.state = SUBMIT_DISABLED.name
-    except Exception as e:
-        message = 'received exception while calling scheduler submit for job ' + \
-            str(job.job_id) + ', exception: ' + str(e)
-        logger.exception(message)
-        job.state = SUBMIT_FAILED.name
-
-    job.save(update_fields=['state', 'scheduler_id'],
-             using=db_tools.get_db_connection_id(job.pk))
-    logger.debug('sending status message')
-    status_sender = BalsamStatusSender.BalsamStatusSender(
-        settings.SENDER_CONFIG)
-    status_sender.send_status(job, message)
-    logger.debug('submit done')
-
-
 # perform any post job processing needed
 def postprocess(job):
     ''' some jobs need to have some postprocessing performed,
@@ -231,14 +177,19 @@ def postprocess(job):
     status_sender.send_status(job, message)
 
 
-def finish_job(job):
-    ''' simply change state to Finished and send status to user '''
-    job.state = JOB_FINISHED.name
-    job.save(
-        update_fields=['state'],
-        using=db_tools.get_db_connection_id(
-            job.pk))
-    message = "Success!"
-    status_sender = BalsamStatusSender.BalsamStatusSender(
-        settings.SENDER_CONFIG)
-    status_sender.send_status(job, message)
+StatusMsg = namedtuple('Status', ['pk', 'state', 'msg'])
+JobMsg =   namedtuple('JobMsg', ['pk', 'transition_function'])
+
+def main(job_queue, status_queue):
+    while True:
+        job, process_function = job_queue.get()
+        if job == 'end':
+            return
+        try:
+            process_function(job)
+        except ProcessingError as e:
+            s = StatusMsg(job.pk, 'FAILED', str(e))
+            status_queue.put(s)
+        else:
+            s = StatusMsg(job.pk, job.state, 'success')
+            status_queue.put(s)

@@ -2,13 +2,12 @@ import os
 import json
 import logging
 import sys
-import datetime
+from datetime import datetime
 import uuid
 
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import models
-from django.utils import timezone
 from concurrency.fields import IntegerVersionField
 
 from common import Serializer
@@ -19,61 +18,56 @@ logger = logging.getLogger(__name__)
 class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
 
+TIME_FMT = '%m-%d-%Y %H:%M:%S'
+
 STATES = '''
 CREATED
-NOT_READY
+LAUNCHER_QUEUED
+AWAITING_PARENTS
 READY
 
-STAGING_IN
-STAGE_IN_DONE
-PREPROCESSING
-PREPROCESS_DONE
+STAGED_IN
+PREPROCESSED
 
-RUN_READY
 RUNNING
 RUN_DONE
 
-POSTPROCESSING
-POSTPROCESS_DONE
-STAGING_OUT
+POSTPROCESSED
 JOB_FINISHED
 
 RUN_TIMEOUT
 RUN_ERROR
-RUN_ERROR_HANDLED
 RESTART_READY
 
 FAILED
-DETECTED_DEAD_LAUNCHER
+USER_KILLED
 PARENT_KILLED'''.split()
 
 ACTIVE_STATES = '''
-STAGING_IN
-PREPROCESSING
 RUNNING
-POSTPROCESSING
-STAGING_OUT'''.split()
+'''.split()
 
 PROCESSABLE_STATES = '''
 CREATED
-NOT_READY
+LAUNCHER_QUEUED
+AWAITING_PARENTS
 READY
-STAGE_IN_DONE
-PREPROCESS_DONE
+STAGED_IN
 RUN_DONE
-POSTPROCESS_DONE
+POSTPROCESSED
 RUN_TIMEOUT
 RUN_ERROR
-RUN_ERROR_HANDLED
-DETECTED_DEAD_LAUNCHER'''.split()
+'''.split()
 
 RUNNABLE_STATES = '''
-RUN_READY
-RESTART_READY'''.split()
+PREPROCESSED
+RESTART_READY
+'''.split()
 
 END_STATES = '''
 JOB_FINISHED
 FAILED
+USER_KILLED
 PARENT_KILLED'''.split()
 
 def assert_disjoint():
@@ -92,7 +86,10 @@ def validate_state(value):
         raise InvalidStateError(f"{value} is not a valid state in balsam.models")
 
 def get_time_string():
-    return timezone.now().strftime('%m-%d-%Y %H:%M:%S')
+    return datetime.now().strftime(TIME_FMT)
+
+def from_time_string(s):
+    return datetime.strptime(s, TIME_FMT)
 
 def history_line(state='CREATED', message=''):
     newline = '' if state=='CREATED' else '\n'
@@ -191,11 +188,10 @@ class BalsamJob(models.Model):
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
         default='')
     
-    launcher_info = models.TextField(
+    ping_info = models.TextField(
         'Scheduler ID',
-        help_text='Information on the launcher (such as scheduler ID, queue) that most recently touched this job',
-        default='')
-    launcher_ping_time = models.DateTimeField(default=timezone.now)
+        help_text='Information on the service (such as scheduler ID, queue) that most recently touched this job',
+        default='{}')
 
     application = models.TextField(
         'Application to Run',
@@ -262,21 +258,47 @@ stage_out_urls:         {self.stage_out_urls}
 wall_time_minutes:      {self.wall_time_minutes}
 num_nodes:              {self.num_nodes}
 processes_per_node:     {self.processes_per_node}
-launcher_info:          {self.launcher_info}
-launcher_ping_time:     {self.launcher_ping_str()}
+ping_info:          {self.ping_info}
 runtime_seconds:        {self.runtime_seconds}
 application:            {self.application}
 '''
         return s.strip() + '\n'
+    
+    def idle(self):
+        '''job.ping_info has a 'ping' time key: 1) if key missing, job has not
+        been touched yet 2) if None, then service has signalled job is now free.
+        If the job is LAUNCHER_QUEUED and appears in local scheduler, it's busy.
+        Otherwise, the job is idle if it has not been pinged in the last 5
+        minutes (signalling that a service processing the job crashed)'''
+        info = get_ping_info()
+        if 'ping' not in info: return True
+        if info['ping'] is None: return True # signals idle
 
-    def launcher_ping_str(self):
-        if self.launcher_ping_time is None:
-            return ''
-        return self.launcher_ping_time.strftime('%m-%d-%Y %H:%M:%S')
+        sched_id = info['scheduler_id']
+        if self.state == 'LAUNCHER_QUEUED' and sched_id:
+            try: queue_stat = scheduler.get_job_status(sched_id)
+            except scheduler.NoQStatInformation: return True # not in queue
+            else: return False # in queue; not idle
 
-    def launcher_ping(self):
-        self.launcher_ping_time = timezone.now()
-        self.save(update_fields=['launcher_ping_time'])
+        last_ping = (info['ping'] - datetime.now()).total_seconds()
+        if last_ping > 300.0: return True # detect hard failure; dead launcher
+        else: return False
+    
+    def get_ping_info(self):
+        info = json.loads(self.ping_info)
+        if info['ping'] is not None:
+            info['ping'] = from_time_string(info['ping'])
+        return info
+
+    def service_ping(self, *, scheduler_id=None, pid=None, hostname=None,
+                      set_idle=False):
+        if set_idle: time = None
+        else: time = get_time_string()
+
+        info = dict(ping=time, scheduler_id=scheduler_id, pid=pid,
+                    hostname=hostname)
+        self.ping_info = json.dumps(info)
+        self.save(update_fields=['ping_info'])
 
     def get_parents_by_id(self):
         return json.loads(self.parents)
@@ -304,12 +326,7 @@ application:            {self.application}
 
         self.state_history += history_line(new_state, message)
         self.state = new_state
-        self.launcher_ping_time = timezone.now()
-        self.save(update_fields=['state', 'state_history', 'launcher_ping_time'])
-        #if self._state.adding:
-        #    self.save()
-        #else:
-        #    self.save(update_fields=['state', 'state_history', 'launcher_ping_time'])
+        self.save(update_fields=['state', 'state_history'])
 
     def get_line_string(self):
         recent_state = self.state_history.split("\n")[-1]
@@ -319,49 +336,26 @@ application:            {self.application}
     def get_header():
         return f' {"job_id":36} | {"workflow":26} | {"name":26} | {"application":26} | {"work_site":20} | {"recent state":100}'
 
-    @staticmethod
-    def create_working_path(job_id):
-        path = os.path.join(settings.BALSAM_WORK_DIRECTORY, str(job_id))
-        try:
-            os.makedirs(path)
-        except BaseException:
-            logger.exception(
-                ' Received exception while making job working directory: ')
-            raise
+    def create_working_path(self):
+        top = settings.BALSAM_WORK_DIRECTORY
+        if self.workflow:
+            top = os.path.join(top, self.workflow)
+        name = self.name.replace(' ', '_')
+        path = os.path.join(top, name)
+        for char in str(self.job_id):
+            if not os.path.exists(path): break
+            path += char
+        os.makedirs(path)
+        self.working_directory = path
+        self.save(update_fields=['working_directory'])
         return path
 
-    def get_balsam_job_message(self):
-        msg = BalsamJobMessage.BalsamJobMessage()
-        msg.argo_job_id = self.subjob_id
-        msg.site = self.site
-        msg.name = self.name
-        msg.description = self.description
-        msg.queue = self.queue
-        msg.project = self.project
-        msg.wall_time_minutes = self.wall_time_minutes
-        msg.num_nodes = self.num_nodes
-        msg.processes_per_node = self.processes_per_node
-        msg.scheduler_config = self.scheduler_config
-        msg.application = self.application
-        msg.config_file = self.config_file
-        msg.input_url = self.input_url
-        msg.output_url = self.output_url
-        return msg
-
     def serialize(self):
-        d = {}
-        for field in BalsamJob.SERIAL_FIELDS:
-            d[field] = self.__dict__[field]
-        return Serializer.serialize(d)
+        pass
 
-    def deserialize(self, serial_data):
-        d = Serializer.deserialize(serial_data)
-        for field, value in d.items():
-            if field in DATETIME_FIELDS and value is not None:
-                self.__dict__[field] = datetime.datetime.strptime(
-                    value, "%Y-%m-%d %H:%M:%S %z")
-            else:
-                self.__dict__[field] = value
+    @classmethod
+    def deserialize(cls, serial_data):
+        pass
 
 
 class ApplicationDefinition(models.Model):

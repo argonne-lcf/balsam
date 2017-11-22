@@ -1,5 +1,6 @@
 from django.conf import settings
 from importlib import import_module
+from schedulers.exceptions import *
 
 scheduler_class = settings.BALSAM_SCHEDULER_CLASS
 

@@ -1,10 +1,9 @@
-
-
 ''' Scheduler Exceptions '''
 
-class SubmitNonZeroReturnCode(Exception): pass
-class SubmitSubprocessFailed(Exception): pass
-class JobSubmitFailed(Exception): pass
-class JobSubmissionDisabled(Exception): pass
-class JobStatusFailed(Exception): pass
-class JobStatusNotFound(Exception): pass
+class SchedulerException(Exception): pass
+class SubmitNonZeroReturnCode(SchedulerException): pass
+class SubmitSubprocessFailed(SchedulerException): pass
+class JobSubmitFailed(SchedulerException): pass
+class JobSubmissionDisabled(SchedulerException): pass
+class JobStatusFailed(SchedulerException): pass
+class NoQStatInformation(SchedulerException): pass

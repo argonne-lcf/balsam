@@ -1,4 +1,3 @@
-from collections import namedtuple
 import functools
 import os
 from pathlib import Path
@@ -11,22 +10,11 @@ from threading import Thread
 from queue import Queue, Empty
 
 import balsam.models
-from balsam.launchers.launcher import SIGNALS, BGQ_HOSTS, CRAY_HOSTS
-from balsam.launchers import mpi_commands
+from balsam.launcher.launcher import SIGNALS
+from balsam.launcher import mpi_commands
+from balsam.launcher import mpi_ensemble
 
 class BalsamRunnerException(Exception): pass
-
-MPIcommand = None
-
-def setup(launcher_config):
-    global MPIcommand
-    if launcher_config.host_type == 'BGQ':
-        MPIcommand = mpi_commands.BGQMPICommand()
-    elif launcher_config.host_type == 'CRAY':
-        MPIcommand = mpi_commands.CRAYMPICommand()
-    else:
-        MPIcommand = mpi_commands.DefaultMPICommand()
-
 
 class cd:
     '''Context manager for changing cwd'''
@@ -42,28 +30,30 @@ class cd:
 
 
 class MonitorStream(Thread):
-    '''Thread for non-blocking read of Runner's subprocess stdout'''
+    '''Thread: non-blocking read of a process's stdout'''
     def __init__(self, runner_output):
         super().__init__()
         self.stream = runner_output
         self.queue = Queue()
         self.daemon = True
+
     def run(self):
         # Call readline until empty string is returned
         for line in iter(self.stream.readline, b''):
             self.queue.put(line.decode('utf-8'))
         self.stream.close()
+
     def available_lines(self):
         while True:
-            try:
-                yield self.queue.get_nowait()
-            except Empty:
-                return
+            try: yield self.queue.get_nowait()
+            except Empty: return
 
 
 class Runner:
     '''Spawns ONE subprocess to run specified job(s) and monitor their execution'''
-    def __init__(self, job_list, worker_list):
+    def __init__(self, job_list, worker_list, host_type):
+        mpi_cmd_class = getattr(mpi_commands, f"{host_type}MPICommand")
+        self.mpi_cmd = mpi_cmd_class()
         self.jobs = job_list
         self.jobs_by_pk = {job.pk : job for job in self.jobs}
         self.process = None
@@ -80,7 +70,7 @@ class Runner:
             self.monitor.start()
 
     def update_jobs(self):
-        pass
+        raise NotImplementedError
 
     @staticmethod
     def get_app_cmd(job):
@@ -101,7 +91,7 @@ class Runner:
 
 class MPIRunner(Runner):
     '''One subprocess, one job'''
-    def __init__(self, job_list, worker_list):
+    def __init__(self, job_list, worker_list, host_type):
 
         super().__init__(job_list, worker_list)
         if len(self.jobs) != 1:
@@ -110,12 +100,12 @@ class MPIRunner(Runner):
         job = self.jobs[0]
         app_cmd = self.get_app_cmd(job)
 
-        mpi = MPICommand(job, worker_list)
+        mpi_str = self.mpi_cmd(job, worker_list)
         
         basename = os.path.basename(job.working_directory)
         outname = os.path.join(job.working_directory, f"{basename}.out")
         self.outfile = open(outname, 'w+b')
-        command = f"{mpi} {app_cmd}"
+        command = f"{mpi_str} {app_cmd}"
         self.popen_args['args'] = shlex.split(command)
         self.popen_args['cwd'] = job.working_directory
         self.popen_args['stdout'] = self.outfile
@@ -140,9 +130,8 @@ class MPIRunner(Runner):
 
 class MPIEnsembleRunner(Runner):
     '''One subprocess: an ensemble of serial jobs run in an mpi4py wrapper'''
-    def __init__(self, job_list, worker_list):
+    def __init__(self, job_list, worker_list, host_type):
 
-        from balsam.launchers import mpi_ensemble
         mpi_ensemble_exe = os.path.abspath(mpi_ensemble.__file__)
 
         super().__init__(job_list, worker_list)
@@ -160,10 +149,10 @@ class MPIEnsembleRunner(Runner):
                 cmd = self.get_app_cmd(job)
                 fp.write(f"{job.pk} {job.working_directory} {cmd}\n")
 
-        nproc = len(worker_list) * worker_list[0].ranks_per_worker
-        mpi = MPICommand(self.jobs[0], worker_list, nproc=nproc)
+        nproc = sum(w.ranks_per_worker for w in worker_list)
+        mpi_str = self.mpi_cmd(self.jobs[0], worker_list, nproc=nproc)
 
-        command = f"{mpi} {mpi_ensemble_exe} {self.ensemble_filename}"
+        command = f"{mpi_str} {mpi_ensemble_exe} {self.ensemble_filename}"
         self.popen_args['args'] = shlex.split(command)
 
     def update_jobs(self):

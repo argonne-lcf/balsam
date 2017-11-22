@@ -5,7 +5,7 @@ import sys
 from subprocess import Popen, STDOUT
 
 from mpi4py import MPI
-from runners import cd
+from balsam.launcher.runners import cd
 
 class MPIEnsembleError(Exception): pass
 
@@ -41,26 +41,21 @@ def run(job):
             status_msg(job.id, "RUN_ERROR", msg=str(e))
             raise MPIEnsembleError from e
         else:
-            if retcode == 0:
-                status_msg(job.id, "RUN_FINISHED")
-            else:
-                status_msg(job.id, "RUN_ERROR", msg=f"error code {retcode}")
+            if retcode == 0: status_msg(job.id, "RUN_FINISHED")
+            else: status_msg(job.id, "RUN_ERROR", msg=f"process return code {retcode}")
         finally:
             proc.terminate()
 
 
 def main(jobs_path):
     job_list = None
-    proc = None
 
     if RANK == 0:
-        with open(jobs_path) as fp:
+        with open(jobs_path) as fp: 
             job_list = list(read_jobs(fp))
 
     job_list = COMM.bcast(job_list, root=0)
-    for job in job_list[RANK::COMM.size]:
-        run(job)
-            
+    for job in job_list[RANK::COMM.size]: run(job)
 
 if __name__ == "__main__":
     path = sys.argv[1]

@@ -1,4 +1,4 @@
-class DefaultMPICommand(object):
+class DEFAULTMPICommand(object):
     def __init__(self):
         self.mpi = 'mpirun'
         self.nproc = '-n'
@@ -36,7 +36,7 @@ class DefaultMPICommand(object):
         return result
 
 
-class BGQMPICommand(DefaultMPICommand):
+class BGQMPICommand(DEFAULTMPICommand):
     def __init__(self):
         self.mpi = 'runjob'
         self.nproc = '--np'
@@ -62,7 +62,7 @@ class BGQMPICommand(DefaultMPICommand):
         shape, block, corner = worker.shape, worker.block, worker.corner
         return f"--shape {shape} --block {block} --corner {corner} "
 
-class CRAYMPICommand(DefaultMPICommand):
+class CRAYMPICommand(DEFAULTMPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'aprun'

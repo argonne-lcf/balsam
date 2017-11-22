@@ -6,12 +6,11 @@ import logging
 import time
 
 from django.conf import settings
-from balsam.schedulers import exceptions, jobstates
+from balsam.schedulers.exceptions import * 
 from common import run_subprocess
 
 logger = logging.getLogger(__name__)
 
-class SchedulerException(Exception): pass
 
 def get_environ():
     SchedulerEnv = namedtuple('SchedulerEnv', ['id', 'num_nodes', 'partition'])
@@ -64,7 +63,6 @@ def submit(job, cmd):
     logger.debug('CobaltScheduler Job submission complete')
 
 def get_job_status(scheduler_id):
-    class NoQStatInformation(SchedulerException): pass
 
     qstat = QStat(scheduler_id)
     if not qstat.qstat_info:
