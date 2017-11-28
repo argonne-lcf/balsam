@@ -63,6 +63,7 @@ BALSAM_ALLOWED_EXECUTABLE_DIRECTORY = ALLOWED_EXE_PATH # path to allowed executa
 BALSAM_SITE                         = 'theta' # local balsam site name
 BALSAM_SCHEDULER_CLASS              = 'CobaltScheduler' # local scheduler in use
 BALSAM_MAX_CONCURRENT_TRANSITIONS   = 5 # maximum number of sub threads spawned by Balsam
+BALSAM_MAX_CONCURRENT_RUNNERS       = 50 # maximum number of background 'mpirun' subprocesses
 
 #------------------------------
 # ARGO CONFIG INFO

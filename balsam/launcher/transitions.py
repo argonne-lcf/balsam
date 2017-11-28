@@ -3,11 +3,77 @@ from collections import namedtuple
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.conf import settings
 
 from common import transfer
-
+from balsam.launcher.exceptions import *
 logger = logging.getLogger(__name__)
-class ProcessingError(Exception): pass
+
+
+StatusMsg = namedtuple('Status', ['pk', 'state', 'msg'])
+JobMsg =   namedtuple('JobMsg', ['pk', 'transition_function'])
+
+def main(job_queue, status_queue):
+    while True:
+        job, process_function = job_queue.get()
+        if job == 'end':
+            return
+        try:
+            process_function(job)
+        except BalsamTransitionError as e:
+            s = StatusMsg(job.pk, 'FAILED', str(e))
+            status_queue.put(s)
+        else:
+            s = StatusMsg(job.pk, job.state, 'success')
+            status_queue.put(s)
+
+class TransitionProcessPool:
+    NUM_PROC = settings.BALSAM_MAX_CONCURRENT_TRANSITIONS
+    def __init__(self):
+        
+        self.job_queue = multiprocessing.Queue()
+        self.status_queue = multiprocessing.Queue()
+        self.transitions_pk_list = []
+
+        self.procs = [
+            multiprocessing.Process( target=main, 
+                                    args=(self.job_queue, self.status_queue))
+            for i in range(NUM_PROC)
+        ]
+        for proc in self.procs: proc.start()
+
+    def __contains__(self, job):
+        return job.pk in self.transitions_pk_list
+
+    def add_job(self, job):
+        if job in self: raise BalsamTransitionError("already in transition")
+        if job.state not in TRANSITIONS: raise TransitionNotFoundError
+        pk = job.pk
+        transition_function = TRANSITIONS[job.state]
+        m = JobMsg(pk, transition_function)
+        self.job_queue.put(m)
+        self.transitions_pk_list.append(pk)
+
+    def get_statuses():
+        while not self.status_queue.empty():
+            try:
+                stat = self.status_queue.get_nowait()
+                self.transitions_pk_list.remove(stat.pk)
+                yield stat
+            except queue.Empty:
+                break
+
+    def stop_processes(self):
+        while not self.job_queue.empty():
+            try:
+                self.job_queue.get_nowait()
+            except queue.Empty:
+                break
+        m = JobMsg('end', None)
+        for proc in self.procs:
+            self.job_queue.put(m)
+        self.transitions_pk_list = []
+
 
 def check_parents(job):
     parents = job.get_parents()
@@ -176,20 +242,14 @@ def postprocess(job):
         settings.SENDER_CONFIG)
     status_sender.send_status(job, message)
 
-
-StatusMsg = namedtuple('Status', ['pk', 'state', 'msg'])
-JobMsg =   namedtuple('JobMsg', ['pk', 'transition_function'])
-
-def main(job_queue, status_queue):
-    while True:
-        job, process_function = job_queue.get()
-        if job == 'end':
-            return
-        try:
-            process_function(job)
-        except ProcessingError as e:
-            s = StatusMsg(job.pk, 'FAILED', str(e))
-            status_queue.put(s)
-        else:
-            s = StatusMsg(job.pk, job.state, 'success')
-            status_queue.put(s)
+TRANSITIONS = {
+    'CREATED':          check_parents,
+    'LAUNCHER_QUEUED':  check_parents,
+    'AWAITING_PARENTS': check_parents,
+    'READY':            stage_in,
+    'STAGED_IN':        preprocess,
+    'RUN_DONE':         postprocess,
+    'RUN_TIMEOUT':      postprocess,
+    'RUN_ERROR':        postprocess,
+    'POSTPROCESSED':    stage_out,
+}

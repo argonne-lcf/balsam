@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 from datetime import datetime
+from socket import gethostname
 import uuid
 
 from django.core.exceptions import ValidationError
@@ -154,11 +155,6 @@ class BalsamJob(models.Model):
         help_text='The URLs to which designated stage out files are sent.',
         default='')
 
-    job_type = models.TextField(
-        'Job Type',
-        help_text='One of: SingleNode, MPI (future: Spark, Celery, ...)
-        Determines the runner that will execute this job',
-        default='MPI')
     requested_wall_time_minutes = models.IntegerField(
         'Job Wall Time in Minutes',
         help_text='The number of minutes the job is expected to take',
@@ -170,11 +166,11 @@ class BalsamJob(models.Model):
     num_nodes = models.IntegerField(
         'Number of Compute Nodes',
         help_text='The number of compute nodes requested for this job.',
-        default=0)
+        default=1)
     processes_per_node = models.IntegerField(
         'Number of Processes per Node',
-        help_text='The number of processes per node to schedule for this job.',
-        default=0)
+        help_text='The number of MPI processes per node to schedule for this job.',
+        default=1)
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
         help_text='The number of OpenMP threads per MPI rank (if applicable)',
@@ -248,7 +244,6 @@ work_site:              {self.work_site}
 workflow:               {self.workflow}
 name:                   {self.name}
 description:            {self.description[:50]}
-job_type:               {self.job_type}
 working_directory:      {self.working_directory}
 parents:                {self.parents}
 input_files:            {self.input_files}
@@ -258,7 +253,7 @@ stage_out_urls:         {self.stage_out_urls}
 wall_time_minutes:      {self.wall_time_minutes}
 num_nodes:              {self.num_nodes}
 processes_per_node:     {self.processes_per_node}
-ping_info:          {self.ping_info}
+ping_info:              {self.ping_info}
 runtime_seconds:        {self.runtime_seconds}
 application:            {self.application}
 '''
@@ -270,7 +265,7 @@ application:            {self.application}
         If the job is LAUNCHER_QUEUED and appears in local scheduler, it's busy.
         Otherwise, the job is idle if it has not been pinged in the last 5
         minutes (signalling that a service processing the job crashed)'''
-        info = get_ping_info()
+        info = self.get_ping_info()
         if 'ping' not in info: return True
         if info['ping'] is None: return True # signals idle
 
@@ -290,11 +285,12 @@ application:            {self.application}
             info['ping'] = from_time_string(info['ping'])
         return info
 
-    def service_ping(self, *, scheduler_id=None, pid=None, hostname=None,
-                      set_idle=False):
+    def service_ping(self, *, scheduler_id=None, set_idle=False):
         if set_idle: time = None
         else: time = get_time_string()
 
+        pid = os.getpid()
+        hostname = gethostname()
         info = dict(ping=time, scheduler_id=scheduler_id, pid=pid,
                     hostname=hostname)
         self.ping_info = json.dumps(info)

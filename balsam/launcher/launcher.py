@@ -2,128 +2,42 @@
 scheduling service and submits directly to a local job queue, or by the
 Balsam service metascheduler'''
 import argparse
+from collections import defaultdict
 import os
 import multiprocessing
 import queue
 import time
 
 from django.conf import settings
+from django.db import transaction
 
-import balsam.models
-from balsam.models import BalsamJob
 from balsam import scheduler
+from balsam.launcher import jobreader
+from balsam.launcher import transitions
+from balsam.launcher import worker
+from balsam.launcher.exceptions import *
 
 START_TIME = time.time() + 10.0
 
-class BalsamLauncherException(Exception): pass
-
-class Worker:
-    def __init__(self, id, *, shape=None, block=None, corner=None,
-                 ranks_per_worker=None):
-        self.id = id
-        self.shape = shape
-        self.block = block
-        self.corner = corner
-        self.ranks_per_worker = ranks_per_worker
-        self.idle = True
-
-class WorkerGroup:
-
-    def __init__(self, config):
-        self.host_type = config.host_type
-        self.partition = config.partition
-        self.workers = []
-        self.setup = getattr(self, f"setup_{self.host_type}")
-        if self.host_type == 'DEFAULT':
-            self.num_workers = config.num_workers
-        else:
-            self.num_workers = None
-        self.setup()
-
-    def setup_CRAY(self):
-        node_ids = []
-        ranges = self.partition.split(',')
-        for node_range in ranges:
-            lo, *hi = node_range.split('-')
-            lo = int(lo)
-            if hi:
-                hi = int(hi[0])
-                node_ids.extend(list(range(lo, hi+1)))
-            else:
-                node_ids.append(lo)
-        for id in node_ids:
-            self.workers.append(Worker(id))
-
-    def setup_BGQ(self):
-        # Boot blocks
-        # Get (block, corner, shape) args for each sub-block
-        pass
-
-    def setup_DEFAULT(self):
-        for i in range(self.num_workers):
-            self.workers.apppend(Worker(i))
-
-    def get_idle_workers(self):
-        return [w for w in self.workers if w.idle]
-
-
-SIGTIMEOUT = 'TIMEOUT!'
+SIGTIMEOUT = 'TIMEOUT'
 SIGNALS = {
     signal.SIGINT: 'SIG_INT',
     signal.SIGTERM: 'SIG_TERM',
 }
 
-class JobRetriever:
-    '''Use the get_jobs method to pull valid jobs for this run'''
-
-    def __init__(self, config):
-        self.job_pk_list = None
-        self._job_file = config.job_file
-        self.wf_name = config.wf_name
-        self.host_type = config.host_type
-
-    def get_jobs(self):
-        if self._job_file:
-            jobs = self._jobs_from_file()
+def delay(period=10.0):
+    nexttime = time.time() + period
+    while True:
+        now = time.time()
+        tosleep = nexttime - now
+        if tosleep <= 0:
+            nexttime = now + period
         else:
-            jobs = self._jobs_from_wf(wf=self.wf_name)
-        return self._filter(jobs)
+            time.sleep(tosleep)
+            nexttime = now + tosleep + period
+        yield
 
-    def _filter(self, jobs):
-        jobs = jobs.exclude(state__in=balsam.models.END_STATES)
-        jobs = jobs.filter(allowed_work_sites__icontains=settings.BALSAM_SITE)
-        # Exclude jobs that are already in LauncherConfig pulled_jobs
-        # Otherwise, you'll be calling job.idle() and qstating too much
-        return [j for j in jobs if j.idle()]
-
-    def _jobs_from_file(self):
-        if self._job_pk_list is None:
-            try:
-                pk_strings = open(self._job_file).read().split()
-            except IOError as e:
-                raise BalsamLauncherException(f"Can't read {self._job_file}") from e
-            try:
-                self._job_pk_list = [uuid.UUID(pk) for pk in pk_strings]
-            except ValueError:
-                raise BalsamLauncherException(f"{self._job_file} contains bad UUID strings")
-        try:
-            jobs = BalsamJob.objects.filter(job_id__in=self._job_file_pk_list)
-        except Exception as e:
-            raise BalsamLauncherException("Failed to query BalsamJobDB") from e
-        else: 
-            return jobs
-    
-    def _jobs_from_wf(self, wf=''):
-        objects = BalsamJob.objects
-        try:
-            jobs = objects.filter(workflow=wf) if wf else objects.all()
-        except Exception as e:
-            raise BalsamLauncherException(f"Failed to query BalsamJobDB for '{wf}'") from e
-        else: 
-            self._job_pk_list = [job.pk for job in jobs]
-            return jobs
-            
-class LauncherConfig:
+class HostEnvironment:
     '''Set user- and environment-specific settings for this run'''
     RECOGNIZED_HOSTS = {
         'BGQ'  : 'vesta cetus mira'.split(),
@@ -187,79 +101,68 @@ class LauncherConfig:
     def sufficient_time(self, job):
         return 60*job.wall_time_minutes < self.remaining_time_seconds()
 
-    def check_timeout(self, active_runners):
+    def check_timeout(self):
         if self.remaining_time_seconds() < 1.0:
-            for runner in active_runners:
-                runner.timeout(SIGTIMEOUT, None)
             return True
         return False
 
-class TransitionProcessPool:
-    TRANSITIONS = {
-        'CREATED': check_parents,
-        'LAUNCHER_QUEUED': check_parents,
-        'AWAITING_PARENTS': check_parents,
-        'READY': stage_in,
-        'STAGED_IN': preprocess,
-        'RUN_DONE': postprocess,
-        'RUN_TIMEOUT': postprocess,
-        'RUN_ERROR': postprocess,
-        'POSTPROCESSED': stage_out
-    }
-    def __init__(self, num_transitions=None):
-        if not num_transitions:
-            num_transitions = settings.BALSAM_MAX_CONCURRENT_TRANSITIONS
-        
-        self.job_queue = multiprocessing.Queue()
-        self.status_queue = multiprocessing.Queue()
+def get_runnable_jobs(jobs, running_pks, host_env):
+    runnable_jobs = [job for job in jobsource.jobs
+                     if job.pk not in running_pks and
+                     job.state in RUNNABLE_STATES and
+                     host_env.sufficient_time(job)]
+    return runnable_jobs
 
-        self.procs = [
-            multiprocessing.Process( target=transitions.main, 
-                                    args=(self.job_queue, self.status_queue))
-            for i in range(num_transitions)
-        ]
-        for proc in self.procs:
-            proc.start()
-
-    def add_job(self, pk, transition_function):
-        m = transitions.JobMsg(pk, transition_function)
-        self.job_queue.put(m)
-
-    def get_statuses():
-        while not self.status_queue.empty():
-            try:
-                yield self.status_queue.get_nowait()
-            except queue.Empty:
-                break
-
-    def stop_processes(self):
-        while not self.job_queue.empty():
-            try:
-                self.job_queue.get_nowait()
-            except queue.Empty:
-                break
-
-        m = transitions.JobMsg('end', None)
-        for proc in self.procs:
-            self.job_queue.put(m)
+def create_new_runners(jobs, runner_group, worker_group, host_env):
+    running_pks = runner_group.running_job_pks
+    runnable_jobs = get_runnable_jobs(jobs, running_pks, host_env)
+    while runnable_jobs:
+        try:
+            runner_group.create_next_runner(runnable_jobs, worker_group)
+        except (ExceededMaxRunners, NoAvailableWorkers) as e:
+            break
+        else:
+            running_pks = runner_group.running_job_pks
+            runnable_jobs = get_runnable_jobs(jobs, running_pks, host_env)
 
 def main(args):
-    launcher_config = LauncherConfig(args)
-    job_retriever = JobRetriever(launcher_config)
-    workers = WorkerGroup(launcher_config)
+    host_env = HostEnvironment(args)
+    worker_group = worker.WorkerGroup(host_env)
+    jobsource = jobreader.JobReader.from_config(args)
 
-    transitions_pool = TransitionProcessPool()
+    transition_pool = transitions.TransitionProcessPool()
+    runner_group  = runners.RunnerGroup()
+    delay_timer = delay()
 
-    while not launcher_config.check_timeout():
-        # keep a list of jobs I'm handling
-        # get_jobs() should only fetch new ones
-        # ping jobs I'm handling using job.service_ping
-        jobs = job_retriever.get_jobs()
+    # Main Launcher Service Loop
+    while not host_env.check_timeout():
+        wait = True
+        for stat in transitions_pool.get_statuses():
+            logger.debug(f'Transition: {stat.pk} {stat.state}: {stat.msg}')
+            wait = False
+        
+        jobsource.refresh_from_db()
+        
+        transitionable_jobs = [
+            job for job in jobsource.jobs
+            if job not in transitions_pool
+            and job.state in transitions_pool.TRANSITIONS
+        ]
+        for job in transitionable_jobs:
+            transitions_pool.add_job(job)
+            wait = False
+        
+        runner_group.update_and_remove_finished()
+        any_finished = create_new_runners(
+            jobsource.jobs, runner_group, worker_group, host_env
+        )
+        if any_finished: wait = False
+        if wait: next(delay_timer)
     
     transitions_pool.stop_processes()
+    for runner in runner_group:
+        runner.timeout(SIGTIMEOUT, None)
 
-    # Maintain up to 50 active runners (1 runner tracks 1 subprocess-aprun)
-    # Add transitions to error_handle all the RUN_TIMEOUT jobs
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
@@ -268,7 +171,7 @@ if __name__ == "__main__":
     group.add_argument('--job-file', help="File of Balsam job IDs")
     group.add_argument('--consume-all', action='store_true', 
                         help="Continuously run all jobs from DB")
-    group.add_argument('--consume-wf', 
+    group.add_argument('--wf-name',
                        help="Continuously run jobs of specified workflow")
 
     parser.add_argument('--num-workers', type=int, default=1,
@@ -279,4 +182,6 @@ if __name__ == "__main__":
                         help="Override auto-detected walltime limit (runs
                         forever if no limit is detected or specified)")
     args = parser.parse_args()
+    # TODO: intercept KeyboardInterrupt and all INT,TERM signals
+    # Cleanup actions; mark jobs as idle
     main(args)
