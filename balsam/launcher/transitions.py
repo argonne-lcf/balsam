@@ -1,5 +1,8 @@
 '''BalsamJob pre and post execution'''
 from collections import namedtuple
+import glob
+import multiprocessing
+import queue
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -8,22 +11,26 @@ from django import db
 
 from common import transfer
 from balsam.launcher.exceptions import *
+from balsam.models import BalsamJob
 logger = logging.getLogger(__name__)
 
+PREPROCESS_TIMEOUT_SECONDS = 300
 
 StatusMsg = namedtuple('Status', ['pk', 'state', 'msg'])
-JobMsg =   namedtuple('JobMsg', ['pk', 'transition_function'])
+JobMsg =   namedtuple('JobMsg', ['job', 'transition_function'])
 
 
 def main(job_queue, status_queue):
     db.connection.close()
     while True:
-        job, process_function = job_queue.get()
+        job_msg = job_queue.get()
+        job, transition_function = job_msg
         if job == 'end': return
 
         try:
-            process_function(job)
+            transition_function(job)
         except BalsamTransitionError as e:
+            job.update_state('FAILED', str(e))
             s = StatusMsg(job.pk, 'FAILED', str(e))
             status_queue.put(s)
         else:
@@ -55,11 +62,10 @@ class TransitionProcessPool:
     def add_job(self, job):
         if job in self: raise BalsamTransitionError("already in transition")
         if job.state not in TRANSITIONS: raise TransitionNotFoundError
-        pk = job.pk
         transition_function = TRANSITIONS[job.state]
-        m = JobMsg(pk, transition_function)
+        m = JobMsg(job, transition_function)
         self.job_queue.put(m)
-        self.transitions_pk_list.append(pk)
+        self.transitions_pk_list.append(job.pk)
 
     def get_statuses():
         while not self.status_queue.empty():
@@ -90,167 +96,218 @@ def check_parents(job):
     ready = all(p.state == 'JOB_FINISHED' for p in parents)
     if ready:
         job.update_state('READY', 'dependencies satisfied')
-    elif job.state == 'CREATED':
-        job.update_state('NOT_READY', 'awaiting dependencies')
+    elif job.state != 'AWAITING_PARENTS':
+        job.update_state('AWAITING_PARENTS', f'{len(parents)} pending jobs')
 
 
 def stage_in(job):
     # Create workdirs for jobs: use job.create_working_path
     logger.debug('in stage_in')
-    job.update_state('STAGING_IN')
 
     if not os.path.exists(job.working_directory):
         job.create_working_path()
+    work_dir = job.working_directory
 
-    if job.input_url != '':
+    # stage in all remote urls
+    # TODO: stage_in remote transfer should allow a list of files and folders,
+    # rather than copying just one entire folder
+    url_in = job.stage_in_url
+    if url_in:
         try:
-            transfer.stage_in(job.input_url + '/', job.working_directory + '/')
-            job.state = STAGED_IN.name
+            transfer.stage_in(f"{url_in}/",  f"{work_dir}/")
         except Exception as e:
             message = 'Exception received during stage_in: ' + str(e)
             logger.error(message)
-            job.state = STAGE_IN_FAILED.name
-    else:
-        # no input url specified so stage in is complete
-        job.state = STAGED_IN.name
+            raise BalsamTransitionError from e
 
-    job.update_state('STAGE_IN_DONE')
+    # create unique symlinks to "input_files" patterns from parents
+    # TODO: handle data flow from remote sites transparently
+    matches = []
+    parents = job.get_parents()
+    input_patterns = job.input_files.split()
+    for parent in parents:
+        parent_dir = parent.working_directory
+        for pattern in input_patterns:
+            path = os.path.join(parent_dir, pattern)
+            matches.extend((parent.pk, glob.glob(path)))
+
+    for parent_pk, inp_file in matches:
+        basename = os.path.basename(inp_file)
+        newpath = os.path.join(work_dir, basename)
+        if os.path.exists(newpath): newpath += f"_{parent_pk}"
+        # pointing to src, named dst
+        os.symlink(src=inp_file, dst=newpath)
+    job.update_state('STAGED_IN')
+
 
 def stage_out(job):
-    ''' if the job has files defined via the output_files and an output_url is defined,
-        they are copied from the local working_directory to the output_url '''
+    '''copy from the local working_directory to the output_url '''
     logger.debug('in stage_out')
-    message = None
-    if job.output_url != '':
-        try:
-            transfer.stage_out(
-                job.working_directory + '/',
-                job.output_url + '/')
-            job.state = STAGED_OUT.name
-        except Exception as e:
-            message = 'Exception received during stage_out: ' + str(e)
-            logger.error(message)
-            job.state = STAGE_OUT_FAILED.name
-    else:
-        # no output url specififed so stage out is complete
-        job.state = STAGED_OUT.name
 
-    job.save(
-        update_fields=['state'],
-        using=db_tools.get_db_connection_id(
-            job.pk))
-    status_sender = BalsamStatusSender.BalsamStatusSender(
-        settings.SENDER_CONFIG)
-    status_sender.send_status(job, message)
+    stage_out_patterns = job.stage_out_files.split()
+    work_dir = job.working_directory
+    matches = []
+    for pattern in stage_out_patterns:
+        path = os.path.join(work_dir, pattern)
+        matches.extend(glob.glob(path))
 
-# preprocess a job
+    if matches:
+        with tempfile.TemporaryDirectory() as stagingdir:
+            try:
+                for f in matches: 
+                    base = os.path.basename(f)
+                    dst = os.path.join(stagingdir, base)
+                    os.link(src=f, dst=dst)
+                transfer.stage_out(f"{stagingdir}/", f"{job.stage_out_url}/")
+            except Exception as e:
+                message = 'Exception received during stage_out: ' + str(e)
+                logger.error(message)
+                raise BalsamTransitionError from e
+    job.update_state('JOB_FINISHED') # this completes the transitions
 
 
 def preprocess(job):
-    ''' Each job defines a task to perform, so tasks need preprocessing to prepare
-        for the job to be submitted to the batch queue. '''
     logger.debug('in preprocess ')
-    message = 'Job prepocess complete.'
-    # get the task that is running
-    try:
-        app = ApplicationDefinition.objects.get(name=job.application)
-        if app.preprocess:
-            if os.path.exists(app.preprocess):
-                stdout = run_subprocess.run_subprocess(app.preprocess)
-                # write stdout to log file
-                f = open(os.path.join(job.working_directory, app.name +
-                                      '.preprocess.log.pid' + str(os.getpid())), 'wb')
-                f.write(stdout)
-                f.close()
-                job.state = PREPROCESSED.name
-            else:
-                message = ('Preprocess, "' + app.preprocess + '", of application, "' + str(job.application)
-                           + '", does not exist on filesystem.')
-                logger.error(message)
-                job.state = PREPROCESS_FAILED.name
-        else:
-            logger.debug('No preprocess specified for this job; skipping')
-            job.state = PREPROCESSED.name
-    except run_subprocess.SubprocessNonzeroReturnCode as e:
-        message = ('Preprocess, "' + app.preprocess + '", of application, "' + str(job.application)
-                   + '", exited with non-zero return code: ' + str(returncode))
-        logger.error(message)
-        job.state = PREPROCESS_FAILED.name
-    except run_subprocess.SubprocessFailed as e:
-        message = ('Received exception while running preprocess, "' + app.preprocess
-                   + '", of application, "' + str(job.application) + '", exception: ' + str(e))
-        logger.error(message)
-        job.state = PREPROCESS_FAILED.name
-    except ObjectDoesNotExist as e:
-        message = 'application,' + str(job.application) + ', does not exist.'
-        logger.error(message)
-        job.state = PREPROCESS_FAILED.name
-    except Exception as e:
-        message = 'Received exception while in preprocess, "' + \
-            app.preprocess + '", for application ' + str(job.application)
-        logger.exception(message)
-        job.state = PREPROCESS_FAILED.name
 
-    job.save(
-        update_fields=['state'],
-        using=db_tools.get_db_connection_id(
-            job.pk))
-    status_sender = BalsamStatusSender.BalsamStatusSender(
-        settings.SENDER_CONFIG)
-    status_sender.send_status(job, message)
+    # Get preprocesser exe
+    preproc_app = job.preprocess
+    if not preproc_app:
+        try:
+            app = job.get_application()
+        except ObjectDoesNotExist as e:
+            message = f"application {job.application} does not exist"
+            logger.error(message)
+            raise BalsamTransitionError(message)
+        preproc_app = app.default_preprocess
+    if not preproc_app:
+        job.update_state('PREPROCESSED', 'No preprocess: skipped')
+        return
+    if not os.path.exists(preproc_app):
+        #TODO: look for preproc in the EXE directories
+        message = f"Preprocessor {preproc_app} does not exist on filesystem"
+        logger.error(message)
+        raise BalsamTransitionError
 
-# perform any post job processing needed
-def postprocess(job):
-    ''' some jobs need to have some postprocessing performed,
-        this function does this.'''
+    # Create preprocess-specific environment
+    envs = job.get_envs()
+
+    # Run preprocesser with special environment in job working directory
+    out = os.path.join(job.working_directory, f"preprocess.log.pid{os.getpid()}")
+    with open(out, 'wb') as fp:
+        fp.write(f"# Balsam Preprocessor: {preproc_app}")
+        try:
+            proc = subprocess.Popen(preproc_app, stdout=fp,
+                                    stderr=subprocess.STDOUT, env=envs,
+                                    cwd=job.working_directory)
+            retcode = proc.wait(timeout=PREPROCESS_TIMEOUT_SECONDS)
+        except Exception as e:
+            message = f"Preprocess failed: {e}"
+            logger.error(message)
+            proc.kill()
+            raise BalsamTransitionError from e
+    if retcode != 0:
+        message = f"Preprocess Popen nonzero returncode: {retcode}"
+        logger.error(message)
+        raise BalsamTransitionError(message)
+
+    job.update_state('PREPROCESSED', f"{os.path.basename(preproc_app)}")
+
+
+def postprocess(job, *, error_handling=False, timeout_handling=False):
     logger.debug('in postprocess ')
-    message = 'Job postprocess complete'
-    try:
-        app = ApplicationDefinition.objects.get(name=job.application)
-        if app.postprocess:
-            if os.path.exists(app.postprocess):
-                stdout = run_subprocess.run_subprocess(app.postprocess)
-                # write stdout to log file
-                f = open(os.path.join(job.working_directory, app.name +
-                                      '.postprocess.log.pid' + str(os.getpid())), 'wb')
-                f.write(stdout)
-                f.close()
-                job.state = POSTPROCESSED.name
-            else:
-                message = ('Postprocess, "' + app.postprocess + '", of application, "' + str(job.application)
-                           + '", does not exist on filesystem.')
-                logger.error(message)
-                job.state = POSTPROCESS_FAILED.name
-        else:
-            logger.debug('No postprocess specified for this job; skipping')
-            job.state = POSTPROCESSED.name
-    except run_subprocess.SubprocessNonzeroReturnCode as e:
-        message = ('Postprocess, "' + app.postprocess + '", of application, "' + str(job.application)
-                   + '", exited with non-zero return code: ' + str(returncode))
-        logger.error(message)
-        job.state = POSTPROCESS_FAILED.name
-    except run_subprocess.SubprocessFailed as e:
-        message = ('Received exception while running postprocess, "' + app.preprocess
-                   + '", of application, "' + str(job.application) + '", exception: ' + str(e))
-        logger.error(message)
-        job.state = POSTPROCESS_FAILED.name
-    except ObjectDoesNotExist as e:
-        message = 'application,' + str(job.application) + ', does not exist.'
-        logger.error(message)
-        job.state = POSTPROCESS_FAILED.name
-    except Exception as e:
-        message = 'Received exception while in postprocess, "' + \
-            app.postprocess + '", for application ' + str(job.application)
-        logger.error(message)
-        job.state = POSTPROCESS_FAILED.name
+    if error_handling and timeout_handling:
+        raise ValueError("Both error-handling and timeout-handling is invalid")
+    if error_handling: logger.debug('Handling RUN_ERROR')
+    if timeout_handling: logger.debug('Handling RUN_TIMEOUT')
 
-    job.save(
-        update_fields=['state'],
-        using=db_tools.get_db_connection_id(
-            job.pk))
-    status_sender = BalsamStatusSender.BalsamStatusSender(
-        settings.SENDER_CONFIG)
-    status_sender.send_status(job, message)
+    # Get postprocesser exe
+    postproc_app = job.postprocess
+    if not postproc_app:
+        try:
+            app = job.get_application()
+        except ObjectDoesNotExist as e:
+            message = f"application {job.application} does not exist"
+            logger.error(message)
+            raise BalsamTransitionError(message)
+        postproc_app = app.default_postprocess
+
+    # If no postprocesssor; move on (unless in error_handling mode)
+    if not postproc_app:
+        if error_handling:
+            message = "Trying to handle error, but no postprocessor found"
+            logger.warning(message)
+            raise BalsamTransitionError(message)
+        elif timeout_handling:
+            logger.warning('Unhandled job timeout: marking RESTART_READY')
+            job.update_state('RESTART_READY', 'marking for re-run')
+            return
+        else:
+            job.update_state('POSTPROCESSED', 'No postprocess: skipped')
+            return
+
+    if not os.path.exists(postproc_app):
+        #TODO: look for postproc in the EXE directories
+        message = f"Postprocessor {postproc_app} does not exist on filesystem"
+        logger.error(message)
+        raise BalsamTransitionError
+
+    # Create postprocess-specific environment
+    envs = job.get_envs(timeout=timeout_handling, error=error_handling)
+
+    # Run postprocesser with special environment in job working directory
+    out = os.path.join(job.working_directory, f"postprocess.log.pid{os.getpid()}")
+    with open(out, 'wb') as fp:
+        fp.write(f"# Balsam Postprocessor: {postproc_app}\n")
+        if timeout_handling: fp.write("# Invoked to handle RUN_TIMEOUT\n")
+        if error_handling: fp.write("# Invoked to handle RUN_ERROR\n")
+
+        try:
+            proc = subprocess.Popen(postproc_app, stdout=fp,
+                                    stderr=subprocess.STDOUT, env=envs,
+                                    cwd=job.working_directory)
+            retcode = proc.wait(timeout=POSTPROCESS_TIMEOUT_SECONDS)
+        except Exception as e:
+            message = f"Postprocess failed: {e}"
+            logger.error(message)
+            proc.kill()
+            raise BalsamTransitionError from e
+    if retcode != 0:
+        message = f"Postprocess Popen nonzero returncode: {retcode}"
+        logger.error(message)
+        raise BalsamTransitionError(message)
+
+    # If postprocessor handled error or timeout, it should have changed job's
+    # state. If it failed to do this, mark FAILED.  Otherwise, POSTPROCESSED.
+    job.refresh_from_db()
+    if error_handling and job.state == 'RUN_ERROR':
+        message = f"Error handling failed to change job state: marking FAILED"
+        logger.warning(message)
+        raise BalsamTransitionError(message)
+
+    if timeout_handling and job.state == 'RUN_TIMEOUT':
+        message = f"Timeout handling failed to change job state: marking FAILED"
+        logger.warning(message)
+        raise BalsamTransitionError(message)
+
+    if not (error_handling or timeout_handling):
+        job.update_state('POSTPROCESSED', f"{os.path.basename(postproc_app)}")
+
+
+def handle_timeout(job):
+    if job.post_timeout_handler:
+        postprocess(job, timeout_handling=True)
+    elif job.auto_timeout_retry:
+        job.update_state('RESTART_READY', 'timedout: auto retry')
+    else:
+        raise BalsamTransitionError("No timeout handling: marking FAILED")
+
+
+def handle_run_error(job):
+    if job.post_error_handler:
+        postprocess(job, error_handling=True)
+    else:
+        raise BalsamTransitionError("No error handler: run failed")
+
 
 TRANSITIONS = {
     'CREATED':          check_parents,
@@ -259,7 +316,7 @@ TRANSITIONS = {
     'READY':            stage_in,
     'STAGED_IN':        preprocess,
     'RUN_DONE':         postprocess,
-    'RUN_TIMEOUT':      postprocess,
-    'RUN_ERROR':        postprocess,
+    'RUN_TIMEOUT':      handle_timeout,
+    'RUN_ERROR':        handle_run_error,
     'POSTPROCESSED':    stage_out,
 }

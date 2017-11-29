@@ -1,3 +1,4 @@
+from collections import defaultdict
 import balsam.models
 from balsam.models import BalsamJob
 

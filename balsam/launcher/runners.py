@@ -1,7 +1,8 @@
 '''A Runner is constructed with a list of jobs and a list of idle workers. It
 creates and monitors the execution subprocess, updating job states in the DB as
-necessary. RunnerGroup contains the list of Runner objects, logic for creating
-the next Runner (i.e. assigning jobs to nodes), and the public interface'''
+necessary. RunnerGroup has a collection of Runner objects, logic for creating
+the next Runner (i.e. assigning jobs to nodes), and the public interface to
+monitor runners'''
 
 import functools
 from math import ceil
@@ -15,6 +16,7 @@ from threading import Thread
 from queue import Queue, Empty
 
 from django.conf import settings
+from django.db import transaction
 
 import balsam.models
 from balsam.launcher import mpi_commands
@@ -197,15 +199,18 @@ class RunnerGroup:
         rpw = workers[0].ranks_per_worker
         assert all(w.ranks_per_worker == rpw for w in idle_workers)
 
-        serial_jobs = [j for j in runnable_jobs if j.num_nodes == 1 and
-                       j.processes_per_node == 1]
+        serial_jobs = [j for j in runnable_jobs 
+                       if j.num_nodes == 1 and j.processes_per_node == 1]
         nserial = len(serial_jobs)
 
         mpi_jobs = [j for j in runnable_jobs if 1 < j.num_nodes <= nidle or
-                    (1==j.num_nodes<=nidle  and j.processes_per_node > 1)]
+                    (1==j.num_nodes<=nidle and j.processes_per_node > 1)]
         largest_mpi_job = (max(mpi_jobs, key=lambda job: job.num_nodes) 
                            if mpi_jobs else None)
         
+        # Try to fill all available nodes with serial ensemble runner
+        # If there are not enough serial jobs; run the larger of:
+        # largest MPI job that fits, or the remaining serial jobs
         if nserial >= nidle*rpw:
             jobs = serial_jobs[:nidle*rpw]
             assigned_workers = idle_workers
@@ -243,5 +248,4 @@ class RunnerGroup:
 
     @property
     def running_job_pks(self):
-        active_runners = [r for r in self.runners if not r.finished()]
-        return [j.pk for runner in active_runners for j in runner.jobs]
+        return [j.pk for runner in self.runners for j in runner.jobs]

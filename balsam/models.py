@@ -137,15 +137,15 @@ class BalsamJob(models.Model):
 
     input_files = models.TextField(
         'Input File Patterns',
-        help_text="A string of filename patterns that will be searched in the parents'"\
+        help_text="Space-delimited filename patterns that will be searched in the parents'"\
         "working directories. Every matching file will be made available in this"\
         "job's working directory (symlinks for local Balsam jobs, file transfer for"\
         "remote Balsam jobs). Default: all files from parent jobs are made available.",
         default='*')
-    stage_in_urls = models.TextField(
+    stage_in_url = models.TextField(
         'External stage in files or folders', help_text="A list of URLs for external data to be staged in prior to job processing. Job dataflow from parents to children is NOT handled here; see `input_files` field instead.",
         default='')
-    stage_out_files = models.TextField(
+    stage_out_files = models.TextField
         'External stage out files or folders',
         help_text="A string of filename patterns. Matches will be transferred to the stage_out_url. Default: no files are staged out",
         default='')
@@ -154,7 +154,7 @@ class BalsamJob(models.Model):
         help_text='The URLs to which designated stage out files are sent.',
         default='')
 
-    requested_wall_time_minutes = models.IntegerField(
+    wall_time_minutes = models.IntegerField(
         'Job Wall Time in Minutes',
         help_text='The number of minutes the job is expected to take',
         default=1)
@@ -215,6 +215,21 @@ class BalsamJob(models.Model):
         help_text='A script that is run in a job working directory after the job has completed.'
         ' If blank, will default to the default_postprocess script defined for the application.',
         default='')
+    post_error_handler = models.BooleanField(
+        'Let postprocesser try to handle RUN_ERROR',
+        help_text='If true, the postprocessor will be invoked for RUN_ERROR jobs'
+        ' and it is up to the script to handle error and update job state.',
+        default=False)
+    post_timeout_handler = models.BooleanField(
+        'Let postprocesser try to handle RUN_TIMEOUT',
+        help_text='If true, the postprocessor will be invoked for RUN_TIMEOUT jobs'
+        ' and it is up to the script to handle timeout and update job state.',
+        default=False)
+    auto_timeout_retry = models.BooleanField(
+        'Automatically restart jobs that have timed out',
+        help_text="If True and post_timeout_handler is False, then jobs will "
+        "simply be marked RESTART_READY upon timing out.",
+        default=True)
 
     state = models.TextField(
         'Job State',
@@ -246,13 +261,13 @@ description:            {self.description[:50]}
 working_directory:      {self.working_directory}
 parents:                {self.parents}
 input_files:            {self.input_files}
-stage_in_urls:          {self.stage_in_urls}
+stage_in_url:          {self.stage_in_url}
 stage_out_files:        {self.stage_out_files}
 stage_out_urls:         {self.stage_out_urls}
 wall_time_minutes:      {self.wall_time_minutes}
 num_nodes:              {self.num_nodes}
 processes_per_node:     {self.processes_per_node}
-scheduler_id:              {self.scheduler_id}
+scheduler_id:           {self.scheduler_id}
 runtime_seconds:        {self.runtime_seconds}
 application:            {self.application}
 '''
@@ -266,6 +281,13 @@ application:            {self.application}
         parent_ids = self.get_parents_by_id()
         return BalsamJob.objects.filter(job_id__in=parent_ids)
 
+    def get_children(self):
+        return BalsamJob.objects.filter(parents__icontains=str(self.pk))
+
+    def get_children_by_id(self):
+        children = self.get_children()
+        return [c.pk for c in children]
+
     def set_parents(self, parents):
         try:
             parents_list = list(parents)
@@ -278,6 +300,40 @@ application:            {self.application}
             parents_list[i] = str(pk)
         self.parents = json.dumps(parents_list)
         self.save(update_fields=['parents'])
+
+    def get_application(self):
+        if not self.application:
+            return None
+        return ApplicationDefinition.objects.get(name=self.application)
+
+    @staticmethod
+    def parse_envstring(s):
+        result = {}
+        entries = s.split(':')
+        entries = [e.split('=') for e in entries]
+        return {variable:value for (variable,value) in entries}
+
+    def get_envs(self, *, timeout=False, error=False):
+        envs = os.environ.copy()
+        app = self.get_application()
+        if app and app.environ_vars:
+            app_vars = self.parse_envstring(app.environ_vars)
+            envs.update(app_vars)
+        if self.environ_vars:
+            job_vars = self.parse_envstring(self.environ_vars)
+            envs.update(job_vars)
+    
+        children = self.get_children_by_id()
+        children = json.dumps([str(c) for c in children])
+        balsam_envs = dict(
+            BALSAM_JOB_ID=str(self.pk),
+            BALSAM_PARENT_IDS=str(self.parents),
+            BALSAM_CHILD_IDS=children,
+            BALSAM_JOB_TIMEOUT=str(timeout),
+            BALSAM_JOB_ERROR=str(error)
+        )
+        envs.update(balsam_envs)
+        return envs
 
     def update_state(self, new_state, message=''):
         if new_state not in STATES:
@@ -301,9 +357,10 @@ application:            {self.application}
             top = os.path.join(top, self.workflow)
         name = self.name.replace(' ', '_')
         path = os.path.join(top, name)
+        if os.path.exists(path): path += "_"
         for char in str(self.job_id):
-            if not os.path.exists(path): break
             path += char
+            if not os.path.exists(path): break
         os.makedirs(path)
         self.working_directory = path
         self.save(update_fields=['working_directory'])
@@ -339,6 +396,10 @@ class ApplicationDefinition(models.Model):
     default_postprocess = models.TextField(
         'Postprocessing Script',
         help_text='A script that is run in a job working directory after the job has completed.',
+        default='')
+    environ_vars = models.TextField(
+        'Environment variables specific to this application',
+        help_text="Colon-separated list of envs like VAR1=value2:VAR2=value2",
         default='')
 
     def __str__(self):

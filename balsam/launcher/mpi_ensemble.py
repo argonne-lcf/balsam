@@ -6,8 +6,7 @@ from subprocess import Popen, STDOUT
 
 from mpi4py import MPI
 from balsam.launcher.runners import cd
-
-class MPIEnsembleError(Exception): pass
+from balsam.launcher.exceptions import *
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()

@@ -2,22 +2,19 @@
 scheduling service and submits directly to a local job queue, or by the
 Balsam service metascheduler'''
 import argparse
-from collections import defaultdict
 import os
-import multiprocessing
-import queue
 from sys import exit
 import signal
 import time
 
 import django
 from django.conf import settings
-from django.db import transaction
 
 from balsam import scheduler
 from balsam.launcher import jobreader
 from balsam.launcher import transitions
 from balsam.launcher import worker
+from balsam.launcher import runners
 from balsam.launcher.exceptions import *
 
 START_TIME = time.time() + 10.0
@@ -34,6 +31,7 @@ def delay(period=settings.BALSAM_SERVICE_PERIOD):
             time.sleep(tosleep)
             nexttime = now + tosleep + period
         yield
+
 
 class HostEnvironment:
     '''Set user- and environment-specific settings for this run'''
@@ -109,6 +107,7 @@ def get_runnable_jobs(jobs, running_pks, host_env):
     return runnable_jobs
 
 def create_new_runners(jobs, runner_group, worker_group, host_env):
+    created_one = False
     running_pks = runner_group.running_job_pks
     runnable_jobs = get_runnable_jobs(jobs, running_pks, host_env)
     while runnable_jobs:
@@ -117,8 +116,11 @@ def create_new_runners(jobs, runner_group, worker_group, host_env):
         except (ExceededMaxRunners, NoAvailableWorkers) as e:
             break
         else:
+            created_one = True
             running_pks = runner_group.running_job_pks
             runnable_jobs = get_runnable_jobs(jobs, running_pks, host_env)
+    return created_one
+
 
 def main(args, transition_pool, runner_group, job_source):
     host_env = HostEnvironment(args)
@@ -144,8 +146,8 @@ def main(args, transition_pool, runner_group, job_source):
             wait = False
         
         any_finished = runner_group.update_and_remove_finished()
-        create_new_runners(job_source.jobs, runner_group, worker_group, host_env)
-        if any_finished: wait = False
+        created = create_new_runners(job_source.jobs, runner_group, worker_group, host_env)
+        if any_finished or created: wait = False
         if wait: next(delay_timer)
     
 def on_exit(runner_group, transition_pool, job_source):
@@ -181,6 +183,9 @@ def get_args():
                         forever if no limit is detected or specified)")
     return parser.parse_args()
 
+def detect_dead_runners(job_source):
+    for job in job_source.by_states['RUNNING']:
+        job.update_state('RESTART_READY', 'Detected dead runner')
 
 if __name__ == "__main__":
     os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
@@ -188,8 +193,11 @@ if __name__ == "__main__":
     args = get_args()
     
     job_source = jobreader.JobReader.from_config(args)
+    job_source.refresh_from_db()
     runner_group  = runners.RunnerGroup()
     transition_pool = transitions.TransitionProcessPool()
+
+    detect_dead_runners(job_source)
 
     handl = lambda a,b: on_exit(runner_group, transition_pool, job_source)
     signal.signal(signal.SIGINT, handl)
