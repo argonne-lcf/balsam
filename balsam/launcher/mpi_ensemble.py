@@ -38,7 +38,7 @@ def run(job):
             proc = Popen(job.cmd, stdout=outf, stderr=STDOUT)
             retcode = proc.wait()
         except Exception as e:
-            status_msg(job.id, "RUN_ERROR", msg=str(e))
+            status_msg(job.id, "FAILED", msg=str(e))
             raise MPIEnsembleError from e
         else:
             if retcode == 0: status_msg(job.id, "RUN_FINISHED")

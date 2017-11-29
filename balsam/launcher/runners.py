@@ -7,7 +7,6 @@ import functools
 from math import ceil
 import os
 from pathlib import Path
-import signal
 import shlex
 import sys
 from subprocess import Popen, PIPE, STDOUT
@@ -18,7 +17,6 @@ from queue import Queue, Empty
 from django.conf import settings
 
 import balsam.models
-from balsam.launcher.launcher import SIGNALS
 from balsam.launcher import mpi_commands
 from balsam.launcher import mpi_ensemble
 from balsam.launcher.exceptions import *
@@ -72,8 +70,6 @@ class Runner:
         self.popen_args = {}
 
     def start(self):
-        for signum in SIGNALS:
-            signal.signal(sigum, self.timeout)
         self.process = Popen(**self.popen_args)
         if self.popen_args['stdout'] == PIPE:
             self.monitor = MonitorStream(self.process.stdout)
@@ -93,14 +89,11 @@ class Runner:
         else:
             return job.direct_command
 
-    def timeout(self, signum, stack)
-        sig_msg = SIGNALS.get(signum, signum)
-        message = f"{self.__class__.__name__} got signal {sig_msg}"
-        self.update_jobs()
+    def timeout(self):
         self.process.terminate()
-        for job in self.jobs:
-            if job.state == 'RUNNING':
-                job.update_state('RUN_TIMEOUT', message)
+        with transaction.atomic():
+            for job in self.jobs:
+                if job.state == 'RUNNING': job.update_state('RUN_TIMEOUT')
 
 class MPIRunner(Runner):
     '''One subprocess, one job'''
@@ -138,9 +131,7 @@ class MPIRunner(Runner):
         else:
             curstate = 'RUN_ERROR'
             msg = str(retcode)
-        if job.state != curstate:
-            job.update_state(curstate, msg) # TODO: handle RecordModified
-        job.service_ping()
+        if job.state != curstate: job.update_state(curstate, msg) # TODO: handle RecordModified
 
 
 class MPIEnsembleRunner(Runner):
@@ -180,14 +171,15 @@ class MPIEnsembleRunner(Runner):
                 job.update_state(state, msg) # TODO: handle RecordModified exception
             else:
                 raise BalsamRunnerException(f"Invalid status update: {status}")
-        for job in self.jobs:
-            job.service_ping()
 
 class RunnerGroup:
     
     MAX_CONCURRENT_RUNNERS = settings.BALSAM_MAX_CONCURRENT_RUNNERS
     def __init__(self):
         self.runners = []
+
+    def __iter__(self):
+        return iter(self.runners)
     
     def create_next_runner(runnable_jobs, workers):
         '''Implements one particular strategy for choosing the next job, assuming
@@ -230,6 +222,7 @@ class RunnerGroup:
         if not jobs: raise NoAvailableWorkers
 
         runner = runner_class(jobs, assigned_workers)
+        runner.start()
         self.runners.append(runner)
         for worker in assigned_workers: worker.idle = False
 
@@ -238,13 +231,14 @@ class RunnerGroup:
         # transaction save significantly?
         any_finished = False
         with transaction.atomic():
-            for runner in self.runners[:]:
-                runner.update_jobs()
-                if runner.finished():
-                    any_finished = True
-                    self.runners.remove(runner)
-                    for worker in runner.worker_list:
-                        worker.idle = True
+            for runner in self.runners: runner.update_jobs()
+
+        for runner in self.runners[:]:
+            if runner.finished():
+                any_finished = True
+                self.runners.remove(runner)
+                for worker in runner.worker_list:
+                    worker.idle = True
         return any_finished
 
     @property

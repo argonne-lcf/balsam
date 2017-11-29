@@ -1,7 +1,7 @@
 import balsam.models
 from balsam.models import BalsamJob
 
-class JobReader(dict):
+class JobReader():
     '''Interface with BalsamJob DB & pull relevant jobs'''
     @staticmethod
     def from_config(config):
@@ -13,36 +13,28 @@ class JobReader(dict):
     def by_states(self):
         '''dict of jobs keyed by state'''
         result = defaultdict(list)
-        for job self.values():
+        for job in self.jobs:
             result[job.state].append(job)
         return result
-
-    @property
-    def jobs(self): return self.values()
-
-    @property
-    def pks(self): return self.keys()
     
     def refresh_from_db(self):
         '''caller invokes this to read from DB'''
         jobs = self._get_jobs()
         jobs = self._filter(jobs)
-        job_dict = {job.pk : job for job in jobs}
-        self.update(job_dict)
+        self.jobs = jobs
    
     def _get_jobs(self): raise NotImplementedError
     
     def _filter(self, job_queryset):
         jobs = job_queryset.exclude(state__in=balsam.models.END_STATES)
         jobs = jobs.filter(allowed_work_sites__icontains=settings.BALSAM_SITE)
-        jobs = jobs.exclude(job_id__in=self.keys())
-        return [j for j in jobs if j.idle()]
+        return jobs
 
     
 class FileJobReader(JobReader):
-    '''Limit to job PKs specified in a file'''
+    '''Limit to job PKs specified in a file. Used by metascheduler.'''
     def __init__(self, job_file):
-        super().__init__()
+        self.jobs = []
         self.job_file = job_file
         self.pk_list = None
 
@@ -55,13 +47,15 @@ class FileJobReader(JobReader):
 
 
 class WFJobReader(JobReader):
-    '''Consume all jobs from DB, optionally matching a Workflow name'''
+    '''Consume all jobs from DB, optionally matching a Workflow name.
+    Will not consume jobs scheduled by metascheduler'''
     def __init__(self, wf_name):
-        super().__init__()
+        self.jobs = []
         self.wf_name = wf_name
     
     def _get_jobs(self):
         objects = BalsamJob.objects
         wf = self.wf_name
         jobs = objects.filter(workflow=wf) if wf else objects.all()
+        jobs = jobs.filter(scheduler_id__exact='')
         return jobs

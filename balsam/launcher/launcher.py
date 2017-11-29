@@ -6,8 +6,11 @@ from collections import defaultdict
 import os
 import multiprocessing
 import queue
+from sys import exit
+import signal
 import time
 
+import django
 from django.conf import settings
 from django.db import transaction
 
@@ -18,14 +21,9 @@ from balsam.launcher import worker
 from balsam.launcher.exceptions import *
 
 START_TIME = time.time() + 10.0
+RUNNABLE_STATES = ['PREPROCESSED', 'RESTART_READY']
 
-SIGTIMEOUT = 'TIMEOUT'
-SIGNALS = {
-    signal.SIGINT: 'SIG_INT',
-    signal.SIGTERM: 'SIG_TERM',
-}
-
-def delay(period=10.0):
+def delay(period=settings.BALSAM_SERVICE_PERIOD):
     nexttime = time.time() + period
     while True:
         now = time.time()
@@ -53,9 +51,6 @@ class HostEnvironment:
         self.partition = None
         self.walltime_seconds = None
 
-        self.job_file = args.job_file
-        self.wf_name = args.consume_wf
-        self.consume_all = args.consume_all
         self.num_workers = args.num_workers
         self.ranks_per_worker_serial = args.serial_jobs_per_worker
         self.walltime_minutes = args.time_limit_minutes
@@ -107,7 +102,7 @@ class HostEnvironment:
         return False
 
 def get_runnable_jobs(jobs, running_pks, host_env):
-    runnable_jobs = [job for job in jobsource.jobs
+    runnable_jobs = [job for job in jobs
                      if job.pk not in running_pks and
                      job.state in RUNNABLE_STATES and
                      host_env.sufficient_time(job)]
@@ -125,13 +120,9 @@ def create_new_runners(jobs, runner_group, worker_group, host_env):
             running_pks = runner_group.running_job_pks
             runnable_jobs = get_runnable_jobs(jobs, running_pks, host_env)
 
-def main(args):
+def main(args, transition_pool, runner_group, job_source):
     host_env = HostEnvironment(args)
     worker_group = worker.WorkerGroup(host_env)
-    jobsource = jobreader.JobReader.from_config(args)
-
-    transition_pool = transitions.TransitionProcessPool()
-    runner_group  = runners.RunnerGroup()
     delay_timer = delay()
 
     # Main Launcher Service Loop
@@ -141,39 +132,46 @@ def main(args):
             logger.debug(f'Transition: {stat.pk} {stat.state}: {stat.msg}')
             wait = False
         
-        jobsource.refresh_from_db()
+        job_source.refresh_from_db()
         
         transitionable_jobs = [
-            job for job in jobsource.jobs
+            job for job in job_source.jobs
             if job not in transitions_pool
             and job.state in transitions_pool.TRANSITIONS
         ]
         for job in transitionable_jobs:
-            transitions_pool.add_job(job)
+            transition_pool.add_job(job)
             wait = False
         
-        runner_group.update_and_remove_finished()
-        any_finished = create_new_runners(
-            jobsource.jobs, runner_group, worker_group, host_env
-        )
+        any_finished = runner_group.update_and_remove_finished()
+        create_new_runners(job_source.jobs, runner_group, worker_group, host_env)
         if any_finished: wait = False
         if wait: next(delay_timer)
     
-    transitions_pool.stop_processes()
+def on_exit(runner_group, transition_pool, job_source):
+    transition_pool.flush_job_queue()
+
+    runner_group.update_and_remove_finished()
     for runner in runner_group:
-        runner.timeout(SIGTIMEOUT, None)
+        runner.timeout()
+
+    job_source.refresh_from_db()
+    timedout_jobs = job_source.by_states['RUN_TIMEOUT']
+    for job in timedout_jobs:
+        transition_pool.add_job(job)
+
+    transition_pool.end_and_wait()
+    exit(0)
 
 
-if __name__ == "__main__":
+def get_args():
     parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
-
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--job-file', help="File of Balsam job IDs")
     group.add_argument('--consume-all', action='store_true', 
                         help="Continuously run all jobs from DB")
     group.add_argument('--wf-name',
                        help="Continuously run jobs of specified workflow")
-
     parser.add_argument('--num-workers', type=int, default=1,
                         help="Theta: defaults to # nodes. BGQ: the # of subblocks")
     parser.add_argument('--serial-jobs-per-worker', type=int, default=4,
@@ -181,7 +179,22 @@ if __name__ == "__main__":
     parser.add_argument('--time-limit-minutes', type=int,
                         help="Override auto-detected walltime limit (runs
                         forever if no limit is detected or specified)")
-    args = parser.parse_args()
-    # TODO: intercept KeyboardInterrupt and all INT,TERM signals
-    # Cleanup actions; mark jobs as idle
-    main(args)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
+    django.setup()
+    args = get_args()
+    
+    job_source = jobreader.JobReader.from_config(args)
+    runner_group  = runners.RunnerGroup()
+    transition_pool = transitions.TransitionProcessPool()
+
+    handl = lambda a,b: on_exit(runner_group, transition_pool, job_source)
+    signal.signal(signal.SIGINT, handl)
+    signal.signal(signal.SIGTERM, handl)
+    signal.signal(signal.SIGHUP, handl)
+
+    main(args, transition_pool, runner_group, job_source)
+    on_exit(runner_group, transition_pool, job_source)

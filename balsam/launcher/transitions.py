@@ -4,6 +4,7 @@ import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django import db
 
 from common import transfer
 from balsam.launcher.exceptions import *
@@ -13,11 +14,13 @@ logger = logging.getLogger(__name__)
 StatusMsg = namedtuple('Status', ['pk', 'state', 'msg'])
 JobMsg =   namedtuple('JobMsg', ['pk', 'transition_function'])
 
+
 def main(job_queue, status_queue):
+    db.connection.close()
     while True:
         job, process_function = job_queue.get()
-        if job == 'end':
-            return
+        if job == 'end': return
+
         try:
             process_function(job)
         except BalsamTransitionError as e:
@@ -27,8 +30,11 @@ def main(job_queue, status_queue):
             s = StatusMsg(job.pk, job.state, 'success')
             status_queue.put(s)
 
+
 class TransitionProcessPool:
+    
     NUM_PROC = settings.BALSAM_MAX_CONCURRENT_TRANSITIONS
+
     def __init__(self):
         
         self.job_queue = multiprocessing.Queue()
@@ -40,6 +46,7 @@ class TransitionProcessPool:
                                     args=(self.job_queue, self.status_queue))
             for i in range(NUM_PROC)
         ]
+        db.connections.close_all()
         for proc in self.procs: proc.start()
 
     def __contains__(self, job):
@@ -63,15 +70,18 @@ class TransitionProcessPool:
             except queue.Empty:
                 break
 
-    def stop_processes(self):
+    def flush_job_queue(self):
         while not self.job_queue.empty():
             try:
                 self.job_queue.get_nowait()
             except queue.Empty:
                 break
+
+    def end_and_wait(self):
         m = JobMsg('end', None)
         for proc in self.procs:
             self.job_queue.put(m)
+        for proc in self.procs: proc.wait()
         self.transitions_pk_list = []
 
 

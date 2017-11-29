@@ -12,7 +12,6 @@ from django.db import models
 from concurrency.fields import IntegerVersionField
 
 from common import Serializer
-from balsam import scheduler, BalsamJobMessage
 
 logger = logging.getLogger(__name__)
 
@@ -184,10 +183,10 @@ class BalsamJob(models.Model):
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
         default='')
     
-    ping_info = models.TextField(
+    scheduler_id = models.TextField(
         'Scheduler ID',
-        help_text='Information on the service (such as scheduler ID, queue) that most recently touched this job',
-        default='{}')
+        help_text='Scheduler ID (if job assigned by metascheduler)',
+        default='')
 
     application = models.TextField(
         'Application to Run',
@@ -253,48 +252,12 @@ stage_out_urls:         {self.stage_out_urls}
 wall_time_minutes:      {self.wall_time_minutes}
 num_nodes:              {self.num_nodes}
 processes_per_node:     {self.processes_per_node}
-ping_info:              {self.ping_info}
+scheduler_id:              {self.scheduler_id}
 runtime_seconds:        {self.runtime_seconds}
 application:            {self.application}
 '''
         return s.strip() + '\n'
     
-    def idle(self):
-        '''job.ping_info has a 'ping' time key: 1) if key missing, job has not
-        been touched yet 2) if None, then service has signalled job is now free.
-        If the job is LAUNCHER_QUEUED and appears in local scheduler, it's busy.
-        Otherwise, the job is idle if it has not been pinged in the last 5
-        minutes (signalling that a service processing the job crashed)'''
-        info = self.get_ping_info()
-        if 'ping' not in info: return True
-        if info['ping'] is None: return True # signals idle
-
-        sched_id = info['scheduler_id']
-        if self.state == 'LAUNCHER_QUEUED' and sched_id:
-            try: queue_stat = scheduler.get_job_status(sched_id)
-            except scheduler.NoQStatInformation: return True # not in queue
-            else: return False # in queue; not idle
-
-        last_ping = (info['ping'] - datetime.now()).total_seconds()
-        if last_ping > 300.0: return True # detect hard failure; dead launcher
-        else: return False
-    
-    def get_ping_info(self):
-        info = json.loads(self.ping_info)
-        if info['ping'] is not None:
-            info['ping'] = from_time_string(info['ping'])
-        return info
-
-    def service_ping(self, *, scheduler_id=None, set_idle=False):
-        if set_idle: time = None
-        else: time = get_time_string()
-
-        pid = os.getpid()
-        hostname = gethostname()
-        info = dict(ping=time, scheduler_id=scheduler_id, pid=pid,
-                    hostname=hostname)
-        self.ping_info = json.dumps(info)
-        self.save(update_fields=['ping_info'])
 
     def get_parents_by_id(self):
         return json.loads(self.parents)
