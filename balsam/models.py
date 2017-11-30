@@ -145,7 +145,7 @@ class BalsamJob(models.Model):
     stage_in_url = models.TextField(
         'External stage in files or folders', help_text="A list of URLs for external data to be staged in prior to job processing. Job dataflow from parents to children is NOT handled here; see `input_files` field instead.",
         default='')
-    stage_out_files = models.TextField
+    stage_out_files = models.TextField(
         'External stage out files or folders',
         help_text="A string of filename patterns. Matches will be transferred to the stage_out_url. Default: no files are staged out",
         default='')
@@ -329,9 +329,9 @@ application:            {self.application}
             BALSAM_JOB_ID=str(self.pk),
             BALSAM_PARENT_IDS=str(self.parents),
             BALSAM_CHILD_IDS=children,
-            BALSAM_JOB_TIMEOUT=str(timeout),
-            BALSAM_JOB_ERROR=str(error)
         )
+        if timeout: balsam_envs['BALSAM_JOB_TIMEOUT']="TRUE"
+        if error: balsam_envs['BALSAM_JOB_ERROR']="TRUE"
         envs.update(balsam_envs)
         return envs
 

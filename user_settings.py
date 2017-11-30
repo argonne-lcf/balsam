@@ -157,7 +157,7 @@ if 'argo_service' in sys.argv:
    LOG_HANDLER_FILENAME = ARGO_SERVICE_LOG_FILENAME
 elif 'balsam_service' in sys.argv:
    LOG_HANDLER_FILENAME = BALSAM_SERVICE_LOG_FILENAME
-print('logging to ' + str(LOG_HANDLER_FILENAME))
+#print('logging to ' + str(LOG_HANDLER_FILENAME))
 
 LOGGING = {
    'version': 1,
