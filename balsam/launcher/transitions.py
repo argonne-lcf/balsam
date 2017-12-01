@@ -15,6 +15,7 @@ from balsam.models import BalsamJob
 logger = logging.getLogger(__name__)
 
 PREPROCESS_TIMEOUT_SECONDS = 300
+SITE = settings.BALSAM_SITE
 
 StatusMsg = namedtuple('Status', ['pk', 'state', 'msg'])
 JobMsg =   namedtuple('JobMsg', ['job', 'transition_function'])
@@ -26,7 +27,9 @@ def main(job_queue, status_queue):
         job_msg = job_queue.get()
         job, transition_function = job_msg
         if job == 'end': return
-
+        if job.work_site != SITE:
+            job.work_site = SITE
+            job.save(update_fields=['work_site'])
         try:
             transition_function(job)
         except BalsamTransitionError as e:

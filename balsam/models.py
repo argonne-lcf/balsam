@@ -149,7 +149,7 @@ class BalsamJob(models.Model):
         'External stage out files or folders',
         help_text="A string of filename patterns. Matches will be transferred to the stage_out_url. Default: no files are staged out",
         default='')
-    stage_out_urls = models.TextField(
+    stage_out_url = models.TextField(
         'Stage Out URL',
         help_text='The URLs to which designated stage out files are sent.',
         default='')
@@ -251,27 +251,40 @@ class BalsamJob(models.Model):
         models.Model.save(self, force_insert, force_update, using, update_fields)
 
     def __str__(self):
-        s = f'''
-BalsamJob:              {self.job_id}
-state:                  {self.state}
-work_site:              {self.work_site}
+        return f'''
+Balsam Job
+----------
+ID:                     {self.job_id}
+name:                   {self.name} 
 workflow:               {self.workflow}
-name:                   {self.name}
-description:            {self.description[:50]}
+latest state:           {self.get_recent_state_str()}
+description:            {self.description[:80]}
+work site:              {self.work_site} 
+allowed work sites:     {self.allowed_work_sites}
 working_directory:      {self.working_directory}
 parents:                {self.parents}
 input_files:            {self.input_files}
-stage_in_url:          {self.stage_in_url}
+stage_in_url:           {self.stage_in_url}
+stage_out_url:          {self.stage_out_url}
 stage_out_files:        {self.stage_out_files}
-stage_out_urls:         {self.stage_out_urls}
 wall_time_minutes:      {self.wall_time_minutes}
+actual_runtime:         {self.runtime_str()}
 num_nodes:              {self.num_nodes}
+threads per rank:       {self.threads_per_rank}
+threads per core:       {self.threads_per_core}
 processes_per_node:     {self.processes_per_node}
 scheduler_id:           {self.scheduler_id}
-runtime_seconds:        {self.runtime_seconds}
-application:            {self.application}
-'''
-        return s.strip() + '\n'
+application:            {self.application if self.application else 
+                            self.direct_command}
+args:                   {self.application_args}
+envs:                   {self.environ_vars}
+created with qsub:      {bool(self.direct_command)}
+preprocess override:    {self.preprocess}
+postprocess override:   {self.postprocess}
+post handles error:     {self.post_error_handler}
+post handles timeout:   {self.post_timeout_handler}
+auto timeout retry:     {self.auto_timeout_retry}
+'''.strip() + '\n'
     
 
     def get_parents_by_id(self):
@@ -343,13 +356,24 @@ application:            {self.application}
         self.state = new_state
         self.save(update_fields=['state', 'state_history'])
 
+    def get_recent_state_str(self):
+        return self.state_history.split("\n")[-1].strip()[1:-1]
+
     def get_line_string(self):
-        recent_state = self.state_history.split("\n")[-1]
-        return f' {str(self.job_id):36} | {self.workflow:26} | {self.name:26} | {self.application:26} | {self.work_site:20} | {recent_state:100}'
+        recent_state = self.get_recent_state_str()
+        app = self.application if self.application else self.direct_command
+        return f' {str(self.job_id):36} | {self.name:26} | {self.workflow:26} | {app:26} | {recent_state}'
+
+    def runtime_str(self):
+        if self.runtime_seconds == 0: return ''
+        minutes, seconds = divmod(self.runtime_seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:02d} sec"
+        else: return f"{minutes:02d} min : {seconds:02d} sec"
 
     @staticmethod
     def get_header():
-        return f' {"job_id":36} | {"workflow":26} | {"name":26} | {"application":26} | {"work_site":20} | {"recent state":100}'
+        return f' {"job_id":36} | {"name":26} | {"workflow":26} | {"application":26} | {"latest update"}'
 
     def create_working_path(self):
         top = settings.BALSAM_WORK_DIRECTORY
@@ -403,25 +427,30 @@ class ApplicationDefinition(models.Model):
         default='')
 
     def __str__(self):
-        s = 'Application: ' + self.name + '\n'
-        s += '  description:   ' + self.description + '\n'
-        s += '  executable:    ' + self.executable + '\n'
-        s += '  config_script: ' + self.config_script + '\n'
-        s += '  preprocess:    ' + self.preprocess + '\n'
-        s += '  postprocess:   ' + self.postprocess + '\n'
-        return s
+        return f'''
+Application:
+------------
+PK:             {self.pk}
+Name:           {self.name}
+Description:    {self.description}
+Executable:     {self.executable}
+Preprocess:     {self.default_preprocess}
+Postprocess:    {self.default_postprocess}
+Envs:           {self.environ_vars}
+'''.strip() + '\n'
 
     def get_line_string(self):
-        format = ' %7i | %20s | %20s | %20s | %20s | %20s | %s '
-        output = format % (self.pk, self.name, self.executable, self.config_script,
-                           self.preprocess, self.postprocess,
+        format = ' %20s | %20s | %20s | %20s | %s '
+        output = format % (self.name, self.executable,
+                           self.default_preprocess, 
+                           self.default_postprocess,
                            self.description)
         return output
 
     @staticmethod
     def get_header():
-        format = ' %7s | %20s | %20s | %20s | %20s | %20s | %s '
-        output = format % ('pk', 'name', 'executable', 'config_script',
+        format = ' %20s | %20s | %20s | %20s | %s '
+        output = format % ('name', 'executable',
                            'preprocess', 'postprocess',
                            'description')
         return output

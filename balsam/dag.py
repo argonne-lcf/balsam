@@ -18,8 +18,8 @@ Example usage:
 >>>
 '''
     
-import django as _django
-import os as _os
+import django as django
+import os as os
 import uuid 
 
 __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR', 
@@ -27,21 +27,16 @@ __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR',
            'add_job', 'add_dependency', 'spawn_child',
            'kill']
 
-_os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
-_django.setup()
+os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
+django.setup()
 
-from django.conf import settings
 from balsam.models import BalsamJob as _BalsamJob
-
-x = _BalsamJob()
-assert isinstance(x, _BalsamJob)
-
-_envs = {k:v for k,v in _os.environ.items() if k.find('BALSAM')>=0}
-
 
 current_job = None
 parents = None
 children = None
+
+_envs = {k:v for k,v in os.environ.items() if k.find('BALSAM')>=0}
 
 JOB_ID = _envs.get('BALSAM_JOB_ID', '')
 TIMEOUT = bool(_envs.get('BALSAM_JOB_TIMEOUT', False))
@@ -51,7 +46,7 @@ if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)
     current_job = _BalsamJob.objects.get(pk=JOB_ID)
     parents = current_job.get_parents()
-    children = curren_job.get_children()
+    children = current_job.get_children()
 
 
 def add_job(**kwargs):
@@ -61,11 +56,19 @@ def add_job(**kwargs):
         try:
             getattr(job, k)
         except AttributeError: 
-            raise
+            raise ValueError(f"Invalid field {k}")
         else:
             setattr(job, k, v)
     job.save()
     return job
+
+def detect_circular(job, path=[]):
+    for parent in job.get_parents():
+        if parent.pk in path:
+            return True
+        else:
+            return detect_circular(parent, path+[parent.pk])
+    return False
 
 def add_dependency(parent,child):
     '''Create a dependency between two existing jobs'''
@@ -77,12 +80,22 @@ def add_dependency(parent,child):
     if not isinstance(child, _BalsamJob): 
         child = _BalsamJob.objects.get(pk=child)
 
-    new_parents = child.get_parents_by_id()
-    new_parents.append(str(parent.pk))
-    child.parents.set_parents(new_parents)
+    existing_parents = child.get_parents_by_id()
+    new_parents = existing_parents.copy()
+    parent_pk_str = str(parent.pk)
+    if parent_pk_str in existing_parents:
+        raise RuntimeError("Dependency already exists; cannot double-create")
+    else:
+        new_parents.append(parent_pk_str)
+    child.set_parents(new_parents)
+    if detect_circular(child):
+        child.set_parents(existing_parents)
+        raise RuntimeError("Detected circular dependency; not creating link")
 
 def spawn_child(**kwargs):
     '''Add new job that is dependent on the current job'''
+    if not isinstance(current_job, _BalsamJob):
+        raise RuntimeError("No current BalsamJob detected in environment")
     child = add_job(**kwargs)
     add_dependency(current_job, child)
     return child
