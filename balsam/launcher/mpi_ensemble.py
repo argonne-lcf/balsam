@@ -1,11 +1,10 @@
 from collections import namedtuple
-from contextlib import nested
 import os
 import sys
 from subprocess import Popen, STDOUT
 
 from mpi4py import MPI
-from balsam.launcher.runners import cd
+from balsam.launcher.cd import cd
 from balsam.launcher.exceptions import *
 
 COMM = MPI.COMM_WORLD
@@ -31,7 +30,7 @@ def read_jobs(fp):
 def run(job):
     basename = os.path.basename(job.workdir)
     outname = f"{basename}.out"
-    with nested(cd(job.workdir), open(outname, 'wb')) as (_,outf):
+    with cd(job.workdir) as _, open(outname, 'wb') as outf:
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
             proc = Popen(job.cmd, stdout=outf, stderr=STDOUT)

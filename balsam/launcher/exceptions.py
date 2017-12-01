@@ -1,10 +1,10 @@
 class BalsamLauncherError(Exception): pass
 
 class BalsamRunnerError(Exception): pass
-class ExceededMaxConcurrentRunners(BalsamRunnerException): pass
-class NoAvailableWorkers(BalsamRunnerException): pass
+class ExceededMaxConcurrentRunners(BalsamRunnerError): pass
+class NoAvailableWorkers(BalsamRunnerError): pass
 
 class BalsamTransitionError(Exception): pass
-class TransitionNotFoundError(BalsamTransitionException, ValueError): pass
+class TransitionNotFoundError(BalsamTransitionError, ValueError): pass
 
 class MPIEnsembleError(Exception): pass

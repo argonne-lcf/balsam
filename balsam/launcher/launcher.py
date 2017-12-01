@@ -1,13 +1,16 @@
 '''The Launcher is either invoked by the user, who bypasses the Balsam
 scheduling service and submits directly to a local job queue, or by the
 Balsam service metascheduler'''
-import argparse
 import os
+import django
+os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
+django.setup()
+
+import argparse
 from sys import exit
 import signal
 import time
 
-import django
 from django.conf import settings
 
 from balsam import scheduler
@@ -179,8 +182,8 @@ def get_args():
     parser.add_argument('--serial-jobs-per-worker', type=int, default=4,
                         help="For non-MPI jobs, how many to pack per worker")
     parser.add_argument('--time-limit-minutes', type=int,
-                        help="Override auto-detected walltime limit (runs
-                        forever if no limit is detected or specified)")
+                        help="Override auto-detected walltime limit (runs"
+                        " forever if no limit is detected or specified)")
     return parser.parse_args()
 
 def detect_dead_runners(job_source):
@@ -188,8 +191,6 @@ def detect_dead_runners(job_source):
         job.update_state('RESTART_READY', 'Detected dead runner')
 
 if __name__ == "__main__":
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
-    django.setup()
     args = get_args()
     
     job_source = jobreader.JobReader.from_config(args)

@@ -24,7 +24,8 @@ def make_parser():
     subparsers = parser.add_subparsers(title="Subcommands")
 
 
-    # Add app
+    # ADD APP
+    # --------
     parser_app = subparsers.add_parser('app',
                                        help="add a new application definition",
                                        description="add a new application definition",
@@ -42,8 +43,10 @@ def make_parser():
                             help="Environment variables specific " 
                             "to this app; specify multiple envs like " 
                             "'--env VAR1=VAL1 --env VAR2=VAL2'.  ")
+    # -------------------------------------------------------------------
 
-    # Add job
+
+    # ADD JOB
     # -------
     BALSAM_SITE = settings.BALSAM_SITE
     parser_job = subparsers.add_parser('job',
@@ -118,8 +121,11 @@ def make_parser():
 
     parser_job.add_argument('--yes', help='Skip prompt confirming job details.',
                             required=False,action='store_true')
+    #--------------------------------------------------------------------
 
-    # Add dep
+
+    # ADD DEP
+    # -------
     parser_dep = subparsers.add_parser('dep',
                                        help="add a dependency between two existing jobs",
                                        description="add a dependency between two existing jobs"
@@ -127,8 +133,11 @@ def make_parser():
     parser_dep.set_defaults(func=newdep) 
     parser_dep.add_argument('parent', help="Parent must be finished before child")
     parser_dep.add_argument('child', help="The dependent job")
+    #-------------------------------------------------------------------------
 
-    # ls
+
+    # LS
+    # ----
     parser_ls = subparsers.add_parser('ls', help="list jobs, applications, or jobs-by-workflow")
     parser_ls.set_defaults(func=ls)
     parser_ls.add_argument('objects', choices=['jobs', 'apps', 'wf'], default='jobs',
@@ -139,22 +148,37 @@ def make_parser():
     parser_ls.add_argument('--wf', help="Filter jobs matching a workflow")
     parser_ls.add_argument('--verbose', action='store_true')
     parser_ls.add_argument('--tree', action='store_true', help="show DAG in tree format")
+    # -----------------------------------------------------------
 
-    # modify
+
+    # MODIFY
+    # ------
     parser_modify = subparsers.add_parser('modify', help="alter job or application")
     parser_modify.set_defaults(func=modify)
+    parser_modify.add_argument('obj_type', choices=['jobs', 'apps'])
+    parser_modify.add_argument('id', help="substring of job or app ID to match")
+    parser_modify.add_argument('--attr', help="attribute of job or app to modify",
+                               required=True)
+    parser_modify.add_argument('--value', help="modify attr to this value",
+                               required=True)
+    # -----------------------------------------------------------------------
+
     
-    # rm
+    # RM
+    # --
     parser_rm = subparsers.add_parser('rm', help="remove jobs or applications from the database")
     parser_rm.set_defaults(func=rm)
-    parser_rm.add_argument('objects', choices=['jobs', 'apps'], default='jobs',
-                           nargs='?', help="permanently delete jobs or apps from DB")
-    parser_rm.add_argument('--name', help="match any substring of job name")
-    parser_rm.add_argument('--id', help="match any substring of job id")
-    parser_rm.add_argument('--recursive', action='store_true', help="delete all jobs in subtree")
-    parser_rm.add_argument('--force', action='store_true', help="show DAG in tree format")
+    parser_rm.add_argument('objects', choices=['jobs', 'apps'], help="permanently delete jobs or apps from DB")
+    parser_rm.add_argument('--force', action='store_true', help="force delete")
+    group = parser_rm.add_mutually_exclusive_group(required=True)
+    group.add_argument('--name', help="match any substring of job name")
+    group.add_argument('--id', help="match any substring of job id")
+    group.add_argument('--all', action='store_true', help="delete all objects in the DB")
+    # --------------------------------------------------------------------------------------------------
 
-    # qsub
+
+    # QSUB
+    # ----
     parser_qsub = subparsers.add_parser('qsub', help="add a one-line job to the database, bypassing Application table")
     parser_qsub.set_defaults(func=qsub)
     parser_qsub.add_argument('command', nargs='+')
@@ -165,14 +189,20 @@ def make_parser():
     parser_qsub.add_argument('-d', '--threads-per-rank',type=int, default=1)
     parser_qsub.add_argument('-j', '--threads-per-core',type=int, default=1)
     parser_qsub.add_argument('--env', action='append', required=False, default=[])
+    # --------------------------------------------------------------------------------------------------
 
-    # kill
+
+    # KILL
+    # ----
     parser_kill = subparsers.add_parser('killjob', help="Kill a job without removing it from the DB")
     parser_kill.set_defaults(func=kill)
     parser_kill.add_argument('--id', required=True)
     parser_kill.add_argument('--recursive', action='store_true')
+    # -----------------------------------------------------
 
-    # makechild
+
+    # MAKECHILD
+    # ---------
     parser_mkchild = subparsers.add_parser('mkchild', help="Create a child job of a specified job")
     parser_mkchild.set_defaults(func=mkchild)
     parser_mkchild.add_argument('--name', required=True)
@@ -241,15 +271,37 @@ def make_parser():
 
     parser_mkchild.add_argument('--yes', help='Skip prompt confirming job details.',
                             required=False,action='store_true')
+    # -----------------------------------------------------
 
-    # launcher
+
+    # LAUNCHER
+    # --------
     parser_launcher = subparsers.add_parser('launcher', help="Start an instance of the balsam launcher")
+    group = parser_launcher.add_mutually_exclusive_group(required=True)
+    group.add_argument('--job-file', help="File of Balsam job IDs")
+    group.add_argument('--consume-all', action='store_true', 
+                        help="Continuously run all jobs from DB")
+    group.add_argument('--wf-name',
+                       help="Continuously run jobs of specified workflow")
+    parser_launcher.add_argument('--num-workers', type=int, default=1,
+                        help="Theta: defaults to # nodes. BGQ: the # of subblocks")
+    parser_launcher.add_argument('--serial-jobs-per-worker', type=int, default=4,
+                        help="For non-MPI jobs, how many to pack per worker")
+    parser_launcher.add_argument('--time-limit-minutes', type=int,
+                        help="Override auto-detected walltime limit (runs"
+                        " forever if no limit is detected or specified)")
     parser_launcher.set_defaults(func=launcher)
+    # -----------------
 
-    # service
+
+    # SERVICE
+    # -------
     parser_service = subparsers.add_parser('service', 
                                            help="Start an instance of the balsam metascheduler service")
     parser_service.set_defaults(func=service)
+    # -------------------------
+
+
     return parser
 
 

@@ -3,6 +3,8 @@ from django.conf import settings
 import balsam.models
 from balsam import dag
 import ls_commands as lscmd
+import subprocess
+import sys
 
 Job = balsam.models.BalsamJob
 AppDef = balsam.models.ApplicationDefinition
@@ -115,10 +117,65 @@ def ls(args):
         lscmd.ls_wf(name, verbose, tree, wf)
 
 def modify(args):
-    pass
+    if args.obj_type == 'jobs': cls = Job
+    elif args.obj_type == 'apps': cls = AppDef
+
+    item = cls.objects.filter(pk__contains=args.id)
+    if item.count() == 0:
+        raise RuntimeError(f"no matching {args.obj_type}")
+    elif item.count() > 1:
+        raise RuntimeError(f"more than one matching {args.obj_type}")
+    item = item.first()
+
+    target_type = type(getattr(item, args.attr))
+    new_value = target_type(args.value)
+    setattr(item, args.attr, new_value)
+    item.save()
+    print(f'{args.obj_type[:-1]} {args.attr} changed to:  {new_value}')
+
 
 def rm(args):
-    pass
+    objects_name = args.objects
+    name = args.name
+    objid = args.id
+    deleteall = args.all
+    force = args.force
+
+    # Are we removing jobs or apps?
+    if objects_name.startswith('job'): cls = Job
+    elif objects_name.startswith('app'): cls = AppDef
+    objects = cls.objects.all()
+
+    # Filter: all objects, by name-match (multiple), or by ID (unique)?
+    if deleteall:
+        deletion_objs = objects
+        message = f"ALL {objects_name}"
+    elif name: 
+        deletion_objs = objects.filter(name__icontains=name)
+        message = f"{len(deletion_objs)} {objects_name} matching name {name}"
+        if not deletion_objs.exists(): 
+            print("No {objects_name} matching query")
+            return
+    elif objid: 
+        deletion_objs = objects.filter(pk__icontains=objid)
+        if deletion_objs.count() > 1:
+            raise RuntimeError(f"Multiple {objects_name} match ID")
+        elif deletion_objs.count() == 0:
+            raise RuntimeError(f"No {objects_name} match ID")
+        else:
+            message = f"{objects_name[:-1]} with ID matching {objid}"
+    
+    # User confirmation
+    if not force:
+        if not cmd_confirmation(f"PERMANENTLY remove {message}?"):
+            print("Delete aborted")
+            return
+
+    # Actually delete things here
+    for obj in deletion_objs:
+        obj.delete()
+        print(f"Deleted {objects_name[:-1]} {str(obj.pk)[:8]}")
+
 
 def qsub(args):
     job = Job()
@@ -176,7 +233,13 @@ def mkchild(args):
           f"[{str(child_job.job_id)[:8]}]")
 
 def launcher(args):
-    pass
+    import balsam.launcher.launcher
+    fname = balsam.launcher.launcher.__file__
+    original_args = sys.argv[2:]
+    command = [sys.executable] + [fname] + original_args
+    print("Starting Balsam launcher")
+    subprocess.Popen(command)
+    sys.exit(0)
 
 def service(args):
-    pass
+    print("dummy -- invoking balsam metascheduler service")

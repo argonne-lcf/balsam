@@ -22,18 +22,7 @@ import balsam.models
 from balsam.launcher import mpi_commands
 from balsam.launcher import mpi_ensemble
 from balsam.launcher.exceptions import *
-
-class cd:
-    '''Context manager for changing cwd'''
-    def __init__(self, new_path):
-        self.new_path = os.path.expanduser(new_path)
-
-    def __enter__(self):
-        self.saved_path = os.getcwd()
-        os.chdir(self.new_path)
-
-    def __exit__(self):
-        os.chdir(self.saved_path)
+from balsam.launcher.cd import cd
 
 
 class MonitorStream(Thread):

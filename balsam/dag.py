@@ -44,9 +44,15 @@ ERROR = bool(_envs.get('BALSAM_JOB_ERROR', False))
 
 if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)
-    current_job = _BalsamJob.objects.get(pk=JOB_ID)
-    parents = current_job.get_parents()
-    children = current_job.get_children()
+    try:
+        current_job = _BalsamJob.objects.get(pk=JOB_ID)
+    except:
+        raise RuntimeError(f"The environment specified current job: "
+                           "BALSAM_JOB_ID {JOB_ID}\n but this does not "
+                           "exist in DB! Was it deleted accidentally?")
+    else:
+        parents = current_job.get_parents()
+        children = current_job.get_children()
 
 
 def add_job(**kwargs):
