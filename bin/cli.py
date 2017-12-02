@@ -290,6 +290,7 @@ def make_parser():
     parser_launcher.add_argument('--time-limit-minutes', type=int,
                         help="Override auto-detected walltime limit (runs"
                         " forever if no limit is detected or specified)")
+    parser_launcher.add_argument('--daemon', action='store_true')
     parser_launcher.set_defaults(func=launcher)
     # -----------------
 

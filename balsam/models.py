@@ -294,6 +294,10 @@ auto timeout retry:     {self.auto_timeout_retry}
         parent_ids = self.get_parents_by_id()
         return BalsamJob.objects.filter(job_id__in=parent_ids)
 
+    @property
+    def cute_id(self):
+        return f"[{ str(self.pk)[:8] }]"
+
     def get_children(self):
         return BalsamJob.objects.filter(parents__icontains=str(self.pk))
 
@@ -357,7 +361,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         self.save(update_fields=['state', 'state_history'])
 
     def get_recent_state_str(self):
-        return self.state_history.split("\n")[-1].strip()[1:-1]
+        return self.state_history.split("\n")[-1].strip()
 
     def get_line_string(self):
         recent_state = self.get_recent_state_str()
@@ -454,3 +458,7 @@ Envs:           {self.environ_vars}
                            'preprocess', 'postprocess',
                            'description')
         return output
+    
+    @property
+    def cute_id(self):
+        return f"[{ str(self.pk)[:8] }]"

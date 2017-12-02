@@ -69,11 +69,10 @@ def add_job(**kwargs):
     return job
 
 def detect_circular(job, path=[]):
+    if job.pk in path: return True
+    path = path[:] + [job.pk]
     for parent in job.get_parents():
-        if parent.pk in path:
-            return True
-        else:
-            return detect_circular(parent, path+[parent.pk])
+        if detect_circular(parent, path): return True
     return False
 
 def add_dependency(parent,child):

@@ -1,6 +1,10 @@
 from collections import defaultdict
+from django.conf import settings
 import balsam.models
 from balsam.models import BalsamJob
+
+import logging
+logger = logging.getLogger(__name__)
 
 class JobReader():
     '''Interface with BalsamJob DB & pull relevant jobs'''
@@ -38,6 +42,7 @@ class FileJobReader(JobReader):
         self.jobs = []
         self.job_file = job_file
         self.pk_list = None
+        logger.info(f"Taking jobs from file {self.job_file}")
 
     def _get_jobs(self):
         if self.pk_list is None:
@@ -53,6 +58,10 @@ class WFJobReader(JobReader):
     def __init__(self, wf_name):
         self.jobs = []
         self.wf_name = wf_name
+        if wf_name: 
+            logger.info(f"Consuming jobs from workflow {wf_name}")
+        else:
+            logger.info("Consuming all jobs from local DB")
     
     def _get_jobs(self):
         objects = BalsamJob.objects

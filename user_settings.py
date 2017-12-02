@@ -1,14 +1,6 @@
 import os,sys,logging
-logger = logging.getLogger(__name__)
 import socket
-
-def log_uncaught_exceptions(exctype, value, tb,logger=logger):
-   logger = logging.getLogger('console')
-   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
-
-sys.excepthook = log_uncaught_exceptions
-
-logger.info('loading settings')
+logger = logging.getLogger('console')
 
 try:
    INSTALL_PATH                        = os.environ['ARGOBALSAM_INSTALL_PATH']
@@ -45,16 +37,14 @@ DATABASES = {
 #------------------------------
 # BALSAM CONFIG INFO
 #------------------------------
-BALSAM_LOGGING_DIRECTORY            = os.path.join(INSTALL_PATH, 'log') # where to store log files
 BALSAM_WORK_DIRECTORY               = os.path.join(DATA_PATH,'balsamjobs') # where to store local job data used for submission
 BALSAM_DELETE_OLD_WORK              = True # enable deletion of old folders in BALSAM_WORK_DIRECTORY at a period of BALSAM_DELETE_OLD_WORK_PERIOD
 BALSAM_DELETE_OLD_WORK_PERIOD       = 86400 # once a day check for old work folders older than the BALSAM_DELETE_OLD_WORK_AGE
 BALSAM_DELETE_OLD_WORK_AGE          = 86400 * 31 # delete work folders that are older than 31 days
-BALSAM_SERVICE_LOG_FILENAME         = os.path.join(BALSAM_LOGGING_DIRECTORY, 'balsam_service.log')
 BALSAM_SCHEDULER_SUBMIT_EXE         = '/usr/bin/qsub'
 BALSAM_SCHEDULER_STATUS_EXE         = '/usr/bin/qstat'
 BALSAM_SCHEDULER_HISTORY_EXE        = '/usr/bin/'
-BALSAM_SERVICE_PERIOD               = 10 # seconds between service loop execution
+BALSAM_SERVICE_PERIOD               = 1 # seconds between service loop execution
 BALSAM_MAX_QUEUED                   = 20 # the maximum number of jobs allowed on the local queue
 BALSAM_SUBMIT_JOBS                  = True # submit jobs to queue, turn off when testing
 BALSAM_DEFAULT_QUEUE                = 'debug-cache-quad' # default local queue name
@@ -62,14 +52,12 @@ BALSAM_DEFAULT_PROJECT              = 'datascience' # default local project name
 BALSAM_ALLOWED_EXECUTABLE_DIRECTORY = ALLOWED_EXE_PATH # path to allowed executables
 BALSAM_SITE                         = 'theta' # local balsam site name
 BALSAM_SCHEDULER_CLASS              = 'CobaltScheduler' # local scheduler in use
-BALSAM_MAX_CONCURRENT_TRANSITIONS   = 5 # maximum number of sub threads spawned by Balsam
+BALSAM_MAX_CONCURRENT_TRANSITIONS   = 2 # maximum number of sub threads spawned by Balsam
 BALSAM_MAX_CONCURRENT_RUNNERS       = 50 # maximum number of background 'mpirun' subprocesses
 
 #------------------------------
 # ARGO CONFIG INFO
 #------------------------------
-ARGO_LOGGING_DIRECTORY              = BALSAM_LOGGING_DIRECTORY
-ARGO_SERVICE_LOG_FILENAME           = os.path.join(ARGO_LOGGING_DIRECTORY,'argo_service.log')
 ARGO_SERVICE_PERIOD                 = 10 # seconds between service loop execution
 ARGO_WORK_DIRECTORY                 = os.path.join(DATA_PATH,'argojobs')
 ARGO_DELETE_OLD_WORK                = True # enable deletion of old folders in BALSAM_WORK_DIRECTORY at a period of ARGO_DELETE_OLD_WORK_PERIOD
@@ -149,15 +137,20 @@ SENDER_CONFIG = {
 #------------------------------
 # logging settings
 #------------------------------
+LOGGING_DIRECTORY = os.path.join(INSTALL_PATH, 'log') # where to store log files
 LOG_HANDLER_LEVEL = 'DEBUG'
 LOG_BACKUP_COUNT = 5 # number of files worth of history
 LOG_FILE_SIZE_LIMIT = 100 * 1024 * 1024 # file size at which to move to a new log file
-LOG_HANDLER_FILENAME = os.path.join(ARGO_LOGGING_DIRECTORY,'argo_balsam.' + str(os.getpid()) + '.log')
-if 'argo_service' in sys.argv:
-   LOG_HANDLER_FILENAME = ARGO_SERVICE_LOG_FILENAME
-elif 'balsam_service' in sys.argv:
-   LOG_HANDLER_FILENAME = BALSAM_SERVICE_LOG_FILENAME
-#print('logging to ' + str(LOG_HANDLER_FILENAME))
+
+if 'argoservice' in ' '.join(sys.argv):
+    HANDLER_FILE = 'argo.log'
+elif 'service' in ' '.join(sys.argv):
+    HANDLER_FILE = 'balsam.log'
+elif 'launcher' in ' '.join(sys.argv):
+    HANDLER_FILE = 'launcher.log'
+else:
+    HANDLER_FILE = 'misc.log'
+HANDLER_FILE = os.path.join(LOGGING_DIRECTORY, HANDLER_FILE)
 
 LOGGING = {
    'version': 1,
@@ -169,23 +162,15 @@ LOGGING = {
       },
    },
    'handlers': {
-      'time_rotating': {
-         'level':LOG_HANDLER_LEVEL,
-         'class':'logging.handlers.TimedRotatingFileHandler',
-         'filename': LOG_HANDLER_FILENAME,
-         'when' : 'W0',
-         'interval' : 0,
-         'formatter': 'standard',
-         'backupCount': '2',
-      },
       'console': {
          'class':'logging.StreamHandler',
          'formatter': 'standard',
+          'level' : 'DEBUG'
       },
       'default': {
          'level':LOG_HANDLER_LEVEL,
          'class':'logging.handlers.RotatingFileHandler',
-         'filename': LOG_HANDLER_FILENAME,
+         'filename': HANDLER_FILE,
          'maxBytes': LOG_FILE_SIZE_LIMIT,
          'backupCount': LOG_BACKUP_COUNT,
          'formatter': 'standard',
@@ -213,6 +198,10 @@ LOGGING = {
          'handlers': ['default'],
          'level': 'DEBUG',
       },
+      'balsamlauncher': {
+         'handlers': ['default'],
+         'level': 'DEBUG',
+      },
       'django.db.backends': {
          'handlers':['default'],
          'level': 'WARNING',
@@ -223,6 +212,21 @@ LOGGING = {
       },
    }
 }
+if 'argoservice' in ' '.join(sys.argv):
+    logger = logging.getLogger('argo')
+elif 'service' in sys.argv:
+    logger = logging.getLogger('balsam')
+elif 'launcher' in ' '.join(sys.argv):
+    logger = logging.getLogger('balsamlauncher')
+else:
+    logger = logging.getLogger('console')
+
+def log_uncaught_exceptions(exctype, value, tb,logger=logger):
+   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+   logger = logging.getLogger('console')
+   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+
+sys.excepthook = log_uncaught_exceptions
 
 #------------------------------
 # Sanity Checks
@@ -233,10 +237,9 @@ for d in [
       INSTALL_PATH,
       DATA_PATH,
       ALLOWED_EXE_PATH,
-      BALSAM_LOGGING_DIRECTORY,
+      LOGGING_DIRECTORY,
       BALSAM_WORK_DIRECTORY,
       BALSAM_ALLOWED_EXECUTABLE_DIRECTORY,
-      ARGO_LOGGING_DIRECTORY,
       ARGO_WORK_DIRECTORY,
       #GRIDFTP_GLOBUS_URL_COPY,
       #GRIDFTP_PROXY_INFO,
@@ -247,5 +250,4 @@ for d in [
    ]:
    if not os.path.exists(d):
       os.makedirs(d)
-
-
+      logger.info(f'Created directory {d}')

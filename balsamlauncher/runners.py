@@ -19,10 +19,13 @@ from django.conf import settings
 from django.db import transaction
 
 import balsam.models
-from balsam.launcher import mpi_commands
-from balsam.launcher import mpi_ensemble
-from balsam.launcher.exceptions import *
-from balsam.launcher.cd import cd
+from balsamlauncher import mpi_commands
+from balsamlauncher import mpi_ensemble
+from balsamlauncher.exceptions import *
+from balsamlauncher import cd
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class MonitorStream(Thread):
@@ -179,6 +182,7 @@ class RunnerGroup:
         idle nodes'''
 
         if len(self.runners) == MAX_CONCURRENT_RUNNERS:
+            logger.info("Cannot create another runner: at max")
             raise ExceededMaxRunners(
                 f"Cannot have more than {MAX_CONCURRENT_RUNNERS} simultaneous runners"
             )
@@ -187,6 +191,7 @@ class RunnerGroup:
         nidle = len(idle_workers)
         rpw = workers[0].ranks_per_worker
         assert all(w.ranks_per_worker == rpw for w in idle_workers)
+        logger.info(f"{nidle} idle workers; {len(runnable_jobs)} runnable jobs")
 
         serial_jobs = [j for j in runnable_jobs 
                        if j.num_nodes == 1 and j.processes_per_node == 1]

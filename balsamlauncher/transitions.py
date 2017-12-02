@@ -3,41 +3,57 @@ from collections import namedtuple
 import glob
 import multiprocessing
 import queue
-import logging
+import os
+from io import StringIO
+from traceback import print_exc
+import sys
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from django import db
 
 from common import transfer
-from balsam.launcher.exceptions import *
+from balsamlauncher.exceptions import *
 from balsam.models import BalsamJob
-logger = logging.getLogger(__name__)
+
+import logging
+logger = logging.getLogger('balsamlauncher.transitions')
 
 PREPROCESS_TIMEOUT_SECONDS = 300
 SITE = settings.BALSAM_SITE
 
-StatusMsg = namedtuple('Status', ['pk', 'state', 'msg'])
+StatusMsg = namedtuple('StatusMsg', ['pk', 'state', 'msg'])
 JobMsg =   namedtuple('JobMsg', ['job', 'transition_function'])
 
 
 def main(job_queue, status_queue):
     db.connection.close()
     while True:
+        logger.debug("Transition process waiting for job")
         job_msg = job_queue.get()
         job, transition_function = job_msg
         if job == 'end': return
         if job.work_site != SITE:
             job.work_site = SITE
             job.save(update_fields=['work_site'])
+        logger.debug(f"Received transition job {job.cute_id}: {transition_function}")
         try:
             transition_function(job)
         except BalsamTransitionError as e:
             job.update_state('FAILED', str(e))
             s = StatusMsg(job.pk, 'FAILED', str(e))
             status_queue.put(s)
+            buf = StringIO()
+            print_exc(file=buf)
+            logger.exception("Caught BalsamTransitionError:\n%s", buf.getvalue())
+            logger.exception(f"Marking job {job.cute_id} as FAILED")
+        except:
+            buf = StringIO()
+            print_exc(file=buf)
+            logger.exception("Uncaught exception in transition:\n%s", buf.getvalue())
+            raise
         else:
-            s = StatusMsg(job.pk, job.state, 'success')
+            s = StatusMsg(job.pk, str(job.state), 'success')
             status_queue.put(s)
 
 
@@ -54,10 +70,13 @@ class TransitionProcessPool:
         self.procs = [
             multiprocessing.Process( target=main, 
                                     args=(self.job_queue, self.status_queue))
-            for i in range(NUM_PROC)
+            for i in range(self.NUM_PROC)
         ]
         db.connections.close_all()
-        for proc in self.procs: proc.start()
+        logger.debug(f"Starting {len(self.procs)} transition processes")
+        for proc in self.procs: 
+            proc.daemon = True
+            proc.start()
 
     def __contains__(self, job):
         return job.pk in self.transitions_pk_list
@@ -70,7 +89,7 @@ class TransitionProcessPool:
         self.job_queue.put(m)
         self.transitions_pk_list.append(job.pk)
 
-    def get_statuses():
+    def get_statuses(self):
         while not self.status_queue.empty():
             try:
                 stat = self.status_queue.get_nowait()
@@ -85,12 +104,16 @@ class TransitionProcessPool:
                 self.job_queue.get_nowait()
             except queue.Empty:
                 break
+        logger.debug("Flushed transition process job queue")
 
     def end_and_wait(self):
         m = JobMsg('end', None)
+        logger.info("Sending end message and waiting on transition processes")
         for proc in self.procs:
             self.job_queue.put(m)
-        for proc in self.procs: proc.wait()
+        for proc in self.procs: 
+            proc.join()
+        logger.info("All Transition processes joined: done.")
         self.transitions_pk_list = []
 
 

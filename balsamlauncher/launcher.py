@@ -1,26 +1,30 @@
 '''The Launcher is either invoked by the user, who bypasses the Balsam
 scheduling service and submits directly to a local job queue, or by the
 Balsam service metascheduler'''
-import os
-import django
-os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
-django.setup()
-
 import argparse
+import os
 from sys import exit
 import signal
 import time
 
+import django
+os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
+django.setup()
 from django.conf import settings
 
-from balsam import scheduler
-from balsam.launcher import jobreader
-from balsam.launcher import transitions
-from balsam.launcher import worker
-from balsam.launcher import runners
-from balsam.launcher.exceptions import *
+import logging
+logger = logging.getLogger('balsamlauncher')
+logger.info("Loading Balsam Launcher")
 
-START_TIME = time.time() + 10.0
+from balsam.schedulers import Scheduler
+scheduler = Scheduler.scheduler_main
+
+from balsamlauncher import jobreader
+from balsamlauncher import transitions
+from balsamlauncher import worker
+from balsamlauncher import runners
+from balsamlauncher.exceptions import *
+
 RUNNABLE_STATES = ['PREPROCESSED', 'RESTART_READY']
 
 def delay(period=settings.BALSAM_SERVICE_PERIOD):
@@ -35,84 +39,20 @@ def delay(period=settings.BALSAM_SERVICE_PERIOD):
             nexttime = now + tosleep + period
         yield
 
+def sufficient_time(job):
+    return 60*job.wall_time_minutes < scheduler.remaining_time_seconds()
 
-class HostEnvironment:
-    '''Set user- and environment-specific settings for this run'''
-    RECOGNIZED_HOSTS = {
-        'BGQ'  : 'vesta cetus mira'.split(),
-        'CRAY' : 'theta'.split(),
-    }
-
-    def __init__(self, args):
-        self.hostname = None
-        self.host_type = None
-        self.scheduler_id = None
-        self.pid = None
-        self.num_nodes = None
-        self.partition = None
-        self.walltime_seconds = None
-
-        self.num_workers = args.num_workers
-        self.ranks_per_worker_serial = args.serial_jobs_per_worker
-        self.walltime_minutes = args.time_limit_minutes
-        
-        self.set_hostname_and_type()
-        self.query_scheduler()
-        
-        if self.walltime_minutes is not None:
-            self.walltime_seconds = self.walltime_minutes * 60
-
-
-    def set_hostname_and_type(self):
-        from socket import gethostname
-        self.pid = os.getpid()
-        hostname = gethostname().lower()
-        self.hostname = hostname
-        for host_type, known_names in RECOGNIZED_HOSTS.values():
-            if any(hostname.find(name) >= 0 for name in known_names):
-                self.host_type = host_type
-                return
-        self.host_type = 'DEFAULT'
-
-    def query_scheduler(self):
-        if not scheduler.scheduler_class: return
-        env = scheduler.get_environ()
-        self.scheduler_id = env.id
-        self.num_nodes = env.num_nodes
-        self.partition = env.partition
-        
-        info = scheduler.get_job_status(self.scheduler_id)
-        self.walltime_seconds = info['walltime_sec']
-
-    def elapsed_time_seconds(self):
-        return time.time() - START_TIME
-
-    def remaining_time_seconds(self):
-        if self.walltime_seconds:
-            elasped = self.elapsed_time_seconds()
-            return self.walltime_seconds - elapsed
-        else:
-            return float("inf")
-
-    def sufficient_time(self, job):
-        return 60*job.wall_time_minutes < self.remaining_time_seconds()
-
-    def check_timeout(self):
-        if self.remaining_time_seconds() < 1.0:
-            return True
-        return False
-
-def get_runnable_jobs(jobs, running_pks, host_env):
+def get_runnable_jobs(jobs, running_pks):
     runnable_jobs = [job for job in jobs
                      if job.pk not in running_pks and
                      job.state in RUNNABLE_STATES and
-                     host_env.sufficient_time(job)]
+                     sufficient_time(job)]
     return runnable_jobs
 
-def create_new_runners(jobs, runner_group, worker_group, host_env):
+def create_new_runners(jobs, runner_group, worker_group):
     created_one = False
     running_pks = runner_group.running_job_pks
-    runnable_jobs = get_runnable_jobs(jobs, running_pks, host_env)
+    runnable_jobs = get_runnable_jobs(jobs, running_pks)
     while runnable_jobs:
         try:
             runner_group.create_next_runner(runnable_jobs, worker_group)
@@ -121,35 +61,34 @@ def create_new_runners(jobs, runner_group, worker_group, host_env):
         else:
             created_one = True
             running_pks = runner_group.running_job_pks
-            runnable_jobs = get_runnable_jobs(jobs, running_pks, host_env)
+            runnable_jobs = get_runnable_jobs(jobs, running_pks)
     return created_one
 
-
 def main(args, transition_pool, runner_group, job_source):
-    host_env = HostEnvironment(args)
-    worker_group = worker.WorkerGroup(host_env)
     delay_timer = delay()
 
-    # Main Launcher Service Loop
-    while not host_env.check_timeout():
+    while not scheduler.remaining_time_seconds() <= 0.0:
+        logger.debug("Begin launcher service loop")
         wait = True
-        for stat in transitions_pool.get_statuses():
-            logger.debug(f'Transition: {stat.pk} {stat.state}: {stat.msg}')
+
+        for stat in transition_pool.get_statuses():
+            logger.info(f'[{str(stat.pk)[:8]}] transitioned to {stat.state}: {stat.msg}')
             wait = False
         
         job_source.refresh_from_db()
         
         transitionable_jobs = [
             job for job in job_source.jobs
-            if job not in transitions_pool
-            and job.state in transitions_pool.TRANSITIONS
+            if job not in transition_pool
+            and job.state in transitions.TRANSITIONS
         ]
         for job in transitionable_jobs:
             transition_pool.add_job(job)
             wait = False
+            logger.info(f"Queued trans: {job.cute_id} in state {job.state}")
         
         any_finished = runner_group.update_and_remove_finished()
-        created = create_new_runners(job_source.jobs, runner_group, worker_group, host_env)
+        created = create_new_runners(job_source.jobs, runner_group, worker_group)
         if any_finished or created: wait = False
         if wait: next(delay_timer)
     
@@ -166,6 +105,7 @@ def on_exit(runner_group, transition_pool, job_source):
         transition_pool.add_job(job)
 
     transition_pool.end_and_wait()
+    logger.debug("Launcher exit graceful\n\n")
     exit(0)
 
 
@@ -182,12 +122,13 @@ def get_args():
     parser.add_argument('--serial-jobs-per-worker', type=int, default=4,
                         help="For non-MPI jobs, how many to pack per worker")
     parser.add_argument('--time-limit-minutes', type=int,
-                        help="Override auto-detected walltime limit (runs"
-                        " forever if no limit is detected or specified)")
+                        help="Provide a walltime limit if not already imposed")
+    parser.add_argument('--daemon', action='store_true')
     return parser.parse_args()
 
 def detect_dead_runners(job_source):
     for job in job_source.by_states['RUNNING']:
+        logger.info(f'Picked up running job {job.cute_id}: marking RESTART_READY')
         job.update_state('RESTART_READY', 'Detected dead runner')
 
 if __name__ == "__main__":
@@ -197,6 +138,8 @@ if __name__ == "__main__":
     job_source.refresh_from_db()
     runner_group  = runners.RunnerGroup()
     transition_pool = transitions.TransitionProcessPool()
+    worker_group = worker.WorkerGroup(args, host_type=scheduler.host_type,
+                                      workers_str=scheduler.workers_str)
 
     detect_dead_runners(job_source)
 

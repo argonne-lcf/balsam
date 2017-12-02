@@ -4,8 +4,8 @@ import sys
 from subprocess import Popen, STDOUT
 
 from mpi4py import MPI
-from balsam.launcher.cd import cd
-from balsam.launcher.exceptions import *
+import balsamlauncher.cd
+from balsamlauncher.exceptions import *
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()

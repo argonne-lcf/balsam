@@ -20,7 +20,7 @@ def print_jobs(jobs, verbose):
             print(job)
 
 def print_subtree(job, indent=1):
-    def job_str(job): return f"{job.name:10} [{str(job.job_id)[:8]}]"
+    def job_str(job): return f"{job.name:10} {job.cute_id}"
     print('|'*indent, end=' ')
     print(5*indent*' ', job_str(job))
     for job in job.get_children():

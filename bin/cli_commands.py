@@ -1,10 +1,11 @@
 import os
-from django.conf import settings
-import balsam.models
-from balsam import dag
-import ls_commands as lscmd
 import subprocess
 import sys
+
+from django.conf import settings
+import balsam.models
+from balsamlauncher import dag
+import ls_commands as lscmd
 
 Job = balsam.models.BalsamJob
 AppDef = balsam.models.ApplicationDefinition
@@ -97,8 +98,7 @@ def newdep(args):
     parent = match_uniq_job(args.parent)
     child = match_uniq_job(args.child)
     dag.add_dependency(parent, child)
-    print(f"Created link [{str(parent.first().job_id)[:8]}] --> "
-          f"[{str(child.first().job_id)[:8]}]")
+    print(f"Created link {parent.first().cute_id} --> {child.first().cute_id}")
 
 def ls(args):
     objects = args.objects
@@ -174,7 +174,7 @@ def rm(args):
     # Actually delete things here
     for obj in deletion_objs:
         obj.delete()
-        print(f"Deleted {objects_name[:-1]} {str(obj.pk)[:8]}")
+        print(f"Deleted {objects_name[:-1]} {obj.cute_id}")
 
 
 def qsub(args):
@@ -219,7 +219,7 @@ def kill(args):
 
     job = job.first()
 
-    if cmd_confirmation(f'Really kill job {job.name} [{str(job.pk)}] ??'):
+    if cmd_confirmation(f'Really kill job {job.name} {job.cute_id} ??'):
         dag.kill(job, recursive=args.recursive)
         print("Job killed")
 
@@ -229,17 +229,24 @@ def mkchild(args):
         raise RuntimeError(f"mkchild requires that BALSAM_JOB_ID is in the environment")
     child_job = newjob(args)
     dag.add_dependency(dag.current_job, child_job)
-    print(f"Created link [{str(dag.current_job.job_id)[:8]}] --> "
-          f"[{str(child_job.job_id)[:8]}]")
+    print(f"Created link {dag.current_job.cute_id} --> {child_job.cute_id}")
 
 def launcher(args):
-    import balsam.launcher.launcher
-    fname = balsam.launcher.launcher.__file__
+    daemon = args.daemon
+    from importlib.util import find_spec
+    fname = find_spec("balsamlauncher.launcher").origin
     original_args = sys.argv[2:]
     command = [sys.executable] + [fname] + original_args
     print("Starting Balsam launcher")
-    subprocess.Popen(command)
-    sys.exit(0)
+    p = subprocess.Popen(command)
+    if args.daemon:
+        sys.exit(0)
+    try:
+        p.wait()
+    except KeyboardInterrupt:
+        print("Killing Balsam launcher")
+        p.terminate()
+
 
 def service(args):
     print("dummy -- invoking balsam metascheduler service")
