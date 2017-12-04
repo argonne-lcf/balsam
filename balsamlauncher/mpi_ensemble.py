@@ -44,7 +44,7 @@ def run(job):
     with cd(job.workdir) as _, open(outname, 'wb') as outf:
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
-            proc = Popen(job.cmd, stdout=outf, stderr=STDOUT)
+            proc = Popen(job.cmd, stdout=outf, stderr=STDOUT, cwd=job.workdir)
             retcode = proc.wait()
         except Exception as e:
             status_msg(job.id, "FAILED", msg=str(e))

@@ -1,23 +1,24 @@
-from django.test import TestCase
+from tests.BalsamTestCase import BalsamTestCase
 from balsam.models import BalsamJob, InvalidStateError
 
 
-class BalsamJobDBTests(TestCase):
+class BalsamJobDBTests(BalsamTestCase):
     '''Exercise direct manipulation of BalsamJob database'''
 
     def test_basic_addition(self):
         """ A job is added to the Balsam Job database.
         Updating state causes version number to change."""
         jobs = BalsamJob.objects.all()
-        self.assertQuerysetEqual(jobs, [])
+        self.assertEqual(list(jobs), [])
 
         newjob = BalsamJob()
         version_old = newjob.version
-        newjob.update_state('PREPROCESSING', 'using pre.py')
+        newjob.update_state('PREPROCESSED', 'using pre.py')
         version_new = newjob.version
         self.assertNotEqual(version_old, version_new)
 
     def test_first_save(self):
+        '''The first and second Job DB saves don't cause problems'''
         newjob = BalsamJob()
         newjob.save()
         newjob.nodes = 10
@@ -43,6 +44,7 @@ class BalsamJobDBTests(TestCase):
             job1.save(update_fields=['description'])
 
     def test_get_set_parents(self):
+        '''Can add and retreive parents from jobs'''
         job1, job2, job3 = (BalsamJob() for i in range(3))
         job1.name = "parent1"
         job1.save(update_fields=['name'])

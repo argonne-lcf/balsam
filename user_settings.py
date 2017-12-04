@@ -1,14 +1,14 @@
 import os,sys,logging
 import socket
+from django.core.management import call_command
 logger = logging.getLogger('console')
-
+    
 try:
-   INSTALL_PATH                        = os.environ['ARGOBALSAM_INSTALL_PATH']
-   DATA_PATH                           = os.path.join(INSTALL_PATH,'data')
-   ALLOWED_EXE_PATH                    = os.path.join(INSTALL_PATH,'exe')
+   INSTALL_PATH = os.environ['ARGOBALSAM_INSTALL_PATH']
 except KeyError as e:
    logger.error('Environment not setup: ' + str(e))
    raise
+
 
 #------------------------------
 # DATABASE CONFIG INFO
@@ -31,10 +31,18 @@ if USING_DB_LOGIN:
    default_db['USER'] = DBUSER
    default_db['PASSWORD'] = DBPASS
 
-DATABASES = {
-    'default': default_db,
-    'OPTIONS' : {'timeout':500000.0,}
-}
+
+testing = os.environ.get('BALSAM_TEST', '')
+if testing:
+    INSTALL_PATH = os.environ['BALSAM_TEST_DIRECTORY']
+    db_test = default_db.copy()
+    db_test['NAME'] = os.path.join(INSTALL_PATH, 'test_db.sqlite3')
+    DATABASES = {'default':db_test}
+else:
+    DATABASES = {'default':default_db}
+
+DATA_PATH = os.path.join(INSTALL_PATH,'data')
+ALLOWED_EXE_PATH = os.path.join(INSTALL_PATH,'exe')
 
 #------------------------------
 # BALSAM CONFIG INFO
