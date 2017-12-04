@@ -7,7 +7,7 @@ django.setup()
 import argparse
 import sys
 from cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
-from cli_commands import kill,mkchild,launcher,service
+from cli_commands import kill,mkchild,launcher,service,make_dummies
 from django.conf import settings
 
 def main():
@@ -285,8 +285,9 @@ def make_parser():
                        help="Continuously run jobs of specified workflow")
     parser_launcher.add_argument('--num-workers', type=int, default=1,
                         help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser_launcher.add_argument('--serial-jobs-per-worker', type=int, default=4,
+    parser_launcher.add_argument('--nodes-per-worker', type=int, default=1,
                         help="For non-MPI jobs, how many to pack per worker")
+    parser_launcher.add_argument('--max-ranks-per-node', type=int, default=1)
     parser_launcher.add_argument('--time-limit-minutes', type=int,
                         help="Override auto-detected walltime limit (runs"
                         " forever if no limit is detected or specified)")
@@ -302,6 +303,11 @@ def make_parser():
     parser_service.set_defaults(func=service)
     # -------------------------
 
+    # DUMMIES
+    # ---------
+    parser_dummy = subparsers.add_parser('make_dummies')
+    parser_dummy.add_argument('num', type=int)
+    parser_dummy.set_defaults(func=make_dummies)
 
     return parser
 

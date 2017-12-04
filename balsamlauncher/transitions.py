@@ -12,9 +12,9 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from django import db
 
-from common import transfer
+from common import transfer 
 from balsamlauncher.exceptions import *
-from balsam.models import BalsamJob
+from balsam.models import BalsamJob, NoApplication
 
 import logging
 logger = logging.getLogger('balsamlauncher.transitions')
@@ -26,21 +26,25 @@ StatusMsg = namedtuple('StatusMsg', ['pk', 'state', 'msg'])
 JobMsg =   namedtuple('JobMsg', ['job', 'transition_function'])
 
 
-def main(job_queue, status_queue):
-    db.connection.close()
+def main(job_queue, status_queue, lock):
     while True:
         logger.debug("Transition process waiting for job")
         job_msg = job_queue.get()
         job, transition_function = job_msg
+        
         if job == 'end': return
         if job.work_site != SITE:
             job.work_site = SITE
+            lock.acquire()
             job.save(update_fields=['work_site'])
+            lock.release()
         logger.debug(f"Received transition job {job.cute_id}: {transition_function}")
         try:
-            transition_function(job)
+            transition_function(job, lock)
         except BalsamTransitionError as e:
+            lock.acquire()
             job.update_state('FAILED', str(e))
+            lock.release()
             s = StatusMsg(job.pk, 'FAILED', str(e))
             status_queue.put(s)
             buf = StringIO()
@@ -65,15 +69,16 @@ class TransitionProcessPool:
         
         self.job_queue = multiprocessing.Queue()
         self.status_queue = multiprocessing.Queue()
+        self.lock = multiprocessing.Lock()
         self.transitions_pk_list = []
 
         self.procs = [
             multiprocessing.Process( target=main, 
-                                    args=(self.job_queue, self.status_queue))
+                                    args=(self.job_queue, self.status_queue, self.lock))
             for i in range(self.NUM_PROC)
         ]
-        db.connections.close_all()
         logger.debug(f"Starting {len(self.procs)} transition processes")
+        db.connections.close_all()
         for proc in self.procs: 
             proc.daemon = True
             proc.start()
@@ -117,28 +122,39 @@ class TransitionProcessPool:
         self.transitions_pk_list = []
 
 
-def check_parents(job):
+def check_parents(job, lock):
+    logger.debug('checking parents of {job.cute_id}')
     parents = job.get_parents()
     ready = all(p.state == 'JOB_FINISHED' for p in parents)
     if ready:
+        lock.acquire()
         job.update_state('READY', 'dependencies satisfied')
+        lock.release()
+        logger.debug('job ready')
     elif job.state != 'AWAITING_PARENTS':
+        lock.acquire()
         job.update_state('AWAITING_PARENTS', f'{len(parents)} pending jobs')
+        lock.release()
+        logger.debug('awaiting parents')
 
 
-def stage_in(job):
+def stage_in(job, lock):
     # Create workdirs for jobs: use job.create_working_path
-    logger.debug('in stage_in')
+    logger.debug(f'in stage_in of {job.cute_id}')
 
     if not os.path.exists(job.working_directory):
+        lock.acquire()
         job.create_working_path()
+        lock.release()
     work_dir = job.working_directory
+    logger.debug(f"set {job.cute_id} working directory {work_dir}")
 
     # stage in all remote urls
     # TODO: stage_in remote transfer should allow a list of files and folders,
     # rather than copying just one entire folder
     url_in = job.stage_in_url
     if url_in:
+        logger.debug(f"staging into workdir from {url_in}")
         try:
             transfer.stage_in(f"{url_in}/",  f"{work_dir}/")
         except Exception as e:
@@ -163,12 +179,14 @@ def stage_in(job):
         if os.path.exists(newpath): newpath += f"_{parent_pk}"
         # pointing to src, named dst
         os.symlink(src=inp_file, dst=newpath)
+    lock.acquire()
     job.update_state('STAGED_IN')
+    lock.release()
 
 
-def stage_out(job):
+def stage_out(job, lock):
     '''copy from the local working_directory to the output_url '''
-    logger.debug('in stage_out')
+    logger.debug(f'in stage_out of {job.cute_id}')
 
     stage_out_patterns = job.stage_out_files.split()
     work_dir = job.working_directory
@@ -189,24 +207,30 @@ def stage_out(job):
                 message = 'Exception received during stage_out: ' + str(e)
                 logger.error(message)
                 raise BalsamTransitionError from e
-    job.update_state('JOB_FINISHED') # this completes the transitions
+    lock.acquire()
+    job.update_state('JOB_FINISHED')
+    lock.release()
 
 
-def preprocess(job):
-    logger.debug('in preprocess ')
+def preprocess(job, lock):
+    logger.debug(f'in preprocess of {job.cute_id}')
 
     # Get preprocesser exe
     preproc_app = job.preprocess
     if not preproc_app:
         try:
             app = job.get_application()
+            preproc_app = app.default_preprocess
         except ObjectDoesNotExist as e:
             message = f"application {job.application} does not exist"
             logger.error(message)
             raise BalsamTransitionError(message)
-        preproc_app = app.default_preprocess
+        except NoApplication:
+            preproc_app = None
     if not preproc_app:
+        lock.acquire()
         job.update_state('PREPROCESSED', 'No preprocess: skipped')
+        lock.release()
         return
     if not os.path.exists(preproc_app):
         #TODO: look for preproc in the EXE directories
@@ -236,11 +260,12 @@ def preprocess(job):
         logger.error(message)
         raise BalsamTransitionError(message)
 
+    lock.acquire()
     job.update_state('PREPROCESSED', f"{os.path.basename(preproc_app)}")
+    lock.release()
 
-
-def postprocess(job, *, error_handling=False, timeout_handling=False):
-    logger.debug('in postprocess ')
+def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
+    logger.debug(f'in postprocess of {job.cute_id}')
     if error_handling and timeout_handling:
         raise ValueError("Both error-handling and timeout-handling is invalid")
     if error_handling: logger.debug('Handling RUN_ERROR')
@@ -251,11 +276,13 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
     if not postproc_app:
         try:
             app = job.get_application()
+            postproc_app = app.default_postprocess
         except ObjectDoesNotExist as e:
             message = f"application {job.application} does not exist"
             logger.error(message)
             raise BalsamTransitionError(message)
-        postproc_app = app.default_postprocess
+        except NoApplication:
+            postproc_app = None
 
     # If no postprocesssor; move on (unless in error_handling mode)
     if not postproc_app:
@@ -265,10 +292,14 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
             raise BalsamTransitionError(message)
         elif timeout_handling:
             logger.warning('Unhandled job timeout: marking RESTART_READY')
+            lock.acquire()
             job.update_state('RESTART_READY', 'marking for re-run')
+            lock.release()
             return
         else:
+            lock.acquire()
             job.update_state('POSTPROCESSED', 'No postprocess: skipped')
+            lock.release()
             return
 
     if not os.path.exists(postproc_app):
@@ -316,21 +347,30 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
         raise BalsamTransitionError(message)
 
     if not (error_handling or timeout_handling):
+        lock.acquire()
         job.update_state('POSTPROCESSED', f"{os.path.basename(postproc_app)}")
+        lock.release()
 
 
-def handle_timeout(job):
+def handle_timeout(job, lock):
+    logger.debug(f'in handle_timeout of {job.cute_id}')
     if job.post_timeout_handler:
-        postprocess(job, timeout_handling=True)
+        logger.debug('invoking postprocess with timeout_handling flag')
+        postprocess(job, lock, timeout_handling=True)
     elif job.auto_timeout_retry:
+        logger.debug('marking RESTART_READY')
+        lock.acquire()
         job.update_state('RESTART_READY', 'timedout: auto retry')
+        lock.release()
     else:
         raise BalsamTransitionError("No timeout handling: marking FAILED")
 
 
-def handle_run_error(job):
+def handle_run_error(job, lock):
+    logger.debug(f'in handle_run_error of {job.cute_id}')
     if job.post_error_handler:
-        postprocess(job, error_handling=True)
+        logger.debug('invoking postprocess with error_handling flag')
+        postprocess(job, lock, error_handling=True)
     else:
         raise BalsamTransitionError("No error handler: run failed")
 

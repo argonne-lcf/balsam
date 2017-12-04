@@ -6,7 +6,7 @@ from datetime import datetime
 from socket import gethostname
 import uuid
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
 from django.db import models
 from concurrency.fields import IntegerVersionField
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
+class NoApplication(Exception): pass
 
 TIME_FMT = '%m-%d-%Y %H:%M:%S'
 
@@ -166,7 +167,7 @@ class BalsamJob(models.Model):
         'Number of Compute Nodes',
         help_text='The number of compute nodes requested for this job.',
         default=1)
-    processes_per_node = models.IntegerField(
+    ranks_per_node = models.IntegerField(
         'Number of Processes per Node',
         help_text='The number of MPI processes per node to schedule for this job.',
         default=1)
@@ -272,7 +273,7 @@ actual_runtime:         {self.runtime_str()}
 num_nodes:              {self.num_nodes}
 threads per rank:       {self.threads_per_rank}
 threads per core:       {self.threads_per_core}
-processes_per_node:     {self.processes_per_node}
+ranks_per_node:         {self.ranks_per_node}
 scheduler_id:           {self.scheduler_id}
 application:            {self.application if self.application else 
                             self.direct_command}
@@ -295,8 +296,20 @@ auto timeout retry:     {self.auto_timeout_retry}
         return BalsamJob.objects.filter(job_id__in=parent_ids)
 
     @property
+    def num_ranks(self):
+        return self.num_nodes * self.ranks_per_node
+
+    @property
     def cute_id(self):
         return f"[{ str(self.pk)[:8] }]"
+
+    @property
+    def app_cmd(self):
+        if self.application:
+            app = ApplicationDefinition.objects.get(name=job.application)
+            return f"{app.executable} {app.application_args}"
+        else:
+            return self.direct_command
 
     def get_children(self):
         return BalsamJob.objects.filter(parents__icontains=str(self.pk))
@@ -319,9 +332,10 @@ auto timeout retry:     {self.auto_timeout_retry}
         self.save(update_fields=['parents'])
 
     def get_application(self):
-        if not self.application:
-            return None
-        return ApplicationDefinition.objects.get(name=self.application)
+        if self.application:
+            return ApplicationDefinition.objects.get(name=self.application)
+        else:
+            raise NoApplication
 
     @staticmethod
     def parse_envstring(s):
@@ -331,8 +345,12 @@ auto timeout retry:     {self.auto_timeout_retry}
         return {variable:value for (variable,value) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
-        envs = os.environ.copy()
-        app = self.get_application()
+        #envs = os.environ.copy()
+        envs = {}
+        try:
+            app = self.get_application()
+        except NoApplication:
+            app = None
         if app and app.environ_vars:
             app_vars = self.parse_envstring(app.environ_vars)
             envs.update(app_vars)
@@ -352,13 +370,13 @@ auto timeout retry:     {self.auto_timeout_retry}
         envs.update(balsam_envs)
         return envs
 
-    def update_state(self, new_state, message=''):
+    def update_state(self, new_state, message='',using=None):
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 
         self.state_history += history_line(new_state, message)
         self.state = new_state
-        self.save(update_fields=['state', 'state_history'])
+        self.save(update_fields=['state', 'state_history'],using=using)
 
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()

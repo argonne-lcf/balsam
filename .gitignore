@@ -10,3 +10,4 @@ env
 db.sqlite3
 argo/migrations
 balsam/migrations
+experiments

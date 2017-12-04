@@ -173,8 +173,9 @@ def rm(args):
 
     # Actually delete things here
     for obj in deletion_objs:
+        msg = f"Deleted {objects_name[:-1]} {obj.cute_id}"
         obj.delete()
-        print(f"Deleted {objects_name[:-1]} {obj.cute_id}")
+        print(msg)
 
 
 def qsub(args):
@@ -250,3 +251,34 @@ def launcher(args):
 
 def service(args):
     print("dummy -- invoking balsam metascheduler service")
+
+def make_dummies(args):
+    for i in range(args.num):
+        job = Job()
+        job.name = f'dummy{i}'
+        job.description = 'Added by balsam make_dummies'
+        job.workflow = 'dummy'
+        job.allowed_work_sites = settings.BALSAM_SITE
+
+        job.wall_time_minutes = 1
+        job.num_nodes = 1
+        job.processes_per_node = 1
+        job.threads_per_rank = 1
+        job.threads_per_core = 1
+        job.environ_vars = ""
+
+        job.application = ''
+        job.application_args = ''
+        job.preprocess = ''
+        job.postprocess = ''
+        job.post_error_handler = False
+        job.post_timeout_handler = False
+        job.auto_timeout_retry = False
+        job.input_files = ''
+        job.stage_in_url = ''
+        job.stage_out_url = ''
+        job.stage_out_files = ''
+        job.direct_command = 'echo hello'
+
+        job.save()
+    print(f"Added {args.num} dummy jobs to the DB")

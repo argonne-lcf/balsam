@@ -53,6 +53,7 @@ def create_new_runners(jobs, runner_group, worker_group):
     created_one = False
     running_pks = runner_group.running_job_pks
     runnable_jobs = get_runnable_jobs(jobs, running_pks)
+    logger.debug(f"Have {len(runnable_jobs)} runnable jobs")
     while runnable_jobs:
         try:
             runner_group.create_next_runner(runnable_jobs, worker_group)
@@ -68,11 +69,10 @@ def main(args, transition_pool, runner_group, job_source):
     delay_timer = delay()
 
     while not scheduler.remaining_time_seconds() <= 0.0:
-        logger.debug("Begin launcher service loop")
+        logger.debug("\n************\nSERVICE LOOP\n************")
         wait = True
 
         for stat in transition_pool.get_statuses():
-            logger.info(f'[{str(stat.pk)[:8]}] transitioned to {stat.state}: {stat.msg}')
             wait = False
         
         job_source.refresh_from_db()
@@ -85,9 +85,11 @@ def main(args, transition_pool, runner_group, job_source):
         for job in transitionable_jobs:
             transition_pool.add_job(job)
             wait = False
-            logger.info(f"Queued trans: {job.cute_id} in state {job.state}")
+            fxn = transitions.TRANSITIONS[job.state]
+            logger.info(f"Queued transition: {job.cute_id} will undergo {fxn}")
         
         any_finished = runner_group.update_and_remove_finished()
+        job_source.refresh_from_db()
         created = create_new_runners(job_source.jobs, runner_group, worker_group)
         if any_finished or created: wait = False
         if wait: next(delay_timer)
@@ -119,7 +121,8 @@ def get_args():
                        help="Continuously run jobs of specified workflow")
     parser.add_argument('--num-workers', type=int, default=1,
                         help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser.add_argument('--serial-jobs-per-worker', type=int, default=4,
+    parser.add_argument('--nodes-per-worker', type=int, default=1)
+    parser.add_argument('--max-ranks-per-node', type=int, default=1,
                         help="For non-MPI jobs, how many to pack per worker")
     parser.add_argument('--time-limit-minutes', type=int,
                         help="Provide a walltime limit if not already imposed")
@@ -136,8 +139,8 @@ if __name__ == "__main__":
     
     job_source = jobreader.JobReader.from_config(args)
     job_source.refresh_from_db()
-    runner_group  = runners.RunnerGroup()
     transition_pool = transitions.TransitionProcessPool()
+    runner_group  = runners.RunnerGroup(transition_pool.lock)
     worker_group = worker.WorkerGroup(args, host_type=scheduler.host_type,
                                       workers_str=scheduler.workers_str)
 

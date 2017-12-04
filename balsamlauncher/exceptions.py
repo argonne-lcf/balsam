@@ -1,7 +1,7 @@
 class BalsamLauncherError(Exception): pass
 
 class BalsamRunnerError(Exception): pass
-class ExceededMaxConcurrentRunners(BalsamRunnerError): pass
+class ExceededMaxRunners(BalsamRunnerError): pass
 class NoAvailableWorkers(BalsamRunnerError): pass
 
 class BalsamTransitionError(Exception): pass

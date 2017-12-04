@@ -1,9 +1,10 @@
 class DEFAULTMPICommand(object):
+    '''Single node OpenMPI: ppn == num_ranks'''
     def __init__(self):
         self.mpi = 'mpirun'
         self.nproc = '-n'
-        self.ppn = '-ppn'
-        self.env = '-env'
+        self.ppn = '-npernode'
+        self.env = '-x'
         self.cpu_binding = None
         self.threads_per_rank = None
         self.threads_per_core = None
@@ -11,28 +12,27 @@ class DEFAULTMPICommand(object):
     def worker_str(self, workers):
         return ""
 
-    def env_str(self, job):
-        if job.environ_vars:
-            return f"{self.env} {job.environ_vars}"
-        return ""
+    def env_str(self, envs):
+        envstrs = (f"{self.env} {var}={val}" for var,val in envs.items())
+        return " ".join(envstrs)
 
-    def threads(self, job):
+    def threads(self, thread_per_rank, thread_per_core):
         result= ""
         if self.cpu_binding:
             result += f"{self.cpu_binding} "
         if self.threads_per_rank:
-            result += f"{self.threads_per_rank} {job.threads_per_rank} "
+            result += f"{self.threads_per_rank} {thread_per_rank} "
         if self.threads_per_core:
-            result += f"{self.threads_per_core} {job.threads_per_core} "
+            result += f"{self.threads_per_core} {thread_per_core} "
         return result
 
-    def __call__(self, job, workers, nproc=None):
-        if nproc is None:
-            nproc = job.num_nodes * job.processes_per_node
+    def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node, envs,threads_per_rank=1,threads_per_core=1):
+        '''Build the mpirun/aprun/runjob command line string'''
         workers = self.worker_str(workers)
-        envs = self.env_str(job)
-        result =  (f"{self.mpi} {self.nproc} {nproc} {self.ppn} "
-                   "{job.processes_per_node} {envs} {workers} {threads} ")
+        envs = self.env_str(envs)
+        thread_str = self.threads(threads_per_rank, threads_per_core)
+        result =  (f"{self.mpi} {self.nproc} {num_ranks} {self.ppn} "
+                   f"{num_ranks} {envs} {workers} {thread_str} {app_cmd}")
         return result
 
 
@@ -45,15 +45,6 @@ class BGQMPICommand(DEFAULTMPICommand):
         self.cpu_binding = None
         self.threads_per_rank = None
         self.threads_per_core = None
-    
-    def env_str(self, job):
-        if not job.environ_vars:
-            return ""
-        envs = job.environ_vars.split(':')
-        result = ""
-        for env in envs:
-            result += f"{self.env} {env} "
-        return result
     
     def worker_str(self, workers):
         if len(workers) != 1:
@@ -68,19 +59,10 @@ class CRAYMPICommand(DEFAULTMPICommand):
         self.mpi = 'aprun'
         self.nproc = '-n'
         self.ppn = '-N'
-        self.env = '-e' # VAR1=val1:VAR2=val2
+        self.env = '-e'
         self.cpu_binding = '-cc depth'
         self.threads_per_rank = '-d'
         self.threads_per_core = '-j'
-    
-    def env_str(self, job):
-        if not job.environ_vars:
-            return ""
-        envs = job.environ_vars.split(':')
-        result = ""
-        for env in envs:
-            result += f"{self.env} {env} "
-        return result
     
     def worker_str(self, workers):
         if not workers:

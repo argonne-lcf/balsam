@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source env/bin/activate
+#source env/bin/activate
 export ARGOBALSAM_INSTALL_PATH=$(pwd)
 export PYTHONPATH=$ARGOBALSAM_INSTALL_PATH:$PYTHONPATH
 export PATH=$ARGOBALSAM_INSTALL_PATH/bin:$PATH

@@ -26,12 +26,14 @@ if USING_DB_LOGIN:
 default_db = {}
 default_db['ENGINE'] = 'django.db.backends.sqlite3'
 default_db['NAME'] = os.path.join(INSTALL_PATH,'db.sqlite3')
+default_db['OPTIONS'] = {'timeout' : 500000.0}
 if USING_DB_LOGIN:
    default_db['USER'] = DBUSER
    default_db['PASSWORD'] = DBPASS
 
 DATABASES = {
-    'default': default_db
+    'default': default_db,
+    'OPTIONS' : {'timeout':500000.0,}
 }
 
 #------------------------------
@@ -52,7 +54,7 @@ BALSAM_DEFAULT_PROJECT              = 'datascience' # default local project name
 BALSAM_ALLOWED_EXECUTABLE_DIRECTORY = ALLOWED_EXE_PATH # path to allowed executables
 BALSAM_SITE                         = 'theta' # local balsam site name
 BALSAM_SCHEDULER_CLASS              = 'CobaltScheduler' # local scheduler in use
-BALSAM_MAX_CONCURRENT_TRANSITIONS   = 2 # maximum number of sub threads spawned by Balsam
+BALSAM_MAX_CONCURRENT_TRANSITIONS   = 5 # maximum number of sub threads spawned by Balsam
 BALSAM_MAX_CONCURRENT_RUNNERS       = 50 # maximum number of background 'mpirun' subprocesses
 
 #------------------------------
