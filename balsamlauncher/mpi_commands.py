@@ -67,4 +67,4 @@ class CRAYMPICommand(DEFAULTMPICommand):
     def worker_str(self, workers):
         if not workers:
             return ""
-        return f"-L {','.join(worker.id for worker in workers)}"
+        return f"-L {','.join(str(worker.id) for worker in workers)}"

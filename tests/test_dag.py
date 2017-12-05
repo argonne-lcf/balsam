@@ -93,7 +93,6 @@ class BalsamDAGTests(BalsamTestCase):
 
         # user postprocess script: use dag API to kill the "A" subtree
         out = self.mock_postprocessor_run(A, "kill")
-        print(out)
         
         # There are still 5 jobs
         # But now A,B,C are killed; D,E unaffected

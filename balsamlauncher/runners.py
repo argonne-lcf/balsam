@@ -20,12 +20,14 @@ from django.db import transaction
 
 import balsam.models
 from balsamlauncher import mpi_commands
-from balsamlauncher import mpi_ensemble
 from balsamlauncher.exceptions import *
 from balsamlauncher import cd
 
 import logging
 logger = logging.getLogger(__name__)
+    
+from importlib.util import find_spec
+MPI_ENSEMBLE_EXE = find_spec("balsamlauncher.mpi_ensemble").origin
 
 
 class MonitorStream(Thread):
@@ -132,8 +134,6 @@ class MPIEnsembleRunner(Runner):
     '''One subprocess: an ensemble of serial jobs run in an mpi4py wrapper'''
     def __init__(self, job_list, worker_list):
 
-        mpi_ensemble_exe = os.path.abspath(mpi_ensemble.__file__)
-
         super().__init__(job_list, worker_list)
         root_dir = Path(self.jobs[0].working_directory).parent
         
@@ -153,7 +153,7 @@ class MPIEnsembleRunner(Runner):
         rpn = worker_list[0].max_ranks_per_node
         nranks = sum(w.num_nodes*rpn for w in worker_list)
         envs = self.jobs[0].get_envs() # TODO: different envs for each job
-        app_cmd = f"{sys.executable} {mpi_ensemble_exe} {ensemble_filename}"
+        app_cmd = f"{sys.executable} {MPI_ENSEMBLE_EXE} {ensemble_filename}"
 
         mpi_str = self.mpi_cmd(worker_list, app_cmd=app_cmd, envs=envs,
                                num_ranks=nranks, ranks_per_node=rpn)

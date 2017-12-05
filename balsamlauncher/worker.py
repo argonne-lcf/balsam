@@ -28,7 +28,11 @@ class WorkerGroup:
         self.workers = []
         self.setup = getattr(self, f"setup_{self.host_type}")
         self.setup(config)
-        logger.debug(f"Built {len(self.workers)} {self.host_type} workers")
+        logger.info(f"Built {len(self.workers)} {self.host_type} workers")
+        for worker in self.workers:
+            line = (f"ID {worker.id} NODES {worker.num_nodes} MAX-RANKS-PER-NODE"
+            f" {worker.max_ranks_per_node}")
+            logger.debug(line)
 
     def __iter__(self):
         return iter(self.workers)
@@ -39,6 +43,9 @@ class WorkerGroup:
     def setup_CRAY(self, config):
         # workers_str is string like: 1001-1005,1030,1034-1200
         node_ids = []
+        if not self.workers_str:
+            raise ValueError("Cray WorkerGroup needs workers_str to setup")
+            
         ranges = self.workers_str.split(',')
         for node_range in ranges:
             lo, *hi = node_range.split('-')

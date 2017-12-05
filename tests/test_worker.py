@@ -1,3 +1,5 @@
+import os
+
 from tests.BalsamTestCase import BalsamTestCase
 
 from balsamlauncher import worker

@@ -128,7 +128,7 @@ class SCPHandler:
    def stage_in( self, source_url, destination_directory ):
       parts = urlparse.urlparse( source_url )
       command = 'scp -p -r %s:%s %s' % (source_url, destination_directory)
-      print('transfer.stage_in: command=' + command )
+      logger.debug('transfer.stage_in: command=' + command )
       ret = os.system(command)
       if ret:
          raise Exception("Error in stage_in: %d" % ret)
@@ -136,7 +136,7 @@ class SCPHandler:
    def stage_out( self, source_directory, destination_url ):
       # ensure that source and destination each have a trailing '/'
       command = 'scp -p -r %s %s' % (source_directory, destination_url)
-      print('transfer.stage_out: command=' + command)
+      logger.debug('transfer.stage_out: command=' + command)
       ret = os.system(command)
       if ret:
          raise Exception("Error in stage_out: %d" % ret)
