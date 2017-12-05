@@ -40,7 +40,7 @@ def read_jobs(fp):
 def run(job):
     basename = os.path.basename(job.workdir)
     outname = f"{basename}.out"
-    logger.debug(f"Running job {job.id}")
+    logger.debug(f"mpi_ensemble rank {RANK}: starting job {job.id}")
     with cd(job.workdir) as _, open(outname, 'wb') as outf:
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
@@ -60,14 +60,15 @@ def main(jobs_path):
     job_list = None
 
     if RANK == 0:
+        logger.debug(f"Master rank of mpi_ensemble.py: reading jobs from {jobs_path}")
         with open(jobs_path) as fp: 
             job_list = list(read_jobs(fp))
 
     job_list = COMM.bcast(job_list, root=0)
-    logger.debug(f"Broadcasted job list. Total {len(job_list)} jobs to run")
+    if RANK == 0:
+        logger.debug(f"Broadcasted job list. Total {len(job_list)} jobs to run")
     for job in job_list[RANK::COMM.size]: run(job)
 
 if __name__ == "__main__":
     path = sys.argv[1]
-    logger.debug(f"Starting mpi_ensemble.py. Reading jobs from {path}")
     main(path)

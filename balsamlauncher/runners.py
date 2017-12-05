@@ -110,21 +110,22 @@ class MPIRunner(Runner):
         self.popen_args['stdout'] = self.outfile
         self.popen_args['stderr'] = STDOUT
         self.popen_args['bufsize'] = 1
+        logger.info(f"MPI Runner Popen args: {self.popen_args['args']}")
 
     def update_jobs(self):
         job = self.jobs[0]
         #job.refresh_from_db() # TODO: handle RecordModified
         retcode = self.process.poll()
         if retcode == None:
-            logger.debug(f"Job {job.cute_id} still running")
+            logger.debug(f"MPI Job {job.cute_id} still running")
             curstate = 'RUNNING'
             msg = ''
         elif retcode == 0:
-            logger.debug(f"Job {job.cute_id} return code 0: done")
+            logger.debug(f"MPI Job {job.cute_id} return code 0: done")
             curstate = 'RUN_DONE'
             msg = ''
         else:
-            logger.debug(f"Job {job.cute_id} return code!=0: error")
+            logger.debug(f"MPI Job {job.cute_id} return code!=0: error")
             curstate = 'RUN_ERROR'
             msg = str(retcode)
         if job.state != curstate: job.update_state(curstate, msg) # TODO: handle RecordModified
@@ -159,7 +160,7 @@ class MPIEnsembleRunner(Runner):
                                num_ranks=nranks, ranks_per_node=rpn)
 
         self.popen_args['args'] = shlex.split(mpi_str)
-        logger.debug(f"MPI Ensemble Popen args: {self.popen_args['args']}")
+        logger.info(f"MPI Ensemble Popen args: {self.popen_args['args']}")
 
     def update_jobs(self):
         '''Relies on stdout of mpi_ensemble.py'''
@@ -172,7 +173,7 @@ class MPIEnsembleRunner(Runner):
 
         logger.debug("Checking mpi_ensemble stdout for status updates...")
         for line in self.monitor.available_lines():
-            logger.debug(f"Monitor stdout line: {line.strip()}")
+            logger.debug(f"mpi_ensemble stdout:  {line.strip()}")
             pk, state, *msg = line.split()
             msg = ' '.join(msg)
             if pk in self.jobs_by_pk and state in balsam.models.STATES:
@@ -210,8 +211,8 @@ class RunnerGroup:
         rpn = workers[0].max_ranks_per_node
         assert all(w.num_nodes == nodes_per_worker for w in idle_workers)
         assert all(w.max_ranks_per_node == rpn for w in idle_workers)
-        logger.info(f"Creating next runner: {nidle_workers} idle workers with "
-            f"{nodes_per_worker} nodes per worker; {len(runnable_jobs)} runnable jobs")
+        logger.debug(f"Available workers: {nidle_workers} idle with "
+            f"{nodes_per_worker} nodes per worker")
         nidle_nodes =  nidle_workers * nodes_per_worker
         nidle_ranks = nidle_nodes * rpn
 

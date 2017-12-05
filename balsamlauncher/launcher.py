@@ -53,7 +53,7 @@ def create_new_runners(jobs, runner_group, worker_group):
     created_one = False
     running_pks = runner_group.running_job_pks
     runnable_jobs = get_runnable_jobs(jobs, running_pks)
-    logger.debug(f"Have {len(runnable_jobs)} runnable jobs")
+    logger.debug(f"Have {len(runnable_jobs)} new runnable jobs")
     while runnable_jobs:
         try:
             runner_group.create_next_runner(runnable_jobs, worker_group)

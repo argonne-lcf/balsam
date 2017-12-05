@@ -13,7 +13,7 @@ class DEFAULTMPICommand(object):
         return ""
 
     def env_str(self, envs):
-        envstrs = (f"{self.env} {var}={val}" for var,val in envs.items())
+        envstrs = (f'{self.env} {var}="{val}"' for var,val in envs.items())
         return " ".join(envstrs)
 
     def threads(self, thread_per_rank, thread_per_core):
