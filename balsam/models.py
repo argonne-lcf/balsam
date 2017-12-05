@@ -345,8 +345,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         return {variable:value for (variable,value) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
-        #envs = os.environ.copy()
-        envs = {}
+        envs = os.environ.copy()
         try:
             app = self.get_application()
         except NoApplication:

@@ -111,7 +111,7 @@ def on_exit(runner_group, transition_pool, job_source):
     exit(0)
 
 
-def get_args():
+def get_args(inputcmd=None):
     parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--job-file', help="File of Balsam job IDs")
@@ -127,7 +127,10 @@ def get_args():
     parser.add_argument('--time-limit-minutes', type=int,
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--daemon', action='store_true')
-    return parser.parse_args()
+    if inputcmd:
+        return parser.parse_args(inputcmd)
+    else:
+        return parser.parse_args()
 
 def detect_dead_runners(job_source):
     for job in job_source.by_states['RUNNING']:

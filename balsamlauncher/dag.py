@@ -1,7 +1,7 @@
 '''Python API for Balsam DAG Manipulations
 
 Example usage:
->>>     import balsam.dag as dag
+>>>     import balsamlauncher.dag as dag
 >>>
 >>>     output = open('expected_output').read()
 >>>
@@ -97,11 +97,24 @@ def add_dependency(parent,child):
         child.set_parents(existing_parents)
         raise RuntimeError("Detected circular dependency; not creating link")
 
-def spawn_child(**kwargs):
+def spawn_child(clone=False, **kwargs):
     '''Add new job that is dependent on the current job'''
     if not isinstance(current_job, _BalsamJob):
         raise RuntimeError("No current BalsamJob detected in environment")
-    child = add_job(**kwargs)
+    if clone:
+        child = _BalsamJob.objects.get(pk=current_job.pk)
+        child.pk = None
+        for k,v in kwargs.items():
+            try:
+                getattr(child, k)
+            except AttributeError: 
+                raise ValueError(f"Invalid field {k}")
+            else:
+                setattr(child, k, v)
+        child.save()
+    else:
+        child = add_job(**kwargs)
+
     add_dependency(current_job, child)
     return child
 

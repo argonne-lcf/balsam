@@ -4,6 +4,7 @@ import balsam.models
 from balsam.models import BalsamJob
 
 import logging
+import uuid
 logger = logging.getLogger(__name__)
 
 class JobReader():
