@@ -145,7 +145,8 @@ if __name__ == "__main__":
     transition_pool = transitions.TransitionProcessPool()
     runner_group  = runners.RunnerGroup(transition_pool.lock)
     worker_group = worker.WorkerGroup(args, host_type=scheduler.host_type,
-                                      workers_str=scheduler.workers_str)
+                                      workers_str=scheduler.workers_str,
+                                      workers_file=scheduler.workers_file)
 
     detect_dead_runners(job_source)
 

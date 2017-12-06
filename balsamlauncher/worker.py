@@ -22,17 +22,20 @@ class Worker:
         self.idle = True
 
 class WorkerGroup:
-    def __init__(self, config, *, host_type=None, workers_str=None):
+    def __init__(self, config, *, host_type=None, workers_str=None,
+                 workers_file=None):
         self.host_type = host_type
         self.workers_str = workers_str
+        self.workers_file = workers_file
         self.workers = []
         self.setup = getattr(self, f"setup_{self.host_type}")
         self.setup(config)
         logger.info(f"Built {len(self.workers)} {self.host_type} workers")
         for worker in self.workers:
-            line = (f"ID {worker.id} NODES {worker.num_nodes} MAX-RANKS-PER-NODE"
-            f" {worker.max_ranks_per_node}")
-            logger.debug(line)
+            logger.debug(
+                f"ID {worker.id} NODES {worker.num_nodes} MAX-RANKS-PER-NODE"
+                f" {worker.max_ranks_per_node}"
+            )
 
     def __iter__(self):
         return iter(self.workers)
@@ -64,6 +67,20 @@ class WorkerGroup:
         # Get (block, corner, shape) args for each sub-block
         # For each worker, set num_nodes and max_ranks_per_node attributes
         pass
+
+    def setup_COOLEY(self, config):
+        node_ids = []
+        if not self.workers_file:
+            raise ValueError("Cooley WorkerGroup needs workers_file to setup")
+        
+        data = open(self.workers_file).read()
+        splitter = ',' if ',' in data else None
+        node_ids = data.split(splitter)
+        self.workers_str = " ".join(worker_ids)
+
+        for id in node_ids:
+            self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1,
+                                       max_ranks_per_node=16))
 
     def setup_DEFAULT(self, config):
         # Use command line config: num_workers, nodes_per_worker,

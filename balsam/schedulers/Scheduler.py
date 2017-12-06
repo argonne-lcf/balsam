@@ -15,8 +15,9 @@ class SubmissionRecord:
 
 class Scheduler:
     RECOGNIZED_HOSTS = {
-        'BGQ'  : 'vesta cetus mira'.split(),
-        'CRAY' : 'theta'.split(),
+        'BGQ'    : 'vesta cetus mira'.split(),
+        'CRAY'   : 'theta'.split(),
+        'COOLEY' : 'cooley cc'.split()
     }
     SCHEDULER_VARIABLES = {} # mappings defined in subclass
     JOBSTATUS_VARIABLES = {}
@@ -27,6 +28,7 @@ class Scheduler:
         self.pid = None
         self.num_workers = None
         self.workers_str = None
+        self.workers_file = None
         self.current_scheduler_id = None
         self.remaining_seconds = None
         self.last_check_seconds = None
@@ -51,18 +53,23 @@ class Scheduler:
             logger.debug(f"Detected scheduler ID {self.current_scheduler_id}")
 
     def get_env(self):
+        '''Check for environment variables (e.g. COBALT_JOBID) indicating 
+        currently inside a scheduled job'''
         environment = {}
         for generic_name, specific_var in self.SCHEDULER_VARIABLES.items():
-            if specific_var not in os.environ:
-                raise SchedulerException(f"{specific_var} not in environment")
-            else:
-                environment[generic_name] = os.environ[specific_var]
-        if 'id' in environment:
+            environment[generic_name] = os.environ.get([specific_var], None)
+
+        if environment['id']:
             self.current_scheduler_id = environment['id']
-        if 'num_workers' in environment:
-            self.num_workers = environment['num_workers']
-        if 'workers_str' in environment:
+        if environment['num_workers']:
+            self.num_workers = int(environment['num_workers'])
+        if environment['workers_str']:
             self.workers_str = environment['workers_str']
+        if environment['workers_file']:
+            self.workers_file = environment['workers_file']
+
+        if not environment['id']:
+            raise SchedulerException(f"No ID in environment")
         return environment
 
     def remaining_time_seconds(self, sched_id=None):
@@ -83,6 +90,7 @@ class Scheduler:
         info = self.get_status(sched_id)
         self.remaining_seconds = info['time_remaining_sec']
         self.last_check_seconds = time.time()
+        logger.debug(f"{self.remaining_seconds} seconds remaining")
         return self.remaining_seconds
 
     def submit(self, job, cmd):

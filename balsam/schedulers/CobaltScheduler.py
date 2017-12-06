@@ -19,8 +19,9 @@ def new_scheduler():
 class CobaltScheduler(Scheduler.Scheduler):
     SCHEDULER_VARIABLES = {
         'id' : 'COBALT_JOBID',
-        'num_workers' : 'COBALT_PARTSIZE',
-        'workers_str' : 'COBALT_PARTNAME',
+        'num_workers'  : 'COBALT_PARTSIZE',
+        'workers_str'  : 'COBALT_PARTNAME',
+        'workers_file' : 'COBALT_NODEFILE',
     }
     JOBSTATUS_VARIABLES = {
         'id' : 'JobID',

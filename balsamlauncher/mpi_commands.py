@@ -68,3 +68,19 @@ class CRAYMPICommand(DEFAULTMPICommand):
         if not workers:
             return ""
         return f"-L {','.join(str(worker.id) for worker in workers)}"
+
+class COOLEYMPICommand(DEFAULTMPICommand):
+    def __init__(self):
+        # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
+        self.mpi = 'mpirun'
+        self.nproc = '-n'
+        self.ppn = '--ppn'
+        self.env = '-e'
+        self.cpu_binding = None
+        self.threads_per_rank = None
+        self.threads_per_core = None
+    
+    def worker_str(self, workers):
+        if not workers:
+            return ""
+        return f"--hosts {','.join(str(worker.id) for worker in workers)} "
