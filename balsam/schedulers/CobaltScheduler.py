@@ -65,9 +65,12 @@ def qstat(scheduler_id, attrs):
     qstat_cmd = f"{exe} {scheduler_id}"
     os.environ['QSTAT_HEADER'] = ':'.join(attrs)
 
-    p = subprocess.Popen(shlex.split(qstat_cmd),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+    try:
+        p = subprocess.Popen(shlex.split(qstat_cmd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT)
+    except OSError:
+        raise JobStatusFailed(f"could not execute {qstat_cmd}")
 
     stdout, _ = p.communicate()
     stdout = stdout.decode('utf-8')

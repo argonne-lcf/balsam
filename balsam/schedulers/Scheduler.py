@@ -57,7 +57,7 @@ class Scheduler:
         currently inside a scheduled job'''
         environment = {}
         for generic_name, specific_var in self.SCHEDULER_VARIABLES.items():
-            environment[generic_name] = os.environ.get([specific_var], None)
+            environment[generic_name] = os.environ.get(specific_var, None)
 
         if environment['id']:
             self.current_scheduler_id = environment['id']
@@ -87,11 +87,16 @@ class Scheduler:
         sched_id = self.current_scheduler_id
         if sched_id is None:
             return float("inf")
-        info = self.get_status(sched_id)
-        self.remaining_seconds = info['time_remaining_sec']
-        self.last_check_seconds = time.time()
-        logger.debug(f"{self.remaining_seconds} seconds remaining")
-        return self.remaining_seconds
+        try:
+            info = self.get_status(sched_id)
+        except JobStatusFailed:
+            logger.warning("Could not get remaining time from scheduler")
+            return float("inf")
+        else:
+            self.remaining_seconds = info['time_remaining_sec']
+            self.last_check_seconds = time.time()
+            logger.debug(f"{self.remaining_seconds} seconds remaining")
+            return self.remaining_seconds
 
     def submit(self, job, cmd):
         logger.info(f"Submit {job.cute_id} {cmd} ({self.__class__})")

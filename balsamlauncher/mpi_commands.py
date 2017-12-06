@@ -75,7 +75,7 @@ class COOLEYMPICommand(DEFAULTMPICommand):
         self.mpi = 'mpirun'
         self.nproc = '-n'
         self.ppn = '--ppn'
-        self.env = '-e'
+        self.env = '--env'
         self.cpu_binding = None
         self.threads_per_rank = None
         self.threads_per_core = None

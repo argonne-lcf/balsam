@@ -39,6 +39,11 @@ def delay(period=settings.BALSAM_SERVICE_PERIOD):
             nexttime = now + tosleep + period
         yield
 
+def elapsed_time_minutes():
+    start = time.time()
+    while True:
+        yield (time.time() - start) / 60.0
+
 def sufficient_time(job):
     return 60*job.wall_time_minutes < scheduler.remaining_time_seconds()
 
@@ -67,8 +72,12 @@ def create_new_runners(jobs, runner_group, worker_group):
 
 def main(args, transition_pool, runner_group, job_source):
     delay_timer = delay()
+    if args.time_limit_minutes > 0:
+        timeout = lambda : elapsed_time_minutes() >= args.time_limit_minutes
+    else:
+        timeout = lambda : scheduler.remaining_time_seconds() <= 0.0
 
-    while not scheduler.remaining_time_seconds() <= 0.0:
+    while not timeout():
         logger.debug("\n************\nSERVICE LOOP\n************")
         wait = True
 
@@ -124,7 +133,7 @@ def get_args(inputcmd=None):
     parser.add_argument('--nodes-per-worker', type=int, default=1)
     parser.add_argument('--max-ranks-per-node', type=int, default=1,
                         help="For non-MPI jobs, how many to pack per worker")
-    parser.add_argument('--time-limit-minutes', type=int,
+    parser.add_argument('--time-limit-minutes', type=int, default=0,
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--daemon', action='store_true')
     if inputcmd:

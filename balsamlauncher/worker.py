@@ -76,7 +76,7 @@ class WorkerGroup:
         data = open(self.workers_file).read()
         splitter = ',' if ',' in data else None
         node_ids = data.split(splitter)
-        self.workers_str = " ".join(worker_ids)
+        self.workers_str = " ".join(node_ids)
 
         for id in node_ids:
             self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1,
