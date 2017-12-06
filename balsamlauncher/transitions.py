@@ -49,7 +49,7 @@ def main(job_queue, status_queue, lock):
             status_queue.put(s)
             buf = StringIO()
             print_exc(file=buf)
-            logger.exception("Caught BalsamTransitionError:\n%s", buf.getvalue())
+            logger.exception("Caught BalsamTransitionError:\n%s\n", buf.getvalue())
             logger.exception(f"Marking job {job.cute_id} as FAILED")
         except:
             buf = StringIO()

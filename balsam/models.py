@@ -307,9 +307,10 @@ auto timeout retry:     {self.auto_timeout_retry}
     def app_cmd(self):
         if self.application:
             app = ApplicationDefinition.objects.get(name=self.application)
-            return f"{app.executable} {self.application_args}"
+            line = f"{app.executable} {self.application_args}"
         else:
-            return self.direct_command
+            line = self.direct_command
+        return ' '.join(os.path.expanduser(w) for w in line.split())
 
     def get_children(self):
         return BalsamJob.objects.filter(parents__icontains=str(self.pk))
