@@ -12,6 +12,7 @@ from subprocess import Popen, STDOUT
 from mpi4py import MPI
 from balsamlauncher.cd import cd
 from balsamlauncher.exceptions import *
+from balsamlauncher.runners import get_tail
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()
@@ -47,11 +48,19 @@ def run(job):
             proc = Popen(job.cmd, stdout=outf, stderr=STDOUT, cwd=job.workdir)
             retcode = proc.wait()
         except Exception as e:
+            logger.exception(f"mpi_ensemble rank {RANK} job {job.id}: exception during Popen")
             status_msg(job.id, "FAILED", msg=str(e))
             raise MPIEnsembleError from e
         else:
-            if retcode == 0: status_msg(job.id, "RUN_DONE")
-            else: status_msg(job.id, "RUN_ERROR", msg=f"process return code {retcode}")
+            if retcode == 0: 
+                logger.debug(f"mpi_ensemble rank {RANK}: job returned 0")
+                status_msg(job.id, "RUN_DONE")
+            else:
+                outf.flush()
+                tail = get_tail(outf.name).replace('\n', '\\n')
+                msg = f"NONZERO RETURN {retcode}: {tail}"
+                status_msg(job.id, "RUN_ERROR", msg=msg)
+                logger.debug(f"mpi_ensemble rank {RANK} job {job.id} {msg}")
         finally:
             proc.kill()
 

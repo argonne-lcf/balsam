@@ -32,7 +32,7 @@ MPI_ENSEMBLE_EXE = find_spec("balsamlauncher.mpi_ensemble").origin
 def get_tail(fname, nlines=5, indent='    '):
     proc = Popen(f'tail -n {nlines} {fname}'.split(),stdout=PIPE, 
                  stderr=STDOUT)
-    tail = str(proc.communicate()[0])
+    tail = proc.communicate()[0].decode()
     lines = tail.split('\n')
     for i, line in enumerate(lines[:]):
         lines[i] = indent + line
@@ -190,15 +190,14 @@ class MPIEnsembleRunner(Runner):
 
         logger.debug("Checking mpi_ensemble stdout for status updates...")
         for line in self.monitor.available_lines():
-            logger.debug(f"mpi_ensemble stdout:  {line.strip()}")
             pk, state, *msg = line.split()
             msg = ' '.join(msg)
             if pk in self.jobs_by_pk and state in balsam.models.STATES:
                 job = self.jobs_by_pk[pk]
                 job.update_state(state, msg) # TODO: handle RecordModified exception
-                logger.debug(f"MPIEnsemble job {job.cute_id} updated to {state}")
+                logger.debug(f"Job {job.cute_id} updated to {state}: {msg}")
             else:
-                logger.error(f"Invalid status update: {line.strip()}")
+                logger.error(f"Invalid statusMsg from mpi_ensemble: {line.strip()}")
 
 class RunnerGroup:
     
@@ -251,7 +250,7 @@ class RunnerGroup:
         # If there are not enough serial jobs; run the larger of:
         # largest MPI job that fits, or the remaining serial jobs
         if nserial >= nidle_ranks:
-            jobs = serial_jobs[:nidle_ranks]
+            jobs = serial_jobs[:nidle_ranks] # TODO: try putting ALL serial jobs into one MPIEnsemble
             assigned_workers = idle_workers
             runner_class = MPIEnsembleRunner
             logger.info(f"Running {len(jobs)} serial jobs on {nidle_workers} workers "
