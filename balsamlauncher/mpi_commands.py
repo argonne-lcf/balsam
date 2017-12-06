@@ -32,7 +32,7 @@ class DEFAULTMPICommand(object):
         envs = self.env_str(envs)
         thread_str = self.threads(threads_per_rank, threads_per_core)
         result =  (f"{self.mpi} {self.nproc} {num_ranks} {self.ppn} "
-                   f"{num_ranks} {envs} {workers} {thread_str} {app_cmd}")
+                   f"{ranks_per_node} {envs} {workers} {thread_str} {app_cmd}")
         return result
 
 
