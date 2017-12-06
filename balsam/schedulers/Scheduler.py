@@ -83,8 +83,9 @@ class Scheduler:
             self.remaining_seconds -= elapsed_time
             self.last_check_seconds = now
             return self.remaining_seconds
+        else:
+            sched_id = self.current_scheduler_id
 
-        sched_id = self.current_scheduler_id
         if sched_id is None:
             return float("inf")
         try:

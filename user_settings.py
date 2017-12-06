@@ -5,6 +5,7 @@ logger = logging.getLogger('console')
     
 try:
    INSTALL_PATH = os.environ['ARGOBALSAM_INSTALL_PATH']
+   LOGGING_DIRECTORY = os.path.join(INSTALL_PATH, 'log') # where to store log files
 except KeyError as e:
    logger.error('Environment not setup: ' + str(e))
    raise
@@ -147,7 +148,6 @@ SENDER_CONFIG = {
 #------------------------------
 # logging settings
 #------------------------------
-LOGGING_DIRECTORY = os.path.join(INSTALL_PATH, 'log') # where to store log files
 LOG_HANDLER_LEVEL = 'DEBUG'
 LOG_BACKUP_COUNT = 5 # number of files worth of history
 LOG_FILE_SIZE_LIMIT = 100 * 1024 * 1024 # file size at which to move to a new log file
@@ -230,6 +230,7 @@ elif 'launcher' in ' '.join(sys.argv):
     logger = logging.getLogger('balsamlauncher')
 else:
     logger = logging.getLogger('console')
+
 
 def log_uncaught_exceptions(exctype, value, tb,logger=logger):
    logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))

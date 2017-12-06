@@ -78,7 +78,9 @@ def main(args, transition_pool, runner_group, job_source):
         timeout = lambda : scheduler.remaining_time_seconds() <= 0.0
 
     while not timeout():
-        logger.debug("\n************\nSERVICE LOOP\n************")
+        logger.debug("\n******************\n"
+                       "BEGIN SERVICE LOOP\n"
+                       "******************")
         wait = True
 
         for stat in transition_pool.get_statuses():

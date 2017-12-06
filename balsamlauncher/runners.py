@@ -29,6 +29,15 @@ logger = logging.getLogger(__name__)
 from importlib.util import find_spec
 MPI_ENSEMBLE_EXE = find_spec("balsamlauncher.mpi_ensemble").origin
 
+def get_tail(fname, nlines=5, indent='    '):
+    proc = Popen(f'tail -n {nlines} {fname}'.split(),stdout=PIPE, 
+                 stderr=STDOUT)
+    tail = str(proc.communicate()[0])
+    lines = tail.split('\n')
+    for i, line in enumerate(lines[:]):
+        lines[i] = indent + line
+    return '\n'.join(lines)
+
 
 class MonitorStream(Thread):
     '''Thread: non-blocking read of a process's stdout'''
@@ -98,6 +107,9 @@ class MPIRunner(Runner):
         tpr = job.threads_per_rank
         tpc = job.threads_per_core
 
+        # Note that environment variables are passed through the MPI run command
+        # line, rather than Popen directly, due to ALCF restrictions: 
+        # https://www.alcf.anl.gov/user-guides/running-jobs-xc40#environment-variables
         mpi_str = self.mpi_cmd(worker_list, app_cmd=app_cmd, envs=envs,
                                num_ranks=nranks, ranks_per_node=rpn,
                                threads_per_rank=tpr, threads_per_core=tpc)
@@ -111,6 +123,7 @@ class MPIRunner(Runner):
         self.popen_args['stderr'] = STDOUT
         self.popen_args['bufsize'] = 1
         logger.info(f"MPI Runner Popen args: {self.popen_args['args']}")
+        logger.info(f"MPI Runner: writing output to {outname}")
 
     def update_jobs(self):
         job = self.jobs[0]
@@ -125,10 +138,14 @@ class MPIRunner(Runner):
             curstate = 'RUN_DONE'
             msg = ''
         else:
-            logger.debug(f"MPI Job {job.cute_id} return code!=0: error")
             curstate = 'RUN_ERROR'
-            msg = str(retcode)
+            self.process.communicate()
+            self.outfile.close()
+            tail = get_tail(self.outfile.name)
+            msg = f"RETURN CODE {retcode}:\n{tail}"
+            logger.debug(msg)
         if job.state != curstate: job.update_state(curstate, msg) # TODO: handle RecordModified
+
 
 
 class MPIEnsembleRunner(Runner):
@@ -272,14 +289,18 @@ class RunnerGroup:
         for runner in self.runners: runner.update_jobs()
         self.lock.release()
 
-        for runner in self.runners[:]:
-            if runner.finished():
-                for job in runner.jobs:
-                    if job.state not in 'RUN_DONE RUN_ERROR RUN_TIMEOUT'.split():
-                        msg = (f"Job {job.cute_id} runner process done, but "
-                        "failed to update job state.")
-                        logger.exception(msg)
-                        raise RuntimeError(msg)
+        finished_runners = (r for r in self.runners if r.finished())
+
+        for runner in finished_runners:
+            if any(j.state not in ['RUN_DONE','RUN_ERROR','RUN_TIMEOUT'] for j in runner.jobs):
+                self.lock.acquire()
+                runner.update_jobs()
+                self.lock.release()
+            if any(j.state not in ['RUN_DONE','RUN_ERROR','RUN_TIMEOUT'] for j in runner.jobs):
+                msg = (f"Job {job.cute_id} runner process done, but failed to update job state.")
+                logger.exception(msg)
+                raise RuntimeError(msg)
+            else:
                 any_finished = True
                 self.runners.remove(runner)
                 for worker in runner.worker_list:

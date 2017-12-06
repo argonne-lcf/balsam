@@ -39,8 +39,8 @@ children = None
 _envs = {k:v for k,v in os.environ.items() if k.find('BALSAM')>=0}
 
 JOB_ID = _envs.get('BALSAM_JOB_ID', '')
-TIMEOUT = bool(_envs.get('BALSAM_JOB_TIMEOUT', False))
-ERROR = bool(_envs.get('BALSAM_JOB_ERROR', False))
+TIMEOUT = _envs.get('BALSAM_JOB_TIMEOUT', False) == "TRUE"
+ERROR = _envs.get('BALSAM_JOB_ERROR', False) == "TRUE"
 
 if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)

@@ -306,8 +306,8 @@ auto timeout retry:     {self.auto_timeout_retry}
     @property
     def app_cmd(self):
         if self.application:
-            app = ApplicationDefinition.objects.get(name=job.application)
-            return f"{app.executable} {app.application_args}"
+            app = ApplicationDefinition.objects.get(name=self.application)
+            return f"{app.executable} {self.application_args}"
         else:
             return self.direct_command
 
@@ -345,7 +345,9 @@ auto timeout retry:     {self.auto_timeout_retry}
         return {variable:value for (variable,value) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
-        envs = os.environ.copy()
+        keywords = 'PATH LIBRARY BALSAM DJANGO PYTHON'.split()
+        envs = {var:value for var,value in os.environ.items() 
+                if any(keyword in var for keyword in keywords)}
         try:
             app = self.get_application()
         except NoApplication:
@@ -402,10 +404,15 @@ auto timeout retry:     {self.auto_timeout_retry}
             top = os.path.join(top, self.workflow)
         name = self.name.replace(' ', '_')
         path = os.path.join(top, name)
-        if os.path.exists(path): path += "_"
-        for char in str(self.job_id):
-            path += char
-            if not os.path.exists(path): break
+
+        if os.path.exists(path):
+            jid = str(self.job_id)
+            path += "_" + jid[0]
+            i = 1
+            while os.path.exists(path):
+                path += jid[i]
+                i += 1
+                
         os.makedirs(path)
         self.working_directory = path
         self.save(update_fields=['working_directory'])

@@ -40,6 +40,9 @@ class WorkerGroup:
     def __iter__(self):
         return iter(self.workers)
 
+    def __len__(self):
+        return len(self.workers)
+
     def __getitem__(self, i):
         return self.workers[i]
 
