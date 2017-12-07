@@ -1,6 +1,7 @@
 import os
 import unittest
 import subprocess
+import time
 
 from django.core.management import call_command
 from django import db
@@ -31,3 +32,11 @@ def cmdline(cmd,envs=None,shell=True):
     p = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT,env=envs)
     return p.communicate()[0].decode('utf-8')
+
+def poll_until_returns_true(function, *, args=(), period=1.0, timeout=12.0):
+    start = time.time()
+    while time.time() - start < timeout:
+        result = function(*args)
+        if result: break
+        else: time.sleep(period)
+    return result

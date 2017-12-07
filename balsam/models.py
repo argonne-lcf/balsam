@@ -301,7 +301,10 @@ auto timeout retry:     {self.auto_timeout_retry}
 
     @property
     def cute_id(self):
-        return f"[{ str(self.pk)[:8] }]"
+        if self.name:
+            return f"[{self.name} | { str(self.pk)[:8] }]"
+        else:
+            return f"[{ str(self.pk)[:8] }]"
 
     @property
     def app_cmd(self):
@@ -486,4 +489,4 @@ Envs:           {self.environ_vars}
     
     @property
     def cute_id(self):
-        return f"[{ str(self.pk)[:8] }]"
+        return f"[{self.name} | { str(self.pk)[:8] }]"

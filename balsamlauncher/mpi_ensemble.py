@@ -10,9 +10,9 @@ logger = logging.getLogger('balsamlauncher.mpi_ensemble')
 from subprocess import Popen, STDOUT
 
 from mpi4py import MPI
-from balsamlauncher.cd import cd
+
+from balsamlauncher.util import cd, get_tail
 from balsamlauncher.exceptions import *
-from balsamlauncher.runners import get_tail
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()

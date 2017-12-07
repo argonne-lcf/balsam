@@ -21,22 +21,13 @@ from django.db import transaction
 import balsam.models
 from balsamlauncher import mpi_commands
 from balsamlauncher.exceptions import *
-from balsamlauncher import cd
+from balsamlauncher.util import cd, get_tail
 
 import logging
 logger = logging.getLogger(__name__)
     
 from importlib.util import find_spec
 MPI_ENSEMBLE_EXE = find_spec("balsamlauncher.mpi_ensemble").origin
-
-def get_tail(fname, nlines=5, indent='    '):
-    proc = Popen(f'tail -n {nlines} {fname}'.split(),stdout=PIPE, 
-                 stderr=STDOUT)
-    tail = proc.communicate()[0].decode()
-    lines = tail.split('\n')
-    for i, line in enumerate(lines[:]):
-        lines[i] = indent + line
-    return '\n'.join(lines)
 
 
 class MonitorStream(Thread):
@@ -122,19 +113,19 @@ class MPIRunner(Runner):
         self.popen_args['stdout'] = self.outfile
         self.popen_args['stderr'] = STDOUT
         self.popen_args['bufsize'] = 1
-        logger.info(f"MPI Runner Popen args: {self.popen_args['args']}")
-        logger.info(f"MPI Runner: writing output to {outname}")
+        logger.info(f"MPIRunner {job.cute_id} Popen:\n{self.popen_args['args']}")
+        logger.info(f"MPIRunner: writing output to {outname}")
 
     def update_jobs(self):
         job = self.jobs[0]
         #job.refresh_from_db() # TODO: handle RecordModified
         retcode = self.process.poll()
         if retcode == None:
-            logger.debug(f"MPI Job {job.cute_id} still running")
+            logger.debug(f"MPIRunner {job.cute_id} still running")
             curstate = 'RUNNING'
             msg = ''
         elif retcode == 0:
-            logger.debug(f"MPI Job {job.cute_id} return code 0: done")
+            logger.info(f"MPIRunner {job.cute_id} return code 0: done")
             curstate = 'RUN_DONE'
             msg = ''
         else:
@@ -142,8 +133,8 @@ class MPIRunner(Runner):
             self.process.communicate()
             self.outfile.close()
             tail = get_tail(self.outfile.name)
-            msg = f"RETURN CODE {retcode}:\n{tail}"
-            logger.debug(msg)
+            msg = f"MPIRunner {job.cute_id} RETURN CODE {retcode}:\n{tail}"
+            logger.info(msg)
         if job.state != curstate: job.update_state(curstate, msg) # TODO: handle RecordModified
 
 
@@ -168,6 +159,9 @@ class MPIEnsembleRunner(Runner):
                 cmd = job.app_cmd
                 fp.write(f"{job.pk} {job.working_directory} {cmd}\n")
 
+        logger.info('MPIEnsemble handling jobs: '
+                    f' {", ".join(j.cute_id for j in self.jobs)} '
+                   )
         rpn = worker_list[0].max_ranks_per_node
         nranks = sum(w.num_nodes*rpn for w in worker_list)
         envs = self.jobs[0].get_envs() # TODO: different envs for each job
@@ -177,7 +171,7 @@ class MPIEnsembleRunner(Runner):
                                num_ranks=nranks, ranks_per_node=rpn)
 
         self.popen_args['args'] = shlex.split(mpi_str)
-        logger.info(f"MPI Ensemble Popen args: {self.popen_args['args']}")
+        logger.info(f"MPIEnsemble Popen:\n {self.popen_args['args']}")
 
     def update_jobs(self):
         '''Relies on stdout of mpi_ensemble.py'''
@@ -195,7 +189,7 @@ class MPIEnsembleRunner(Runner):
             if pk in self.jobs_by_pk and state in balsam.models.STATES:
                 job = self.jobs_by_pk[pk]
                 job.update_state(state, msg) # TODO: handle RecordModified exception
-                logger.debug(f"Job {job.cute_id} updated to {state}: {msg}")
+                logger.info(f"MPIEnsemble {job.cute_id} updated to {state}: {msg}")
             else:
                 logger.error(f"Invalid statusMsg from mpi_ensemble: {line.strip()}")
 
@@ -216,13 +210,15 @@ class RunnerGroup:
         idle nodes'''
 
         if len(self.runners) == self.MAX_CONCURRENT_RUNNERS:
-            logger.info("Cannot create another runner: at max")
             raise ExceededMaxRunners(
                 f"Cannot have more than {self.MAX_CONCURRENT_RUNNERS} simultaneous runners"
             )
 
         idle_workers = [w for w in workers if w.idle]
         nidle_workers = len(idle_workers)
+        if nidle_workers == 0:
+            raise NoAvailableWorkers
+
         nodes_per_worker = workers[0].num_nodes
         rpn = workers[0].max_ranks_per_node
         assert all(w.num_nodes == nodes_per_worker for w in idle_workers)
@@ -241,7 +237,7 @@ class RunnerGroup:
         largest_mpi_job = (max(mpi_jobs, key=lambda job: job.num_nodes) 
                            if mpi_jobs else None)
         if largest_mpi_job:
-            logger.debug(f"{len(mpi_jobs)} MPI jobs can run; largest takes "
+            logger.debug(f"{len(mpi_jobs)} MPI jobs can run; largest requires "
             f"{largest_mpi_job.num_nodes} nodes")
         else:
             logger.debug("No MPI jobs can run")
@@ -270,8 +266,10 @@ class RunnerGroup:
                         f"totalling {nworkers*nodes_per_worker} nodes "
                         f"with {rpn} ranks per worker")
         
-        if not jobs: raise NoAvailableWorkers
-        logger.info(msg)
+        if not jobs: 
+            raise NoAvailableWorkers
+        else:
+            logger.info(msg)
 
         runner = runner_class(jobs, assigned_workers)
         runner.start()

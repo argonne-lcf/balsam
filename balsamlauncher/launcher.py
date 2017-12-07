@@ -77,13 +77,14 @@ def create_new_runners(jobs, runner_group, worker_group):
 
 def main(args, transition_pool, runner_group, job_source):
     delay_timer = delay()
+    elapsed_min = elapsed_time_minutes()
     if args.time_limit_minutes > 0:
-        timeout = lambda : elapsed_time_minutes() >= args.time_limit_minutes
+        timeout = lambda : next(elapsed_min) >= args.time_limit_minutes
     else:
         timeout = lambda : scheduler.remaining_time_seconds() <= 0.0
 
     while not timeout():
-        logger.debug("\n******************\n"
+        logger.info("\n******************\n"
                        "BEGIN SERVICE LOOP\n"
                        "******************")
         wait = True

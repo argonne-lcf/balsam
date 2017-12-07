@@ -7,6 +7,7 @@ import time
 from uuid import UUID
 from importlib.util import find_spec
 from tests.BalsamTestCase import BalsamTestCase, cmdline
+from tests.BalsamTestCase import poll_until_returns_true
 
 from django.conf import settings
 
@@ -17,13 +18,6 @@ from balsamlauncher import worker
 from balsamlauncher import runners
 from balsamlauncher.launcher import get_args, create_new_runners
 
-def poll_until_returns_true(function, *, args=(), period=1.0, timeout=12.0):
-    start = time.time()
-    while time.time() - start < timeout:
-        result = function(*args)
-        if result: break
-        else: time.sleep(period)
-    return result
 
 class TestMPIRunner(BalsamTestCase):
     '''start, update_jobs, finished, error/timeout handling'''
@@ -183,7 +177,7 @@ class TestMPIEnsemble(BalsamTestCase):
         self.app.executable = app_path
         self.app.save()
 
-    def testMPIEnsembleRunner(self):
+    def test_MPIEnsembleRunner(self):
         '''Several non-MPI jobs packaged into one mpi4py wrapper'''
         num_ranks = sum(w.num_nodes*w.max_ranks_per_node for w in
                         self.worker_group)
