@@ -58,11 +58,16 @@ def create_new_runners(jobs, runner_group, worker_group):
     created_one = False
     running_pks = runner_group.running_job_pks
     runnable_jobs = get_runnable_jobs(jobs, running_pks)
-    logger.debug(f"Have {len(runnable_jobs)} new runnable jobs")
     while runnable_jobs:
+        logger.debug(f"Have {len(runnable_jobs)} new runnable jobs (out of "
+                     f"{len(jobs)})")
         try:
             runner_group.create_next_runner(runnable_jobs, worker_group)
-        except (ExceededMaxRunners, NoAvailableWorkers) as e:
+        except ExceededMaxRunners:
+            logger.info("Exceeded max concurrent runners; waiting")
+            break
+        except NoAvailableWorkers:
+            logger.info("Not enough idle workers to start any new runs")
             break
         else:
             created_one = True

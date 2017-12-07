@@ -253,26 +253,25 @@ class RunnerGroup:
             jobs = serial_jobs[:nidle_ranks] # TODO: try putting ALL serial jobs into one MPIEnsemble
             assigned_workers = idle_workers
             runner_class = MPIEnsembleRunner
-            logger.info(f"Running {len(jobs)} serial jobs on {nidle_workers} workers "
+            msg = (f"Running {len(jobs)} serial jobs on {nidle_workers} workers "
             f"with {nodes_per_worker} nodes-per-worker and {rpn} ranks per node")
-        elif largest_mpi_job and largest_mpi_job.num_nodes > nserial // rpw:
+        elif largest_mpi_job and largest_mpi_job.num_nodes > nserial // rpn:
             jobs = [largest_mpi_job]
             num_workers = ceil(largest_mpi_job.num_nodes / nodes_per_worker)
             assigned_workers = idle_workers[:num_workers]
             runner_class = MPIRunner
-            logger.info(f"Running {largest_mpi_job.num_nodes}-node MPI job")
+            msg = (f"Running {largest_mpi_job.num_nodes}-node MPI job")
         else:
             jobs = serial_jobs
             nworkers = ceil(nserial/rpn/nodes_per_worker)
             assigned_workers = idle_workers[:nworkers]
             runner_class = MPIEnsembleRunner
-            logger.info(f"Running {len(jobs)} serial jobs on {nworkers} workers "
+            msg = (f"Running {len(jobs)} serial jobs on {nworkers} workers "
                         f"totalling {nworkers*nodes_per_worker} nodes "
                         f"with {rpn} ranks per worker")
         
-        if not jobs: 
-            logger.info(f"Not enough idle workers to handle the runnable jobs")
-            raise NoAvailableWorkers
+        if not jobs: raise NoAvailableWorkers
+        logger.info(msg)
 
         runner = runner_class(jobs, assigned_workers)
         runner.start()

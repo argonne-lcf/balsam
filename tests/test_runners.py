@@ -1,8 +1,10 @@
 from collections import namedtuple
 import os
 import random
+from multiprocessing import Lock
 import sys
 import time
+from uuid import UUID
 from importlib.util import find_spec
 from tests.BalsamTestCase import BalsamTestCase, cmdline
 
@@ -246,11 +248,125 @@ class TestMPIEnsemble(BalsamTestCase):
         self.assertTrue(all(j.state=='RUN_ERROR' for j in jobs['fail']))
 
 
-class TestRunnerGroup:
+class TestRunnerGroup(BalsamTestCase):
     def setUp(self):
-        pass
+        scheduler = Scheduler.scheduler_main
+        self.host_type = scheduler.host_type
+        if self.host_type == 'DEFAULT':
+            config = get_args('--consume-all --num-workers 1 --max-ranks-per-node 8'.split())
+        else:
+            config = get_args('--consume-all')
+
+        self.worker_group = worker.WorkerGroup(config, host_type=self.host_type,
+                                               workers_str=scheduler.workers_str,
+                                               workers_file=scheduler.workers_file)
+
+        app_path = f"{sys.executable}  {find_spec('tests.mock_mpi_app').origin}"
+        self.mpiapp = ApplicationDefinition()
+        self.mpiapp.name = "mock_mpi"
+        self.mpiapp.description = "print and sleep"
+        self.mpiapp.executable = app_path
+        self.mpiapp.save()
+        
+        app_path = f"{sys.executable}  {find_spec('tests.mock_serial_app').origin}"
+        self.serialapp = ApplicationDefinition()
+        self.serialapp.name = "mock_serial"
+        self.serialapp.description = "square a number"
+        self.serialapp.executable = app_path
+        self.serialapp.save()
+        
 
     def test_create_runners(self):
-        # Create sets of jobs intended to exercise each code path
-        # in a single call to launcher.create_new_runners()
-        pass
+        '''sanity check launcher.create_new_runners()
+        Don't test implementation details here; just ensuring consistency'''
+        num_workers = len(self.worker_group)
+        num_nodes = sum(w.num_nodes for w in self.worker_group)
+        num_ranks = sum(w.num_nodes*w.max_ranks_per_node for w in
+                        self.worker_group)
+        max_rpn = self.worker_group[0].max_ranks_per_node
+
+        num_serialjobs = random.randint(0, num_ranks+2)
+        num_mpijobs = random.randint(0, num_workers+2)
+        serialjobs = []
+        mpijobs = []
+
+        # Create a big shuffled assortment of jobs
+        runner_group = runners.RunnerGroup(Lock())
+        for i in range(num_serialjobs):
+                job = BalsamJob()
+                job.allowed_work_sites = settings.BALSAM_SITE
+                job.name = f"serial{i}"
+                job.application = self.serialapp.name
+                job.application_args = str(i)
+                job.state = 'PREPROCESSED'
+                job.save()
+                job.create_working_path()
+                serialjobs.append(job)
+        for i in range(num_mpijobs):
+                job = BalsamJob()
+                job.allowed_work_sites = settings.BALSAM_SITE
+                job.name = f"mpi{i}"
+                job.application = self.mpiapp.name
+                job.num_nodes = random.randint(1,num_nodes)
+                job.ranks_per_node = random.randint(2, max_rpn)
+                job.state = 'PREPROCESSED'
+                job.save()
+                job.create_working_path()
+                mpijobs.append(job)
+        all_jobs = serialjobs + mpijobs
+        random.shuffle(all_jobs)
+
+        # None are running yet!
+        running_pks = runner_group.running_job_pks
+        self.assertListEqual(running_pks, [])
+
+        # Invoke create_new_runners once
+        # Some set of jobs will start running under control of the RunnerGroup
+        # Nondeterministic, due to random() used above, but we just want to
+        # check for consistency
+        create_new_runners(all_jobs, runner_group, self.worker_group)
+
+        # Get the list of running PKs from the RunnerGroup
+        # At least some jobs are running nwo
+        running_pks = runner_group.running_job_pks
+        self.assertGreater(len(running_pks), 0)
+        running_jobs = list(BalsamJob.objects.filter(pk__in=running_pks))
+        self.assertGreater(len(running_jobs), 0)
+
+        # Make sure that the aggregate runner PKs agree with the RunnerGroup
+        pks_from_runners = [UUID(pk) for runner in runner_group for pk in
+                            runner.jobs_by_pk]
+        self.assertListEqual(sorted(running_pks), sorted(pks_from_runners))
+
+        # Make sure that the busy workers are correctly marked not idle
+        busy_workers = [worker for runner in runner_group for worker in
+                        runner.worker_list]
+        self.assertTrue(all(w.idle == False for w in busy_workers))
+
+        # And the worker instances in each Runner are the same as the worker
+        # instances maintained in the calling code
+        busy_workers_ids = [id(w) for w in self.worker_group 
+                            if w in busy_workers]
+        self.assertListEqual(sorted(busy_workers_ids),
+                             sorted([id(w) for w in busy_workers]))
+
+        # Workers not busy are still idle
+        self.assertTrue(all(w.idle == True for w in self.worker_group
+                            if w not in busy_workers))
+
+        # Now let all the jobs finish
+        # Update and remove runners with update_and_remove_finished()
+        def check_done():
+            runner_group.update_and_remove_finished()
+            return all(r.finished() for r in runner_group)
+
+        poll_until_returns_true(check_done)
+
+        # Now there should be no runners, PKs, or busy workers left
+        self.assertListEqual(list(runner_group), [])
+        self.assertListEqual(runner_group.running_job_pks, [])
+        self.assertTrue(all(w.idle==True for w in self.worker_group))
+
+        # And all of the jobs that started running are now marked RUN_DONE
+        finished_jobs = list(BalsamJob.objects.filter(pk__in=running_pks))
+        self.assertTrue(all(j.state == 'RUN_DONE' for j in finished_jobs))
