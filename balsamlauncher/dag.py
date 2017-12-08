@@ -31,6 +31,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
 django.setup()
 
 from balsam.models import BalsamJob as _BalsamJob
+from django.conf import settings
 
 current_job = None
 parents = None
@@ -48,12 +49,11 @@ if JOB_ID:
         current_job = _BalsamJob.objects.get(pk=JOB_ID)
     except:
         raise RuntimeError(f"The environment specified current job: "
-                           "BALSAM_JOB_ID {JOB_ID}\n but this does not "
-                           "exist in DB! Was it deleted accidentally?")
+                           f"BALSAM_JOB_ID {JOB_ID}\n but this does not "
+                           f"exist in DB! Was it deleted accidentally?")
     else:
         parents = current_job.get_parents()
         children = current_job.get_children()
-
 
 def add_job(**kwargs):
     '''Add a new job to BalsamJob DB'''
@@ -65,6 +65,8 @@ def add_job(**kwargs):
             raise ValueError(f"Invalid field {k}")
         else:
             setattr(job, k, v)
+    if 'allowed_work_sites' not in kwargs:
+        job.allowed_work_sites = settings.BALSAM_SITE
     job.save()
     return job
 
@@ -116,6 +118,7 @@ def spawn_child(clone=False, **kwargs):
         child = add_job(**kwargs)
 
     add_dependency(current_job, child)
+    child.update_state("CREATED", f"spawned by {current_job.cute_id}")
     return child
 
 def kill(job, recursive=False):

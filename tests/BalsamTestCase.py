@@ -44,7 +44,10 @@ def poll_until_returns_true(function, *, args=(), period=1.0, timeout=12.0):
     return result
 
 def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE, num_nodes=1,
-               ranks_per_node=1, args='', workflow='', envs={}, state='CREATED'):
+               ranks_per_node=1, args='', workflow='', envs={}, state='CREATED',
+               url_in='', input_files='', url_out='', stage_out_files='', 
+               post_error_handler=False, post_timeout_handler=False,
+               auto_timeout_retry=True):
 
     if app and direct_command:
         raise ValueError("Cannot have both application and direct command")
@@ -63,6 +66,16 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
     job.workflow = workflow
     job.environ_vars = ':'.join(f'{k}={v}' for k,v in envs.items())
     job.state = state
+
+    job.stage_in_url = url_in
+    job.input_files = input_files
+    job.stage_out_url = url_out
+    job.stage_out_files = stage_out_files
+
+    job.post_error_handler = post_error_handler
+    job.post_timeout_handler = post_timeout_handler
+    job.auto_timeout_retry = auto_timeout_retry
+    
     job.save()
     job.create_working_path()
     return job

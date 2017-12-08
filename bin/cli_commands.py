@@ -21,12 +21,11 @@ def cmd_confirmation(message=''):
 def newapp(args):
     if AppDef.objects.filter(name=args.name).exists():
         raise RuntimeError(f"An application named {args.name} exists")
-    if not os.path.exists(args.executable):
-        raise RuntimeError(f"Executable {args.executable} not found")
-    if args.preprocess and not os.path.exists(args.preprocess):
-        raise RuntimeError(f"Script {args.preprocess} not found")
-    if args.postprocess and not os.path.exists(args.postprocess):
-        raise RuntimeError(f"Script {args.postprocess} not found")
+    
+    for arg in (args.executable,args.preprocess,args.postprocess):
+        paths = arg.split()
+        if arg and not all(os.path.exists(p) for p in paths):
+            raise RuntimeError(f"{path} not found")
 
     app = AppDef()
     app.name = args.name
@@ -129,8 +128,11 @@ def modify(args):
 
     target_type = type(getattr(item, args.attr))
     new_value = target_type(args.value)
-    setattr(item, args.attr, new_value)
-    item.save()
+    if args.attr == 'state':
+        item.update_state(new_value, 'User mutated state from command line')
+    else:
+        setattr(item, args.attr, new_value)
+        item.save()
     print(f'{args.obj_type[:-1]} {args.attr} changed to:  {new_value}')
 
 

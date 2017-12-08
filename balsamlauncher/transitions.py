@@ -7,6 +7,8 @@ import os
 from io import StringIO
 from traceback import print_exc
 import sys
+import subprocess
+import tempfile
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
@@ -39,6 +41,7 @@ else:
     LockClass = DummyLock
 
 PREPROCESS_TIMEOUT_SECONDS = 300
+POSTPROCESS_TIMEOUT_SECONDS = 300
 SITE = settings.BALSAM_SITE
 
 StatusMsg = namedtuple('StatusMsg', ['pk', 'state', 'msg'])
@@ -61,6 +64,7 @@ def main(job_queue, status_queue, lock):
         try:
             transition_function(job, lock)
         except BalsamTransitionError as e:
+            job.refresh_from_db()
             lock.acquire()
             job.update_state('FAILED', str(e))
             lock.release()
@@ -237,6 +241,7 @@ def stage_out(job, lock):
                     base = os.path.basename(f)
                     dst = os.path.join(stagingdir, base)
                     os.link(src=f, dst=dst)
+                    logger.info(f"staging {f} out for transfer")
                 logger.info(f"transferring to {url_out}")
                 transfer.stage_out(f"{stagingdir}/", f"{url_out}/")
             except Exception as e:
@@ -268,7 +273,7 @@ def preprocess(job, lock):
         lock.release()
         logger.info(f"{job.cute_id} no preprocess: skipped")
         return
-    if not os.path.exists(preproc_app):
+    if not all(os.path.exists(p) for p in preproc_app.split()):
         #TODO: look for preproc in the EXE directories
         message = f"Preprocessor {preproc_app} does not exist on filesystem"
         raise BalsamTransitionError(message)
@@ -278,7 +283,7 @@ def preprocess(job, lock):
 
     # Run preprocesser with special environment in job working directory
     out = os.path.join(job.working_directory, f"preprocess.log")
-    with open(out, 'wb') as fp:
+    with open(out, 'w') as fp:
         fp.write(f"# Balsam Preprocessor: {preproc_app}")
         try:
             args = preproc_app.split()
@@ -291,6 +296,8 @@ def preprocess(job, lock):
             message = f"Preprocess failed: {e}"
             proc.kill()
             raise BalsamTransitionError(message) from e
+
+    job.refresh_from_db()
     if retcode != 0:
         tail = get_tail(out)
         message = f"{job.cute_id} preprocess returned {retcode}:\n{tail}"
@@ -340,7 +347,7 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
             logger.info(f'{job.cute_id} no postprocess: skipped')
             return
 
-    if not os.path.exists(postproc_app):
+    if not all(os.path.exists(p) for p in postproc_app.split()):
         #TODO: look for postproc in the EXE directories
         message = f"Postprocessor {postproc_app} does not exist on filesystem"
         raise BalsamTransitionError(message)
@@ -349,8 +356,8 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
     envs = job.get_envs(timeout=timeout_handling, error=error_handling)
 
     # Run postprocesser with special environment in job working directory
-    out = os.path.join(job.working_directory, f"postprocess.log.pid{os.getpid()}")
-    with open(out, 'wb') as fp:
+    out = os.path.join(job.working_directory, f"postprocess.log")
+    with open(out, 'w') as fp:
         fp.write(f"# Balsam Postprocessor: {postproc_app}\n")
         if timeout_handling: fp.write("# Invoked to handle RUN_TIMEOUT\n")
         if error_handling: fp.write("# Invoked to handle RUN_ERROR\n")
@@ -358,7 +365,7 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
         try:
             args = postproc_app.split()
             logger.info(f"{job.cute_id} postprocess Popen {args}")
-            proc = subprocess.Popen(postproc_app, stdout=fp,
+            proc = subprocess.Popen(args, stdout=fp,
                                     stderr=subprocess.STDOUT, env=envs,
                                     cwd=job.working_directory)
             retcode = proc.wait(timeout=POSTPROCESS_TIMEOUT_SECONDS)
@@ -366,14 +373,15 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
             message = f"Postprocess failed: {e}"
             proc.kill()
             raise BalsamTransitionError(message) from e
+    
     if retcode != 0:
         tail = get_tail(out)
         message = f"{job.cute_id} postprocess returned {retcode}:\n{tail}"
         raise BalsamTransitionError(message)
 
+    job.refresh_from_db()
     # If postprocessor handled error or timeout, it should have changed job's
     # state. If it failed to do this, mark FAILED.  Otherwise, POSTPROCESSED.
-    job.refresh_from_db()
     if error_handling and job.state == 'RUN_ERROR':
         message = f"{job.cute_id} Error handling didn't fix job state: marking FAILED"
         raise BalsamTransitionError(message)

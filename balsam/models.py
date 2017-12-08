@@ -93,8 +93,7 @@ def from_time_string(s):
     return datetime.strptime(s, TIME_FMT)
 
 def history_line(state='CREATED', message=''):
-    newline = '' if state=='CREATED' else '\n'
-    return newline + f"[{get_time_string()} {state}] ".rjust(46) + message
+    return f"\n[{get_time_string()} {state}] ".rjust(46) + message
 
 
 class BalsamJob(models.Model):
@@ -321,6 +320,15 @@ auto timeout retry:     {self.auto_timeout_retry}
     def get_children_by_id(self):
         children = self.get_children()
         return [c.pk for c in children]
+
+    def get_child_by_name(self, name):
+        children = self.get_children().filter(name=name)
+        if children.count() == 0:
+            raise ValueError(f"No child named {name}")
+        elif children.count() > 1:
+            raise ValueError(f"More than one child named {name}")
+        else:
+            return children.first()
 
     def set_parents(self, parents):
         try:
