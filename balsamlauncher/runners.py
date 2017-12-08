@@ -4,6 +4,12 @@ necessary. RunnerGroup has a collection of Runner objects, logic for creating
 the next Runner (i.e. assigning jobs to nodes), and the public interface to
 monitor runners'''
 
+# TODO: "balsam qsub" is misleading because you can't qsub a script that calls
+# mpirun.  Implement a --mode script option that uses a "ScriptRunner". The
+# ScriptRunner should parse the script to make sure it is not using more nodes
+# than requested by job; and perhaps modify each mpirun with the correct
+# workers_string
+
 import functools
 from math import ceil
 import os

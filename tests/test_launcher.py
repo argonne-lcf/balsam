@@ -1,7 +1,7 @@
 import random
 import tempfile
 
-from tests.BalsamTestCase import BalsamTestCase, cmdline
+from tests.BalsamTestCase import BalsamTestCase, cmdline, create_job
 from balsamlauncher import jobreader
 from balsamlauncher.launcher import get_args
 from balsam.models import BalsamJob
@@ -14,12 +14,10 @@ class JobReaderTests(BalsamTestCase):
         self.NUM_JOBS = 128
         self.workflows = ['one', 'two', 'three']
 
+        sites = f"siteA siteB {BALSAM_SITE} siteD"
         for i in range(self.NUM_JOBS):
-            job = BalsamJob()
-            job.name = f"job{i}"
-            job.allowed_work_sites = f"siteA siteB {BALSAM_SITE} siteD"
-            job.workflow = random.choice(self.workflows)
-            job.save()
+            wf = random.choice(self.workflows)
+            create_job(name=f"job{i}", site=sites, workflow=wf)
 
     def test_consume_all_reader(self):
         '''consume-all job reader should retreive all'''
