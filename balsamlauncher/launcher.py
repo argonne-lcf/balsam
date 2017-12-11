@@ -116,12 +116,8 @@ def on_exit(runner_group, transition_pool, job_source):
 
     runner_group.update_and_remove_finished()
     for runner in runner_group:
+        logger.debug("Timing out runner processes")
         runner.timeout()
-
-    job_source.refresh_from_db()
-    timedout_jobs = job_source.by_states['RUN_TIMEOUT']
-    for job in timedout_jobs:
-        transition_pool.add_job(job)
 
     transition_pool.end_and_wait()
     logger.debug("Launcher exit graceful\n\n")
@@ -141,7 +137,7 @@ def get_args(inputcmd=None):
     parser.add_argument('--nodes-per-worker', type=int, default=1)
     parser.add_argument('--max-ranks-per-node', type=int, default=1,
                         help="For non-MPI jobs, how many to pack per worker")
-    parser.add_argument('--time-limit-minutes', type=int, default=0,
+    parser.add_argument('--time-limit-minutes', type=float, default=0,
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--daemon', action='store_true')
     if inputcmd:

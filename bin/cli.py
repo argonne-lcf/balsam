@@ -288,7 +288,7 @@ def make_parser():
     parser_launcher.add_argument('--nodes-per-worker', type=int, default=1,
                         help="For non-MPI jobs, how many to pack per worker")
     parser_launcher.add_argument('--max-ranks-per-node', type=int, default=1)
-    parser_launcher.add_argument('--time-limit-minutes', type=int,
+    parser_launcher.add_argument('--time-limit-minutes', type=float,
                         help="Override auto-detected walltime limit (runs"
                         " forever if no limit is detected or specified)")
     parser_launcher.add_argument('--daemon', action='store_true')

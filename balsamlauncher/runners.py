@@ -24,7 +24,7 @@ from queue import Queue, Empty
 from django.conf import settings
 from django.db import transaction
 
-import balsam.models
+from balsam.models import InvalidStateError
 from balsamlauncher import mpi_commands
 from balsamlauncher.exceptions import *
 from balsamlauncher.util import cd, get_tail
@@ -86,7 +86,9 @@ class Runner:
     def timeout(self):
         self.process.terminate()
         for job in self.jobs:
-            if job.state == 'RUNNING': job.update_state('RUN_TIMEOUT')
+            if job.state == 'RUNNING': 
+                job.update_state('RUN_TIMEOUT')
+                logger.info(f"Runner job {job.cute_id}: RUN_TIMEOUT")
 
 class MPIRunner(Runner):
     '''One subprocess, one job'''
@@ -190,13 +192,13 @@ class MPIEnsembleRunner(Runner):
 
         logger.debug("Checking mpi_ensemble stdout for status updates...")
         for line in self.monitor.available_lines():
-            pk, state, *msg = line.split()
-            msg = ' '.join(msg)
-            if pk in self.jobs_by_pk and state in balsam.models.STATES:
+            try:
+                pk, state, *msg = line.split()
+                msg = ' '.join(msg)
                 job = self.jobs_by_pk[pk]
                 job.update_state(state, msg) # TODO: handle RecordModified exception
                 logger.info(f"MPIEnsemble {job.cute_id} updated to {state}: {msg}")
-            else:
+            except (ValueError, KeyError, InvalidStateError) as e:
                 logger.error(f"Invalid statusMsg from mpi_ensemble: {line.strip()}")
 
 class RunnerGroup:

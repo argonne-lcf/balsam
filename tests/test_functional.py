@@ -30,6 +30,12 @@ def run_launcher_until(function):
     launcher_proc.wait(timeout=10)
     return success
 
+def run_launcher_until_state(job, state):
+    def check():
+        job.refresh_from_db()
+        return job.state == state
+    success = run_launcher_until(check)
+    return success
 
 class TestSingleJobTransitions(BalsamTestCase):
     def setUp(self):
@@ -44,7 +50,7 @@ class TestSingleJobTransitions(BalsamTestCase):
                              postproc=post_path)
             self.apps[name] = app
 
-    def test_one_job_normal(self):
+    def test_normal(self):
         '''normal processing of a single job'''
         
         # A mock "remote" data source has a file side0.dat
@@ -66,10 +72,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         
         # Run the launcher and make sure that the job gets carried all the way
         # through to completion
-        def check():
-            job.refresh_from_db()
-            return job.state == 'JOB_FINISHED'
-        success = run_launcher_until(check)
+        success = run_launcher_until_state(job, 'JOB_FINISHED')
         self.assertTrue(success)
 
         work_dir = job.working_directory
@@ -130,7 +133,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertEquals(result_remote, 81.0)
         self.assertIn("Hello from square", open(remote_stdout).read())
     
-    def test_one_job_error_unhandled(self):
+    def test_error_unhandled(self):
         '''test unhandled return code from app'''
         
         remote_dir = tempfile.TemporaryDirectory(prefix="remote")
@@ -147,10 +150,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertEqual(BalsamJob.objects.all().count(), 1)
         
         # The job is marked FAILED due to unhandled nonzero return code
-        def check():
-            job.refresh_from_db()
-            return job.state == 'FAILED'
-        success = run_launcher_until(check)
+        success = run_launcher_until_state(job, 'FAILED')
         self.assertTrue(success)
         
         # (But actually the application ran and printed its result correctly)
@@ -166,3 +166,153 @@ class TestSingleJobTransitions(BalsamTestCase):
 
         jobid_line = [l for l in preproc_out_contents.split('\n') if 'jobid' in l][0]
         self.assertIn(str(job.pk), jobid_line)
+    
+    def test_error_handled(self):
+        '''test postprocessor-handled nonzero return code'''
+        
+        remote_dir = tempfile.TemporaryDirectory(prefix="remote")
+        remote_path = os.path.join(remote_dir.name, 'side0.dat')
+        with open(remote_path, 'w') as fp:
+            fp.write('9\n')
+
+        # Same as previous test, but square.py returns nonzero
+        job = create_job(name='square_testjob2', app='square',
+                         args='side0.dat --retcode 1',
+                         url_in=f'local:{remote_dir.name}', stage_out_files='square*',
+                         url_out=f'local:{remote_dir.name}',
+                         post_error_handler=True)
+        self.assertEqual(job.application_args, 'side0.dat --retcode 1')
+        self.assertEqual(BalsamJob.objects.all().count(), 1)
+        
+        # The job finished successfully despite a nonzero return code
+        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        self.assertTrue(success)
+
+        # Make sure at some point, it was marked with RUN_ERROR
+        self.assertIn('RUN_ERROR', job.state_history)
+        
+        # It was saved by the postprocessor:
+        self.assertIn('handled error in square_post', job.state_history)
+
+        # We can also check the postprocessor stdout:
+        work_dir = job.working_directory
+        post_out = os.path.join(work_dir, 'postprocess.log')
+        post_contents = open(post_out).read()
+        self.assertIn("recognized error", post_contents)
+        self.assertIn("Invoked to handle RUN_ERROR", post_contents)
+
+        # job id sanity check
+        jobid_line = [l for l in post_contents.split('\n') if 'jobid' in l][0]
+        self.assertIn(str(job.pk), jobid_line)
+    
+    def test_timeout_auto_retry(self):
+        '''test auto retry mechanism for timed out jobs'''
+        
+        remote_dir = tempfile.TemporaryDirectory(prefix="remote")
+        remote_path = os.path.join(remote_dir.name, 'side0.dat')
+        with open(remote_path, 'w') as fp:
+            fp.write('9\n')
+
+        # Same as previous test, but square.py hangs for 300 sec
+        job = create_job(name='square_testjob2', app='square',
+                         args='side0.dat --sleep 5',
+                         url_in=f'local:{remote_dir.name}', stage_out_files='square*',
+                         url_out=f'local:{remote_dir.name}')
+                         
+        # Job reaches the RUNNING state and then times out
+        success = run_launcher_until_state(job, 'RUNNING')
+        self.assertTrue(success)
+
+        # On termination, actively running job is marked RUN_TIMEOUT
+        def check():
+            job.refresh_from_db()
+            return job.state == 'RUN_TIMEOUT'
+
+        success = poll_until_returns_true(check,timeout=6)
+        self.assertTrue(success)
+        self.assertEquals(job.state, 'RUN_TIMEOUT')
+        
+        # If we run the launcher again, it will pick up the timed out job
+        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        self.assertTrue(success)
+        self.assertIn('RESTART_READY', job.state_history)
+        
+        # The postprocessor was not invoked by timeout handler
+        work_dir = job.working_directory
+        post_out = os.path.join(work_dir, 'postprocess.log')
+        post_contents = open(post_out).read()
+        self.assertNotIn('handling RUN_TIMEOUT', post_contents)
+    
+    def test_timeout_post_handler(self):
+        '''test postprocess handling option for timed-out jobs'''
+        
+        remote_dir = tempfile.TemporaryDirectory(prefix="remote")
+        remote_path = os.path.join(remote_dir.name, 'side0.dat')
+        with open(remote_path, 'w') as fp:
+            fp.write('9\n')
+
+        # Same as previous test, but square.py hangs for 300 sec
+        job = create_job(name='square_testjob2', app='square',
+                         args='side0.dat --sleep 5',
+                         url_in=f'local:{remote_dir.name}', stage_out_files='square*',
+                         url_out=f'local:{remote_dir.name}',
+                         post_timeout_handler=True)
+                         
+        # Job reaches the RUNNING state and then times out
+        success = run_launcher_until_state(job, 'RUNNING')
+        self.assertTrue(success)
+
+        # On termination, actively running job is marked RUN_TIMEOUT
+        def check():
+            job.refresh_from_db()
+            return job.state == 'RUN_TIMEOUT'
+
+        success = poll_until_returns_true(check,timeout=6)
+        self.assertTrue(success)
+        self.assertEquals(job.state, 'RUN_TIMEOUT')
+        
+        # If we run the launcher again, it will pick up the timed out job
+        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        self.assertTrue(success)
+        self.assertNotIn('RESTART_READY', job.state_history)
+        self.assertIn('handled timeout in square_post', job.state_history)
+        
+        # The postprocessor handled the timeout; did not restart
+        work_dir = job.working_directory
+        post_out = os.path.join(work_dir, 'postprocess.log')
+        post_contents = open(post_out).read()
+        self.assertIn('Invoked to handle RUN_TIMEOUT', post_contents)
+        self.assertIn('recognized timeout', post_contents)
+    
+    def test_timeout_unhandled(self):
+        '''with timeout handling disabled, jobs are marked FAILED'''
+        
+        remote_dir = tempfile.TemporaryDirectory(prefix="remote")
+        remote_path = os.path.join(remote_dir.name, 'side0.dat')
+        with open(remote_path, 'w') as fp:
+            fp.write('9\n')
+
+        # Same as previous test, but square.py hangs for 300 sec
+        job = create_job(name='square_testjob2', app='square',
+                         args='side0.dat --sleep 5',
+                         url_in=f'local:{remote_dir.name}', stage_out_files='square*',
+                         url_out=f'local:{remote_dir.name}',
+                         post_timeout_handler=True)
+                         
+        # Job reaches the RUNNING state and then times out
+        success = run_launcher_until_state(job, 'RUNNING')
+        self.assertTrue(success)
+
+        # On termination, actively running job is marked RUN_TIMEOUT
+        def check():
+            job.refresh_from_db()
+            return job.state == 'RUN_TIMEOUT'
+
+        success = poll_until_returns_true(check,timeout=6)
+        self.assertTrue(success)
+        self.assertEquals(job.state, 'RUN_TIMEOUT')
+        
+        # If we run the launcher again, it will pick up the timed out job
+        # But without timeout handling, it fails
+        success = run_launcher_until_state(job, 'FAILED')
+        self.assertTrue(success)
