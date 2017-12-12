@@ -42,6 +42,17 @@ def run_launcher_until(function, period=1.0, timeout=20.0):
     kill_stragglers()
     return success
 
+def run_launcher_seconds(seconds):
+    minutes = seconds / 60.0
+    launcher_path = sys.executable + " " + find_spec("balsamlauncher.launcher").origin
+    launcher_path += " --consume --max-ranks 8 --time-limit-minutes " + str(minutes)
+    launcher_proc = subprocess.Popen(launcher_path.split(),
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT,
+                                     preexec_fn=os.setsid)
+    launcher_proc.communicate(timeout=seconds+5)
+
+
 def run_launcher_until_state(job, state, period=1.0, timeout=20.0):
     def check():
         job.refresh_from_db()
@@ -343,7 +354,7 @@ class TestDAG(BalsamTestCase):
             self.apps[name] = app
 
     def test_dag_error_timeout(self):
-        '''test error/timeout handling mechanisms'''
+        '''test error/timeout handling mechanisms (takes a couple min)'''
 
         from itertools import product
         states = 'normal timeout fail'.split()
@@ -356,27 +367,33 @@ class TestDAG(BalsamTestCase):
             'normal': create_job(name='make_sides', app='make_sides',
                                  preproc=pre, args='',
                                  post_error_handler=True,
-                                 post_timeout_handler=True),
+                                 post_timeout_handler=True,
+                                 wtime=0),
             'timeout': create_job(name='make_sides', app='make_sides',
                                   preproc=pre, args='--sleep 2',
                                   post_error_handler=True,
-                                  post_timeout_handler=True),
+                                  post_timeout_handler=True,
+                                  wtime=0),
             'fail': create_job(name='make_sides', app='make_sides',
                                preproc=pre, args='--retcode 1',
                                post_error_handler=True,
-                               post_timeout_handler=True),
+                               post_timeout_handler=True,
+                               wtime=0),
         }
         
         child_types = {
             'normal': create_job(name='square', app='square', args='',
                                  post_error_handler=True,
-                                 post_timeout_handler=True),
+                                 post_timeout_handler=True,
+                                 wtime=0),
             'timeout': create_job(name='square', app='square', args='--sleep 2',
                                   post_error_handler=True,
-                                  post_timeout_handler=True),
+                                  post_timeout_handler=True,
+                                  wtime=0),
             'fail': create_job(name='square', app='square', args='--retcode 1',
                                post_error_handler=True,
-                               post_timeout_handler=True),
+                               post_timeout_handler=True,
+                               wtime=0),
         }
 
 
@@ -388,6 +405,10 @@ class TestDAG(BalsamTestCase):
             jobA = BalsamJob.objects.get(pk=child_types[childA].pk)
             jobB = BalsamJob.objects.get(pk=child_types[childB].pk)
             jobP.pk, jobA.pk, jobB.pk = None,None,None
+            
+            NUM_SIDES, NUM_RANKS = 2, random.randint(1,2)
+            pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+            jobP.preprocess = pre
             jobP.save()
 
             jobA.application_args += "  side0.dat"
@@ -407,18 +428,19 @@ class TestDAG(BalsamTestCase):
         del parent_types, child_types
         self.assertEqual(BalsamJob.objects.all().count(), 81)
 
-        # Run the entire DAG until finished
-        now = time.time()
-        run_launcher_until(lambda: time.time() - now >= 20)
-        now = time.time()
-        run_launcher_until(lambda: time.time() - now >= 20)
+        # Run the entire DAG until finished, with two interruptions
+        run_launcher_seconds(25.0)
+        run_launcher_seconds(25.0)
         
         def check():
             for job in BalsamJob.objects.all():
                 job.refresh_from_db()
             return all(j.state == 'JOB_FINISHED' for j in BalsamJob.objects.all())
 
-        success = run_launcher_until(check, timeout=180.0)
+        success = run_launcher_until(check, timeout=90.0)
+        for job in BalsamJob.objects.all():
+            job.refresh_from_db()
+            print(job.cute_id, job.get_recent_state_str())
         self.assertTrue(success)
 
     

@@ -15,6 +15,7 @@ from mpi4py import MPI
 
 from balsamlauncher.util import cd, get_tail
 from balsamlauncher.exceptions import *
+from balsam.models import BalsamJob
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()
@@ -57,7 +58,9 @@ def run(job):
     with cd(job.workdir) as _, open(outname, 'wb') as outf:
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
-            proc = Popen(job.cmd, stdout=outf, stderr=STDOUT, cwd=job.workdir)
+            env = BalsamJob.objects.get(pk=job.id).get_envs() # TODO: Should we include this?
+            proc = Popen(job.cmd, stdout=outf, stderr=STDOUT,
+                         cwd=job.workdir,env=env)
             retcode = proc.wait()
         except Exception as e:
             logger.exception(f"mpi_ensemble rank {RANK} job {job.id}: exception during Popen")

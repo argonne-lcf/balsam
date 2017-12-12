@@ -77,6 +77,7 @@ def create_new_runners(jobs, runner_group, worker_group):
 
 
 def check_parents(job, lock):
+    job.refresh_from_db()
     parents = job.get_parents()
     ready = all(p.state == 'JOB_FINISHED' for p in parents)
     if ready:
@@ -108,7 +109,8 @@ def main(args, transition_pool, runner_group, job_source):
         
         job_source.refresh_from_db()
         waiting_jobs = (j for j in job_source.jobs if
-                        j.state in 'CREATED AWAITING_PARENTS LAUNCHER_QUEUED')
+                        j.state in 
+                        'CREATED AWAITING_PARENTS LAUNCHER_QUEUED'.split())
         for job in waiting_jobs: check_parents(job, transition_pool.lock)
         
         transitionable_jobs = [
@@ -133,8 +135,10 @@ def on_exit(runner_group, transition_pool, job_source):
 
     runner_group.update_and_remove_finished()
     logger.debug("Timing out runner processes")
+    transition_pool.lock.acquire()
     for runner in runner_group:
         runner.timeout()
+    transition_pool.lock.release()
 
     transition_pool.end_and_wait()
     logger.debug("Launcher exit graceful\n\n")

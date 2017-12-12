@@ -172,7 +172,7 @@ class MPIEnsembleRunner(Runner):
                    )
         rpn = worker_list[0].max_ranks_per_node
         nranks = sum(w.num_nodes*rpn for w in worker_list)
-        envs = self.jobs[0].get_envs() # TODO: different envs for each job
+        envs = self.jobs[0].get_envs() # TODO: is pulling envs in runner inefficient?
         app_cmd = f"{sys.executable} {MPI_ENSEMBLE_EXE} {ensemble_filename}"
 
         mpi_str = self.mpi_cmd(worker_list, app_cmd=app_cmd, envs=envs,
@@ -188,7 +188,6 @@ class MPIEnsembleRunner(Runner):
             msg = "mpi_ensemble.py had nonzero return code:\n"
             msg += "".join(self.monitor.available_lines())
             logger.exception(msg)
-            raise RuntimeError(msg)
 
         logger.debug("Checking mpi_ensemble stdout for status updates...")
         for line in self.monitor.available_lines():
