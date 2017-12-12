@@ -3,6 +3,8 @@ import os
 import sys
 import logging
 import django
+import signal
+
 os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
 django.setup()
 logger = logging.getLogger('balsamlauncher.mpi_ensemble')
@@ -16,6 +18,16 @@ from balsamlauncher.exceptions import *
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()
+
+def on_exit():
+    logger.debug("mpi_ensemble received interrupt: quitting now")
+    MPI.Finalize()
+    sys.exit(0)
+
+handler = lambda a,b: on_exit()
+signal.signal(signal.SIGINT, handler)
+signal.signal(signal.SIGTERM, handler)
+signal.signal(signal.SIGHUP, handler)
 
 Job = namedtuple('Job', ['id', 'workdir', 'cmd'])
 

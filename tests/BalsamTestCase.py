@@ -47,7 +47,7 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
                ranks_per_node=1, args='', workflow='', envs={}, state='CREATED',
                url_in='', input_files='', url_out='', stage_out_files='', 
                post_error_handler=False, post_timeout_handler=False,
-               auto_timeout_retry=True):
+               auto_timeout_retry=True, preproc='', postproc=''):
 
     if app and direct_command:
         raise ValueError("Cannot have both application and direct command")
@@ -75,6 +75,9 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
     job.post_error_handler = post_error_handler
     job.post_timeout_handler = post_timeout_handler
     job.auto_timeout_retry = auto_timeout_retry
+
+    job.preprocess = preproc
+    job.postprocess = postproc
     
     job.save()
     job.create_working_path()

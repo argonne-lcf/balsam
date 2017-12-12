@@ -15,26 +15,38 @@ from tests.BalsamTestCase import create_job, create_app
 
 BALSAM_TEST_DIR = os.environ['BALSAM_TEST_DIRECTORY']
 
-def run_launcher_until(function):
-    launcher_proc = subprocess.Popen(['balsam', 'launcher', '--consume'],
+def kill_stragglers():
+    grep = subprocess.Popen('ps aux | grep launcher | grep consume',
+        stdout=subprocess.PIPE, shell=True)
+    stdout,stderr=grep.communicate()
+    stdout = stdout.decode('utf-8')
+    pids = [int(line.split()[1]) for line in stdout.split('\n') if 'python' in line]
+    for pid in pids:
+        try: os.kill(pid, signal.SIGKILL)
+        except: pass
+
+def run_launcher_until(function, period=1.0, timeout=20.0):
+    launcher_proc = subprocess.Popen(['balsam', 'launcher', '--consume',
+                                      '--max-ranks-per-node', '8'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
                                      preexec_fn=os.setsid)
-    success = poll_until_returns_true(function, timeout=20)
+    success = poll_until_returns_true(function, period=period, timeout=timeout)
 
     # WEIRDEST BUG IN TESTING IF YOU OMIT THE FOLLOIWNG STATEMENT!
     # launcher_proc.terminate() doesn't work; the process keeps on running and
     # then you have two launchers from different test cases processing the same
     # job...Very hard to catch bug.
     os.killpg(os.getpgid(launcher_proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
-    launcher_proc.wait(timeout=10)
+    launcher_proc.wait(timeout=5)
+    kill_stragglers()
     return success
 
-def run_launcher_until_state(job, state):
+def run_launcher_until_state(job, state, period=1.0, timeout=20.0):
     def check():
         job.refresh_from_db()
         return job.state == state
-    success = run_launcher_until(check)
+    success = run_launcher_until(check, period=period, timeout=timeout)
     return success
 
 class TestSingleJobTransitions(BalsamTestCase):
@@ -297,7 +309,7 @@ class TestSingleJobTransitions(BalsamTestCase):
                          args='side0.dat --sleep 5',
                          url_in=f'local:{remote_dir.name}', stage_out_files='square*',
                          url_out=f'local:{remote_dir.name}',
-                         post_timeout_handler=True)
+                         auto_timeout_retry=False)
                          
         # Job reaches the RUNNING state and then times out
         success = run_launcher_until_state(job, 'RUNNING')
@@ -316,3 +328,149 @@ class TestSingleJobTransitions(BalsamTestCase):
         # But without timeout handling, it fails
         success = run_launcher_until_state(job, 'FAILED')
         self.assertTrue(success)
+
+class TestDAG(BalsamTestCase):
+    def setUp(self):
+        aliases = "make_sides square reduce".split()
+        self.apps = {}
+        for name in aliases:
+            interpreter = sys.executable
+            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}').origin
+            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_pre').origin
+            post_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_post').origin
+            app = create_app(name=name, executable=exe_path, preproc=pre_path,
+                             postproc=post_path)
+            self.apps[name] = app
+
+    def test_dag_error_timeout(self):
+        '''test error/timeout handling mechanisms'''
+
+        from itertools import product
+        states = 'normal timeout fail'.split()
+        triplets = product(states, repeat=3)
+
+        NUM_SIDES, NUM_RANKS = 2, random.randint(1,2)
+        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+
+        parent_types = {
+            'normal': create_job(name='make_sides', app='make_sides',
+                                 preproc=pre, args='',
+                                 post_error_handler=True,
+                                 post_timeout_handler=True),
+            'timeout': create_job(name='make_sides', app='make_sides',
+                                  preproc=pre, args='--sleep 2',
+                                  post_error_handler=True,
+                                  post_timeout_handler=True),
+            'fail': create_job(name='make_sides', app='make_sides',
+                               preproc=pre, args='--retcode 1',
+                               post_error_handler=True,
+                               post_timeout_handler=True),
+        }
+        
+        child_types = {
+            'normal': create_job(name='square', app='square', args='',
+                                 post_error_handler=True,
+                                 post_timeout_handler=True),
+            'timeout': create_job(name='square', app='square', args='--sleep 2',
+                                  post_error_handler=True,
+                                  post_timeout_handler=True),
+            'fail': create_job(name='square', app='square', args='--retcode 1',
+                               post_error_handler=True,
+                               post_timeout_handler=True),
+        }
+
+
+        job_triplets = {}
+        for triplet in triplets:
+            parent, childA, childB = triplet
+
+            jobP = BalsamJob.objects.get(pk=parent_types[parent].pk)
+            jobA = BalsamJob.objects.get(pk=child_types[childA].pk)
+            jobB = BalsamJob.objects.get(pk=child_types[childB].pk)
+            jobP.pk, jobA.pk, jobB.pk = None,None,None
+            jobP.save()
+
+            jobA.application_args += "  side0.dat"
+            jobA.input_files += "side0.dat"
+            jobA.save()
+            jobA.set_parents([jobP])
+
+            jobB.application_args += "  side1.dat"
+            jobB.input_files += "side1.dat"
+            jobB.save()
+            jobB.set_parents([jobP])
+
+            job_triplets[triplet] = (jobP, jobA, jobB)
+
+        for j in parent_types.values(): j.delete()
+        for j in child_types.values(): j.delete()
+        del parent_types, child_types
+        self.assertEqual(BalsamJob.objects.all().count(), 81)
+
+        # Run the entire DAG until finished
+        now = time.time()
+        run_launcher_until(lambda: time.time() - now >= 20)
+        now = time.time()
+        run_launcher_until(lambda: time.time() - now >= 20)
+        
+        def check():
+            for job in BalsamJob.objects.all():
+                job.refresh_from_db()
+            return all(j.state == 'JOB_FINISHED' for j in BalsamJob.objects.all())
+
+        success = run_launcher_until(check, timeout=180.0)
+        self.assertTrue(success)
+
+    
+    def test_static(self):
+        '''test normal processing of a pre-defined DAG'''
+
+        NUM_SIDES, NUM_RANKS = 3, 2
+        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+        parent = create_job(name='make_sides', app='make_sides', 
+                            preproc=pre)
+        
+        # Each side length is mapped to a square area in a set of mapping jobs.
+        # These 3 "square_jobs" all have the same parent make_sides, but each
+        # takes a different input file
+        square_jobs = {
+            i : create_job(
+            name=f'square{i}', app='square',
+            args=f'side{i}.dat', input_files=f'side{i}.dat'
+            )
+            for i in range(NUM_SIDES)
+        }
+        for job in square_jobs.values():
+            job.set_parents([parent])
+
+        # The final reduce job depends on all the square jobs: all square.dat
+        # files will be staged in and final results staged out to a remote
+        # directory
+        remote_dir = tempfile.TemporaryDirectory(prefix="remote")
+        reduce_job = create_job(name='reduce', app='reduce',
+                                input_files="square*.dat*",
+                                url_out=f'local:{remote_dir.name}',
+                                stage_out_files='summary*.dat reduce.out'
+                                )
+        reduce_job.set_parents(square_jobs.values())
+        
+        # Run the entire DAG until finished
+        success = run_launcher_until_state(reduce_job, 'JOB_FINISHED',
+                                           timeout=180.0)
+        self.assertTrue(success)
+        for job in (parent, *square_jobs.values(), reduce_job):
+            job.refresh_from_db()
+            self.assertEqual(job.state, 'JOB_FINISHED')
+
+        # Double-check the calculation result; thereby testing flow of data
+        workdir = parent.working_directory
+        files = (os.path.join(workdir, f"side{i}.dat") for i in range(NUM_SIDES))
+        sides = [float(open(f).read()) for f in files]
+        self.assertTrue(all(0.5 <= s <= 5.0 for s in sides))
+        expected_result = sum(s**2 for s in sides)
+
+        resultpath = os.path.join(remote_dir.name, 'reduce.out')
+        result = open(resultpath).read()
+        self.assertIn('Total area:', result)
+        result = float(result.split()[-1])
+        self.assertAlmostEqual(result, expected_result)

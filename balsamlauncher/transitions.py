@@ -6,6 +6,7 @@ import queue
 import os
 from io import StringIO
 from traceback import print_exc
+import signal
 import sys
 import subprocess
 import tempfile
@@ -32,9 +33,11 @@ logger = logging.getLogger('balsamlauncher.transitions')
 # Balsam, because it's built in and requires zero user configuration
 if sys.platform.startswith('darwin'):
     LockClass = multiprocessing.Lock
+    logger.debug('Using real multiprocessing.Lock')
 elif sys.platform.startswith('win32'):
     LockClass = multiprocessing.Lock
 else:
+    logger.debug('Using dummy lock')
     class DummyLock:
         def acquire(self): pass
         def release(self): pass
@@ -47,14 +50,24 @@ SITE = settings.BALSAM_SITE
 StatusMsg = namedtuple('StatusMsg', ['pk', 'state', 'msg'])
 JobMsg =   namedtuple('JobMsg', ['job', 'transition_function'])
 
+def on_exit(lock):
+    logger.debug("Transition thread caught SIGTERM")
+    #try: lock.release()
+    #except ValueError: pass
 
 def main(job_queue, status_queue, lock):
+    handler = lambda a,b: on_exit(lock)
+    signal.signal(signal.SIGINT, handler)
+    signal.signal(signal.SIGTERM, handler)
+
     while True:
         logger.debug("Transition process waiting for job")
         job_msg = job_queue.get()
         job, transition_function = job_msg
         
-        if job == 'end': return
+        if job == 'end': 
+            logger.debug("Received end..quitting transition loop")
+            return
         if job.work_site != SITE:
             job.work_site = SITE
             lock.acquire()
@@ -144,23 +157,6 @@ class TransitionProcessPool:
         logger.info("All Transition processes joined: done.")
         self.transitions_pk_list = []
 
-
-def check_parents(job, lock):
-    logger.debug(f'{job.cute_id} in check_parents')
-    parents = job.get_parents()
-    ready = all(p.state == 'JOB_FINISHED' for p in parents)
-    if ready:
-        lock.acquire()
-        job.update_state('READY', 'dependencies satisfied')
-        lock.release()
-        logger.info(f'{job.cute_id} ready')
-    elif job.state != 'AWAITING_PARENTS':
-        lock.acquire()
-        job.update_state('AWAITING_PARENTS', f'{len(parents)} pending jobs')
-        lock.release()
-        logger.info(f'{job.cute_id} waiting for parents')
-
-
 def stage_in(job, lock):
     # Create workdirs for jobs: use job.create_working_path
     logger.debug(f'{job.cute_id} in stage_in')
@@ -194,19 +190,22 @@ def stage_in(job, lock):
         parent_dir = parent.working_directory
         for pattern in input_patterns:
             path = os.path.join(parent_dir, pattern)
-            matches.extend((parent.pk, glob.glob(path)))
+            matches.extend((parent.pk,match) 
+                           for match in glob.glob(path))
 
     for parent_pk, inp_file in matches:
         basename = os.path.basename(inp_file)
-        newpath = os.path.join(work_dir, basename)
-        if os.path.exists(newpath): newpath += f"_{str(parent_pk)[:8]}"
+        new_path = os.path.join(work_dir, basename)
+        
+        if os.path.exists(new_path): new_path += f"_{str(parent_pk)[:8]}"
         # pointing to src, named dst
-        logger.info(f"{job.cute_id}   {newpath}  -->  {inp_file}")
+        logger.info(f"{job.cute_id}   {new_path}  -->  {inp_file}")
         try:
-            os.symlink(src=inp_file, dst=newpath)
+            os.symlink(src=inp_file, dst=new_path)
         except Exception as e:
             raise BalsamTransitionError(
                 f"Exception received during symlink: {e}") from e
+
     lock.acquire()
     job.update_state('STAGED_IN')
     lock.release()
@@ -273,7 +272,7 @@ def preprocess(job, lock):
         lock.release()
         logger.info(f"{job.cute_id} no preprocess: skipped")
         return
-    if not all(os.path.exists(p) for p in preproc_app.split()):
+    if not os.path.exists(preproc_app.split()[0]):
         #TODO: look for preproc in the EXE directories
         message = f"Preprocessor {preproc_app} does not exist on filesystem"
         raise BalsamTransitionError(message)
@@ -288,10 +287,12 @@ def preprocess(job, lock):
         try:
             args = preproc_app.split()
             logger.info(f"{job.cute_id} preprocess Popen {args}")
+            lock.acquire()
             proc = subprocess.Popen(args, stdout=fp,
                                     stderr=subprocess.STDOUT, env=envs,
                                     cwd=job.working_directory)
             retcode = proc.wait(timeout=PREPROCESS_TIMEOUT_SECONDS)
+            lock.release()
         except Exception as e:
             message = f"Preprocess failed: {e}"
             proc.kill()
@@ -347,7 +348,7 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
             logger.info(f'{job.cute_id} no postprocess: skipped')
             return
 
-    if not all(os.path.exists(p) for p in postproc_app.split()):
+    if not os.path.exists(postproc_app.split()[0]):
         #TODO: look for postproc in the EXE directories
         message = f"Postprocessor {postproc_app} does not exist on filesystem"
         raise BalsamTransitionError(message)
@@ -365,10 +366,12 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
         try:
             args = postproc_app.split()
             logger.info(f"{job.cute_id} postprocess Popen {args}")
+            lock.acquire()
             proc = subprocess.Popen(args, stdout=fp,
                                     stderr=subprocess.STDOUT, env=envs,
                                     cwd=job.working_directory)
             retcode = proc.wait(timeout=POSTPROCESS_TIMEOUT_SECONDS)
+            lock.release()
         except Exception as e:
             message = f"Postprocess failed: {e}"
             proc.kill()
@@ -421,9 +424,6 @@ def handle_run_error(job, lock):
 
 
 TRANSITIONS = {
-    'CREATED':          check_parents,
-    'LAUNCHER_QUEUED':  check_parents,
-    'AWAITING_PARENTS': check_parents,
     'READY':            stage_in,
     'STAGED_IN':        preprocess,
     'RUN_DONE':         postprocess,

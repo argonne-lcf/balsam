@@ -75,6 +75,22 @@ def create_new_runners(jobs, runner_group, worker_group):
             runnable_jobs = get_runnable_jobs(jobs, running_pks)
     return created_one
 
+
+def check_parents(job, lock):
+    parents = job.get_parents()
+    ready = all(p.state == 'JOB_FINISHED' for p in parents)
+    if ready:
+        lock.acquire()
+        job.update_state('READY', 'dependencies satisfied')
+        lock.release()
+        logger.info(f'{job.cute_id} ready')
+    elif job.state != 'AWAITING_PARENTS':
+        lock.acquire()
+        job.update_state('AWAITING_PARENTS', f'{len(parents)} parents')
+        lock.release()
+        logger.info(f'{job.cute_id} waiting for parents')
+
+
 def main(args, transition_pool, runner_group, job_source):
     delay_timer = delay()
     elapsed_min = elapsed_time_minutes()
@@ -88,11 +104,12 @@ def main(args, transition_pool, runner_group, job_source):
                        "BEGIN SERVICE LOOP\n"
                        "******************")
         wait = True
-
-        for stat in transition_pool.get_statuses():
-            wait = False
+        for stat in transition_pool.get_statuses(): wait = False
         
         job_source.refresh_from_db()
+        waiting_jobs = (j for j in job_source.jobs if
+                        j.state in 'CREATED AWAITING_PARENTS LAUNCHER_QUEUED')
+        for job in waiting_jobs: check_parents(job, transition_pool.lock)
         
         transitionable_jobs = [
             job for job in job_source.jobs
@@ -115,8 +132,8 @@ def on_exit(runner_group, transition_pool, job_source):
     transition_pool.flush_job_queue()
 
     runner_group.update_and_remove_finished()
+    logger.debug("Timing out runner processes")
     for runner in runner_group:
-        logger.debug("Timing out runner processes")
         runner.timeout()
 
     transition_pool.end_and_wait()
