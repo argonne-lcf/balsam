@@ -284,6 +284,7 @@ def preprocess(job, lock):
     out = os.path.join(job.working_directory, f"preprocess.log")
     with open(out, 'w') as fp:
         fp.write(f"# Balsam Preprocessor: {preproc_app}")
+        fp.flush()
         try:
             args = preproc_app.split()
             logger.info(f"{job.cute_id} preprocess Popen {args}")
@@ -292,6 +293,7 @@ def preprocess(job, lock):
                                     stderr=subprocess.STDOUT, env=envs,
                                     cwd=job.working_directory)
             retcode = proc.wait(timeout=PREPROCESS_TIMEOUT_SECONDS)
+            proc.communicate()
             lock.release()
         except Exception as e:
             message = f"Preprocess failed: {e}"
@@ -362,7 +364,8 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
         fp.write(f"# Balsam Postprocessor: {postproc_app}\n")
         if timeout_handling: fp.write("# Invoked to handle RUN_TIMEOUT\n")
         if error_handling: fp.write("# Invoked to handle RUN_ERROR\n")
-
+        fp.flush()
+        
         try:
             args = postproc_app.split()
             logger.info(f"{job.cute_id} postprocess Popen {args}")
@@ -371,6 +374,7 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
                                     stderr=subprocess.STDOUT, env=envs,
                                     cwd=job.working_directory)
             retcode = proc.wait(timeout=POSTPROCESS_TIMEOUT_SECONDS)
+            proc.communicate()
             lock.release()
         except Exception as e:
             message = f"Postprocess failed: {e}"
@@ -397,7 +401,7 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
         lock.acquire()
         job.update_state('POSTPROCESSED', f"{os.path.basename(postproc_app)}")
         lock.release()
-        logger.info(f"{job.cute_id} postprocess done")
+    logger.info(f"{job.cute_id} postprocess done")
 
 
 def handle_timeout(job, lock):

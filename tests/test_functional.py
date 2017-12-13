@@ -25,6 +25,7 @@ def kill_stragglers():
         try: os.kill(pid, signal.SIGKILL)
         except: pass
 
+
 def run_launcher_until(function, period=1.0, timeout=20.0):
     launcher_proc = subprocess.Popen(['balsam', 'launcher', '--consume',
                                       '--max-ranks-per-node', '8'],
@@ -59,6 +60,7 @@ def run_launcher_until_state(job, state, period=1.0, timeout=20.0):
         return job.state == state
     success = run_launcher_until(check, period=period, timeout=timeout)
     return success
+
 
 class TestSingleJobTransitions(BalsamTestCase):
     def setUp(self):
@@ -98,20 +100,12 @@ class TestSingleJobTransitions(BalsamTestCase):
         success = run_launcher_until_state(job, 'JOB_FINISHED')
         self.assertTrue(success)
 
-        work_dir = job.working_directory
-
-        # job staged in this remote side0.dat file; it's really here now
-        staged_in_file = os.path.join(work_dir, 'side0.dat')
-        self.assertTrue(os.path.exists(staged_in_file))
-
-        # And it contains "9"
-        staged_in_file_contents = open(staged_in_file).read()
+        # job staged in this remote side0.dat file; it contains "9"
+        staged_in_file_contents = job.read_file_in_workdir('side0.dat')
         self.assertIn('9\n', staged_in_file_contents)
 
         # Preprocess script actually ran:
-        preproc_out = os.path.join(work_dir, 'preprocess.log')
-        self.assertTrue(os.path.exists(preproc_out))
-        preproc_out_contents = open(preproc_out).read()
+        preproc_out_contents = job.read_file_in_workdir('preprocess.log')
 
         # Preprocess inherited the correct job from the environment:
         jobid_line = [l for l in preproc_out_contents.split('\n') if 'jobid' in l][0]
@@ -123,22 +117,18 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertIn('side0.dat', job.application_args)
 
         # application stdout was written to the job's .out file
-        app_stdout = os.path.join(work_dir, 'square_testjob.out')
-        self.assertTrue(os.path.exists(app_stdout))
-        self.assertIn("Hello from square", open(app_stdout).read())
+        app_stdout = job.read_file_in_workdir('square_testjob.out')
+        self.assertIn("Hello from square", app_stdout)
 
         # the square.py app wrote its result to square.dat
-        app_outfile = os.path.join(work_dir, 'square.dat')
-        self.assertTrue(os.path.exists(app_outfile))
+        app_outfile = job.read_file_in_workdir('square.dat')
         
         # The result of squaring 9 is 81
-        result = float(open(app_outfile).read())
+        result = float(app_outfile)
         self.assertEqual(result, 81.0)
 
         # the job finished normally, so square_post.py just said hello
-        post_outfile = os.path.join(work_dir, 'postprocess.log')
-        self.assertTrue(os.path.exists(post_outfile))
-        post_contents = open(post_outfile).read()
+        post_contents = job.read_file_in_workdir('postprocess.log')
 
         jobid_line = [l for l in post_contents.split('\n') if 'jobid' in l][0]
         self.assertIn(str(job.pk), jobid_line)
@@ -177,15 +167,10 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertTrue(success)
         
         # (But actually the application ran and printed its result correctly)
-        work_dir = job.working_directory
-        out_path = os.path.join(work_dir, 'square.dat')
-        result = float(open(out_path).read())
+        result = float(job.read_file_in_workdir('square.dat'))
         self.assertEqual(result, 81.0)
         
-        
-        preproc_out = os.path.join(work_dir, 'preprocess.log')
-        self.assertTrue(os.path.exists(preproc_out))
-        preproc_out_contents = open(preproc_out).read()
+        preproc_out_contents = job.read_file_in_workdir('preprocess.log')
 
         jobid_line = [l for l in preproc_out_contents.split('\n') if 'jobid' in l][0]
         self.assertIn(str(job.pk), jobid_line)
@@ -218,9 +203,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertIn('handled error in square_post', job.state_history)
 
         # We can also check the postprocessor stdout:
-        work_dir = job.working_directory
-        post_out = os.path.join(work_dir, 'postprocess.log')
-        post_contents = open(post_out).read()
+        post_contents = job.read_file_in_workdir('postprocess.log')
         self.assertIn("recognized error", post_contents)
         self.assertIn("Invoked to handle RUN_ERROR", post_contents)
 
@@ -261,9 +244,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertIn('RESTART_READY', job.state_history)
         
         # The postprocessor was not invoked by timeout handler
-        work_dir = job.working_directory
-        post_out = os.path.join(work_dir, 'postprocess.log')
-        post_contents = open(post_out).read()
+        post_contents = job.read_file_in_workdir('postprocess.log')
         self.assertNotIn('handling RUN_TIMEOUT', post_contents)
     
     def test_timeout_post_handler(self):
@@ -301,9 +282,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertIn('handled timeout in square_post', job.state_history)
         
         # The postprocessor handled the timeout; did not restart
-        work_dir = job.working_directory
-        post_out = os.path.join(work_dir, 'postprocess.log')
-        post_contents = open(post_out).read()
+        post_contents = job.read_file_in_workdir('postprocess.log')
         self.assertIn('Invoked to handle RUN_TIMEOUT', post_contents)
         self.assertIn('recognized timeout', post_contents)
     
@@ -353,34 +332,38 @@ class TestDAG(BalsamTestCase):
                              postproc=post_path)
             self.apps[name] = app
 
-    def test_dag_error_timeout(self):
-        '''test error/timeout handling mechanisms (takes a couple min)'''
+    def test_dag_error_timeout_mixture(self):
+        '''test error/timeout handling mechanisms on 81 jobs (takes a couple min)'''
 
+        # We will run 3*3*3 triples of jobs (81 total)
+        # Each triple is a tree with 1 parent and 2 children
+        # Try every possible permutation of normal/timeout/fail
+        # Timeout jobs sleep for a couple seconds and have a higher chance of
+        # being interrupted and timed-out; this is not guaranteed though
         from itertools import product
         states = 'normal timeout fail'.split()
         triplets = product(states, repeat=3)
 
-        NUM_SIDES, NUM_RANKS = 2, random.randint(1,2)
-        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
-
+        # Parent job template
         parent_types = {
             'normal': create_job(name='make_sides', app='make_sides',
-                                 preproc=pre, args='',
+                                 args='',
                                  post_error_handler=True,
                                  post_timeout_handler=True,
                                  wtime=0),
             'timeout': create_job(name='make_sides', app='make_sides',
-                                  preproc=pre, args='--sleep 2',
+                                 args='--sleep 2',
                                   post_error_handler=True,
                                   post_timeout_handler=True,
                                   wtime=0),
             'fail': create_job(name='make_sides', app='make_sides',
-                               preproc=pre, args='--retcode 1',
+                               args='--retcode 1',
                                post_error_handler=True,
                                post_timeout_handler=True,
                                wtime=0),
         }
         
+        # Child job template
         child_types = {
             'normal': create_job(name='square', app='square', args='',
                                  post_error_handler=True,
@@ -396,16 +379,18 @@ class TestDAG(BalsamTestCase):
                                wtime=0),
         }
 
-
+        # Create all 81 jobs
         job_triplets = {}
         for triplet in triplets:
             parent, childA, childB = triplet
 
+            # Load the template
             jobP = BalsamJob.objects.get(pk=parent_types[parent].pk)
             jobA = BalsamJob.objects.get(pk=child_types[childA].pk)
             jobB = BalsamJob.objects.get(pk=child_types[childB].pk)
             jobP.pk, jobA.pk, jobB.pk = None,None,None
             
+            # Parent has two children (sides); either 1 rank (serial) or 2 ranks (mpi)
             NUM_SIDES, NUM_RANKS = 2, random.randint(1,2)
             pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
             jobP.preprocess = pre
@@ -423,6 +408,7 @@ class TestDAG(BalsamTestCase):
 
             job_triplets[triplet] = (jobP, jobA, jobB)
 
+        # Remove jobs that were only used as template
         for j in parent_types.values(): j.delete()
         for j in child_types.values(): j.delete()
         del parent_types, child_types
@@ -437,13 +423,10 @@ class TestDAG(BalsamTestCase):
                 job.refresh_from_db()
             return all(j.state == 'JOB_FINISHED' for j in BalsamJob.objects.all())
 
+        # Just check that all jobs reach JOB_FINISHED state
         success = run_launcher_until(check, timeout=90.0)
-        for job in BalsamJob.objects.all():
-            job.refresh_from_db()
-            print(job.cute_id, job.get_recent_state_str())
         self.assertTrue(success)
 
-    
     def test_static(self):
         '''test normal processing of a pre-defined DAG'''
 
@@ -496,3 +479,245 @@ class TestDAG(BalsamTestCase):
         self.assertIn('Total area:', result)
         result = float(result.split()[-1])
         self.assertAlmostEqual(result, expected_result)
+
+    def triplet_data_check(self, parent, A, B):
+        '''helper function for the below tests'''
+        side0 = float(parent.read_file_in_workdir('side0.dat'))
+        side1 = float(parent.read_file_in_workdir('side1.dat'))
+        square0 = float(A.read_file_in_workdir('square.dat'))
+        square1 = float(B.read_file_in_workdir('square.dat'))
+
+        self.assertAlmostEqual(side0**2, square0)
+        self.assertAlmostEqual(side1**2, square1)
+
+    def test_child_timeout(self):
+        '''timeout handling in a dag'''
+
+        # Same DAG triplet as above: one parent with 2 children A & B
+        NUM_SIDES, NUM_RANKS = 2, 1
+        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+        parent = create_job(name='make_sides', app='make_sides', preproc=pre)
+        
+        chA = create_job(name='square0', app='square', args='side0.dat',
+                         input_files='side0.dat')
+        chB = create_job(name='square1', app='square', args='side1.dat --sleep 30',
+                         input_files='side1.dat', post_timeout_handler=True)
+        chA.set_parents([parent])
+        chB.set_parents([parent])
+
+        # If a child times out and we re-run the launcher, everything is handled
+        success = run_launcher_until_state(chB, 'RUNNING')
+        self.assertTrue(success)
+        chB.refresh_from_db()
+        self.assertEqual(chB.state, 'RUN_TIMEOUT')
+        success = run_launcher_until_state(chB, 'JOB_FINISHED')
+
+        parent.refresh_from_db()
+        chA.refresh_from_db()
+        self.assertEqual(parent.state, 'JOB_FINISHED')
+        self.assertEqual(chA.state, 'JOB_FINISHED')
+        self.assertEqual(chB.state, 'JOB_FINISHED')
+
+        # The data-flow was correct
+        self.triplet_data_check(parent, chA, chB)
+        
+        # The post-processor in fact handled the timeout
+        self.assertIn('recognized timeout',
+                      chB.read_file_in_workdir('postprocess.log'))
+    
+    def test_child_error(self):
+        '''error handling in a dag'''
+        
+        # Same DAG triplet as above: one parent with 2 children A & B
+        NUM_SIDES, NUM_RANKS = 2, 1
+        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+        parent = create_job(name='make_sides', app='make_sides', preproc=pre)
+        
+        chA = create_job(name='square0', app='square', args='side0.dat',
+                         input_files='side0.dat')
+        chB = create_job(name='square1', app='square', args='side1.dat --retcode 1',
+                         input_files='side1.dat', post_error_handler=True)
+        chA.set_parents([parent])
+        chB.set_parents([parent])
+
+        # child B will give a RUN_ERROR, but it will be handled
+        success = run_launcher_until_state(chB, 'JOB_FINISHED')
+        self.assertTrue(success)
+        
+        parent.refresh_from_db()
+        chA.refresh_from_db()
+        self.assertEqual(parent.state, 'JOB_FINISHED')
+        self.assertEqual(chA.state, 'JOB_FINISHED')
+        self.assertEqual(chB.state, 'JOB_FINISHED')
+
+        # Data flow was correct
+        self.triplet_data_check(parent, chA, chB)
+
+        # The post-processor handled the nonzero return code in B
+        self.assertIn('recognized error',
+                      chB.read_file_in_workdir('postprocess.log'))
+    
+    def test_parent_timeout(self):
+        '''timeout handling (with rescue job) in a dag'''
+        
+        # Same DAG triplet as above: one parent with 2 children A & B
+        NUM_SIDES, NUM_RANKS = 2, 1
+        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+        parent = create_job(name='make_sides', app='make_sides', preproc=pre,
+                            args='--sleep 30',post_timeout_handler=True)
+        
+        chA = create_job(name='square0', app='square', args='side0.dat',
+                         input_files='side0.dat')
+        chB = create_job(name='square1', app='square', args='side1.dat',
+                         input_files='side1.dat')
+        chA.set_parents([parent])
+        chB.set_parents([parent])
+
+        # We run the launcher and kill it once parent starts running
+        success = run_launcher_until_state(parent, 'RUNNING')
+        self.assertTrue(success)
+        
+        # Parent timed out
+        parent.refresh_from_db()
+        chA.refresh_from_db()
+        chB.refresh_from_db()
+        self.assertEqual(parent.state, 'RUN_TIMEOUT')
+        self.assertEqual(chA.state, 'AWAITING_PARENTS')
+        self.assertEqual(chB.state, 'AWAITING_PARENTS')
+        
+        # On re-run, everything finishes okay
+        success = run_launcher_until_state(chB, 'JOB_FINISHED')
+        parent.refresh_from_db()
+        chA.refresh_from_db()
+
+        self.assertEqual(parent.state, 'JOB_FINISHED')
+        self.assertEqual(chA.state, 'JOB_FINISHED')
+        self.assertEqual(chB.state, 'JOB_FINISHED')
+
+        
+        # What happened: a rescue job was created by the time-out handler and
+        # ran in the second launcher invocation
+        jobs = BalsamJob.objects.all()
+        self.assertEqual(jobs.count(), 4)
+
+        # This rescue job was made to be the parent of A and B
+        rescue_job = chB.get_parents().first()
+        self.assertEqual(rescue_job.state, 'JOB_FINISHED')
+
+        # The job state history shows how this happened:
+        self.assertIn(f'spawned by {parent.cute_id}', rescue_job.state_history)
+        self.assertIn(f'spawned rescue job {rescue_job.cute_id}', parent.state_history)
+        
+        # It happened during the post-processing step:
+        post_log = parent.read_file_in_workdir('postprocess.log')
+        self.assertIn('Creating rescue job', post_log)
+        
+        # Data flow correct:
+        self.triplet_data_check(rescue_job, chA, chB)
+        
+    
+    def test_parent_error(self):
+        '''test dag error handling'''
+        
+        # Same DAG triplet as above: one parent with 2 children A & B
+        NUM_SIDES, NUM_RANKS = 2, 1
+        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+        parent = create_job(name='make_sides', app='make_sides', preproc=pre,
+                            args='--retcode 1',post_error_handler=True)
+        
+        chA = create_job(name='square0', app='square', args='side0.dat',
+                         input_files='side0.dat')
+        chB = create_job(name='square1', app='square', args='side1.dat',
+                         input_files='side1.dat')
+        chA.set_parents([parent])
+        chB.set_parents([parent])
+
+        # Parent will give an error, but it will be handled
+        def check():
+            parent.refresh_from_db()
+            chA.refresh_from_db()
+            chB.refresh_from_db()
+            jobs = parent,chA,chB
+            return all(j.state == 'JOB_FINISHED' for j in jobs)
+
+        # Everything finished successfully
+        success = run_launcher_until(check)
+        self.assertTrue(success)
+
+        parent.refresh_from_db()
+        chA.refresh_from_db()
+        chB.refresh_from_db()
+        
+        # The parent state history shows that an error was handled
+        self.assertIn(f'RUN_ERROR', parent.state_history)
+        self.assertIn(f'handled error; it was okay', parent.state_history)
+        
+        # The post-processor handled it
+        post_log = parent.read_file_in_workdir('postprocess.log')
+        self.assertIn('the job was actually done', post_log)
+        
+        # Data flow okay:
+        self.triplet_data_check(parent, chA, chB)
+        
+        # no rescue jobs had to be created:
+        jobs = BalsamJob.objects.all()
+        self.assertEqual(jobs.count(), 3)
+    
+    def test_dynamic(self):
+        '''test dynamic generation of child jobs'''
+
+        # The parent will create between 4 and 8 child jobs in the course
+        # of its post-processing step:
+        NUM_SIDES, NUM_RANKS = random.randint(4,8), 1
+        pre = self.apps['make_sides'].default_preprocess + f' {NUM_SIDES} {NUM_RANKS}'
+        post = self.apps['make_sides'].default_postprocess + ' --dynamic-spawn'
+        parent = create_job(name='make_sides', app='make_sides', 
+                            preproc=pre, postproc=post)
+        
+        # The final reduce job will depend on all these spawned child jobs, but
+        # they do not exist yet!  We will allow these dependencies to be
+        # established dynamically; for now the reduce step just depends on the
+        # top-level parent of the tree.
+        remote_dir = tempfile.TemporaryDirectory(prefix="remote")
+        reduce_job = create_job(name='sum_squares', app='reduce',
+                                input_files="square*.dat*",
+                                url_out=f'local:{remote_dir.name}',
+                                stage_out_files='summary?.dat *.out'
+                                )
+        reduce_job.set_parents([parent])
+        
+        # Run the entire DAG until finished
+        success = run_launcher_until_state(reduce_job, 'JOB_FINISHED',
+                                           timeout=180.0)
+        self.assertTrue(success)
+        for job in BalsamJob.objects.all():
+            self.assertEqual(job.state, 'JOB_FINISHED')
+
+        # Double-check the calculation result; thereby testing flow of data
+        workdir = parent.working_directory
+        files = (os.path.join(workdir, f"side{i}.dat") for i in range(NUM_SIDES))
+        sides = [float(open(f).read()) for f in files]
+        self.assertTrue(all(0.5 <= s <= 5.0 for s in sides))
+        expected_result = sum(s**2 for s in sides)
+
+        resultpath = os.path.join(remote_dir.name, 'sum_squares.out')
+        result = open(resultpath).read()
+        self.assertIn('Total area:', result)
+        result = float(result.split()[-1])
+        self.assertAlmostEqual(result, expected_result)
+
+        # Checking the post-processor log, we see that those jobs were actually
+        # spawned. 
+        post_contents = parent.read_file_in_workdir('postprocess.log')
+        for i in range(NUM_SIDES):
+            self.assertIn(f'spawned square{i} job', post_contents)
+
+        # The spawned jobs' state histories confirm this.
+        square_jobs = BalsamJob.objects.filter(name__startswith='square')
+        self.assertEqual(square_jobs.count(), NUM_SIDES)
+        for job in square_jobs:
+            self.assertIn(f'spawned by {parent.cute_id}', job.state_history)
+
+        # Make sure that the correct number of dependencies were created for the
+        # reduce job: one for each dynamically-spawned job (plus the original)
+        self.assertEqual(reduce_job.get_parents().count(), NUM_SIDES+1)

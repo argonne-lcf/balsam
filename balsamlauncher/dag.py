@@ -113,11 +113,13 @@ def spawn_child(clone=False, **kwargs):
                 raise ValueError(f"Invalid field {k}")
             else:
                 setattr(child, k, v)
+        child.working_directory = '' # This is essential; awful BUG if not here
         child.save()
     else:
         child = add_job(**kwargs)
 
     add_dependency(current_job, child)
+    child.state_history = ''
     child.update_state("CREATED", f"spawned by {current_job.cute_id}")
     return child
 

@@ -8,8 +8,10 @@ current_job = dag.current_job
 print("Hello from make_sides_post")
 
 if dag.ERROR or dag.TIMEOUT:
-    if dag.ERROR: print("make_sides_post recognized error flag")
-    else: print("make_sides_post recognized timeout flag")
+    if dag.ERROR: 
+        print("make_sides_post recognized error flag")
+    else: 
+        print("make_sides_post recognized timeout flag")
 
     num_sides = int(os.environ['BALSAM_FT_NUM_SIDES'])
     num_files = len(glob.glob("side*.dat"))

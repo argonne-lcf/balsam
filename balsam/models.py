@@ -394,6 +394,15 @@ auto timeout retry:     {self.auto_timeout_retry}
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()
 
+    def read_file_in_workdir(self, fname):
+        work_dir = self.working_directory
+        path = os.path.join(work_dir, fname)
+        if not os.path.exists(path):
+            raise ValueError(f"{fname} not found in working directory of"
+            " {self.cute_id}")
+        else:
+            return open(path).read()
+
     def get_line_string(self):
         recent_state = self.get_recent_state_str()
         app = self.application if self.application else self.direct_command
