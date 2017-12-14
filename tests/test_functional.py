@@ -1,5 +1,6 @@
 import os
 import random
+import getpass
 import sys
 import signal
 import time
@@ -15,22 +16,70 @@ from tests.BalsamTestCase import create_job, create_app
 
 BALSAM_TEST_DIR = os.environ['BALSAM_TEST_DIRECTORY']
 
+def launcher_processes(keywords):
+    if type(keywords) == str: keywords = [keywords]
+
+    username = getpass.getuser()
+    
+    searchcmd = 'ps aux | grep '
+    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords) 
+    print("Search command: ", searchcmd)
+    grep = subprocess.Popen(searchcmd, shell=True, stdout=subprocess.PIPE)
+    stdout,stderr = grep.communicate()
+    stdout = stdout.decode('utf-8')
+
+    processes = [line for line in stdout.split('\n') if 'python' in line and line.split()[0]==username]
+    return processes
+
+def sig_processes(process_lines, signal):
+    for line in process_lines:
+        proc = int(line.split()[1])
+        try: 
+            os.kill(proc, signal)
+        except ProcessLookupError:
+            print("Could not find proc", line)
+        else:
+            print("Sent signal", signal, "to", proc)
+
 def run_launcher_until(function, period=1.0, timeout=60.0):
+    print("DOING POPEN")
     launcher_proc = subprocess.Popen(['balsam', 'launcher', '--consume',
                                       '--max-ranks-per-node', '8'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
                                      preexec_fn=os.setsid)
+    print("POLLING")
     success = poll_until_returns_true(function, period=period, timeout=timeout)
+    print("POLL DONE")
+    
+    print("These are the running launcher.py processes:")
+    processes = launcher_processes('launcher.py --consume')
+    print("\n".join(processes))
+
+    sig_processes(processes, signal.SIGTERM)
+    def check_processes_done():
+        procs = launcher_processes('launcher.py --consume')
+        return len(procs) == 0
+
+    poll_until_returns_true(check_processes_done, period=2, timeout=12)
+    processes = launcher_processes('launcher.py --consume')
+    if processes:
+        print("These are the launcher.py that did not end on SIGTERM:")
+        print("\n".join(processes))
+        sig_processes(processes, signal.SIGKILL)
 
     # WEIRDEST BUG IN TESTING IF YOU OMIT THE FOLLOIWNG STATEMENT!
     # launcher_proc.terminate() doesn't work; the process keeps on running and
     # then you have two launchers from different test cases processing the same
     # job...Very hard to catch bug.
-    os.killpg(os.getpgid(launcher_proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
-    time.sleep(10)
-    try: os.killpg(os.getpgid(launcher_proc.pid), signal.SIGKILL)  # Send the signal to all the process groups
-    except ProcessLookupError: pass
+    #os.killpg(os.getpgid(launcher_proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
+    #time.sleep(10)
+    #try: os.killpg(os.getpgid(launcher_proc.pid), signal.SIGKILL)  # Send the signal to all the process groups
+    #except ProcessLookupError: pass
+
+    #processes = launcher_processes()
+    #print("These launchers failed to die:")
+    #print("\n".join(processes))
     return success
 
 def run_launcher_seconds(seconds):
@@ -537,6 +586,7 @@ class TestDAG(BalsamTestCase):
                 j.refresh_from_db()
             return all(j.state=='JOB_FINISHED' for j in (parent,chA,chB))
 
+        print("running launcher until finished")
         success = run_launcher_until(check)
         self.assertTrue(success)
         

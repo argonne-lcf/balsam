@@ -131,12 +131,13 @@ def main(args, transition_pool, runner_group, job_source):
             logger.info(f"Queued transition: {job.cute_id} will undergo {fxn}")
         
         any_finished = runner_group.update_and_remove_finished()
+        if any_finished: wait = False
         job_source.refresh_from_db()
         if time.time() - last_created > 5:
             created = create_new_runners(job_source.jobs, runner_group, worker_group)
             if created:
                 last_created = time.time()
-        if any_finished or created: wait = False
+                wait = False
         if wait: next(delay_timer)
     
 def on_exit(runner_group, transition_pool, job_source):
