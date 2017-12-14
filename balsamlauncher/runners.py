@@ -77,18 +77,11 @@ class Runner:
             self.monitor = MonitorStream(self.process.stdout)
             self.monitor.start()
 
-    def update_jobs(self):
+    def update_jobs(self, timeout=False):
         raise NotImplementedError
 
     def finished(self):
         return self.process.poll() is not None
-
-    def timeout(self):
-        self.process.terminate()
-        for job in self.jobs:
-            if job.state == 'RUNNING': 
-                job.update_state('RUN_TIMEOUT')
-                logger.info(f"Runner job {job.cute_id}: RUN_TIMEOUT")
 
 class MPIRunner(Runner):
     '''One subprocess, one job'''
@@ -124,7 +117,7 @@ class MPIRunner(Runner):
         logger.info(f"MPIRunner {job.cute_id} Popen:\n{self.popen_args['args']}")
         logger.info(f"MPIRunner: writing output to {outname}")
 
-    def update_jobs(self):
+    def update_jobs(self, timeout=False):
         job = self.jobs[0]
         #job.refresh_from_db() # TODO: handle RecordModified
         retcode = self.process.poll()
@@ -143,8 +136,15 @@ class MPIRunner(Runner):
             tail = get_tail(self.outfile.name)
             msg = f"MPIRunner {job.cute_id} RETURN CODE {retcode}:\n{tail}"
             logger.info(msg)
-        if job.state != curstate: job.update_state(curstate, msg) # TODO: handle RecordModified
 
+        if curstate in ['RUNNING', 'RUN_ERROR'] and timeout:
+            curstate = 'RUN_TIMEOUT'
+            msg = f"MPIRunner {job.cute_id} RUN_TIMEOUT"
+            logger.info(msg)
+
+        if job.state != curstate: job.update_state(curstate, msg) # TODO: handle RecordModified
+        finished = timeout or (retcode is not None)
+        return finished
 
 
 class MPIEnsembleRunner(Runner):
@@ -170,6 +170,8 @@ class MPIEnsembleRunner(Runner):
         logger.info('MPIEnsemble handling jobs: '
                     f' {", ".join(j.cute_id for j in self.jobs)} '
                    )
+        os.chmod(ensemble_filename, 0o644)
+
         rpn = worker_list[0].max_ranks_per_node
         nranks = sum(w.num_nodes*rpn for w in worker_list)
         envs = self.jobs[0].get_envs() # TODO: is pulling envs in runner inefficient?
@@ -180,15 +182,11 @@ class MPIEnsembleRunner(Runner):
 
         self.popen_args['args'] = shlex.split(mpi_str)
         logger.info(f"MPIEnsemble Popen:\n {self.popen_args['args']}")
+        self.ensemble_filename = ensemble_filename
 
-    def update_jobs(self):
+    def update_jobs(self, timeout=False):
         '''Relies on stdout of mpi_ensemble.py'''
-        retcode = self.process.poll()
-        if retcode not in [None, 0]:
-            msg = "mpi_ensemble.py had nonzero return code:\n"
-            msg += "".join(self.monitor.available_lines())
-            logger.exception(msg)
-
+        
         logger.debug("Checking mpi_ensemble stdout for status updates...")
         for line in self.monitor.available_lines():
             try:
@@ -199,6 +197,21 @@ class MPIEnsembleRunner(Runner):
                 logger.info(f"MPIEnsemble {job.cute_id} updated to {state}: {msg}")
             except (ValueError, KeyError, InvalidStateError) as e:
                 logger.error(f"Invalid statusMsg from mpi_ensemble: {line.strip()}")
+
+        retcode = None
+        if timeout:
+            for job in self.jobs:
+                if job.state == 'RUNNING':
+                    logger.debug(f"MPIEnsemble job {job.cute_id} RUN_TIMEOUT")
+                    job.update_state('RUN_TIMEOUT', 'timed out during MPIEnsemble')
+        else:
+            retcode = self.process.poll()
+            if retcode not in [None, 0]:
+                msg = f"mpi_ensemble.py had nonzero return code: {retcode}\n"
+                msg += "".join(self.monitor.available_lines())
+                logger.exception(msg)
+        finished = timeout or (retcode is not None)
+        return finished
 
 class RunnerGroup:
     
@@ -283,31 +296,37 @@ class RunnerGroup:
         self.runners.append(runner)
         for worker in assigned_workers: worker.idle = False
 
-    def update_and_remove_finished(self):
+    def update_and_remove_finished(self, timeout=False):
         # TODO: Benchmark performance overhead; does grouping into one
         # transaction save significantly?
         logger.debug(f"Checking status of {len(self.runners)} active runners")
-        any_finished = False
+
+        finished_runners = []
+        
         self.lock.acquire()
-        for runner in self.runners: runner.update_jobs()
+        for i, runner in enumerate(self.runners): 
+            logger.debug(f"updating runner {i}")
+            finished = runner.update_jobs(timeout)
+            if finished: finished_runners.append(runner)
         self.lock.release()
 
-        finished_runners = (r for r in self.runners if r.finished())
+        if timeout:
+            for runner in self.runners:
+                runner.process.terminate()
+                try: runner.process.wait(timeout=10)
+                except: runner.process.kill()
 
         for runner in finished_runners:
-            if any(j.state not in ['RUN_DONE','RUN_ERROR','RUN_TIMEOUT'] for j in runner.jobs):
-                self.lock.acquire()
-                runner.update_jobs()
-                self.lock.release()
-            if any(j.state not in ['RUN_DONE','RUN_ERROR','RUN_TIMEOUT'] for j in runner.jobs):
-                msg = (f"Job {job.cute_id} runner process done, but failed to update job state.")
+            if any(j.state == 'RUNNING' for j in runner.jobs):
+                msg = (f"Runner process done, but failed to update job state.")
                 logger.exception(msg)
                 raise RuntimeError(msg)
             else:
-                any_finished = True
                 self.runners.remove(runner)
                 for worker in runner.worker_list:
                     worker.idle = True
+
+        any_finished = finished_runners != []
         return any_finished
 
     @property

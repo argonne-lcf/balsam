@@ -27,7 +27,7 @@ if USING_DB_LOGIN:
 default_db = {}
 default_db['ENGINE'] = 'django.db.backends.sqlite3'
 default_db['NAME'] = os.path.join(INSTALL_PATH,'db.sqlite3')
-default_db['OPTIONS'] = {'timeout' : 500000.0}
+default_db['OPTIONS'] = {'timeout' : 5000.0}
 if USING_DB_LOGIN:
    default_db['USER'] = DBUSER
    default_db['PASSWORD'] = DBPASS

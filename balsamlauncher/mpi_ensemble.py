@@ -9,6 +9,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
 django.setup()
 logger = logging.getLogger('balsamlauncher.mpi_ensemble')
 
+
 from subprocess import Popen, STDOUT
 
 from mpi4py import MPI
@@ -19,16 +20,25 @@ from balsam.models import BalsamJob
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()
+HANDLE_EXIT = False
 
-def on_exit():
-    logger.debug("mpi_ensemble received interrupt: quitting now")
+def on_exit(job):
+    global HANDLE_EXIT
+    if HANDLE_EXIT: return
+    HANDLE_EXIT = True
+
+    logger.debug(f"mpi_ensemble.py rank {RANK} received interrupt: quitting now")
+    if job is not None:
+        job.terminate()
+        try: job.wait(timeout=10)
+        except: job.kill()
+    print("TIMEOUT")
     MPI.Finalize()
     sys.exit(0)
 
-handler = lambda a,b: on_exit()
+handler = lambda a,b: on_exit(None)
 signal.signal(signal.SIGINT, handler)
 signal.signal(signal.SIGTERM, handler)
-signal.signal(signal.SIGHUP, handler)
 
 Job = namedtuple('Job', ['id', 'workdir', 'cmd'])
 
@@ -52,15 +62,22 @@ def read_jobs(fp):
 
 
 def run(job):
+
     basename = os.path.basename(job.workdir)
     outname = f"{basename}.out"
     logger.debug(f"mpi_ensemble rank {RANK}: starting job {job.id}")
     with cd(job.workdir) as _, open(outname, 'wb') as outf:
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
+
             env = BalsamJob.objects.get(pk=job.id).get_envs() # TODO: Should we include this?
             proc = Popen(job.cmd, stdout=outf, stderr=STDOUT,
                          cwd=job.workdir,env=env)
+
+            handler = lambda a,b: on_exit(proc)
+            signal.signal(signal.SIGINT, handler)
+            signal.signal(signal.SIGTERM, handler)
+
             retcode = proc.wait()
         except Exception as e:
             logger.exception(f"mpi_ensemble rank {RANK} job {job.id}: exception during Popen")

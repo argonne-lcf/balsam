@@ -82,7 +82,7 @@ class TestMPIRunner(BalsamTestCase):
 
             # Now wait for the job to finish
             # On sucessful run, it should be RUN_DONE
-            poll_until_returns_true(runner.finished, period=0.5)
+            poll_until_returns_true(runner.finished, period=0.5, timeout=40)
             self.assertTrue(runner.finished())
             runner.update_jobs()
             self.assertEquals(job.state, 'RUN_DONE')
@@ -129,7 +129,9 @@ class TestMPIRunner(BalsamTestCase):
 
             # Timeout the runner
             # Now the job is marked as RUN_TIMEOUT
-            runner.timeout()
+            runner_group = runners.RunnerGroup(Lock())
+            runner_group.runners.append(runner)
+            runner_group.update_and_remove_finished(timeout=True)
             self.assertEquals(job.state, 'RUN_TIMEOUT')
 
             # A moment later, the runner process is indeed terminated
@@ -167,9 +169,9 @@ class TestMPIEnsemble(BalsamTestCase):
                 }
         args = {'normal' : '',
                 'fail' : '--retcode 1',
-                'timeout' : '--sleep 100'
+                'timeout' : '--sleep 25'
                 }
-        for jobtype in jobs:
+        for jobtype in 'qsub normal fail'.split():
             for i in range(num_jobs_per_type):
                 if jobtype == 'qsub':
                     cmd = f'echo hello world {i}'
@@ -184,6 +186,15 @@ class TestMPIEnsemble(BalsamTestCase):
 
         shuffled_jobs = [j for joblist in jobs.values() for j in joblist]
         random.shuffle(shuffled_jobs)
+        
+        # We want to put timeout jobs at the end of this list
+        app, appargs = self.app.name, f"{i} {args['timeout']}"
+        for i in range(num_jobs_per_type):
+            job = create_job(name=f"timeout{i}", app=app,
+                             direct_command='', args=appargs)
+            jobs['timeout'].append(job)
+            shuffled_jobs.append(job)
+        
         all_workers = list(self.worker_group)
         runner = runners.MPIEnsembleRunner(shuffled_jobs, all_workers)
 
@@ -202,20 +213,29 @@ class TestMPIEnsemble(BalsamTestCase):
             error_done  = all(j.state=='RUN_ERROR' for j in jobs['fail'])
             return normal_done and qsub_done and error_done
 
-        finished = poll_until_returns_true(check_done, period=1, timeout=12)
+        finished = poll_until_returns_true(check_done, period=1, timeout=20)
         self.assertTrue(finished)
 
         # And the long-running jobs in the ensemble are still going:
         self.assertTrue(all(j.state=='RUNNING' for j in jobs['timeout']))
 
         # So we kill the runner. The timed-out jobs are marked accordingly
-        runner.timeout()
+        runner_group = runners.RunnerGroup(Lock())
+        runner_group.runners.append(runner)
+        runner_group.update_and_remove_finished(timeout=True)
+
         self.assertTrue(all(j.state=='RUN_TIMEOUT' for j in jobs['timeout']))
 
         # Double-check that the rest of the jobs are unaffected
         self.assertTrue(all(j.state=='RUN_DONE' for j in jobs['normal']))
         self.assertTrue(all(j.state=='RUN_DONE' for j in jobs['qsub']))
         self.assertTrue(all(j.state=='RUN_ERROR' for j in jobs['fail']))
+
+        # Kill the sleeping jobs in case they do not terminate
+        killcmd = "ps aux | grep mock_serial | grep -v grep | grep -v vim | awk '{print $2}' | xargs kill -9"
+        os.system(killcmd)
+        killcmd = "ps aux | grep mpi_ensemble.py | grep -v grep | grep -v vim | awk '{print $2}' | xargs kill -9"
+        os.system(killcmd)
 
 
 class TestRunnerGroup(BalsamTestCase):
@@ -314,7 +334,7 @@ class TestRunnerGroup(BalsamTestCase):
             runner_group.update_and_remove_finished()
             return all(r.finished() for r in runner_group)
 
-        poll_until_returns_true(check_done)
+        poll_until_returns_true(check_done, timeout=40)
 
         # Now there should be no runners, PKs, or busy workers left
         self.assertListEqual(list(runner_group), [])

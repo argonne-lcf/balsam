@@ -26,6 +26,7 @@ from balsamlauncher import runners
 from balsamlauncher.exceptions import *
 
 RUNNABLE_STATES = ['PREPROCESSED', 'RESTART_READY']
+HANDLING_EXIT = False
 
 def delay(period=settings.BALSAM_SERVICE_PERIOD):
     nexttime = time.time() + period
@@ -95,8 +96,14 @@ def check_parents(job, lock):
 def main(args, transition_pool, runner_group, job_source):
     delay_timer = delay()
     elapsed_min = elapsed_time_minutes()
+    logger.debug(f"time limit provided {args.time_limit_minutes}")
+    last_created = 0.0
+
     if args.time_limit_minutes > 0:
-        timeout = lambda : next(elapsed_min) >= args.time_limit_minutes
+        def timeout():
+            elapsed = next(elapsed_min)
+            logger.debug(f"{elapsed} minutes elapsed out of {args.time_limit_minutes}")
+            return elapsed >= args.time_limit_minutes
     else:
         timeout = lambda : scheduler.remaining_time_seconds() <= 0.0
 
@@ -109,8 +116,7 @@ def main(args, transition_pool, runner_group, job_source):
         
         job_source.refresh_from_db()
         waiting_jobs = (j for j in job_source.jobs if
-                        j.state in 
-                        'CREATED AWAITING_PARENTS LAUNCHER_QUEUED'.split())
+                        j.state in 'CREATED AWAITING_PARENTS LAUNCHER_QUEUED'.split())
         for job in waiting_jobs: check_parents(job, transition_pool.lock)
         
         transitionable_jobs = [
@@ -126,22 +132,28 @@ def main(args, transition_pool, runner_group, job_source):
         
         any_finished = runner_group.update_and_remove_finished()
         job_source.refresh_from_db()
-        created = create_new_runners(job_source.jobs, runner_group, worker_group)
+        if time.time() - last_created > 5:
+            created = create_new_runners(job_source.jobs, runner_group, worker_group)
+            if created:
+                last_created = time.time()
         if any_finished or created: wait = False
         if wait: next(delay_timer)
     
 def on_exit(runner_group, transition_pool, job_source):
+    global HANDLING_EXIT
+    if HANDLING_EXIT: return
+    HANDLING_EXIT = True
+
+    logger.debug("Entering on_exit cleanup function")
+    logger.debug("on_exit: flush job queue")
     transition_pool.flush_job_queue()
 
-    runner_group.update_and_remove_finished()
-    logger.debug("Timing out runner processes")
-    transition_pool.lock.acquire()
-    for runner in runner_group:
-        runner.timeout()
-    transition_pool.lock.release()
+    logger.debug("on_exit: update/remove/timeout jobs from runner group")
+    runner_group.update_and_remove_finished(timeout=True)
 
+    logger.debug("on_exit: send end message to transition threads")
     transition_pool.end_and_wait()
-    logger.debug("Launcher exit graceful\n\n")
+    logger.debug("on_exit: Launcher exit graceful\n\n")
     exit(0)
 
 

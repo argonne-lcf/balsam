@@ -32,7 +32,18 @@ class WorkerGroupUnitTests(BalsamTestCase):
         if self.scheduler.host_type != 'CRAY':
             self.skipTest('scheduler did not recognize Cray environment')
         group = worker.WorkerGroup(config, host_type='CRAY', 
-                                   workers_str=self.scheduler.workers_str)
+                                   workers_str=self.scheduler.workers_str,
+                                   workers_file=self.scheduler.workers_file)
         if self.scheduler.workers_str:
             num_worker_env = self.scheduler.SCHEDULER_VARIABLES['num_workers']
             self.assertEqual(len(group.workers), int(os.environ[num_worker_env]))
+    
+    def test_cooley(self):
+        '''Construct WorkerGroup from reading Cooley environment'''
+        config = get_args('--consume-all'.split())
+        if self.scheduler.host_type != 'COOLEY':
+            self.skipTest('scheduler did not recognize Cooley environment')
+        group = worker.WorkerGroup(config, host_type='COOLEY',
+                                   workers_str=self.scheduler.workers_str,
+                                   workers_file=self.scheduler.workers_file)
+        self.assertGreaterEqual(len(group.workers), 1)

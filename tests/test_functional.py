@@ -15,18 +15,7 @@ from tests.BalsamTestCase import create_job, create_app
 
 BALSAM_TEST_DIR = os.environ['BALSAM_TEST_DIRECTORY']
 
-def kill_stragglers():
-    grep = subprocess.Popen('ps aux | grep launcher | grep consume',
-        stdout=subprocess.PIPE, shell=True)
-    stdout,stderr=grep.communicate()
-    stdout = stdout.decode('utf-8')
-    pids = [int(line.split()[1]) for line in stdout.split('\n') if 'python' in line]
-    for pid in pids:
-        try: os.kill(pid, signal.SIGKILL)
-        except: pass
-
-
-def run_launcher_until(function, period=1.0, timeout=20.0):
+def run_launcher_until(function, period=1.0, timeout=60.0):
     launcher_proc = subprocess.Popen(['balsam', 'launcher', '--consume',
                                       '--max-ranks-per-node', '8'],
                                      stdout=subprocess.PIPE,
@@ -39,8 +28,8 @@ def run_launcher_until(function, period=1.0, timeout=20.0):
     # then you have two launchers from different test cases processing the same
     # job...Very hard to catch bug.
     os.killpg(os.getpgid(launcher_proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
-    launcher_proc.wait(timeout=5)
-    kill_stragglers()
+    time.sleep(10)
+    os.killpg(os.getpgid(launcher_proc.pid), signal.SIGKILL)  # Send the signal to all the process groups
     return success
 
 def run_launcher_seconds(seconds):
@@ -51,10 +40,12 @@ def run_launcher_seconds(seconds):
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
                                      preexec_fn=os.setsid)
-    launcher_proc.communicate(timeout=seconds+5)
+    launcher_proc.communicate(timeout=seconds+30)
+    try: os.killpg(os.getpgid(launcher_proc.pid), signal.SIGKILL)  # Send the signal to all the process groups
+    except: pass 
 
 
-def run_launcher_until_state(job, state, period=1.0, timeout=20.0):
+def run_launcher_until_state(job, state, period=1.0, timeout=60.0):
     def check():
         job.refresh_from_db()
         return job.state == state
@@ -219,9 +210,9 @@ class TestSingleJobTransitions(BalsamTestCase):
         with open(remote_path, 'w') as fp:
             fp.write('9\n')
 
-        # Same as previous test, but square.py hangs for 300 sec
+        # Same as previous test, but square.py hangs for 10 sec
         job = create_job(name='square_testjob2', app='square',
-                         args='side0.dat --sleep 5',
+                         args='side0.dat --sleep 10',
                          url_in=f'local:{remote_dir.name}', stage_out_files='square*',
                          url_out=f'local:{remote_dir.name}')
                          
@@ -239,7 +230,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertEquals(job.state, 'RUN_TIMEOUT')
         
         # If we run the launcher again, it will pick up the timed out job
-        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        success = run_launcher_until_state(job, 'JOB_FINISHED', timeout=60)
         self.assertTrue(success)
         self.assertIn('RESTART_READY', job.state_history)
         
@@ -424,7 +415,7 @@ class TestDAG(BalsamTestCase):
             return all(j.state == 'JOB_FINISHED' for j in BalsamJob.objects.all())
 
         # Just check that all jobs reach JOB_FINISHED state
-        success = run_launcher_until(check, timeout=90.0)
+        success = run_launcher_until(check, timeout=360.0)
         self.assertTrue(success)
 
     def test_static(self):
@@ -505,8 +496,9 @@ class TestDAG(BalsamTestCase):
         chA.set_parents([parent])
         chB.set_parents([parent])
 
+        # Run until A finishes, but B will still be hanging
         # If a child times out and we re-run the launcher, everything is handled
-        success = run_launcher_until_state(chB, 'RUNNING')
+        success = run_launcher_until_state(chA, 'JOB_FINISHED')
         self.assertTrue(success)
         chB.refresh_from_db()
         self.assertEqual(chB.state, 'RUN_TIMEOUT')
@@ -541,7 +533,12 @@ class TestDAG(BalsamTestCase):
         chB.set_parents([parent])
 
         # child B will give a RUN_ERROR, but it will be handled
-        success = run_launcher_until_state(chB, 'JOB_FINISHED')
+        def check():
+            for j in (chA, chB, parent):
+                j.refresh_from_db()
+            return all(j.state=='JOB_FINISHED' for j in (parent,chA,chB))
+
+        success = run_launcher_until(check)
         self.assertTrue(success)
         
         parent.refresh_from_db()

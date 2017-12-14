@@ -235,8 +235,6 @@ def mkchild(args):
     print(f"Created link {dag.current_job.cute_id} --> {child_job.cute_id}")
 
 def launcher(args):
-    import signal
-
     daemon = args.daemon
     from importlib.util import find_spec
     fname = find_spec("balsamlauncher.launcher").origin
@@ -245,19 +243,10 @@ def launcher(args):
     print("Starting Balsam launcher")
     p = subprocess.Popen(command)
 
-    handler = lambda a,b: p.terminate()
-    signal.signal(signal.SIGINT, handler)
-    signal.signal(signal.SIGTERM, handler)
-    signal.signal(signal.SIGHUP, handler)
-
     if args.daemon:
         sys.exit(0)
-    try:
+    else:
         p.wait()
-    except KeyboardInterrupt:
-        print("Killing Balsam launcher")
-    finally:
-        p.terminate()
 
 
 def service(args):

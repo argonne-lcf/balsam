@@ -7,6 +7,7 @@ import os
 from io import StringIO
 from traceback import print_exc
 import signal
+import shutil
 import sys
 import subprocess
 import tempfile
@@ -33,15 +34,15 @@ logger = logging.getLogger('balsamlauncher.transitions')
 # Balsam, because it's built in and requires zero user configuration
 if sys.platform.startswith('darwin'):
     LockClass = multiprocessing.Lock
-    logger.debug('Using real multiprocessing.Lock')
 elif sys.platform.startswith('win32'):
     LockClass = multiprocessing.Lock
 else:
-    logger.debug('Using dummy lock')
     class DummyLock:
         def acquire(self): pass
         def release(self): pass
     LockClass = DummyLock
+LockClass = multiprocessing.Lock # TODO: replace with better solution!
+logger.debug(f'Using lock: {LockClass}')
 
 PREPROCESS_TIMEOUT_SECONDS = 300
 POSTPROCESS_TIMEOUT_SECONDS = 300
@@ -50,13 +51,11 @@ SITE = settings.BALSAM_SITE
 StatusMsg = namedtuple('StatusMsg', ['pk', 'state', 'msg'])
 JobMsg =   namedtuple('JobMsg', ['job', 'transition_function'])
 
-def on_exit(lock):
-    logger.debug("Transition thread caught SIGTERM")
-    #try: lock.release()
-    #except ValueError: pass
+def on_exit():
+    logger.debug("TransitionProc caught SIGTERM: do nothing and wait for end")
 
 def main(job_queue, status_queue, lock):
-    handler = lambda a,b: on_exit(lock)
+    handler = lambda a,b: on_exit()
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
 
@@ -65,7 +64,7 @@ def main(job_queue, status_queue, lock):
         job_msg = job_queue.get()
         job, transition_function = job_msg
         
-        if job == 'end': 
+        if job == 'end':
             logger.debug("Received end..quitting transition loop")
             return
         if job.work_site != SITE:
@@ -239,7 +238,7 @@ def stage_out(job, lock):
                 for f in matches: 
                     base = os.path.basename(f)
                     dst = os.path.join(stagingdir, base)
-                    os.link(src=f, dst=dst)
+                    shutil.copyfile(src=f, dst=dst)
                     logger.info(f"staging {f} out for transfer")
                 logger.info(f"transferring to {url_out}")
                 transfer.stage_out(f"{stagingdir}/", f"{url_out}/")
