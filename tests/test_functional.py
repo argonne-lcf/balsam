@@ -29,7 +29,8 @@ def run_launcher_until(function, period=1.0, timeout=60.0):
     # job...Very hard to catch bug.
     os.killpg(os.getpgid(launcher_proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
     time.sleep(10)
-    os.killpg(os.getpgid(launcher_proc.pid), signal.SIGKILL)  # Send the signal to all the process groups
+    try: os.killpg(os.getpgid(launcher_proc.pid), signal.SIGKILL)  # Send the signal to all the process groups
+    except ProcessLookupError: pass
     return success
 
 def run_launcher_seconds(seconds):
@@ -262,8 +263,7 @@ class TestSingleJobTransitions(BalsamTestCase):
             job.refresh_from_db()
             return job.state == 'RUN_TIMEOUT'
 
-        success = poll_until_returns_true(check,timeout=6)
-        self.assertTrue(success)
+        success = poll_until_returns_true(check,timeout=10)
         self.assertEquals(job.state, 'RUN_TIMEOUT')
         
         # If we run the launcher again, it will pick up the timed out job
@@ -301,9 +301,8 @@ class TestSingleJobTransitions(BalsamTestCase):
             job.refresh_from_db()
             return job.state == 'RUN_TIMEOUT'
 
-        success = poll_until_returns_true(check,timeout=6)
-        self.assertTrue(success)
-        self.assertEquals(job.state, 'RUN_TIMEOUT')
+        success = poll_until_returns_true(check,timeout=10)
+        self.assertEqual(job.state, 'RUN_TIMEOUT')
         
         # If we run the launcher again, it will pick up the timed out job
         # But without timeout handling, it fails
