@@ -254,7 +254,7 @@ class BalsamJob(models.Model):
         return f'''
 Balsam Job
 ----------
-ID:                     {self.job_id}
+ID:                     {self.pk}
 name:                   {self.name} 
 workflow:               {self.workflow}
 latest state:           {self.get_recent_state_str()}
@@ -406,7 +406,7 @@ auto timeout retry:     {self.auto_timeout_retry}
     def get_line_string(self):
         recent_state = self.get_recent_state_str()
         app = self.application if self.application else self.direct_command
-        return f' {str(self.job_id):36} | {self.name:26} | {self.workflow:26} | {app:26} | {recent_state}'
+        return f' {str(self.pk):36} | {self.name:26} | {self.workflow:26} | {app:26} | {recent_state}'
 
     def runtime_str(self):
         if self.runtime_seconds == 0: return ''
@@ -423,12 +423,13 @@ auto timeout retry:     {self.auto_timeout_retry}
         top = settings.BALSAM_WORK_DIRECTORY
         if self.workflow:
             top = os.path.join(top, self.workflow)
-        name = self.name.replace(' ', '_')
+        name = self.name.strip().replace(' ', '_')
+        name += '_' + str(self.pk)[:8]
         path = os.path.join(top, name)
 
         if os.path.exists(path):
-            jid = str(self.job_id)
-            path += "_" + jid[0]
+            jid = str(self.pk)[8:]
+            path += jid[0]
             i = 1
             while os.path.exists(path):
                 path += jid[i]

@@ -37,6 +37,7 @@ def cmdline(cmd,envs=None,shell=True):
 
 def poll_until_returns_true(function, *, args=(), period=1.0, timeout=12.0):
     start = time.time()
+    result = False
     while time.time() - start < timeout:
         result = function(*args)
         if result: break

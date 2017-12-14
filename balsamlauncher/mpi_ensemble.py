@@ -63,14 +63,15 @@ def read_jobs(fp):
 
 def run(job):
 
-    basename = os.path.basename(job.workdir)
+    job_from_db = BalsamJob.objects.get(pk=job.id)
+    basename = job_from_db.name
     outname = f"{basename}.out"
     logger.debug(f"mpi_ensemble rank {RANK}: starting job {job.id}")
     with cd(job.workdir) as _, open(outname, 'wb') as outf:
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
 
-            env = BalsamJob.objects.get(pk=job.id).get_envs() # TODO: Should we include this?
+            env = job_from_db.get_envs() # TODO: Should we include this?
             proc = Popen(job.cmd, stdout=outf, stderr=STDOUT,
                          cwd=job.workdir,env=env)
 

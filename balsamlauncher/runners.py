@@ -106,7 +106,7 @@ class MPIRunner(Runner):
                                num_ranks=nranks, ranks_per_node=rpn,
                                threads_per_rank=tpr, threads_per_core=tpc)
         
-        basename = os.path.basename(job.working_directory)
+        basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
         self.outfile = open(outname, 'w+b')
         self.popen_args['args'] = shlex.split(mpi_str)
