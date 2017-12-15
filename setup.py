@@ -2,10 +2,36 @@
 
 https://packaging.python.org/en/latest/distributing.html
 '''
-
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+from setuptools.command.develop import develop
 from codecs import open
 from os import path
+import os
+
+
+def auto_setup_db():
+    import django
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.core.management import call_command
+    call_command('makemigrations',interactive=False,verbosity=2)
+    call_command('migrate',interactive=False,verbosity=2)
+
+
+class PostInstallCommand(install):
+    '''Post-installation for installation mode'''
+    def run(self):
+        auto_setup_db()
+        install.run(self)
+
+
+class PostDevelopCommand(develop):
+    '''Post-installation for installation mode'''
+    def run(self):
+        auto_setup_db()
+        develop.run(self)
+
 
 here = path.abspath(path.dirname(__file__))
 
@@ -39,5 +65,11 @@ setup(
             'balsam-test = run_tests:main'
         ],
         'gui_scripts': [],
+    },
+
+    # Balsam DB auto-setup post installation
+    cmdclass={
+        'develop': PostDevelopCommand,
+        'install': PostInstallCommand,
     },
 )
