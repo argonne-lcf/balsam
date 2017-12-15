@@ -42,11 +42,8 @@ You can find many settings to change. There are Django specific settings in `arg
 
 To create and initialize the default sqlite3 database without password protections do:
 ```
-./manage.py makemigrations argo
 ./manage.py makemigrations balsam
 ./manage.py migrate
 ./manage -h
 ```
-
-
 
