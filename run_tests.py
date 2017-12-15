@@ -4,6 +4,8 @@ import django
 import tempfile
 import unittest
 
+import balsam
+test_dir = os.path.abspath(os.path.dirname(balsam.__file__))
 
 def set_permissions(top):
     os.chmod(top, 0o755)
@@ -14,7 +16,7 @@ def set_permissions(top):
             os.chmod(file, 0o644)
 
 def main():
-    tempdir = tempfile.TemporaryDirectory(dir=os.getcwd(), prefix="testdata_")
+    tempdir = tempfile.TemporaryDirectory(dir=test_dir, prefix="testdata_")
     
     os.environ['BALSAM_TEST_DIRECTORY'] = tempdir.name
     os.environ['BALSAM_TEST']='1'
