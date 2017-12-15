@@ -71,3 +71,4 @@ them just by calling **balsam-test** with no arguments.
 ```
 balsam-test tests.test_dag # this should be quick
 balsam-test # the test_functional module might take over 10 minutes!
+```
