@@ -3,7 +3,7 @@ import sys
 from importlib.util import find_spec
 import subprocess
 
-from .BalsamTestCase import BalsamTestCase
+from tests.BalsamTestCase import BalsamTestCase
 
 from balsam.launcher import worker
 from balsam.launcher.launcher import get_args

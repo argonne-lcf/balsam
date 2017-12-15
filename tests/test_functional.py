@@ -8,9 +8,9 @@ import tempfile
 from importlib.util import find_spec
 
 from balsam.service.models import BalsamJob
-from .BalsamTestCase import BalsamTestCase, cmdline
-from .BalsamTestCase import poll_until_returns_true
-from .BalsamTestCase import create_job, create_app
+from tests.BalsamTestCase import BalsamTestCase, cmdline
+from tests.BalsamTestCase import poll_until_returns_true
+from tests.BalsamTestCase import create_job, create_app
 
 
 def ls_procs(keywords):

@@ -52,7 +52,7 @@ setup(
 
     keywords='',
 
-    packages=find_packages(exclude=['docs','__pycache__','data','experiments','log','tests']),
+    packages=find_packages(exclude=['docs','__pycache__','data','experiments','log',]),
 
     install_requires=['django', 'django-concurrency'],
 
