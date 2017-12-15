@@ -1,4 +1,4 @@
-from .BalsamTestCase import BalsamTestCase
+from tests.BalsamTestCase import BalsamTestCase
 from balsam.service.models import BalsamJob, InvalidStateError
 
 
