@@ -12,12 +12,12 @@ from .BalsamTestCase import create_job, create_app
 
 from django.conf import settings
 
-from balsam.schedulers import Scheduler
-from balsam.models import BalsamJob
+from balsam.service.schedulers import Scheduler
+from balsam.service.models import BalsamJob
 
 from balsam.launcher import worker
 from balsam.launcher import runners
-from balsam.launcher.launcher import get_args, create_new_runners
+from balsam.launcher.launcher import get_args, create_runner
 
 
 class TestMPIRunner(BalsamTestCase):
@@ -260,8 +260,8 @@ class TestRunnerGroup(BalsamTestCase):
                                     " number", executable=app_path)
         
 
-    def test_create_runners(self):
-        '''sanity check launcher.create_new_runners()
+    def test_create_runner(self):
+        '''sanity check launcher.create_runner()
         Don't test implementation details here; just ensuring consistency'''
         num_workers = len(self.worker_group)
         num_nodes = sum(w.num_nodes for w in self.worker_group)
@@ -294,11 +294,12 @@ class TestRunnerGroup(BalsamTestCase):
         running_pks = runner_group.running_job_pks
         self.assertListEqual(running_pks, [])
 
-        # Invoke create_new_runners once
+        # Invoke create_runner once
         # Some set of jobs will start running under control of the RunnerGroup
         # Nondeterministic, due to random() used above, but we just want to
         # check for consistency
-        create_new_runners(all_jobs, runner_group, self.worker_group)
+        create_runner(all_jobs, runner_group, self.worker_group,
+                      remaining_minutes=100, last_runner_created=0)
 
         # Get the list of running PKs from the RunnerGroup
         # At least some jobs are running nwo

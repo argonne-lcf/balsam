@@ -81,10 +81,44 @@ def log_time(minutes_left):
     time_str = f"{whole_minutes:02d} min : {whole_seconds:02d} sec remaining"
     logger.info(time_str)
 
+def create_runner(jobs, runner_group, worker_group, remaining_minutes, last_runner_created):
+    runnable_jobs = [
+        job for job in jobs
+        if job.pk not in runner_group.running_job_pks and
+        job.state in RUNNABLE_STATES and
+        job.wall_time_minutes <= remaining_minutes
+    ]
+    logger.debug(f"Have {len(runnable_jobs)} runnable jobs")
+
+    # If nothing is getting pre-processed, don't bother waiting
+    almost_runnable = any(j.state in ALMOST_RUNNABLE_STATES for j in jobs)
+
+    # If it has been runner_create_period seconds, don't wait any more
+    runner_create_period = settings.BALSAM_RUNNER_CREATION_PERIOD_SEC
+    now = time.time()
+    runner_ready = bool(now - last_runner_created > runner_create_period)
+
+    # If there are enough serial jobs, don't wait to run
+    num_serial = len([j for j in runnable_jobs if j.num_ranks == 1])
+    worker = worker_group[0]
+    max_serial_per_ensemble = 2 * worker.num_nodes * worker.max_ranks_per_node
+    ensemble_ready = (num_serial >= max_serial_per_ensemble) or (num_serial == 0)
+
+    if runnable_jobs:
+        if runner_ready or not almost_runnable or ensemble_ready:
+            try:
+                runner_group.create_next_runner(runnable_jobs, worker_group)
+            except ExceededMaxRunners:
+                logger.info("Exceeded max concurrent runners; waiting")
+            except NoAvailableWorkers:
+                logger.info("Not enough idle workers to start any new runs")
+            else:
+                last_runner_created = now
+    return last_runner_created
+
 def main(args, transition_pool, runner_group, job_source):
 
     delay_sleeper = delay_generator()
-    runner_create_period = settings.BALSAM_RUNNER_CREATION_PERIOD_SEC
     last_runner_created = time.time()
     remaining_timer = remaining_time_minutes(args.time_limit_minutes)
 
@@ -124,32 +158,9 @@ def main(args, transition_pool, runner_group, job_source):
         job_source.refresh_from_db()
     
         # Decide whether or not to start a new runner
-        runnable_jobs = [
-            job for job in job_source.jobs
-            if job.pk not in runner_group.running_job_pks and
-            job.state in RUNNABLE_STATES and
-            job.wall_time_minutes <= remaining_minutes
-        ]
-
-        logger.debug(f"Have {len(runnable_jobs)} runnable jobs")
-        almost_runnable = any(j.state in ALMOST_RUNNABLE_STATES for j in job_source.jobs)
-        now = time.time()
-        runner_ready = bool(now - last_runner_created > runner_create_period)
-        num_serial = len([j for j in runnable_jobs if j.num_ranks == 1])
-        worker = worker_group[0]
-        max_serial_per_ensemble = 2 * worker.num_nodes * worker.max_ranks_per_node
-        ensemble_ready = (num_serial >= max_serial_per_ensemble) or (num_serial == 0)
-
-        if runnable_jobs:
-            if runner_ready or not almost_runnable or ensemble_ready:
-                try:
-                    runner_group.create_next_runner(runnable_jobs, worker_group)
-                except ExceededMaxRunners:
-                    logger.info("Exceeded max concurrent runners; waiting")
-                except NoAvailableWorkers:
-                    logger.info("Not enough idle workers to start any new runs")
-                else:
-                    last_runner_created = now
+        last_runner_created = create_runner(job_source.jobs, runner_group, 
+                                             worker_group, remaining_minutes, 
+                                             last_runner_created)
 
         if delay: next(delay_sleeper)
     
