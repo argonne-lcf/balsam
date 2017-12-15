@@ -1,5 +1,5 @@
-from tests.BalsamTestCase import BalsamTestCase
-from balsam.models import BalsamJob, InvalidStateError
+from .BalsamTestCase import BalsamTestCase
+from balsam.service.models import BalsamJob, InvalidStateError
 
 
 class BalsamJobDBTests(BalsamTestCase):

@@ -1,3 +1,0 @@
-#!/bin/bash
-PYTHON="$(which python)"
-$PYTHON $ARGOBALSAM_INSTALL_PATH/bin/cli.py $*

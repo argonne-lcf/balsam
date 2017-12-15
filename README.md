@@ -1,8 +1,6 @@
 # HPC Edge Service and Workflow Management System
 **Authors:** J. Taylor Childers (Argonne National Laboratory), Tom Uram (Argonne National Laboratory), Doug Benjamin (Duke University), Misha Salim (Argonne National Laboratory)
 
-An HPC Edge Service to manage remote job submission. The goal of this service is to provide a secure interface for submitting jobs to large computing resources.
-
 # Prerequisites
 The Argo and Balsam services require Python 3.6, mpi4py, Django, and django-concurrency.
 

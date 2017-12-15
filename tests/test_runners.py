@@ -6,18 +6,18 @@ import sys
 import time
 from uuid import UUID
 from importlib.util import find_spec
-from tests.BalsamTestCase import BalsamTestCase, cmdline
-from tests.BalsamTestCase import poll_until_returns_true
-from tests.BalsamTestCase import create_job, create_app
+from .BalsamTestCase import BalsamTestCase, cmdline
+from .BalsamTestCase import poll_until_returns_true
+from .BalsamTestCase import create_job, create_app
 
 from django.conf import settings
 
 from balsam.schedulers import Scheduler
 from balsam.models import BalsamJob
 
-from balsamlauncher import worker
-from balsamlauncher import runners
-from balsamlauncher.launcher import get_args, create_new_runners
+from balsam.launcher import worker
+from balsam.launcher import runners
+from balsam.launcher.launcher import get_args, create_new_runners
 
 
 class TestMPIRunner(BalsamTestCase):

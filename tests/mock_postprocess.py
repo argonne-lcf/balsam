@@ -2,7 +2,7 @@
 balsamlauncher.dag'''
 
 import sys
-import balsamlauncher.dag as dag
+import balsam.launcher.dag as dag
 
 def mock_spawn():
     child = dag.spawn_child(clone=True, name='spawned_child', state='CREATED')

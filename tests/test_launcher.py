@@ -1,10 +1,10 @@
 import random
 import tempfile
 
-from tests.BalsamTestCase import BalsamTestCase, cmdline, create_job
-from balsamlauncher import jobreader
-from balsamlauncher.launcher import get_args
-from balsam.models import BalsamJob
+from .BalsamTestCase import BalsamTestCase, cmdline, create_job
+from balsam.launcher import jobreader
+from balsam.launcher.launcher import get_args
+from balsam.service.models import BalsamJob
 from django.conf import settings
 BALSAM_SITE = settings.BALSAM_SITE
 

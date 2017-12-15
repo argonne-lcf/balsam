@@ -1,10 +1,10 @@
 import os
 
-from tests.BalsamTestCase import BalsamTestCase
+from .BalsamTestCase import BalsamTestCase
 
-from balsamlauncher import worker
-from balsamlauncher.launcher import get_args
-from balsam.schedulers import Scheduler
+from balsam.launcher import worker
+from balsam.launcher.launcher import get_args
+from balsam.service.schedulers import Scheduler
 
 
 class WorkerGroupUnitTests(BalsamTestCase):

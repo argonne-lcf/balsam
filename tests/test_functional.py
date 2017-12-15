@@ -7,10 +7,10 @@ import subprocess
 import tempfile
 from importlib.util import find_spec
 
-from balsam.models import BalsamJob
-from tests.BalsamTestCase import BalsamTestCase, cmdline
-from tests.BalsamTestCase import poll_until_returns_true
-from tests.BalsamTestCase import create_job, create_app
+from balsam.service.models import BalsamJob
+from .BalsamTestCase import BalsamTestCase, cmdline
+from .BalsamTestCase import poll_until_returns_true
+from .BalsamTestCase import create_job, create_app
 
 
 def ls_procs(keywords):
@@ -54,19 +54,19 @@ def stop_launcher_processes():
         sig_processes(processes, signal.SIGKILL)
 
 
-def run_launcher_until(function, period=1.0, timeout=60.0):
+def run_launcher_until(function, args=(), period=1.0, timeout=60.0):
     launcher_proc = subprocess.Popen(['balsam', 'launcher', '--consume',
                                       '--max-ranks-per-node', '8'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
                                      preexec_fn=os.setsid)
-    success = poll_until_returns_true(function, period=period, timeout=timeout)
+    success = poll_until_returns_true(function, args=args, period=period, timeout=timeout)
     stop_launcher_processes()
     return success
 
 def run_launcher_seconds(seconds):
     minutes = seconds / 60.0
-    launcher_path = sys.executable + " " + find_spec("balsamlauncher.launcher").origin
+    launcher_path = sys.executable + " " + find_spec("balsam.launcher.launcher").origin
     launcher_path += " --consume --max-ranks 8 --time-limit-minutes " + str(minutes)
     launcher_proc = subprocess.Popen(launcher_path.split(),
                                      stdout=subprocess.PIPE,
@@ -243,7 +243,7 @@ class TestSingleJobTransitions(BalsamTestCase):
 
         # Same as previous test, but square.py hangs for 10 sec
         job = create_job(name='square_testjob2', app='square',
-                         args='side0.dat --sleep 10',
+                         args='side0.dat --sleep 5',
                          url_in=f'local:{remote_dir.name}', stage_out_files='square*',
                          url_out=f'local:{remote_dir.name}')
                          
@@ -436,12 +436,24 @@ class TestDAG(BalsamTestCase):
         for j in child_types.values(): j.delete()
         del parent_types, child_types
         self.assertEqual(BalsamJob.objects.all().count(), 81)
-
-        # Run the entire DAG until finished, with two interruptions
+        
         for job in BalsamJob.objects.all():
             self.assertEqual(job.working_directory, '')
-        run_launcher_seconds(25.0)
-        run_launcher_seconds(25.0)
+
+        # Run the entire DAG until finished, with two interruptions
+
+        def check(N_run, N_finish):
+            running = BalsamJob.objects.filter(state='RUNNING')
+            finished = BalsamJob.objects.filter(state='JOB_FINISHED')
+            return running.count() >= N_run and finished.count() >= N_finish
+        run_launcher_until(check, args=(1, 1)) # interrupt at least 1
+        run_launcher_until(check, args=(2, 5)) # interrupt at least 2
+
+        # Get rid of the sleep now to speed up finish
+        slow_jobs = BalsamJob.objects.filter(application_args__contains="sleep")
+        for job in slow_jobs:
+            job.application_args = '--sleep 0'
+            job.save()
         
         def check():
             return all(j.state == 'JOB_FINISHED' for j in BalsamJob.objects.all())

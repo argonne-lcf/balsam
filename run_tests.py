@@ -13,12 +13,12 @@ def set_permissions(top):
         for file in (os.path.join(root, f) for f in files):
             os.chmod(file, 0o644)
 
-if __name__ == "__main__":
+def main():
     tempdir = tempfile.TemporaryDirectory(dir=os.getcwd(), prefix="testdata_")
     
     os.environ['BALSAM_TEST_DIRECTORY'] = tempdir.name
     os.environ['BALSAM_TEST']='1'
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'argobalsam.settings'
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
 
     set_permissions(tempdir.name)
@@ -30,3 +30,6 @@ if __name__ == "__main__":
     else:
         suite = loader.discover('tests')
     unittest.TextTestRunner(verbosity=2).run(suite)
+
+if __name__ == "__main__":
+    main()

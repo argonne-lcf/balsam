@@ -1,6 +1,6 @@
 #!/Users/misha/anaconda3/envs/testmpi/bin/python
 import glob
-import balsamlauncher.dag as dag
+import balsam.launcher.dag as dag
 
 square_files = glob.glob("square*.dat*")
 job = dag.current_job

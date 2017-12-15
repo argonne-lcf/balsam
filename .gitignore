@@ -8,6 +8,8 @@ balsamjobs
 argobalsam_env
 env
 db.sqlite3
-argo/migrations
-balsam/migrations
+balsam/argo/migrations
+balsam/service/migrations
 experiments
+docs/_build/*
+*.egg-info

@@ -1,5 +1,5 @@
 #!/Users/misha/anaconda3/envs/testmpi/bin/python
-import balsamlauncher.dag as dag
+import balsam.launcher.dag as dag
 
 print("hello from square_post")
 print(f"jobid: {dag.current_job.pk}")

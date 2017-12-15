@@ -6,7 +6,7 @@ import sys
 print("Hello from square")
 parser = argparse.ArgumentParser()
 parser.add_argument('infile')
-parser.add_argument('--sleep', type=int, default=0)
+parser.add_argument('--sleep', type=float, default=0)
 parser.add_argument('--retcode', type=int, default=0)
 args = parser.parse_args()
 

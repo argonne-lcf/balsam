@@ -1,5 +1,5 @@
 #!/Users/misha/anaconda3/envs/testmpi/bin/python
-import balsamlauncher.dag as dag
+import balsam.launcher.dag as dag
 import sys
 
 num_sides = sys.argv[1]

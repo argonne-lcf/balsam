@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django import db
 from django.conf import settings
 
-from balsam.models import BalsamJob, ApplicationDefinition
+from balsam.service.models import BalsamJob, ApplicationDefinition
 
 class BalsamTestCase(unittest.TestCase):
     @classmethod

@@ -1,7 +1,7 @@
 import sys
 
-from tests.BalsamTestCase import BalsamTestCase, cmdline
-from balsam.models import BalsamJob
+from .BalsamTestCase import BalsamTestCase, cmdline
+from balsam.service.models import BalsamJob
 
 class BalsamDAGTests(BalsamTestCase):
     
