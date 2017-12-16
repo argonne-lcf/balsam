@@ -9,7 +9,7 @@ system-dependent.
 An easy approach is to use Anaconda:
 ```
 soft add +anaconda
-conda config --add channel intel
+conda config --add channels intel
 conda create --name balsam intelpython3_full python=3
 source activate balsam
 ```
