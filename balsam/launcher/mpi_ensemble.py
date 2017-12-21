@@ -1,3 +1,5 @@
+'''mpi4py wrapper that allows an ensemble of serial applications to run in
+parallel across ranks on the computing resource'''
 from collections import namedtuple
 import os
 import sys

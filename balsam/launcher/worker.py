@@ -22,8 +22,22 @@ class Worker:
         self.idle = True
 
 class WorkerGroup:
+    '''Collection of Workers, constructed by passing in a specific host_type
+    
+    The host name and local batch scheduler's environment variables are used to
+    identify the available compute resources and partition the resource into
+    Workers.'''
     def __init__(self, config, *, host_type=None, workers_str=None,
                  workers_file=None):
+        '''Initialize WorkerGroup
+        
+        Args:
+            - ``host_type``: one of CRAY, BGQ, COOLEY, DEFAULT
+            - ``workers_str``: system-specific string identifying compute
+              resources
+            - ``workers_file``: system-specific file identifying compute
+              resources
+        '''
         self.host_type = host_type
         self.workers_str = workers_str
         self.workers_file = workers_file

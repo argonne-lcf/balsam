@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 import balsam
-test_dir = os.path.abspath(os.path.dirname(balsam.__file__))
 
 def set_permissions(top):
     os.chmod(top, 0o755)
@@ -15,15 +14,14 @@ def set_permissions(top):
         for file in (os.path.join(root, f) for f in files):
             os.chmod(file, 0o644)
 
-def main():
-    tempdir = tempfile.TemporaryDirectory(dir=test_dir, prefix="testdata_")
+def main(test_directory):
     
-    os.environ['BALSAM_TEST_DIRECTORY'] = tempdir.name
+    os.environ['BALSAM_TEST_DIRECTORY'] = test_directory
     os.environ['BALSAM_TEST']='1'
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
 
-    set_permissions(tempdir.name)
+    set_permissions(test_directory)
 
     loader = unittest.defaultTestLoader
     if len(sys.argv) > 1:
@@ -34,4 +32,6 @@ def main():
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 if __name__ == "__main__":
-    main()
+    test_dir = os.path.abspath(os.path.dirname(balsam.__file__))
+    tempdir = tempfile.TemporaryDirectory(dir=test_dir, prefix="testdata_")
+    main(tempdir.name)

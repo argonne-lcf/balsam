@@ -16,4 +16,5 @@ balsam/service/migrations/*.py
 
 experiments
 docs/_build/*
+docs/_static/*
 *.egg-info

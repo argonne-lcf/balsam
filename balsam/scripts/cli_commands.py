@@ -19,6 +19,19 @@ def cmd_confirmation(message=''):
     return confirm.lower() == 'y'
 
 def newapp(args):
+
+    def py_app_path(path):
+        if not path: return path
+        args = path.split()
+        app = args[0]
+        if not app.endswith('.py'): return path
+        
+        args = args[1:]
+        exe = sys.executable + ' '
+        fullpath = os.path.abspath(app) + ' '
+        args = ' '.join(args)
+        return exe + fullpath + args
+
     if AppDef.objects.filter(name=args.name).exists():
         raise RuntimeError(f"An application named {args.name} exists")
     
@@ -30,9 +43,9 @@ def newapp(args):
     app = AppDef()
     app.name = args.name
     app.description = ' '.join(args.description)
-    app.executable = args.executable
-    app.default_preprocess = args.preprocess
-    app.default_postprocess = args.postprocess
+    app.executable = py_app_path(args.executable)
+    app.default_preprocess = py_app_path(args.preprocess)
+    app.default_postprocess = py_app_path(args.postprocess)
     app.environ_vars = ":".join(args.env)
     app.save()
     print(app)

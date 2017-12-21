@@ -1,14 +1,21 @@
-'''A Runner is constructed with a list of jobs and a list of idle workers. It
-creates and monitors the execution subprocess, updating job states in the DB as
-necessary. RunnerGroup has a collection of Runner objects, logic for creating
-the next Runner (i.e. assigning jobs to nodes), and the public interface to
-monitor runners'''
+'''
+The actual execution of BalsamJob applications occurs in **Runners** which
+delegate a list of **BalsamJobs** to one or more **Workers**, which are an
+abstraction for the local computing resources. Each **Runner** subclass hides
+system-dependent MPI details and executes jobs in a particular mode, such as:
 
-# TODO: "balsam qsub" is misleading because you can't qsub a script that calls
-# mpirun.  Implement a --mode script option that uses a "ScriptRunner". The
-# ScriptRunner should parse the script to make sure it is not using more nodes
-# than requested by job; and perhaps modify each mpirun with the correct
-# workers_string
+    * ``MPIRunner``: a single multi-node job
+    * ``MPIEnsembleRunner``: several serial jobs packaged into one ensemble
+
+.. note:: 
+    The current command line tool ``balsam qsub`` is misleading because users
+    can't qsub a script that calls mpirun.  We must implement a ``--mode
+    script`` option that results in jobs which are handled by a
+    ``ScriptRunner``. The ScriptRunner should parse the script to make sure it
+    is not using more nodes than requested by the job; and perhaps identify and
+    translate each ``mpirun`` in the script to the correct, local
+    system-specific command.
+'''
 
 import functools
 from math import ceil
@@ -57,8 +64,28 @@ class MonitorStream(Thread):
 
 
 class Runner:
-    '''Spawns ONE subprocess to run specified job(s) and monitor their execution'''
+    '''Runner Base Class: constructor and methods for starting application
+    subprocesses.
+    
+    Each Runner instance manages one Python ``subprocess`` and is destroyed when
+    the subprocess is no longer tracked. The Runner may manage and monitor the
+    execution of one or many BalsamJobs.
+    '''
+
     def __init__(self, job_list, worker_list):
+        '''Instantiate a new Runner instance.
+
+        This method should be extended by concrete Runner subclasses.
+        A Runner is constructed with a list of BalsamJobs and a list of idle workers. 
+        After the ``__init__`` method is finished, the instance ``popen_args``
+        attribute should contain all the arguments to ``subprocess.Popen`` that
+        are necessary to start the Runner.
+
+        Args:
+            - ``job_list`` (*list*): A list of *BalsamJobs* to be executed
+            - ``worker_list``: A list of *Workers* that will run the BalsamJob
+              applications
+        '''
         host_type = worker_list[0].host_type
         assert all(w.host_type == host_type for w in worker_list)
         self.worker_list = worker_list
@@ -72,21 +99,39 @@ class Runner:
         self.popen_args = {}
 
     def start(self):
+        '''Start the Runner subprocess.
+
+        If the Popen stdout argument is PIPE, then a separate MonitorStream
+        thread is started, which is used to check the output of the Runner
+        subprocess in a non-blocking fashion.
+        '''
         self.process = Popen(**self.popen_args)
         if self.popen_args['stdout'] == PIPE:
             self.monitor = MonitorStream(self.process.stdout)
             self.monitor.start()
 
     def update_jobs(self, timeout=False):
+        '''Monitor the execution subprocess and update job states in the DB 
+        
+        Args:
+            -``timeout`` (*bool*): If *True*, then jobs that are currently in
+            state RUNNING under this Runner will be timed-out and marked in
+            state RUN_TIMEOUT. Defaults to *False*.
+
+        Returns:
+            -``finished`` (*bool*): If *True*, then the managing ``RunnerGroup``
+            will assume this Runner is finished and remove it
+        '''
         raise NotImplementedError
 
     def finished(self):
+        '''Return *True* if the Runner subprocess has finished'''
         return self.process.poll() is not None
 
 class MPIRunner(Runner):
-    '''One subprocess, one job'''
+    '''Manage one mpirun subprocess for one multi-node job'''
     def __init__(self, job_list, worker_list):
-
+        '''Create the command line for mpirun'''
         super().__init__(job_list, worker_list)
         if len(self.jobs) != 1:
             raise BalsamRunnerError('MPIRunner must take exactly 1 job')
@@ -118,6 +163,7 @@ class MPIRunner(Runner):
         logger.info(f"MPIRunner: writing output to {outname}")
 
     def update_jobs(self, timeout=False):
+        '''Update the job state and return finished flag'''
         job = self.jobs[0]
         #job.refresh_from_db() # TODO: handle RecordModified
         retcode = self.process.poll()
@@ -148,9 +194,15 @@ class MPIRunner(Runner):
 
 
 class MPIEnsembleRunner(Runner):
-    '''One subprocess: an ensemble of serial jobs run in an mpi4py wrapper'''
+    '''Manage an ensemble of serial (non-MPI) jobs in one MPI subprocess
+    
+    Invokes the mpi_ensemble.py script, where the jobs are run in parallel
+    across workers
+    '''
+   
     def __init__(self, job_list, worker_list):
-
+        '''Create an mpi_ensemble file with jobs passed to the master-worker
+        script'''
         super().__init__(job_list, worker_list)
         root_dir = Path(self.jobs[0].working_directory).parent
         
@@ -185,7 +237,7 @@ class MPIEnsembleRunner(Runner):
         self.ensemble_filename = ensemble_filename
 
     def update_jobs(self, timeout=False):
-        '''Relies on stdout of mpi_ensemble.py'''
+        '''Update serial job states, according to the stdout of mpi_ensemble.py'''
         
         logger.debug("Checking mpi_ensemble stdout for status updates...")
         for line in self.monitor.available_lines():
@@ -214,6 +266,9 @@ class MPIEnsembleRunner(Runner):
         return finished
 
 class RunnerGroup:
+    '''Iterable collection of Runner objects with logic for creating
+    the next Runner (i.e. assigning jobs to nodes), and the public interface to
+    monitor runners'''
     
     MAX_CONCURRENT_RUNNERS = settings.BALSAM_MAX_CONCURRENT_RUNNERS
     def __init__(self, lock):
@@ -224,10 +279,24 @@ class RunnerGroup:
         return iter(self.runners)
     
     def create_next_runner(self, runnable_jobs, workers):
-        '''Implements one particular strategy for choosing the next job, assuming
-        all jobs are either single-process or MPI-parallel. Will return the serial
-        ensemble job or single MPI job that occupies the largest possible number of
-        idle nodes'''
+        '''Create the next Runner object, add it to the RunnerGroup collection,
+        and start the Runner subprocess.
+        
+        This method implements one particular strategy for choosing the next
+        job, assuming all jobs are either single-process or MPI-parallel. Will
+        return the serial ensemble job or single MPI job that occupies the
+        largest possible number of idle nodes.
+
+        Args:
+            - ``runnable_jobs``: list of ``BalsamJob`` objects that are ready to run
+            - ``workers``: iterable container of all ``Worker`` instances; idle
+              workers may be assigned to a Runner
+
+        Raises:
+            - ExceededMaxRunners: if the number of current Runners (and thereby
+              background mpirun processes) goes over the user-configured threshold
+            - NoAvailableWorkers: if no workers are idle
+        '''
 
         if len(self.runners) == self.MAX_CONCURRENT_RUNNERS:
             raise ExceededMaxRunners(
@@ -298,6 +367,19 @@ class RunnerGroup:
         logger.debug(f"Using workers: {[w.id for w in assigned_workers]}")
 
     def update_and_remove_finished(self, timeout=False):
+        '''Iterate over all Runners in this RunnerGroup, update the job
+        statuses, and remove finished Runners from the collection. 
+        
+        Optionally timeout/kill any outstanding jobs (when it's time to quit).
+        
+        Args:
+            - ``timeout`` (bool): If *True*, timeout and SIGTERM-pause-SIGKILL any
+              outstanding subprocesses. Defaults to *False*
+
+        Raises:
+            - ``RuntimeError``: if a Runner reports that it is finished but
+              failed to mark any of its BalsamJobs in a completed state
+        '''
         # TODO: Benchmark performance overhead; does grouping into one
         # transaction save significantly?
         logger.debug(f"Checking status of {len(self.runners)} active runners")
@@ -333,4 +415,6 @@ class RunnerGroup:
 
     @property
     def running_job_pks(self):
+        '''``@property``: return a flat list of all BalsamJob primary keys that are
+        currently being handled by Runners in this RunnerGroup'''
         return [j.pk for runner in self.runners for j in runner.jobs]
