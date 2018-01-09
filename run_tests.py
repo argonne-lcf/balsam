@@ -14,8 +14,12 @@ def set_permissions(top):
         for file in (os.path.join(root, f) for f in files):
             os.chmod(file, 0o644)
 
-def main(test_directory):
+def main():
     
+    test_dir = os.path.abspath(os.path.dirname(balsam.__file__))
+    tempdir = tempfile.TemporaryDirectory(dir=test_dir, prefix="testdata_")
+    test_directory = tempdir.name 
+
     os.environ['BALSAM_TEST_DIRECTORY'] = test_directory
     os.environ['BALSAM_TEST']='1'
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -32,6 +36,4 @@ def main(test_directory):
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 if __name__ == "__main__":
-    test_dir = os.path.abspath(os.path.dirname(balsam.__file__))
-    tempdir = tempfile.TemporaryDirectory(dir=test_dir, prefix="testdata_")
-    main(tempdir.name)
+    main()
