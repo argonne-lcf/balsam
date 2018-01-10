@@ -1,4 +1,5 @@
 from balsam.service import models
+import uuid
 Job = models.BalsamJob
 AppDef = models.ApplicationDefinition
 
@@ -33,7 +34,13 @@ def print_jobs_tree(jobs):
 def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
     results = Job.objects.all()
     if namestr: results = results.filter(name__icontains=namestr)
-    if jobid: results = results.filter(job_id__icontains=jobid)
+    if jobid:
+        try:
+            pk = uuid.UUID(jobid.strip())
+            results = [Job.objects.get(job_id=pk)]
+        except ValueError:
+            results = results.filter(job_id__icontains=jobid)
+
     if wf: results = results.filter(workflow__icontains=wf)
     if state: results = results.filter(state=state)
     
