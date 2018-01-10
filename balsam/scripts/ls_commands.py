@@ -30,11 +30,12 @@ def print_jobs_tree(jobs):
     roots = [j for j in jobs if j.parents=='[]']
     for job in roots: print_subtree(job)
 
-def ls_jobs(namestr, show_history, jobid, verbose, tree, wf):
+def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
     results = Job.objects.all()
     if namestr: results = results.filter(name__icontains=namestr)
     if jobid: results = results.filter(job_id__icontains=jobid)
     if wf: results = results.filter(workflow__icontains=wf)
+    if state: results = results.filter(state=state)
     
     if not results:
         print("No jobs found matching query")
