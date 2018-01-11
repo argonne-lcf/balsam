@@ -654,7 +654,7 @@ class TestDAG(BalsamTestCase):
             chA.refresh_from_db()
             chB.refresh_from_db()
             return chA.state=='JOB_FINISHED' and chB.state=='JOB_FINISHED'
-        success = run_launcher_until(check)
+        success = run_launcher_until(check, timeout=120)
 
         parent.refresh_from_db()
         chA.refresh_from_db()
