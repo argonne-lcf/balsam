@@ -61,7 +61,8 @@ class TestMPIRunner(BalsamTestCase):
         '''specific check of mock_mpi_app.py output'''
         found = []
         for line in fp:
-            found.append(int(line.split()[1]))
+            if line.startswith('Rank'):
+                found.append(int(line.split()[1]))
         self.assertSetEqual(set(range(n)), set(found))
 
     def test_normal(self):
@@ -89,6 +90,7 @@ class TestMPIRunner(BalsamTestCase):
 
             # Check that the correct output is really there:
             outpath = runner.outfile.name
+
             with open(outpath) as fp:
                 self.assert_output_file_contains_n_ranks(fp, num_nodes*rpn)
 
