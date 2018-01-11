@@ -43,6 +43,7 @@ Theta (@ALCF)
     $ alias activatebalsam='source /opt/intel/python/2017.0.035/intelpython35/bin/activate balsam' # add to .bash_profile
     $ activatebalsam
     $ cp  /opt/cray/pe/mpt/7.6.0/gni/mpich-intel-abi/16.0/lib/libmpi*  ~/.conda/envs/balsam/lib/ # need to link to intel ABI
+    $ export LD_LIBRARY_PATH=~/.conda/envs/balsam/lib:$LD_LIBRARY_PATH # add to .bash_profile
 
 Get Balsam
 -----------
