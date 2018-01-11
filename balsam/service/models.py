@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
 from django.db import models
 from concurrency.fields import IntegerVersionField
+from concurrency.exceptions import RecordModifiedError
 
 from balsam.common import Serializer
 
@@ -389,7 +390,18 @@ auto timeout retry:     {self.auto_timeout_retry}
 
         self.state_history += history_line(new_state, message)
         self.state = new_state
-        self.save(update_fields=['state', 'state_history'],using=using)
+        try:
+            self.save(update_fields=['state', 'state_history'],using=using)
+        except RecordModifiedError:
+            self.refresh_from_db()
+            if self.state == 'USER_KILLED' and new_state != 'USER_KILLED':
+                return
+            elif new_state == 'USER_KILLED':
+                self.state_history += history_line(new_state, message)
+                self.state = new_state
+                self.save(update_fields=['state', 'state_history'],using=using)
+            else:
+                raise
 
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()

@@ -165,7 +165,7 @@ class MPIRunner(Runner):
     def update_jobs(self, timeout=False):
         '''Update the job state and return finished flag'''
         job = self.jobs[0]
-        #job.refresh_from_db() # TODO: handle RecordModified
+
         retcode = self.process.poll()
         if retcode == None:
             logger.debug(f"MPIRunner {job.cute_id} still running")
@@ -188,7 +188,11 @@ class MPIRunner(Runner):
             msg = f"MPIRunner {job.cute_id} RUN_TIMEOUT"
             logger.info(msg)
 
-        if job.state != curstate: job.update_state(curstate, msg) # TODO: handle RecordModified
+        if job.state != curstate:
+            job.update_state(curstate, msg)
+        else:
+            job.refresh_from_db()
+
         finished = timeout or (retcode is not None)
         return finished
 
@@ -262,6 +266,9 @@ class MPIEnsembleRunner(Runner):
                 msg = f"mpi_ensemble.py had nonzero return code: {retcode}\n"
                 msg += "".join(self.monitor.available_lines())
                 logger.exception(msg)
+                for job in self.jobs:
+                    if job.state != 'RUN_DONE':
+                        job.update_state('FAILED', 'MPIEnsemble error')
         finished = timeout or (retcode is not None)
         return finished
 
@@ -391,6 +398,15 @@ class RunnerGroup:
             logger.debug(f"updating runner {i}")
             finished = runner.update_jobs(timeout)
             if finished: finished_runners.append(runner)
+
+        killed_runners = (r for r in self.runners if r not in finished_runners
+                          and all(j.state=='USER_KILLED' for j in r.jobs))
+
+        for runner in killed_runners:
+            runner.process.terminate()
+            try: runner.process.wait(timeout=10)
+            except: runner.process.kill()
+            finished_runners.append(runner)
         self.lock.release()
 
         if timeout:

@@ -65,6 +65,11 @@ def read_jobs(fp):
 def run(job):
 
     job_from_db = BalsamJob.objects.get(pk=job.id)
+
+    if job_from_db.state == 'USER_KILLED':
+        status_msg(job.id, "USER_KILLED", msg="mpi_ensemble skipping this job")
+        return
+
     basename = job_from_db.name
     outname = f"{basename}.out"
     logger.debug(f"mpi_ensemble rank {RANK}: starting job {job.id}")
