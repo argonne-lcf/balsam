@@ -29,6 +29,8 @@ logger = logging.getLogger('balsam.launcher')
 logger.info("Loading Balsam Launcher")
 
 from balsam.service.schedulers import Scheduler
+from balsam.service.models import END_STATES
+
 scheduler = Scheduler.scheduler_main
 
 from balsam.launcher import jobreader
@@ -194,6 +196,9 @@ def main(args, transition_pool, runner_group, job_source):
                                              last_runner_created)
 
         if delay: next(delay_sleeper)
+        if all(j.state in END_STATES for j in job_source.jobs):
+            logger.info("No jobs to process. Exiting main loop now.")
+            break
     
 def on_exit(runner_group, transition_pool, job_source):
     '''Exit cleanup'''

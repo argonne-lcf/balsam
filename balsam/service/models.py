@@ -167,8 +167,8 @@ class BalsamJob(models.Model):
         help_text='The number of compute nodes requested for this job.',
         default=1)
     ranks_per_node = models.IntegerField(
-        'Number of Processes per Node',
-        help_text='The number of MPI processes per node to schedule for this job.',
+        'Number of ranks per node',
+        help_text='The number of MPI ranks per node to schedule for this job.',
         default=1)
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
@@ -357,7 +357,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         return {variable:value for (variable,value) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
-        keywords = 'PATH LIBRARY BALSAM DJANGO PYTHON'.split()
+        keywords = 'BALSAM DJANGO PYTHON'.split()
         envs = {var:value for var,value in os.environ.items() 
                 if any(keyword in var for keyword in keywords)}
         try:
