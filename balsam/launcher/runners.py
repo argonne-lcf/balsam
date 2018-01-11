@@ -252,7 +252,8 @@ class MPIEnsembleRunner(Runner):
                 job.update_state(state, msg) # TODO: handle RecordModified exception
                 logger.info(f"MPIEnsemble {job.cute_id} updated to {state}: {msg}")
             except (ValueError, KeyError, InvalidStateError) as e:
-                logger.error(f"Invalid statusMsg from mpi_ensemble: {line.strip()}")
+                if 'resources: utime' not in line:
+                    logger.error(f"Invalid statusMsg from mpi_ensemble: {line.strip()}")
 
         retcode = None
         if timeout:

@@ -597,7 +597,7 @@ class TestDAG(BalsamTestCase):
         def check():
             return all(j.state=='JOB_FINISHED' for j in BalsamJob.objects.all())
 
-        success = run_launcher_until(check)
+        success = run_launcher_until(check, timeout=120)
         self.assertTrue(success)
         
         parent.refresh_from_db()
