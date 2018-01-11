@@ -45,6 +45,11 @@ Theta (@ALCF)
     $ cp  /opt/cray/pe/mpt/7.6.0/gni/mpich-intel-abi/16.0/lib/libmpi*  ~/.conda/envs/balsam/lib/ # need to link to intel ABI
     $ export LD_LIBRARY_PATH=~/.conda/envs/balsam/lib:$LD_LIBRARY_PATH # add to .bash_profile
 
+.. note:: 
+    If running on Balsam on two systems with a shared file system, keep in mind
+    that a separate conda environment should be created for each (e.g.
+    balsam_theta and balsam_cooley)
+
 Get Balsam
 -----------
 .. code:: bash

@@ -59,7 +59,7 @@ def run_launcher_until(function, args=(), period=1.0, timeout=60.0):
                                       '--max-ranks-per-node', '8'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
-                                     preexec_fn=os.setsid)
+                                     )
     success = poll_until_returns_true(function, args=args, period=period, timeout=timeout)
     stop_launcher_processes()
     return success
@@ -71,7 +71,7 @@ def run_launcher_seconds(seconds):
     launcher_proc = subprocess.Popen(launcher_path.split(),
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
-                                     preexec_fn=os.setsid)
+                                     )
     try: launcher_proc.communicate(timeout=seconds+30)
     finally: stop_launcher_processes()
 
