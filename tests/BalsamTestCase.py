@@ -45,8 +45,8 @@ def poll_until_returns_true(function, *, args=(), period=1.0, timeout=12.0):
     return result
 
 def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE, num_nodes=1,
-               ranks_per_node=1, args='', workflow='', envs={}, state='CREATED',
-               url_in='', input_files='', url_out='', stage_out_files='', 
+               ranks_per_node=1, threads_per_rank=1, threads_per_core=1, args='', workflow='', 
+               envs={}, state='CREATED', url_in='', input_files='', url_out='', stage_out_files='', 
                post_error_handler=False, post_timeout_handler=False,
                auto_timeout_retry=True, preproc='', postproc='', wtime=1):
 
@@ -62,6 +62,8 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
     
     job.num_nodes = num_nodes
     job.ranks_per_node = ranks_per_node
+    job.threads_per_rank = threads_per_rank
+    job.threads_per_core = threads_per_core
     job.application_args = args
     
     job.workflow = workflow

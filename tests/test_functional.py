@@ -1,3 +1,5 @@
+from collections import defaultdict
+import glob
 import os
 import random
 import getpass
@@ -711,7 +713,7 @@ class TestDAG(BalsamTestCase):
             return all(j.state == 'JOB_FINISHED' for j in jobs)
 
         # Everything finished successfully
-        success = run_launcher_until(check)
+        success = run_launcher_until(check, timeout=120)
         self.assertTrue(success)
 
         parent.refresh_from_db()
@@ -791,3 +793,73 @@ class TestDAG(BalsamTestCase):
         # Make sure that the correct number of dependencies were created for the
         # reduce job: one for each dynamically-spawned job (plus the original)
         self.assertEqual(reduce_job.get_parents().count(), NUM_SIDES+1)
+
+class TestThreadPlacement(BalsamTestCase):
+
+    def setUp(self):
+        self.app_path = os.path.dirname(find_spec("tests.c_apps").origin)
+        self.app = create_app(name='omp')
+
+        self.job0 = create_job(name='job0', app='omp', num_nodes=2, ranks_per_node=32, threads_per_rank=2)
+        self.job1 = create_job(name='job1', app='omp', num_nodes=2, ranks_per_node=64, threads_per_rank=1)
+        self.job2 = create_job(name='job2', app='omp', num_nodes=1, ranks_per_node=2, threads_per_rank=64, threads_per_core=2)
+
+    def check_omp_exe_output(self, job):
+        fname = job.name + '.out'
+        out = job.read_file_in_workdir(fname)
+        
+        proc_counts = defaultdict(int)
+        ranks = []
+        threads = []
+
+        for line in out.split('\n'):
+            dat = line.split()
+            if len(dat) == 3:
+                name, rank, thread = dat
+                proc_counts[name] += 1
+                ranks.append(int(rank))
+                threads.append(int(thread))
+
+        proc_names = proc_counts.keys()
+        self.assertEqual(len(proc_names), job.num_nodes)
+        if job.num_nodes == 2:
+            proc1, proc2 = proc_names
+            self.assertEqual(proc_counts[proc1], proc_counts[proc2])
+
+        expected_ranks = list(range(job.num_ranks)) * job.threads_per_rank
+        self.assertListEqual(sorted(ranks), sorted(expected_ranks))
+
+        expected_threads = list(range(job.threads_per_rank)) * job.num_ranks
+        self.assertListEqual(sorted(threads), sorted(expected_threads))
+
+    def test_Theta(self):
+        '''MPI/OMP C binary for Theta: check thread/rank placement'''
+        from balsam.service.schedulers import Scheduler
+        scheduler = Scheduler.scheduler_main
+        if scheduler.host_type != 'CRAY':
+            self.skipTest('did not recognize Cray environment')
+
+        if scheduler.num_workers < 2:
+            self.skipTest('need at least two nodes reserved to run this test')
+        
+        binary = glob.glob(os.path.join(self.app_path, 'omp.theta.x'))
+        self.app.executable = binary[0]
+        self.app.save()
+
+        def check():
+            jobs = BalsamJob.objects.all()
+            return all(j.state == 'JOB_FINISHED' for j in jobs)
+
+        run_launcher_until(check)
+        self.job0.refresh_from_db()
+        self.job1.refresh_from_db()
+        self.job2.refresh_from_db()
+
+        self.assertEqual(self.job0.state, 'JOB_FINISHED')
+        self.assertEqual(self.job1.state, 'JOB_FINISHED')
+        self.assertEqual(self.job2.state, 'JOB_FINISHED')
+
+        # Check output of dummy MPI/OpenMP C program
+        self.check_omp_exe_output(self.job0)
+        self.check_omp_exe_output(self.job1)
+        self.check_omp_exe_output(self.job2)

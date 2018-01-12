@@ -379,6 +379,10 @@ auto timeout retry:     {self.auto_timeout_retry}
             BALSAM_PARENT_IDS=str(self.parents),
             BALSAM_CHILD_IDS=children,
         )
+
+        if self.threads_per_rank > 1:
+            balsam_envs['OMP_NUM_THREADS'] = self.threads_per_rank
+
         if timeout: balsam_envs['BALSAM_JOB_TIMEOUT']="TRUE"
         if error: balsam_envs['BALSAM_JOB_ERROR']="TRUE"
         envs.update(balsam_envs)
