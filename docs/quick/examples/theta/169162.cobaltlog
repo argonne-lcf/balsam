@@ -1,0 +1,27 @@
+Jobid: 169162
+qsub --mode script -A Performance -n 2 -t 30 -q debug-cache-quad ./job.sh
+Fri Jan 12 23:21:16 2018 +0000 (UTC) submitted with cwd set to: /gpfs/mira-home/harms/working/theta/workflow/hpc-edge-service/docs/quick/examples/theta
+jobid 169162 submitted from terminal /dev/pts/0
+Fri Jan 12 23:22:16 2018 +0000 (UTC) 
+Fri Jan 12 23:22:16 2018 +0000 (UTC) Command: '/gpfs/mira-home/harms/working/theta/workflow/hpc-edge-service/docs/quick/examples/theta/./job.sh'
+Fri Jan 12 23:22:16 2018 +0000 (UTC) 
+Fri Jan 12 23:22:16 2018 +0000 (UTC) Environment:
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_PARTCORES=64
+Fri Jan 12 23:22:16 2018 +0000 (UTC) SHELL=/bin/bash
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_PROJECT=Performance
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_PARTNAME=3830,3832
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_JOBID=169162
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_STARTTIME=1515799303
+Fri Jan 12 23:22:16 2018 +0000 (UTC) LOGNAME=harms
+Fri Jan 12 23:22:16 2018 +0000 (UTC) USER=harms
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_ENDTIME=1515801103
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_PARTSIZE=2
+Fri Jan 12 23:22:16 2018 +0000 (UTC) HOME=/home/harms
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_JOBSIZE=2
+Fri Jan 12 23:22:16 2018 +0000 (UTC) COBALT_QUEUE=debug-cache-quad
+Fri Jan 12 23:22:16 2018 +0000 (UTC) 
+Fri Jan 12 23:22:16 2018 +0000 (UTC) Info: stdin received from /dev/null
+Fri Jan 12 23:22:16 2018 +0000 (UTC) Info: stdout sent to /gpfs/mira-home/harms/working/theta/workflow/hpc-edge-service/docs/quick/examples/theta/169162.output
+Fri Jan 12 23:22:16 2018 +0000 (UTC) Info: stderr sent to /gpfs/mira-home/harms/working/theta/workflow/hpc-edge-service/docs/quick/examples/theta/169162.error
+Fri Jan 12 23:22:16 2018 +0000 (UTC) 
+Fri Jan 12 23:23:17 2018 +0000 (UTC) Info: user delete requested with signal SIGTERM by user harms
