@@ -64,7 +64,7 @@ def newjob(args):
 
     job.wall_time_minutes = args.wall_minutes
     job.num_nodes = args.num_nodes
-    job.processes_per_node = args.processes_per_node
+    job.ranks_per_node = args.ranks_per_node
     job.threads_per_rank = args.threads_per_rank
     job.threads_per_core = args.threads_per_core
 
@@ -195,14 +195,14 @@ def rm(args):
 
 def qsub(args):
     job = Job()
-    job.name = args.name
+    job.name = args.name if args.name else "default"
     job.description = 'Added by balsam qsub'
     job.workflow = 'qsub'
     job.allowed_work_sites = settings.BALSAM_SITE
 
     job.wall_time_minutes = args.wall_minutes
     job.num_nodes = args.nodes
-    job.processes_per_node = args.ppn
+    job.ranks_per_node = args.ppn
     job.threads_per_rank = args.threads_per_rank
     job.threads_per_core = args.threads_per_core
     job.environ_vars = ":".join(args.env)
@@ -275,7 +275,7 @@ def make_dummies(args):
 
         job.wall_time_minutes = 0
         job.num_nodes = 1
-        job.processes_per_node = 1
+        job.ranks_per_node = 1
         job.threads_per_rank = 1
         job.threads_per_core = 1
         job.environ_vars = ""
