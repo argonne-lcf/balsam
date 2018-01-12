@@ -37,11 +37,10 @@ Theta (@ALCF)
 ^^^^^^^^^^^^^^^^^^^^^^^
 .. code:: bash
 
-    $ alias conda='/opt/intel/python/2017.0.035/intelpython35/bin/conda'
+    $ module load intelpython35
     $ conda config --add channels intel
     $ conda create --name balsam intelpython3_full python=3
-    $ alias activatebalsam='source /opt/intel/python/2017.0.035/intelpython35/bin/activate balsam' # add to .bash_profile
-    $ activatebalsam
+    $ source activate balsam
     $ cp  /opt/cray/pe/mpt/7.6.0/gni/mpich-intel-abi/16.0/lib/libmpi*  ~/.conda/envs/balsam/lib/ # need to link to intel ABI
 
 Get Balsam
@@ -107,3 +106,4 @@ them just by calling **balsam-test** with no arguments::
 
     balsam-test tests.test_dag # this should be quick
     balsam-test # the test_functional module might take over 10 minutes!
+
