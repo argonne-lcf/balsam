@@ -9,6 +9,7 @@ import uuid
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
 from django.db import models
+from django.db.utils import OperationalError
 from concurrency.fields import IntegerVersionField
 from concurrency.exceptions import RecordModifiedError
 
@@ -249,7 +250,12 @@ class BalsamJob(models.Model):
             update_fields.append('version')
         if self._state.adding:
             update_fields = None
-        models.Model.save(self, force_insert, force_update, using, update_fields)
+
+        # Work around sqlite3 DB locked error
+        while True:
+            try: models.Model.save(self, force_insert, force_update, using, update_fields)
+            except OperationalError: pass
+            else: break
 
     def __str__(self):
         return f'''
