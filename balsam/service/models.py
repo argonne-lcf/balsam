@@ -257,7 +257,7 @@ class BalsamJob(models.Model):
             try: models.Model.save(self, force_insert, force_update, using, update_fields)
             except OperationalError: 
                 try:
-                    time.sleep(1)
+                    time.sleep(5)
                     newjob = BalsamJob.objects.get(pk=self.pk)
                     if newjob.version == self.version: break
                 except ObjectDoesNotExist: pass
