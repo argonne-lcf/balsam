@@ -5,6 +5,7 @@ import sys
 from datetime import datetime
 from socket import gethostname
 import uuid
+import time
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
@@ -254,7 +255,17 @@ class BalsamJob(models.Model):
         # Work around sqlite3 DB locked error
         while True:
             try: models.Model.save(self, force_insert, force_update, using, update_fields)
-            except OperationalError: pass
+            except OperationalError: 
+                try:
+                    time.sleep(1)
+                    newjob = BalsamJob.objects.get(pk=self.pk)
+                    if newjob.version == self.version: break
+                except ObjectDoesNotExist: pass
+            except RecordModifiedError:
+                newjob = BalsamJob.objects.get(pk=self.pk)
+                logger.error(f'RecordModifiedError when saving {self.cute_id}')
+                logger.error(f'Trying to save:\n{str(self)}\nIn DB:\n{str(newjob)}\n')
+                raise
             else: break
 
     def __str__(self):

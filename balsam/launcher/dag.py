@@ -72,7 +72,7 @@ __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR',
 os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
 django.setup()
 
-from balsam.service.models import BalsamJob as _BalsamJob
+from balsam.service.models import BalsamJob
 from django.conf import settings
 
 current_job = None
@@ -88,7 +88,7 @@ ERROR = _envs.get('BALSAM_JOB_ERROR', False) == "TRUE"
 if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)
     try:
-        current_job = _BalsamJob.objects.get(pk=JOB_ID)
+        current_job = BalsamJob.objects.get(pk=JOB_ID)
     except:
         raise RuntimeError(f"The environment specified current job: "
                            f"BALSAM_JOB_ID {JOB_ID}\n but this does not "
@@ -114,7 +114,7 @@ def add_job(**kwargs):
     Raises:
         - ``ValueError``: if an invalid field name is provided to *kwargs*
     '''
-    job = _BalsamJob()
+    job = BalsamJob()
     for k,v in kwargs.items():
         try:
             getattr(job, k)
@@ -158,10 +158,10 @@ def add_dependency(parent,child):
     if isinstance(parent, str): parent = uuid.UUID(parent)
     if isinstance(child, str): child = uuid.UUID(child)
 
-    if not isinstance(parent, _BalsamJob): 
-        parent = _BalsamJob.objects.get(pk=parent)
-    if not isinstance(child, _BalsamJob): 
-        child = _BalsamJob.objects.get(pk=child)
+    if not isinstance(parent, BalsamJob): 
+        parent = BalsamJob.objects.get(pk=parent)
+    if not isinstance(child, BalsamJob): 
+        child = BalsamJob.objects.get(pk=child)
 
     existing_parents = child.get_parents_by_id()
     new_parents = existing_parents.copy()
@@ -197,14 +197,14 @@ def spawn_child(clone=False, **kwargs):
         - ``RuntimeError``: If no BalsamJob detected on module-load
         - ``ValueError``: if an invalid field name is passed into *kwargs* 
     '''
-    if not isinstance(current_job, _BalsamJob):
+    if not isinstance(current_job, BalsamJob):
         raise RuntimeError("No current BalsamJob detected in environment")
 
     if 'workflow' not in kwargs:
         kwargs['workflow'] = current_job.workflow
 
     if clone:
-        child = _BalsamJob.objects.get(pk=current_job.pk)
+        child = BalsamJob.objects.get(pk=current_job.pk)
         child.pk = None
         for k,v in kwargs.items():
             try:
@@ -223,7 +223,7 @@ def spawn_child(clone=False, **kwargs):
     child.update_state("CREATED", f"spawned by {current_job.cute_id}")
     return child
 
-def kill(job, recursive=False):
+def kill(job, recursive=True):
     '''Kill a job or its entire subtree in the DAG
 
     Mark a job (and optionally all jobs that depend on it) by the state
@@ -232,7 +232,7 @@ def kill(job, recursive=False):
     Args:
         - ``job`` (*BalsamJob*): the job (or subtree root) to kill
         - ``recursive`` (*bool*): if *True*, then traverse the DAG recursively
-          to kill all jobs in the subtree. Defaults to *False*
+          to kill all jobs in the subtree. Defaults to *True*
     '''
     job.update_state('USER_KILLED')
     if recursive:

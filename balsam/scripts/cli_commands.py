@@ -38,7 +38,7 @@ def newapp(args):
     for arg in (args.executable,args.preprocess,args.postprocess):
         paths = arg.split()
         if arg and not all(os.path.exists(p) for p in paths):
-            raise RuntimeError(f"{path} not found")
+            raise RuntimeError(f"{paths} not found")
 
     app = AppDef()
     app.name = args.name
