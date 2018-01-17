@@ -200,7 +200,7 @@ def main(args, transition_pool, runner_group, job_source):
             logger.info("No jobs to process. Exiting main loop now.")
             break
     
-def on_exit(runner_group, transition_pool, job_source):
+def on_exit(runner_group, transition_pool, job_source, writer_proc):
     '''Exit cleanup'''
     global HANDLING_EXIT
     if HANDLING_EXIT: return
@@ -213,6 +213,7 @@ def on_exit(runner_group, transition_pool, job_source):
     logger.debug("on_exit: send end message to transition threads")
     transition_pool.end_and_wait()
     logger.debug("on_exit: Launcher exit graceful\n\n")
+    writer_proc.terminate()
     exit(0)
 
 
@@ -245,9 +246,19 @@ def detect_dead_runners(job_source):
         logger.info(f'Picked up dead running job {job.cute_id}: marking RESTART_READY')
         job.update_state('RESTART_READY', 'Detected dead runner')
 
+def launch_db_writer_process():
+    from importlib.util import find_spec
+    import subprocess
+    db_writer = find_spec("balsam.service.db_writer").origin
+    writer_proc = subprocess.Popen([sys.executable, db_writer], 
+            stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    return writer_proc
+
+
 if __name__ == "__main__":
     args = get_args()
     
+    writer_proc = launch_db_writer_process()
     job_source = jobreader.JobReader.from_config(args)
     job_source.refresh_from_db()
     transition_pool = transitions.TransitionProcessPool()
@@ -258,10 +269,10 @@ if __name__ == "__main__":
 
     detect_dead_runners(job_source)
 
-    handl = lambda a,b: on_exit(runner_group, transition_pool, job_source)
+    handl = lambda a,b: on_exit(runner_group, transition_pool, job_source, writer_proc)
     signal.signal(signal.SIGINT, handl)
     signal.signal(signal.SIGTERM, handl)
     signal.signal(signal.SIGHUP, handl)
 
     main(args, transition_pool, runner_group, job_source)
-    on_exit(runner_group, transition_pool, job_source)
+    on_exit(runner_group, transition_pool, job_source, writer_proc)

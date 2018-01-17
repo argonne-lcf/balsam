@@ -6,6 +6,7 @@ from datetime import datetime
 from socket import gethostname
 import uuid
 import time
+import zmq
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
@@ -16,7 +17,7 @@ from concurrency.exceptions import RecordModifiedError
 
 from balsam.common import Serializer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('balsam.service')
 
 class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
@@ -243,30 +244,82 @@ class BalsamJob(models.Model):
         'Job State History',
         help_text="Chronological record of the job's states",
         default=history_line)
-    
-    def save(self, force_insert=False, force_update=False, using=None, 
+
+    zmq_server_addr = None
+
+    def _save_direct(self, force_insert=False, force_update=False, using=None, 
              update_fields=None):
         '''Override default Django save to ensure version always updated'''
         if update_fields is not None: 
             update_fields.append('version')
         if self._state.adding:
             update_fields = None
+        models.Model.save(self, force_insert, force_update, using, update_fields)
 
-        # Work around sqlite3 DB locked error
-        while True:
-            try: models.Model.save(self, force_insert, force_update, using, update_fields)
-            except OperationalError: 
-                try:
-                    time.sleep(5)
-                    newjob = BalsamJob.objects.get(pk=self.pk)
-                    if newjob.version == self.version: break
-                except ObjectDoesNotExist: pass
-            except RecordModifiedError:
-                newjob = BalsamJob.objects.get(pk=self.pk)
-                logger.error(f'RecordModifiedError when saving {self.cute_id}')
-                logger.error(f'Trying to save:\n{str(self)}\nIn DB:\n{str(newjob)}\n')
-                raise
-            else: break
+    def _save_zmq_writer(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state', 'version']]
+        d = {field : self.__dict__[field] for field in SERIAL_FIELDS}
+        d['job_id'] = str(self.job_id)
+        d['force_insert'] = force_insert
+        d['force_update'] = force_update
+        d['using'] = using
+        d['update_fields'] = update_fields
+        message = json.dumps(d)
+
+        context = zmq.Context()
+        socket = context.socket(zmq.REQ)
+        socket.connect(BalsamJob.zmq_server_addr)
+        socket.send_string(message)
+        response = socket.poll(timeout=10000)
+        if response: 
+            ack = socket.recv()
+            assert ack.decode('utf-8') == 'ACK'
+        else: raise OperationalError("ZMQ DB write request timedout")
+
+    def check_zmq_write_server(self):
+        path = settings.INSTALL_PATH
+        path = os.path.join(path, 'db_writer_socket')
+        if os.path.exists(path):
+            zmq_server_addr = open(path).read().strip()
+        else:
+            return ''
+
+        if 'tcp://' not in zmq_server_addr: return ''
+
+        context = zmq.Context()
+        socket = context.socket(zmq.REQ)
+        socket.connect(zmq_server_addr)
+        socket.send_string('TEST_ALIVE')
+        response = socket.poll(timeout=10000)
+        if response: 
+            logger.info(f"model save() going to server @ {zmq_server_addr}")
+            return zmq_server_addr
+        else:
+            logger.info("model save() direct to disk")
+            return ''
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        if BalsamJob.zmq_server_addr is None:
+            BalsamJob.zmq_server_addr = self.check_zmq_write_server()
+        if BalsamJob.zmq_server_addr == '':
+            self._save_direct(force_insert, force_update, using, update_fields)
+        else:
+            self._save_zmq_writer(force_insert, force_update, using, update_fields)
+
+    @staticmethod
+    def from_dict(d):
+        job = BalsamJob()
+        SERIAL_FIELDS = [f for f in job.__dict__ if f not in
+                '_state version force_insert force_update using update_fields'.split()
+                ]
+
+        if type(d['job_id']) is str:
+            d['job_id'] = uuid.UUID(d['job_id'])
+
+        for field in SERIAL_FIELDS:
+            job.__dict__[field] = d[field]
+        return job
+
 
     def __str__(self):
         return f'''

@@ -54,7 +54,7 @@ setup(
 
     packages=find_packages(exclude=['docs','__pycache__','data','experiments','log',]),
 
-    install_requires=['django', 'django-concurrency'],
+    install_requires=['django', 'django-concurrency', 'pyzmq'],
 
     include_package_data=True,
 
