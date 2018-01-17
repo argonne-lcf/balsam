@@ -15,7 +15,7 @@ flag.
 import argparse
 from math import floor
 import os
-from sys import exit
+import sys
 import signal
 import time
 
@@ -214,7 +214,7 @@ def on_exit(runner_group, transition_pool, job_source, writer_proc):
     transition_pool.end_and_wait()
     logger.debug("on_exit: Launcher exit graceful\n\n")
     writer_proc.terminate()
-    exit(0)
+    sys.exit(0)
 
 
 def get_args(inputcmd=None):
@@ -247,13 +247,17 @@ def detect_dead_runners(job_source):
         job.update_state('RESTART_READY', 'Detected dead runner')
 
 def launch_db_writer_process():
-    from importlib.util import find_spec
-    import subprocess
-    db_writer = find_spec("balsam.service.db_writer").origin
-    writer_proc = subprocess.Popen([sys.executable, db_writer], 
-            stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    return writer_proc
+    import multiprocessing
+    from balsam.service import db_writer
+    INSTALL_PATH = settings.INSTALL_PATH
+    path = os.path.join(INSTALL_PATH, 'db_writer_socket')
+    if os.path.exists(path):
+        os.remove(path)
 
+    writer_proc = multiprocessing.Process(target=db_writer.main)
+    writer_proc.daemon = True
+    writer_proc.start()
+    return writer_proc
 
 if __name__ == "__main__":
     args = get_args()
