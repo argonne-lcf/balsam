@@ -797,7 +797,7 @@ class TestDAG(BalsamTestCase):
 class TestThreadPlacement(BalsamTestCase):
 
     def setUp(self):
-        self.app_path = os.path.dirname(find_spec("tests.c_apps").origin)
+        self.app_path = os.path.dirname(find_spec("tests.ft_apps.c_apps").origin)
         self.app = create_app(name='omp')
 
         self.job0 = create_job(name='job0', app='omp', num_nodes=2, ranks_per_node=32, threads_per_rank=2)
@@ -864,11 +864,11 @@ class TestThreadPlacement(BalsamTestCase):
         self.check_omp_exe_output(self.job1)
         self.check_omp_exe_output(self.job2)
 
-class TestUserKill(BalsamTestCase):
-    def setUp(self):
-        self.app_path = find_spec("tests.ft_apps.c_apps").origin)
-        self.app = create_app(name='omp')
-
-        self.job0 = create_job(name='job0', app='omp', num_nodes=2, ranks_per_node=32, threads_per_rank=2)
-        self.job1 = create_job(name='job1', app='omp', num_nodes=2, ranks_per_node=64, threads_per_rank=1)
-        self.job2 = create_job(name='job2', app='omp', num_nodes=1, ranks_per_node=2, threads_per_rank=64, threads_per_core=2)
+#class TestUserKill(BalsamTestCase):
+#    def setUp(self):
+#        self.app_path = find_spec("tests.ft_apps.c_apps").origin)
+#        self.app = create_app(name='omp')
+#
+#        self.job0 = create_job(name='job0', app='omp', num_nodes=2, ranks_per_node=32, threads_per_rank=2)
+#        self.job1 = create_job(name='job1', app='omp', num_nodes=2, ranks_per_node=64, threads_per_rank=1)
+#        self.job2 = create_job(name='job2', app='omp', num_nodes=1, ranks_per_node=2, threads_per_rank=64, threads_per_core=2)

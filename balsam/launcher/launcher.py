@@ -38,6 +38,7 @@ from balsam.launcher import transitions
 from balsam.launcher import worker
 from balsam.launcher import runners
 from balsam.launcher.exceptions import *
+from balsam.service import db_writer
 
 ALMOST_RUNNABLE_STATES = ['READY','STAGED_IN']
 RUNNABLE_STATES = ['PREPROCESSED', 'RESTART_READY']
@@ -213,7 +214,9 @@ def on_exit(runner_group, transition_pool, job_source, writer_proc):
     logger.debug("on_exit: send end message to transition threads")
     transition_pool.end_and_wait()
     logger.debug("on_exit: Launcher exit graceful\n\n")
-    writer_proc.terminate()
+    
+    client = db_writer.ZMQClient()
+    client.term_server()
     sys.exit(0)
 
 
@@ -248,13 +251,12 @@ def detect_dead_runners(job_source):
 
 def launch_db_writer_process():
     import multiprocessing
-    from balsam.service import db_writer
     INSTALL_PATH = settings.INSTALL_PATH
-    path = os.path.join(INSTALL_PATH, 'db_writer_socket')
+    path = os.path.join(INSTALL_PATH, db_writer.SOCKFILE_NAME)
     if os.path.exists(path):
         os.remove(path)
 
-    writer_proc = multiprocessing.Process(target=db_writer.main)
+    writer_proc = multiprocessing.Process(target=db_writer.server_main)
     writer_proc.daemon = True
     writer_proc.start()
     return writer_proc

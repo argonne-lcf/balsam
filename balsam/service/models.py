@@ -3,19 +3,16 @@ import json
 import logging
 import sys
 from datetime import datetime
-from socket import gethostname
 import uuid
 import time
-import zmq
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
 from django.db import models
-from django.db.utils import OperationalError
 from concurrency.fields import IntegerVersionField
 from concurrency.exceptions import RecordModifiedError
 
-from balsam.common import Serializer
+from balsam.service import db_writer
 
 logger = logging.getLogger('balsam.service')
 
@@ -245,7 +242,7 @@ class BalsamJob(models.Model):
         help_text="Chronological record of the job's states",
         default=history_line)
 
-    zmq_server_addr = None
+    db_write_client = None
 
     def _save_direct(self, force_insert=False, force_update=False, using=None, 
              update_fields=None):
@@ -256,55 +253,16 @@ class BalsamJob(models.Model):
             update_fields = None
         models.Model.save(self, force_insert, force_update, using, update_fields)
 
-    def _save_zmq_writer(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state', 'version']]
-        d = {field : self.__dict__[field] for field in SERIAL_FIELDS}
-        d['job_id'] = str(self.job_id)
-        d['force_insert'] = force_insert
-        d['force_update'] = force_update
-        d['using'] = using
-        d['update_fields'] = update_fields
-        message = json.dumps(d)
-
-        context = zmq.Context()
-        socket = context.socket(zmq.REQ)
-        socket.connect(BalsamJob.zmq_server_addr)
-        socket.send_string(message)
-        response = socket.poll(timeout=10000)
-        if response: 
-            ack = socket.recv()
-            assert ack.decode('utf-8') == 'ACK'
-        else: raise OperationalError("ZMQ DB write request timedout")
-
-    def check_zmq_write_server(self):
-        path = settings.INSTALL_PATH
-        path = os.path.join(path, 'db_writer_socket')
-        if os.path.exists(path):
-            zmq_server_addr = open(path).read().strip()
-        else:
-            return ''
-
-        if 'tcp://' not in zmq_server_addr: return ''
-
-        context = zmq.Context()
-        socket = context.socket(zmq.REQ)
-        socket.connect(zmq_server_addr)
-        socket.send_string('TEST_ALIVE')
-        response = socket.poll(timeout=10000)
-        if response: 
-            logger.info(f"model save() going to server @ {zmq_server_addr}")
-            return zmq_server_addr
-        else:
-            logger.info("model save() direct to disk")
-            return ''
-
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        if BalsamJob.zmq_server_addr is None:
-            BalsamJob.zmq_server_addr = self.check_zmq_write_server()
-        if BalsamJob.zmq_server_addr == '':
+        if BalsamJob.db_write_client is None:
+            BalsamJob.db_write_client = db_writer.ZMQClient()
+
+        if BalsamJob.db_write_client.zmq_server is None:
+            logger.info(f"direct save of {self.cute_id}")
             self._save_direct(force_insert, force_update, using, update_fields)
         else:
-            self._save_zmq_writer(force_insert, force_update, using, update_fields)
+            logger.info(f"sending request for save of {self.cute_id}")
+            BalsamJob.db_write_client.save(self, force_insert, force_update, using, update_fields)
 
     @staticmethod
     def from_dict(d):
@@ -526,13 +484,26 @@ auto timeout retry:     {self.auto_timeout_retry}
         self.save(update_fields=['working_directory'])
         return path
 
-    def serialize(self):
-        pass
+    def to_dict(self):
+        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state', 'version']]
+        d = {field : self.__dict__[field] for field in SERIAL_FIELDS}
+        return d
+
+    def serialize(self, **kwargs):
+        d = self.to_dict()
+        d.update(kwargs)
+        d['job_id'] = str(self.job_id)
+        serial_data = json.dumps(d)
+        return serial_data
 
     @classmethod
     def deserialize(cls, serial_data):
-        pass
-
+        if type(serial_data) is bytes:
+            serial_data = serial_data.decode('utf-8')
+        if type(serial_data) is str:
+            serial_data = json.loads(serial_data)
+        job = BalsamJob.from_dict(serial_data)
+        return job
 
 class ApplicationDefinition(models.Model):
     ''' application definition, each DB entry is a task that can be run
