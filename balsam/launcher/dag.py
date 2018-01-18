@@ -204,16 +204,22 @@ def spawn_child(clone=False, **kwargs):
         kwargs['workflow'] = current_job.workflow
 
     if clone:
-        child = BalsamJob.objects.get(pk=current_job.pk)
-        child.pk = None
+        child = BalsamJob()
+        new_pk = child.pk
+
+        exclude_fields = '_state version job_id working_directory'.split()
+        fields = [f for f in current_job.__dict__ if f not in exclude_fields]
+        for f in fields: child.__dict__[f] = current_job.__dict__[f]
+        assert child.pk == new_pk
+
         for k,v in kwargs.items():
-            try:
-                getattr(child, k)
-            except AttributeError: 
-                raise ValueError(f"Invalid field {k}")
+            if k in fields:
+                child.__dict__[k] = v
             else:
-                setattr(child, k, v)
-        child.working_directory = '' # This is essential; awful BUG if not here
+                raise ValueError(f"Invalid field {k}")
+
+        child.working_directory = '' # This is essential
+        child.db_write_client = None
         child.save()
     else:
         child = add_job(**kwargs)

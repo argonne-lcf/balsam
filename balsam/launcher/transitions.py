@@ -45,16 +45,18 @@ logger = logging.getLogger('balsam.launcher.transitions')
 # DB writes become a bottleneck, we have to go to a DB that supports better
 # concurrency -- but SQLite makes it signifcantly easier for users to deploy
 # Balsam, because it's built in and requires zero user configuration
+class DummyLock:
+    def acquire(self): pass
+    def release(self): pass
 if sys.platform.startswith('darwin'):
     LockClass = multiprocessing.Lock
 elif sys.platform.startswith('win32'):
     LockClass = multiprocessing.Lock
 else:
-    class DummyLock:
-        def acquire(self): pass
-        def release(self): pass
     LockClass = DummyLock
-LockClass = multiprocessing.Lock # TODO: replace with better solution!
+#LockClass = multiprocessing.Lock
+
+LockClass = DummyLock # With db_writer proxy; no need for lock!
 logger.debug(f'Using lock: {LockClass}')
 
 PREPROCESS_TIMEOUT_SECONDS = 300
@@ -330,7 +332,8 @@ def preprocess(job, lock):
             lock.acquire()
             proc = subprocess.Popen(args, stdout=fp,
                                     stderr=subprocess.STDOUT, env=envs,
-                                    cwd=job.working_directory)
+                                    cwd=job.working_directory,
+                                    )
             retcode = proc.wait(timeout=PREPROCESS_TIMEOUT_SECONDS)
             proc.communicate()
             lock.release()
@@ -411,7 +414,8 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
             lock.acquire()
             proc = subprocess.Popen(args, stdout=fp,
                                     stderr=subprocess.STDOUT, env=envs,
-                                    cwd=job.working_directory)
+                                    cwd=job.working_directory,
+                                    )
             retcode = proc.wait(timeout=POSTPROCESS_TIMEOUT_SECONDS)
             proc.communicate()
             lock.release()
@@ -421,7 +425,7 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
             raise BalsamTransitionError(message) from e
     
     if retcode != 0:
-        tail = get_tail(out)
+        tail = get_tail(out, nlines=30)
         message = f"{job.cute_id} postprocess returned {retcode}:\n{tail}"
         raise BalsamTransitionError(message)
 

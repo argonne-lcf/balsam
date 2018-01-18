@@ -1,3 +1,5 @@
+from io import StringIO
+from traceback import print_exc
 import json
 import os
 import logging
@@ -40,6 +42,8 @@ class ZMQProxy:
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind(f'tcp://*:{PORT}')
+        logger.info(f"db_writer proxy listening at {self.address}")
+        logger.info(f"db_writer address written to {self.sock_file}")
         return self.socket
 
     def recv_request(self):
@@ -68,25 +72,33 @@ class ZMQClient:
         global SOCKFILE_PATH
         SOCKFILE_PATH = settings.INSTALL_PATH
         self.discover_zmq_proxy()
+        if self.zmq_server is not None:
+            logger.info(f"save() going to server @ {self.zmq_server}")
+        else:
+            logger.info(f"No db_writer detected; save() going directly to local db")
 
     def discover_zmq_proxy(self):
         path = os.path.join(SOCKFILE_PATH, SOCKFILE_NAME)
         if os.path.exists(path):
             self.zmq_server = open(path).read().strip()
+            logger.debug(f"client discover: {self.zmq_server}")
         else:
+            logger.debug(f"client discover: no db_socket_file exists")
             self.zmq_server = None
             return
 
         if 'tcp://' not in self.zmq_server: 
+            logger.debug(f"client discover: invalid address")
             self.zmq_server = None
             return
 
+        logger.debug(f"client discover: sending request TEST_ALIVE")
         response = self.send_request('TEST_ALIVE')
-        if response == 'ACK':
-            logger.info(f"save() going to server @ {self.zmq_server}")
-        else:
-            logger.info(f"save() going directly to local db")
+        if response != 'ACK':
             self.zmq_server = None
+            logger.debug(f"client discover: no response; dead server")
+        else:
+            logger.debug(f"client discover: the server is alive!")
 
     def send_request(self, msg):
         context = zmq.Context()
@@ -106,6 +118,7 @@ class ZMQClient:
             force_update=force_update, using=using,
             update_fields=update_fields)
 
+        logger.info(f"client: sending request for save of {job.cute_id}")
         response = self.send_request(serial_data)
         if response is None:
             raise OperationalError("ZMQ DB write request timed out")
@@ -117,16 +130,21 @@ class ZMQClient:
             response = self.send_request('TERM')
 
 def server_main():
+    logger.debug("hello from server_main")
     parent_pid = os.getppid()
 
     handler = lambda a,b: 0
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
+    logger.debug("making zmq proxy class")
     proxy = ZMQProxy()
 
     try:
+        logger.info("db_writer starting up")
         while True:
+            logger.info(f"proxy waiting for message")
             message = proxy.recv_request()
+            logger.info(f"proxy received message")
             if message is None:
                 if os.getppid() != parent_pid:
                     logger.info("db_writer detected parent PID died; quitting")
@@ -140,7 +158,12 @@ def server_main():
                 break
             else:
                 proxy.send_reply("ACK")
+    except:
+        buf = StringIO()
+        print_exc(file=buf)
+        logger.exception(f"db_writer Uncaught exception:\n%s", buf.getvalue())
     finally:
+        logger.info("exiting server main; deleting sock_file now")
         os.remove(os.path.join(SOCKFILE_PATH, SOCKFILE_NAME))
 
 if __name__ == "__main__":

@@ -213,10 +213,10 @@ def on_exit(runner_group, transition_pool, job_source, writer_proc):
 
     logger.debug("on_exit: send end message to transition threads")
     transition_pool.end_and_wait()
-    logger.debug("on_exit: Launcher exit graceful\n\n")
     
     client = db_writer.ZMQClient()
     client.term_server()
+    logger.debug("on_exit: Launcher exit graceful\n\n")
     sys.exit(0)
 
 

@@ -92,9 +92,9 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.apps = {}
         for name in aliases:
             interpreter = sys.executable
-            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}').origin
-            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_pre').origin
-            post_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_post').origin
+            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}').origin
+            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_pre').origin
+            post_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_post').origin
             app = create_app(name=name, executable=exe_path, preproc=pre_path,
                              postproc=post_path)
             self.apps[name] = app
@@ -347,9 +347,9 @@ class TestDAG(BalsamTestCase):
         self.apps = {}
         for name in aliases:
             interpreter = sys.executable
-            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}').origin
-            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_pre').origin
-            post_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_post').origin
+            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}').origin
+            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_pre').origin
+            post_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_post').origin
             app = create_app(name=name, executable=exe_path, preproc=pre_path,
                              postproc=post_path)
             self.apps[name] = app
@@ -864,11 +864,40 @@ class TestThreadPlacement(BalsamTestCase):
         self.check_omp_exe_output(self.job1)
         self.check_omp_exe_output(self.job2)
 
-#class TestUserKill(BalsamTestCase):
-#    def setUp(self):
-#        self.app_path = find_spec("tests.ft_apps.c_apps").origin)
-#        self.app = create_app(name='omp')
-#
-#        self.job0 = create_job(name='job0', app='omp', num_nodes=2, ranks_per_node=32, threads_per_rank=2)
-#        self.job1 = create_job(name='job1', app='omp', num_nodes=2, ranks_per_node=64, threads_per_rank=1)
-#        self.job2 = create_job(name='job2', app='omp', num_nodes=1, ranks_per_node=2, threads_per_rank=64, threads_per_core=2)
+class TestConcurrentDB(BalsamTestCase):
+    def setUp(self):
+        from balsam.service.schedulers import Scheduler
+        scheduler = Scheduler.scheduler_main
+        if scheduler.num_workers:
+            self.num_nodes = scheduler.num_workers
+        else:
+            self.num_nodes = 1
+
+        hello_path = find_spec("tests.ft_apps.concurrent.hello").origin
+        insert_path = find_spec("tests.ft_apps.concurrent.mpi_insert").origin
+        interpreter = sys.executable
+        hello_path= f"{sys.executable} {hello_path}"
+        insert_path= f"{sys.executable} {insert_path}"
+        create_app(name="hello", executable=hello_path)
+        create_app(name="mpi4py-insert", executable=insert_path)
+
+    def test_many_write(self):
+        '''Many ranks can simultaneously add a job to the DB'''
+        job = create_job(name="mpi_insert", app='mpi4py-insert',
+                         num_nodes=self.num_nodes, ranks_per_node=16)
+        num_ranks = job.num_ranks
+        success = run_launcher_until_state(job, 'JOB_FINISHED', period=2)
+        self.assertTrue(success)
+        created_jobs = BalsamJob.objects.filter(name__icontains='hello')
+        self.assertEqual(created_jobs.count(), num_ranks)
+
+class TestUserKill(BalsamTestCase):
+    def setUp(self):
+        self.app_path = find_spec("tests.ft_apps.dynamic_kill.killer").origin
+        self.app_path = find_spec("tests.ft_apps.dynamic_kill.slow").origin
+
+    def test_kill_during_preprocess(self):
+        self.skipTest("implement me!")
+
+    def test_kill_during_execution(self):
+        self.skipTest("implement me!")

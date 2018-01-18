@@ -273,9 +273,14 @@ class BalsamJob(models.Model):
 
         if type(d['job_id']) is str:
             d['job_id'] = uuid.UUID(d['job_id'])
+        else:
+            assert d['job_id'] is None
+            d['job_id'] = job.job_id
 
         for field in SERIAL_FIELDS:
             job.__dict__[field] = d[field]
+
+        assert type(job.job_id) == uuid.UUID
         return job
 
 
@@ -367,7 +372,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         for i, parent in enumerate(parents_list):
             pk = parent.pk if isinstance(parent,BalsamJob) else parent
             if not BalsamJob.objects.filter(pk=pk).exists():
-                raise InvalidParentsError("Job PK {pk} is not in the BalsamJob DB")
+                raise InvalidParentsError(f"Job PK {pk} is not in the BalsamJob DB")
             parents_list[i] = str(pk)
         self.parents = json.dumps(parents_list)
         self.save(update_fields=['parents'])
@@ -492,7 +497,11 @@ auto timeout retry:     {self.auto_timeout_retry}
     def serialize(self, **kwargs):
         d = self.to_dict()
         d.update(kwargs)
-        d['job_id'] = str(self.job_id)
+        if type(self.job_id) == uuid.UUID:
+            d['job_id'] = str(self.job_id)
+        else:
+            assert self.job_id == d['job_id'] == None
+
         serial_data = json.dumps(d)
         return serial_data
 
