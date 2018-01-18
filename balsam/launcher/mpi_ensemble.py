@@ -11,7 +11,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
 django.setup()
 logger = logging.getLogger('balsam.launcher.mpi_ensemble')
 
-from subprocess import Popen, STDOUT
+from subprocess import Popen, STDOUT, TimeoutExpired
 
 from mpi4py import MPI
 
@@ -61,9 +61,21 @@ def read_jobs(fp):
         else:
             logger.debug("Invalid workdir")
 
+def poll_execution_or_killed(job, proc, period=10):
+    retcode = None
+    while retcode is None:
+        try:
+            retcode = proc.wait(timeout=period)
+        except TimeoutExpired:
+            job.refresh_from_db()
+            if job.state == 'USER_KILLED':
+                logger.debug(f"{job.cute_id} USER_KILLED; terminating it now")
+                proc.terminate()
+                return "USER_KILLED"
+        else:
+            return retcode
 
 def run(job):
-
     job_from_db = BalsamJob.objects.get(pk=job.id)
 
     if job_from_db.state == 'USER_KILLED':
@@ -85,7 +97,8 @@ def run(job):
             signal.signal(signal.SIGINT, handler)
             signal.signal(signal.SIGTERM, handler)
 
-            retcode = proc.wait()
+            retcode = poll_execution_or_killed(job_from_db, proc)
+
         except Exception as e:
             logger.exception(f"mpi_ensemble rank {RANK} job {job.id}: exception during Popen")
             status_msg(job.id, "FAILED", msg=str(e))
@@ -94,6 +107,8 @@ def run(job):
             if retcode == 0: 
                 logger.debug(f"mpi_ensemble rank {RANK}: job returned 0")
                 status_msg(job.id, "RUN_DONE")
+            elif retcode == "USER_KILLED":
+                status_msg(job.id, "USER_KILLED", msg="mpi_ensemble aborting job due to user request")
             else:
                 outf.flush()
                 tail = get_tail(outf.name).replace('\n', '\\n')

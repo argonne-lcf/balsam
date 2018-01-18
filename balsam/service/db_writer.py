@@ -142,9 +142,9 @@ def server_main():
     try:
         logger.info("db_writer starting up")
         while True:
-            logger.info(f"proxy waiting for message")
+            #logger.info(f"proxy waiting for message")
             message = proxy.recv_request()
-            logger.info(f"proxy received message")
+            #logger.info(f"proxy received message")
             if message is None:
                 if os.getppid() != parent_pid:
                     logger.info("db_writer detected parent PID died; quitting")

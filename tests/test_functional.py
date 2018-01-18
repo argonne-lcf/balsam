@@ -891,13 +891,72 @@ class TestConcurrentDB(BalsamTestCase):
         created_jobs = BalsamJob.objects.filter(name__icontains='hello')
         self.assertEqual(created_jobs.count(), num_ranks)
 
+
 class TestUserKill(BalsamTestCase):
     def setUp(self):
-        self.app_path = find_spec("tests.ft_apps.dynamic_kill.killer").origin
-        self.app_path = find_spec("tests.ft_apps.dynamic_kill.slow").origin
+        killer_name = find_spec("tests.ft_apps.dynamic_kill.killer").origin
+        slow_name = find_spec("tests.ft_apps.dynamic_kill.slow").origin
+        interpreter = sys.executable
+        self.killer_name = f"{interpreter} {killer_name}"
+        self.slow_name = f"{interpreter} {slow_name}"
+
+        create_app(name="killer", executable=self.killer_name)
+        create_app(name="slow", executable=self.slow_name)
 
     def test_kill_during_preprocess(self):
-        self.skipTest("implement me!")
+        '''Job killed while pre-processing is properly marked'''
+        killer_job = create_job(name="killer", app="killer")
+        slow_job = create_job(name="slow_job", app="slow", preproc=self.slow_name, args="30")
 
-    def test_kill_during_execution(self):
-        self.skipTest("implement me!")
+        success = run_launcher_until_state(killer_job, 'JOB_FINISHED')
+        self.assertTrue(success)
+
+        slow_job.refresh_from_db()
+        self.assertEqual(slow_job.state, "USER_KILLED")
+        preproc_out = slow_job.read_file_in_workdir('preprocess.log')
+        self.assertIn("Sleeping for a long time", preproc_out)
+        self.assertNotIn("RUNNING", slow_job.state_history)
+        self.assertIn("STAGED_IN", slow_job.state_history)
+
+    def test_kill_during_execution_serial(self):
+        '''Serial job running in mpi_ensemble is properly terminated'''
+        killer_job = create_job(name="killer", app="killer")
+        slow_job = create_job(name="slow_job", app="slow", args="30")
+        
+        success = run_launcher_until_state(killer_job, 'JOB_FINISHED')
+        self.assertTrue(success)
+
+        slow_job.refresh_from_db()
+        self.assertEqual(slow_job.state, "USER_KILLED")
+        stdout = slow_job.read_file_in_workdir('slow_job.out')
+        self.assertIn("Sleeping for a long time", stdout)
+        self.assertIn("RUNNING", slow_job.state_history)
+        self.assertIn("USER_KILLED", slow_job.state_history)
+        self.assertNotIn("RUN_DONE", slow_job.state_history)
+    
+    def test_kill_during_execution_mpi(self):
+        '''Parallel MPIRunner job is properly terminated'''
+        from balsam.service.schedulers import Scheduler
+        scheduler = Scheduler.scheduler_main
+        if scheduler.num_workers:
+            num_workers = scheduler.num_workers
+            if num_workers < 2: 
+                self.skipTest("Need at least 2 workers to run this test")
+        else:
+            self.skipTest("Need environment with multiple workers to run this test")
+
+        killer_job = create_job(name="killer", app="killer")
+        slow_job = create_job(name="slow_job", app="slow", ranks_per_node=2,
+                              args="30 parallel")
+        
+        success = run_launcher_until_state(killer_job, 'JOB_FINISHED')
+        self.assertTrue(success)
+
+        slow_job.refresh_from_db()
+        self.assertEqual(slow_job.state, "USER_KILLED")
+        stdout = slow_job.read_file_in_workdir('slow_job.out')
+        self.assertIn("Rank 0 Sleeping for a long time", stdout)
+        self.assertIn("Rank 1 Sleeping for a long time", stdout)
+        self.assertIn("RUNNING", slow_job.state_history)
+        self.assertIn("USER_KILLED", slow_job.state_history)
+        self.assertNotIn("RUN_DONE", slow_job.state_history)

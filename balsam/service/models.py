@@ -425,6 +425,9 @@ auto timeout retry:     {self.auto_timeout_retry}
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 
+        self.refresh_from_db()
+        if self.state == 'USER_KILLED': return
+
         self.state_history += history_line(new_state, message)
         self.state = new_state
         try:
