@@ -196,7 +196,7 @@ def rm(args):
 
 def qsub(args):
     job = Job()
-    job.name = args.name
+    job.name = args.name if args.name else "default"
     job.description = 'Added by balsam qsub'
     job.workflow = 'qsub'
     job.allowed_work_sites = settings.BALSAM_SITE

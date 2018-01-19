@@ -37,11 +37,10 @@ Theta (@ALCF)
 ^^^^^^^^^^^^^^^^^^^^^^^
 .. code:: bash
 
-    $ alias conda='/opt/intel/python/2017.0.035/intelpython35/bin/conda'
+    $ export PATH=$PATH:$HOME/bin:/opt/intel/python/2017.0.035/intelpython35/bin # add to .bash_profile
     $ conda config --add channels intel
     $ conda create --name balsam intelpython3_full python=3
-    $ alias activatebalsam='source /opt/intel/python/2017.0.035/intelpython35/bin/activate balsam' # add to .bash_profile
-    $ activatebalsam
+    $ source activate balsam
     $ cp  /opt/cray/pe/mpt/7.6.0/gni/mpich-intel-abi/16.0/lib/libmpi*  ~/.conda/envs/balsam/lib/ # need to link to intel ABI
     $ export LD_LIBRARY_PATH=~/.conda/envs/balsam/lib:$LD_LIBRARY_PATH # add to .bash_profile
 
@@ -105,6 +104,16 @@ You can change the verbosity, and many other Balsam runtime parameters, in balsa
     balsam ls --hist # jobs are now done
     balsam rm jobs --all
 
+Hello World (on Theta)
+------------------------
+The procedure is largely the same as for Cooley, except that instead of using "soft", anaconda
+is added to the PATH explicitly::
+    $ qsub -A datascience -n 2 -q debug-cache-quad -t 30 -I
+    $ source ~/.bash_profile # this should contain the PATH export mentioned previously
+    $ source activate balsam
+    $ export LD_LIBRARY_PATH=~/.conda/envs/balsam/lib:$LD_LIBRARY_PATH # if not already in .bash_profile
+    $ balsam ls # ready to go
+
 Comprehensive Test Suite
 ------------------------
 The **balsam-test** command line tool invokes tests in the tests/ directory
@@ -113,3 +122,4 @@ them just by calling **balsam-test** with no arguments::
 
     balsam-test tests.test_dag # this should be quick
     balsam-test # the test_functional module might take over 10 minutes!
+
