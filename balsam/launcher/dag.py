@@ -61,6 +61,7 @@ follows::
 '''
     
 import django
+import json
 import os
 import uuid 
 
@@ -72,7 +73,7 @@ __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR',
 os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
 django.setup()
 
-from balsam.service.models import BalsamJob
+from balsam.service.models import BalsamJob, history_line
 from django.conf import settings
 
 current_job = None
@@ -202,31 +203,36 @@ def spawn_child(clone=False, **kwargs):
 
     if 'workflow' not in kwargs:
         kwargs['workflow'] = current_job.workflow
+    
+    if 'allowed_work_sites' not in kwargs:
+        kwargs['allowed_work_sites'] = settings.BALSAM_SITE
+
+    child = BalsamJob()
+    new_pk = child.pk
+
+    exclude_fields = '_state version state_history job_id working_directory'.split()
+    fields = [f for f in current_job.__dict__ if f not in exclude_fields]
 
     if clone:
-        child = BalsamJob()
-        new_pk = child.pk
-
-        exclude_fields = '_state version job_id working_directory'.split()
-        fields = [f for f in current_job.__dict__ if f not in exclude_fields]
-        for f in fields: child.__dict__[f] = current_job.__dict__[f]
+        for f in fields: 
+            child.__dict__[f] = current_job.__dict__[f]
         assert child.pk == new_pk
 
-        for k,v in kwargs.items():
-            if k in fields:
-                child.__dict__[k] = v
-            else:
-                raise ValueError(f"Invalid field {k}")
+    for k,v in kwargs.items():
+        if k in fields:
+            child.__dict__[k] = v
+        else:
+            raise ValueError(f"Invalid field {k}")
 
-        child.working_directory = '' # This is essential
-        child.db_write_client = None
-        child.save()
-    else:
-        child = add_job(**kwargs)
+    child.working_directory = '' # This is essential
+    child.db_write_client = None
 
-    add_dependency(current_job, child)
-    child.state_history = ''
-    child.update_state("CREATED", f"spawned by {current_job.cute_id}")
+    newparents = json.loads(current_job.parents)
+    newparents.append(str(current_job.job_id))
+    child.parents = json.dumps(newparents)
+    child.state = "CREATED"
+    child.state_history = history_line("CREATED", f"spawned by {current_job.cute_id}")
+    child.save()
     return child
 
 def kill(job, recursive=True):

@@ -23,7 +23,8 @@ from balsam.launcher import runners
 from balsam.launcher.launcher import get_args, create_runner
 
 def ls_procs(keywords):
-    if type(keywords) == str: keywords = [keywords]
+    if type(keywords) == str: 
+        keywords = keywords.split()
 
     username = getpass.getuser()
     
@@ -58,6 +59,7 @@ def stop_processes(name):
     processes = ls_procs(name)
     if processes:
         sig_processes(processes, signal.SIGKILL)
+        time.sleep(3)
 
 class TestMPIRunner(BalsamTestCase):
     '''start, update_jobs, finished, error/timeout handling'''
@@ -276,8 +278,7 @@ class TestMPIEnsemble(BalsamTestCase):
         self.assertTrue(all(j.state=='RUN_ERROR' for j in jobs['fail']))
 
         # Kill the sleeping jobs in case they do not terminate
-        stop_processes('mpi_ensemble')
-        stop_processes('mock_serial')
+        stop_processes('mpi_ensemble mock_serial')
 
 
 class TestRunnerGroup(BalsamTestCase):

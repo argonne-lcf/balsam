@@ -6,6 +6,7 @@ import getpass
 import sys
 import signal
 import subprocess
+import time
 import tempfile
 from importlib.util import find_spec
 
@@ -54,6 +55,7 @@ def stop_launcher_processes():
         print("\n".join(processes))
         print("Sending SIGKILL")
         sig_processes(processes, signal.SIGKILL)
+        time.sleep(3)
 
 
 def run_launcher_until(function, args=(), period=1.0, timeout=60.0):
@@ -937,13 +939,16 @@ class TestUserKill(BalsamTestCase):
     def test_kill_during_execution_mpi(self):
         '''Parallel MPIRunner job is properly terminated'''
         from balsam.service.schedulers import Scheduler
+        from balsam.launcher import worker
+        from balsam.launcher.launcher import get_args
+
+        config = get_args('--consume-all'.split())
         scheduler = Scheduler.scheduler_main
-        if scheduler.num_workers:
-            num_workers = scheduler.num_workers
-            if num_workers < 2: 
-                self.skipTest("Need at least 2 workers to run this test")
-        else:
-            self.skipTest("Need environment with multiple workers to run this test")
+        group = worker.WorkerGroup(config, host_type=scheduler.host_type,
+                                   workers_str=scheduler.workers_str,
+                                   workers_file=scheduler.workers_file)
+        if len(group.workers) < 2:
+            self.skipTest("Need at least 2 workers to run this test")
 
         killer_job = create_job(name="killer", app="killer")
         slow_job = create_job(name="slow_job", app="slow", ranks_per_node=2,
