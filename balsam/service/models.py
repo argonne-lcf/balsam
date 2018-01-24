@@ -454,8 +454,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         work_dir = self.working_directory
         path = os.path.join(work_dir, fname)
         if not os.path.exists(path):
-            raise ValueError(f"{fname} not found in working directory of"
-            " {self.cute_id}")
+            raise ValueError(f"{fname} not found in working directory of {self.cute_id}")
         else:
             return open(path).read()
 

@@ -66,6 +66,9 @@ class WorkerGroup:
         if not self.workers_str:
             raise ValueError("Cray WorkerGroup needs workers_str to setup")
             
+        serial_rpn = config.max_ranks_per_node
+        if serial_rpn <= 1: serial_rpn = 16
+
         ranges = self.workers_str.split(',')
         for node_range in ranges:
             lo, *hi = node_range.split('-')
@@ -77,7 +80,7 @@ class WorkerGroup:
                 node_ids.append(lo)
         for id in node_ids:
             self.workers.append(Worker(id, host_type='CRAY',
-                                num_nodes=1, max_ranks_per_node=16))
+                                num_nodes=1, max_ranks_per_node=serial_rpn))
 
     def setup_BGQ(self, config):
         # Boot blocks
@@ -94,10 +97,13 @@ class WorkerGroup:
         splitter = ',' if ',' in data else None
         node_ids = data.split(splitter)
         self.workers_str = " ".join(node_ids)
+        
+        serial_rpn = config.max_ranks_per_node
+        if serial_rpn <= 1: serial_rpn = 16
 
         for id in node_ids:
             self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1,
-                                       max_ranks_per_node=16))
+                                       max_ranks_per_node=serial_rpn))
 
     def setup_DEFAULT(self, config):
         # Use command line config: num_workers, nodes_per_worker,
