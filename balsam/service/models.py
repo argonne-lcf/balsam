@@ -216,6 +216,9 @@ class BalsamJob(models.Model):
         help_text='A script that is run in a job working directory after the job has completed.'
         ' If blank, will default to the default_postprocess script defined for the application.',
         default='')
+    wait_for_parents = models.BooleanField(
+            'If True, do not process this job until parents are FINISHED',
+            default=True)
     post_error_handler = models.BooleanField(
         'Let postprocesser try to handle RUN_ERROR',
         help_text='If true, the postprocessor will be invoked for RUN_ERROR jobs'

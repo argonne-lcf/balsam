@@ -91,7 +91,8 @@ def check_parents(job, lock):
     job.refresh_from_db()
     parents = job.get_parents()
     ready = all(p.state == 'JOB_FINISHED' for p in parents)
-    if ready:
+
+    if ready or not job.wait_for_parents:
         lock.acquire()
         job.update_state('READY', 'dependencies satisfied')
         lock.release()
