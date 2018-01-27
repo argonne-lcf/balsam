@@ -2,7 +2,6 @@ from io import StringIO
 from traceback import print_exc
 import json
 import os
-import logging
 import zmq
 
 from django.db.utils import OperationalError
@@ -13,6 +12,7 @@ REQ_RETRY = 3
 
 class Client:
     def __init__(self, server_info):
+        import logging
         self.logger = logging.getLogger(__name__)
         self.server_info = server_info
         self.serverAddr = self.server_info.get('address')
@@ -40,7 +40,10 @@ class Client:
 
             if socks.get(client) == zmq.POLLIN:
                 reply = client.recv()
+                client.close()
+                poll.unregister(client)
                 context.term()
+                self.logger.debug(f"received reply: {reply}")
                 return reply.decode('utf-8')
             else:
                 self.logger.debug("No response from server, retrying...")

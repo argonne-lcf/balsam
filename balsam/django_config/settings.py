@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 
 import os
 import sys
-from balsam.django_config import serverinfo, sqlite_client
+from balsam.django_config import serverinfo
 from balsam.user_settings import *
 
 # ---------------
@@ -54,19 +54,6 @@ def configure_db_backend(db_path):
 CONCURRENCY_ENABLED = True
 BALSAM_PATH = resolve_db_path()
 DATABASES = configure_db_backend(BALSAM_PATH)
-
-# -----------------------
-# SQLITE CLIENT SETUP
-# ------------------------
-is_server = os.environ.get('IS_BALSAM_SERVER')=='True'
-is_daemon = os.environ.get('IS_SERVER_DAEMON')=='True'
-using_sqlite = DATABASES['default']['ENGINE'].endswith('sqlite3')
-SAVE_CLIENT = None
-
-if using_sqlite and not (is_server or is_daemon):
-    SAVE_CLIENT = sqlite_client.Client(serverinfo.ServerInfo(BALSAM_PATH))
-    if SAVE_CLIENT.serverAddr is None:
-        SAVE_CLIENT = None
 
 # --------------------
 # SUBDIRECTORY SETUP
@@ -144,6 +131,20 @@ def log_uncaught_exceptions(exctype, value, tb,logger=logger):
    logger = logging.getLogger('console')
    logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
 sys.excepthook = log_uncaught_exceptions
+
+# -----------------------
+# SQLITE CLIENT SETUP
+# ------------------------
+is_server = os.environ.get('IS_BALSAM_SERVER')=='True'
+is_daemon = os.environ.get('IS_SERVER_DAEMON')=='True'
+using_sqlite = DATABASES['default']['ENGINE'].endswith('sqlite3')
+SAVE_CLIENT = None
+
+if using_sqlite and not (is_server or is_daemon):
+    from balsam.django_config import sqlite_client
+    SAVE_CLIENT = sqlite_client.Client(serverinfo.ServerInfo(BALSAM_PATH))
+    if SAVE_CLIENT.serverAddr is None:
+        SAVE_CLIENT = None
 
 
 # SECURITY WARNING: keep the secret key used in production secret!

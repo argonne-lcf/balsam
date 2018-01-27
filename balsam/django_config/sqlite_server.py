@@ -18,7 +18,6 @@ from balsam.service.models import BalsamJob
 from balsam.django_config import serverinfo
 
 logger = logging.getLogger('balsam.django_config.sqlite_server')
-logger.info("HERE IS SERVER!")
 
 SERVER_PERIOD = 1000
 TERM_LINGER = 20 # if SIGTERM, wait 20 sec after final save() to exit
@@ -42,12 +41,14 @@ class ZMQServer:
         events = self.socket.poll(timeout=SERVER_PERIOD)
         if events:
             message = self.socket.recv().decode('utf-8')
+            logger.debug(f'request: {message}')
         else:
             message = None
         return message
 
     def send_reply(self, msg):
         self.socket.send_string(msg)
+        logger.debug(f"Sent reply {msg}")
 
     def save(self, job_msg):
         d = json.loads(job_msg)
@@ -77,15 +78,18 @@ def server_main(db_path):
 
     while not terminate or time.time() - last_save_time < TERM_LINGER:
         message = server.recv_request()
+        logger.debug(f"received message: {message}")
 
         if message is None:
             if os.getppid() != parent_pid:
                 logger.info("detected parent died; server quitting")
                 break
         elif 'job_id' in message:
+            logger.debug("sending ACK_SAVE?")
             last_save_time = server.save(message)
             server.send_reply("ACK_SAVE")
         else:
+            logger.debug("sending ACK")
             server.send_reply("ACK")
 
 if __name__ == "__main__":
