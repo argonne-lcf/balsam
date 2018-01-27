@@ -1,14 +1,10 @@
 # These must come before any other imports
-import django
-import os
-os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-django.setup()
 # --------------
 import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from django.conf import settings
+from balsam.scripts.cli_commands import dbserver, init
 
 def main():
     parser = make_parser()
@@ -48,7 +44,6 @@ def make_parser():
 
     # ADD JOB
     # -------
-    BALSAM_SITE = settings.BALSAM_SITE
     parser_job = subparsers.add_parser('job',
                                        help="add a new Balsam job",
                                        description="add a new Balsam job",
@@ -76,7 +71,7 @@ def make_parser():
                             'job).')
     
     parser_job.add_argument('--allowed-site', action='append',
-                            required=False, default=[BALSAM_SITE],
+                            required=False, default=[],
                             help="Balsam instances where this job can run; "
                             "defaults to the local Balsam instance")
 
@@ -227,7 +222,7 @@ def make_parser():
                             type=int, required=True)
     
     parser_mkchild.add_argument('--allowed-site', action='append',
-                            required=False, default=[BALSAM_SITE],
+                            required=False, default=[],
                             help="Balsam instances where this job can run; "
                             "defaults to the local Balsam instance")
 
@@ -301,6 +296,28 @@ def make_parser():
                         " forever if no limit is detected or specified)")
     parser_launcher.add_argument('--daemon', action='store_true')
     parser_launcher.set_defaults(func=launcher)
+    # -----------------
+    
+    # DBSERVER
+    # --------
+    parser_dbserver = subparsers.add_parser('dbserver', help="Start/stop database server process")
+    group = parser_dbserver.add_mutually_exclusive_group(required=False)
+    group.add_argument('--start', action='store_true',
+                       default=True, help="Start the DB server")
+    group.add_argument('--stop', action='store_true', 
+                       default=False, help="Kill the DB server")
+    parser_dbserver.add_argument('--path', type=str, default='',
+                        help="Balsam DB directory path")
+    parser_dbserver.set_defaults(func=dbserver)
+    # -----------------
+    
+    # INIT
+    # --------
+    parser_init = subparsers.add_parser('init', help="Create new balsam DB")
+    parser_init.add_argument('path', help="Path to Balsam DB directory")
+    parser_init.add_argument('--db-type', choices=['sqlite3'],
+                             default='sqlite3', help="choose backend to use")
+    parser_init.set_defaults(func=init)
     # -----------------
 
 

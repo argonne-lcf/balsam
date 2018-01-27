@@ -18,3 +18,5 @@ experiments
 docs/_build/*
 docs/_static/*
 *.egg-info
+
+default_balsamdb

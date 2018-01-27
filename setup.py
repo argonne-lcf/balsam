@@ -11,6 +11,12 @@ import os
 
 
 def auto_setup_db():
+    here = path.abspath(path.dirname(__file__))
+    default_db_path = os.path.join(here , 'default_balsamdb')
+    os.mkdir(default_db_path, mode=0o755)
+    with open("default_db_path/dbwriter_address", 'w') as fp:
+        fp.write('{"db_type": "sqlite3"}')
+
     import django
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
