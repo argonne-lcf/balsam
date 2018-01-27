@@ -5,34 +5,33 @@ import os
 import logging
 import time
 import zmq
-from socket import gethostname
 import signal
-
-from django.conf import settings
-from django.db.utils import OperationalError
-
-from balsam.django_config import serverinfo
-
-logger = logging.getLogger(__name__)
-
-SERVER_PERIOD = 1000
-TERM_LINGER = 20 # if SIGTERM, wait 20 sec after final save() to exit
 
 os.environ['IS_BALSAM_SERVER']="True"
 os.environ['IS_SERVER_DAEMON']="False"
 os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
 
+import django
+django.setup()
+
+from balsam.service.models import BalsamJob
+from balsam.django_config import serverinfo
+
+logger = logging.getLogger('balsam.django_config.sqlite_server')
+logger.info("HERE IS SERVER!")
+
+SERVER_PERIOD = 1000
+TERM_LINGER = 20 # if SIGTERM, wait 20 sec after final save() to exit
+
+
 class ZMQServer:
     def __init__(self, db_path):
         # connect to local sqlite DB thru ORM
-        import django
-        django.setup()
-        from balsam.service.models import BalsamJob
         self.BalsamJob = BalsamJob
 
         self.info = serverinfo.ServerInfo(db_path)
         self.address = self.info['address']
-        port = int(self.address.split(':'][2])
+        port = int(self.address.split(':')[2])
 
         self.context = zmq.Context(1)
         self.socket = self.context.socket(zmq.REP)

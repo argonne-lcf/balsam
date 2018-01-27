@@ -6,6 +6,8 @@ import sys
 import signal
 import subprocess
 
+os.environ['IS_SERVER_DAEMON']="True"
+
 from balsam.django_config.settings import resolve_db_path
 from serverinfo import ServerInfo
 
@@ -39,9 +41,7 @@ def main(db_path):
     server_type = serverinfo['db_type']
 
     db_cmd = f"BALSAM_DB_PATH={db_path} " + DB_COMMANDS[server_type].format(**serverinfo.data)
-    print("Starting balsam DB server daemon for DB at {db_path}")
-    print(db_cmd)
-    sys.exit(0)
+    print(f"Starting balsam DB server daemon for DB at {db_path}")
 
     proc = run(db_cmd)
 
@@ -76,7 +76,6 @@ def main(db_path):
     serverinfo.update({'address': None})
 
 if __name__ == "__main__":
-    os.environ['IS_SERVER_DAEMON']="True"
     input_path = sys.argv[1] if len(sys.argv) == 2 else None
     db_path = resolve_db_path(input_path)
     main(db_path)

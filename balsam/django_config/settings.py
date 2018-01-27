@@ -12,11 +12,8 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 
 import os
 import sys
-import logging
 from balsam.django_config import serverinfo, sqlite_client
 from balsam.user_settings import *
-
-logger = logging.getLogger(__name__)
 
 # ---------------
 # DATABASE SETUP
@@ -62,16 +59,14 @@ DATABASES = configure_db_backend(BALSAM_PATH)
 # SQLITE CLIENT SETUP
 # ------------------------
 is_server = os.environ.get('IS_BALSAM_SERVER')=='True'
+is_daemon = os.environ.get('IS_SERVER_DAEMON')=='True'
 using_sqlite = DATABASES['default']['ENGINE'].endswith('sqlite3')
 SAVE_CLIENT = None
 
-if using_sqlite and not is_server:
+if using_sqlite and not (is_server or is_daemon):
     SAVE_CLIENT = sqlite_client.Client(serverinfo.ServerInfo(BALSAM_PATH))
     if SAVE_CLIENT.serverAddr is None:
-        logger.debug("SQLite client: writing straight to disk")
         SAVE_CLIENT = None
-    else:
-        logger.debug(f"SQL client: save() via {client.serverAddr}")
 
 # --------------------
 # SUBDIRECTORY SETUP
@@ -118,11 +113,19 @@ LOGGING = {
          'maxBytes': LOG_FILE_SIZE_LIMIT,
          'backupCount': LOG_BACKUP_COUNT,
          'formatter': 'standard',
-      }
+      },
+      'django': {
+         'level': LOG_HANDLER_LEVEL,
+         'class':'logging.handlers.RotatingFileHandler',
+         'filename': os.path.join(LOGGING_DIRECTORY, 'django.log'),
+         'maxBytes': LOG_FILE_SIZE_LIMIT,
+         'backupCount': LOG_BACKUP_COUNT,
+         'formatter': 'standard',
+      },
    },
    'loggers': {
-      'django':{
-         'handlers': ['default'],
+      'django': {
+         'handlers': ['django'],
          'level': 'DEBUG',
          'propagate': True,
       },
@@ -134,6 +137,8 @@ LOGGING = {
    }
 }
 
+import logging
+logger = logging.getLogger(__name__)
 def log_uncaught_exceptions(exctype, value, tb,logger=logger):
    logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
    logger = logging.getLogger('console')

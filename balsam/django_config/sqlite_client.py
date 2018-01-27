@@ -10,16 +10,17 @@ from django.db.utils import OperationalError
 REQ_TIMEOUT = 10000 # 10 seconds
 REQ_RETRY = 3
 
-logger = logging.getLogger(__name__)
 
 class Client:
     def __init__(self, server_info):
+        self.logger = logging.getLogger(__name__)
         self.server_info = server_info
         self.serverAddr = self.server_info.get('address')
         if self.serverAddr:
-            response = self.send_request('TEST_ALIVE', timeout=3000)
+            self.logger.debug(f"trying to reach DB write server at {self.serverAddr}")
+            response = self.send_request('TEST_ALIVE', timeout=3)
             if response != 'ACK':
-                logger.exception(f"sqlite client cannot reach DB write server")
+                self.logger.exception(f"sqlite client cannot reach DB write server")
                 raise RuntimeError("Cannot reach DB write server")
 
     def send_request(self, msg, timeout=None):
@@ -42,7 +43,7 @@ class Client:
                 context.term()
                 return reply.decode('utf-8')
             else:
-                logger.debug("No response from server, retrying...")
+                self.logger.debug("No response from server, retrying...")
                 client.setsockopt(zmq.LINGER, 0)
                 client.close()
                 poll.unregister(client)
@@ -58,6 +59,6 @@ class Client:
             force_update=force_update, using=using,
             update_fields=update_fields)
 
-        logger.info(f"client: sending request for save of {job.cute_id}")
+        self.logger.info(f"client: sending request for save of {job.cute_id}")
         response = self.send_request(serial_data)
         assert response == 'ACK_SAVE'

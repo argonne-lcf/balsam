@@ -372,7 +372,6 @@ def dbserver(args):
             pid = server_pids[0]
             print(f"Stopping db_daemon {pid}")
             os.kill(pid, signal.SIGUSR1)
-        return
     else:
         path = args.path
         if path: cmd = [sys.executable, fname, path]

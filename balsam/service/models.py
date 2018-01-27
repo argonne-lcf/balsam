@@ -12,7 +12,7 @@ from django.db import models
 from concurrency.fields import IntegerVersionField
 from concurrency.exceptions import RecordModifiedError
 
-logger = logging.getLogger('balsam.service')
+logger = logging.getLogger('balsam.service.models')
 
 class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
