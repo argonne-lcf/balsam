@@ -936,7 +936,7 @@ class TestUserKill(BalsamTestCase):
 
     def test_kill_during_execution_serial(self):
         '''Serial job running in mpi_ensemble is properly terminated'''
-        killer_job = create_job(name="killer", app="killer")
+        killer_job = create_job(name="killer", app="killer", args="when-running")
         slow_job = create_job(name="slow_job", app="slow", args="30")
         
         success = run_launcher_until_state(killer_job, 'JOB_FINISHED')

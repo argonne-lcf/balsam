@@ -38,9 +38,15 @@ def main():
     loader = unittest.defaultTestLoader
     if len(sys.argv) > 1:
         names = [n for n in sys.argv[1:] if '--' not in n]
-        suite = loader.loadTestsFromNames(names)
     else:
+        names = []
+
+    if names:
+        suite = loader.loadTestsFromNames(names)
+    elif '--bench' not in ' '.join(sys.argv[1:]):
         suite = loader.discover('tests')
+    else:
+        suite = loader.discover('tests.benchmarks', pattern='bench*.py')
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 if __name__ == "__main__":
