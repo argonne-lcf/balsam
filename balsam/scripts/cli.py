@@ -306,6 +306,8 @@ def make_parser():
                        default=True, help="Start the DB server")
     group.add_argument('--stop', action='store_true', 
                        default=False, help="Kill the DB server")
+    group.add_argument('--reset', type=str,
+                       default='', help="Balsam DB path at which to reset the address file")
     parser_dbserver.add_argument('--path', type=str, default='',
                         help="Balsam DB directory path")
     parser_dbserver.set_defaults(func=dbserver)

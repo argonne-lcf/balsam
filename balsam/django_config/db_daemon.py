@@ -5,6 +5,7 @@ import os
 import sys
 import signal
 import subprocess
+import time
 
 os.environ['IS_SERVER_DAEMON']="True"
 
@@ -20,6 +21,7 @@ DB_COMMANDS = {
     'postgres': f'',
     'mysql'   : f'',
 }
+term_start = 0
 
 
 
@@ -29,10 +31,12 @@ def run(cmd):
     return proc
 
 def stop(proc):
-    print("Killing Balsam server process")
     proc.terminate()
-    try: retcode = proc.wait(timeout=3)
-    except subprocess.TimeoutExpired: proc.kill()
+    print("Balsam server shutdown...", flush=True)
+    try: retcode = proc.wait(timeout=30)
+    except subprocess.TimeoutExpired: 
+        print("Warning: server did not quit gracefully")
+        proc.kill()
 
 def main(db_path):
 
@@ -41,24 +45,18 @@ def main(db_path):
     server_type = serverinfo['db_type']
 
     db_cmd = f"BALSAM_DB_PATH={db_path} " + DB_COMMANDS[server_type].format(**serverinfo.data)
-    print(f"Starting balsam DB server daemon for DB at {db_path}")
+    print(f"\nStarting balsam DB server daemon for DB at {db_path}")
 
     proc = run(db_cmd)
-
-    # On SIGINT/SIGTERM, start the clock & quit after TERM_LINGER sec
-    term_start = 0
-    def handle_term(signum, stack):
-        global term_start
-        if term_start == 0: term_start = time.time()
 
     # On SIGUSR1, stop immediately ("balsam server --stop" does this)
     def handle_stop(signum, stack):
         stop(proc)
-        serverinfo['address'] = None
+        serverinfo.update({'address': None})
         sys.exit(0)
     
-    signal.signal(signal.SIGINT, handle_term)
-    signal.signal(signal.SIGTERM, handle_term)
+    signal.signal(signal.SIGINT, handle_stop)
+    signal.signal(signal.SIGTERM, handle_stop)
     signal.signal(signal.SIGUSR1, handle_stop)
 
     while not term_start or time.time() - term_start < TERM_LINGER:
@@ -67,7 +65,7 @@ def main(db_path):
         except subprocess.TimeoutExpired: 
             pass
         else:
-            print("server process stopped unexpectedly; restarting")
+            print("\nserver process stopped unexpectedly; restarting")
             serverinfo.reset_server_address()
             db_cmd = f"BALSAM_DB_PATH={db_path} " + DB_COMMANDS[server_type].format(**serverinfo.data)
             proc = run(db_cmd)

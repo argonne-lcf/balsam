@@ -61,15 +61,13 @@ DATABASES = configure_db_backend(BALSAM_PATH)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGGING_DIRECTORY = os.path.join(BALSAM_PATH , 'log') 
 DATA_PATH = os.path.join(BALSAM_PATH ,'data')
-BALSAM_WORK_DIRECTORY = os.path.join(DATA_PATH,'balsamjobs') # where to store local job data used for submission
-ARGO_WORK_DIRECTORY = os.path.join(DATA_PATH,'argojobs')
+BALSAM_WORK_DIRECTORY = DATA_PATH
 
 for d in [
       BALSAM_PATH ,
       DATA_PATH,
       LOGGING_DIRECTORY,
       BALSAM_WORK_DIRECTORY,
-      ARGO_WORK_DIRECTORY
 ]:
     if not os.path.exists(d):
         os.makedirs(d)
@@ -78,6 +76,7 @@ for d in [
 # LOGGING SETUP
 # ----------------
 HANDLER_FILE = os.path.join(LOGGING_DIRECTORY, LOG_FILENAME)
+BALSAM_DB_CONFIG_LOG = os.path.join(LOGGING_DIRECTORY, "balsamdb-config.log")
 LOGGING = {
    'version': 1,
    'disable_existing_loggers': False,
@@ -101,6 +100,14 @@ LOGGING = {
          'backupCount': LOG_BACKUP_COUNT,
          'formatter': 'standard',
       },
+      'balsam-db-config': {
+         'level':LOG_HANDLER_LEVEL,
+         'class':'logging.handlers.RotatingFileHandler',
+         'filename': BALSAM_DB_CONFIG_LOG,
+         'maxBytes': LOG_FILE_SIZE_LIMIT,
+         'backupCount': LOG_BACKUP_COUNT,
+         'formatter': 'standard',
+      },
       'django': {
          'level': LOG_HANDLER_LEVEL,
          'class':'logging.handlers.RotatingFileHandler',
@@ -120,6 +127,16 @@ LOGGING = {
          'handlers': ['default'],
          'level': 'DEBUG',
           'propagate': True,
+      },
+      'balsam.django_config': {
+         'handlers': ['balsam-db-config'],
+         'level': 'DEBUG',
+          'propagate': False,
+      },
+      'balsam.service.models': {
+         'handlers': ['balsam-db-config'],
+         'level': 'DEBUG',
+          'propagate': False,
       },
    }
 }

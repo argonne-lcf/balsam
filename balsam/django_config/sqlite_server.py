@@ -20,7 +20,8 @@ from balsam.django_config import serverinfo
 logger = logging.getLogger('balsam.django_config.sqlite_server')
 
 SERVER_PERIOD = 1000
-TERM_LINGER = 20 # if SIGTERM, wait 20 sec after final save() to exit
+TERM_LINGER = 3 # wait 3 sec after final save() to exit
+terminate = False
 
 
 class ZMQServer:
@@ -65,11 +66,13 @@ class ZMQServer:
 def server_main(db_path):
     logger.debug("hello from server_main")
     parent_pid = os.getppid()
+    global terminate
 
-    terminate = False
     def handler(signum, stack):
         global terminate
         terminate = True
+        logger.debug("Got sigterm; will shut down soon")
+
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
 
@@ -78,14 +81,15 @@ def server_main(db_path):
 
     while not terminate or time.time() - last_save_time < TERM_LINGER:
         message = server.recv_request()
-        logger.debug(f"received message: {message}")
+        if terminate:
+            logger.debug(f"shut down in {TERM_LINGER - (time.time()-last_save_time)} seconds")
 
         if message is None:
             if os.getppid() != parent_pid:
-                logger.info("detected parent died; server quitting")
-                break
+                logger.info("detected parent died; server quitting soon")
+                terminate = True
         elif 'job_id' in message:
-            logger.debug("sending ACK_SAVE?")
+            logger.debug("sending ACK_SAVE")
             last_save_time = server.save(message)
             server.send_reply("ACK_SAVE")
         else:

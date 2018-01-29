@@ -361,7 +361,19 @@ def service(args):
     print("dummy -- invoking balsam metascheduler service")
 
 def dbserver(args):
+    from balsam.django_config import serverinfo
     fname = find_spec("balsam.django_config.db_daemon").origin
+
+    if args.reset:
+        path = os.path.join(args.reset, serverinfo.ADDRESS_FNAME)
+        if not os.path.exists(path):
+            print("No db address file at reset path")
+            sys.exit(0)
+        else:
+            info = serverinfo.ServerInfo(args.reset)
+            info.update({'address': None})
+            print("Reset done")
+            sys.exit(0)
 
     if args.stop:
         server_pids = [int(line.split()[1]) for line in ls_procs('db_daemon')]

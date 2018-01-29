@@ -16,16 +16,24 @@ class Client:
         self.logger = logging.getLogger(__name__)
         self.server_info = server_info
         self.serverAddr = self.server_info.get('address')
+        self.first_message = True
         if self.serverAddr:
-            self.logger.debug(f"trying to reach DB write server at {self.serverAddr}")
-            response = self.send_request('TEST_ALIVE', timeout=3)
-            if response != 'ACK':
-                self.logger.exception(f"sqlite client cannot reach DB write server")
-                raise RuntimeError("Cannot reach DB write server")
+            try:
+                response = self.send_request('TEST_ALIVE', timeout=300)
+            except:
+                raise RuntimeError("Cannot reach server at {self.serverAddr}")
+            else:
+                if response != 'ACK':
+                    self.logger.exception(f"sqlite client cannot reach DB write server")
+                    raise RuntimeError("Cannot reach server at {self.serverAddr}")
 
     def send_request(self, msg, timeout=None):
         if timeout is None:
             timeout = REQ_TIMEOUT
+
+        if self.first_message:
+            self.first_message = False
+            self.logger.debug(f"Connected to DB write server at {self.serverAddr}")
 
         context = zmq.Context(1)
         poll = zmq.Poller()
@@ -52,6 +60,7 @@ class Client:
                 poll.unregister(client)
                 self.server_info.refresh()
                 self.serverAddr = self.server_info['address']
+                self.logger.debug(f"Connecting to DB write server at {self.serverAddr}")
 
         context.term()
         raise OperationalError(f"Sqlite client save request failed after " 

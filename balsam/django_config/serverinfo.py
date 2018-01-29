@@ -15,8 +15,12 @@ class ServerInfo:
             self.refresh()
 
         if self.data.get('address') and os.environ.get('IS_SERVER_DAEMON')=='True':
-            raise RuntimeError(f"Running server address is already posted at {self.path}"
-                               ' (use "balsam server --stop" to shut it down)')
+            raise RuntimeError(f"A running server address is already posted at {self.path}\n"
+                               '  Use "balsam dbserver --stop" to shut it down.\n'
+                               '  If you are sure there is no running server process, the'
+                               ' daemon did not have a clean shutdown.\n  Use "balsam'
+                               ' dbserver --reset <balsam_db_directory>" to reset the server file'
+                              )
 
     def get_free_port_and_address(self):
         hostname = socket.gethostname()
