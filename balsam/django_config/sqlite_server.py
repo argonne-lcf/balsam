@@ -16,6 +16,7 @@ django.setup()
 
 from balsam.service.models import BalsamJob
 from balsam.django_config import serverinfo
+from concurrency.exceptions import RecordModifiedError
 
 logger = logging.getLogger('balsam.django_config.sqlite_server')
 
@@ -60,7 +61,7 @@ class ZMQServer:
         update_fields = d['update_fields']
         job.save(force_insert, force_update, using, update_fields)
         logger.info(f"db_writer Saved {job.cute_id}")
-        return time.time()
+        return time.time(), job.pk
 
 
 def server_main(db_path):
@@ -89,9 +90,14 @@ def server_main(db_path):
                 logger.info("detected parent died; server quitting soon")
                 terminate = True
         elif 'job_id' in message:
-            logger.debug("sending ACK_SAVE")
-            last_save_time = server.save(message)
-            server.send_reply("ACK_SAVE")
+            try:
+                last_save_time, job_id = server.save(message)
+            except RecordModifiedError:
+                server.send_reply("ACK_RECORD_MODIFIED")
+                logger.debug("sending ACK_RECORD_MODIFIED")
+            else:
+                server.send_reply(f"ACK_SAVE {job_id}")
+                logger.debug("sending ACK_SAVE")
         else:
             logger.debug("sending ACK")
             server.send_reply("ACK")

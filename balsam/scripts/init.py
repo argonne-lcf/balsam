@@ -11,8 +11,8 @@ from django.conf import settings
 
 db_path = db.connection.settings_dict['NAME']
 print(f"Setting up new balsam database: {db_path}")
-call_command('makemigrations', interactive=False, verbosity=2)
-call_command('migrate', interactive=False, verbosity=2)
+call_command('makemigrations', interactive=False, verbosity=0)
+call_command('migrate', interactive=False, verbosity=0)
 
 new_path = settings.DATABASES['default']['NAME']
 if os.path.exists(new_path):

@@ -2,9 +2,11 @@ from io import StringIO
 from traceback import print_exc
 import json
 import os
+import uuid
 import zmq
 
 from django.db.utils import OperationalError
+from concurrency.exceptions import RecordModifiedError
 
 REQ_TIMEOUT = 10000 # 10 seconds
 REQ_RETRY = 3
@@ -73,4 +75,12 @@ class Client:
 
         self.logger.info(f"client: sending request for save of {job.cute_id}")
         response = self.send_request(serial_data)
-        assert response == 'ACK_SAVE'
+        if response == 'ACK_RECORD_MODIFIED':
+            raise RecordModifiedError(target=job)
+        else:
+            assert response.startswith('ACK_SAVE')
+            job_id = uuid.UUID(response.split()[1])
+            if job.job_id is None:
+                job.job_id = job_id
+            else:
+                assert job.job_id == job_id

@@ -256,12 +256,13 @@ class BalsamJob(models.Model):
         else:
             logger.info(f"sending request for save of {self.cute_id}")
             settings.SAVE_CLIENT.save(self, force_insert, force_update, using, update_fields)
+            self.refresh_from_db()
 
     @staticmethod
     def from_dict(d):
         job = BalsamJob()
         SERIAL_FIELDS = [f for f in job.__dict__ if f not in
-                '_state version force_insert force_update using update_fields'.split()
+                '_state force_insert force_update using update_fields'.split()
                 ]
 
         if type(d['job_id']) is str:
@@ -488,7 +489,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         return path
 
     def to_dict(self):
-        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state', 'version']]
+        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state']]
         d = {field : self.__dict__[field] for field in SERIAL_FIELDS}
         return d
 
