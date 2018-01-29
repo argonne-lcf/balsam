@@ -12,9 +12,14 @@ from balsam.service.models import BalsamJob, ApplicationDefinition
 class BalsamTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        assert db.connection.settings_dict['NAME'].endswith('test_db.sqlite3')
+        test_db_path = os.environ['BALSAM_DB_PATH']
+        assert test_db_path in db.connection.settings_dict['NAME']
+        assert 'test' in test_db_path
+
         call_command('makemigrations',interactive=False,verbosity=0)
         call_command('migrate',interactive=False,verbosity=0)
+        call_command('flush',interactive=False,verbosity=0)
+
         assert os.path.exists(settings.DATABASES['default']['NAME'])
 
     @classmethod
@@ -25,7 +30,8 @@ class BalsamTestCase(unittest.TestCase):
         pass # to be implemented by test cases
 
     def tearDown(self):
-        if not db.connection.settings_dict['NAME'].endswith('test_db.sqlite3'):
+        test_db_path = os.environ['BALSAM_DB_PATH']
+        if not test_db_path in db.connection.settings_dict['NAME']:
             raise RuntimeError("Test DB not configured")
         call_command('flush',interactive=False,verbosity=0)
 

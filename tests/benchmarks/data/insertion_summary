@@ -1,0 +1,24 @@
+# 8 Theta compute nodes running "ranks" total mpi ranks
+# (ranks-per-node is "ranks" / 8")
+# mpi4py program: all ranks simultaneously insert new job thru django ORM
+# measure total time for entire aprun (including all aprun/python overheads)
+# db_writer is running on thetalogin6, aprun from thetamom1, COBALT_PARTNAME=3824-3827,3829,3833,3838-3839
+# db_writer is a simple zeromq REP/REQ service listening on tcp://*:5556
+#ranks  time(seconds)
+8       11.773
+16      12.772
+32      13.165
+64      15.289
+128     18.242
+160     19.835
+192     23.247
+224     24.152
+256     26.073
+304     29.941
+336     31.295
+368     35.807
+400     36.037
+432     39.181
+448     39.928
+480     41.017
+512     44.229

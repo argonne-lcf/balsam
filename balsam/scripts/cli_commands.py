@@ -1,14 +1,25 @@
+import getpass
 import os
+from importlib.util import find_spec
 import subprocess
+import signal
 import sys
 
-from django.conf import settings
-from balsam.service import models
-from balsam.launcher import dag
-import balsam.scripts.ls_commands as lscmd
+import django
 
-Job = models.BalsamJob
-AppDef = models.ApplicationDefinition
+def ls_procs(keywords):
+    if type(keywords) == str: keywords = [keywords]
+
+    username = getpass.getuser()
+    
+    searchcmd = 'ps aux | grep '
+    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords) 
+    grep = subprocess.Popen(searchcmd, shell=True, stdout=subprocess.PIPE)
+    stdout,stderr = grep.communicate()
+    stdout = stdout.decode('utf-8')
+
+    processes = [line for line in stdout.split('\n') if 'python' in line and line.split()[0]==username]
+    return processes
 
 def cmd_confirmation(message=''):
     confirm = ''
@@ -19,6 +30,13 @@ def cmd_confirmation(message=''):
     return confirm.lower() == 'y'
 
 def newapp(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    Job = models.BalsamJob
+    AppDef = models.ApplicationDefinition
 
     def py_app_path(path):
         if not path: return path
@@ -53,6 +71,18 @@ def newapp(args):
 
 
 def newjob(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    Job = models.BalsamJob
+    AppDef = models.ApplicationDefinition
+    BALSAM_SITE = settings.BALSAM_SITE
+
+    if not args.allowed_site:
+        args.allowed_site = [BALSAM_SITE]
+
     if not AppDef.objects.filter(name=args.application).exists():
         raise RuntimeError(f"App {args.application} not registered in local DB")
 
@@ -93,6 +123,11 @@ def newjob(args):
 
 
 def match_uniq_job(s):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from balsam.service import models
+    Job = models.BalsamJob
+
     job = Job.objects.filter(job_id__icontains=s)
     if job.count() > 1:
         raise ValueError(f"More than one ID matched {s}")
@@ -107,12 +142,29 @@ def match_uniq_job(s):
     raise ValueError(f"No job in local DB matched {s}")
 
 def newdep(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    Job = models.BalsamJob
+    AppDef = models.ApplicationDefinition
+
     parent = match_uniq_job(args.parent)
     child = match_uniq_job(args.child)
     dag.add_dependency(parent, child)
     print(f"Created link {parent.first().cute_id} --> {child.first().cute_id}")
 
 def ls(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    import balsam.scripts.ls_commands as lscmd
+    Job = models.BalsamJob
+    AppDef = models.ApplicationDefinition
+
     objects = args.objects
     name = args.name
     history = args.history
@@ -130,6 +182,14 @@ def ls(args):
         lscmd.ls_wf(name, verbose, tree, wf)
 
 def modify(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    Job = models.BalsamJob
+    AppDef = models.ApplicationDefinition
+
     if args.obj_type == 'jobs': cls = Job
     elif args.obj_type == 'apps': cls = AppDef
 
@@ -143,6 +203,9 @@ def modify(args):
     target_type = type(getattr(item, args.attr))
     new_value = target_type(args.value)
     if args.attr == 'state':
+        if item.state == 'USER_KILLED':
+            print("Cannot mutate state of a killed job")
+            return
         item.update_state(new_value, 'User mutated state from command line')
     else:
         setattr(item, args.attr, new_value)
@@ -151,6 +214,14 @@ def modify(args):
 
 
 def rm(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    Job = models.BalsamJob
+    AppDef = models.ApplicationDefinition
+
     objects_name = args.objects
     name = args.name
     objid = args.id
@@ -195,6 +266,14 @@ def rm(args):
 
 
 def qsub(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    Job = models.BalsamJob
+    AppDef = models.ApplicationDefinition
+
     job = Job()
     job.name = args.name if args.name else "default"
     job.description = 'Added by balsam qsub'
@@ -226,6 +305,13 @@ def qsub(args):
     print("Added to database")
 
 def kill(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    from balsam.launcher import dag
+    Job = models.BalsamJob
+
     job_id = args.id
     
     job = Job.objects.filter(job_id__startswith=job_id)
@@ -242,6 +328,11 @@ def kill(args):
 
 
 def mkchild(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.launcher import dag
+
     if not dag.current_job:
         raise RuntimeError(f"mkchild requires that BALSAM_JOB_ID is in the environment")
     child_job = newjob(args)
@@ -250,7 +341,6 @@ def mkchild(args):
 
 def launcher(args):
     daemon = args.daemon
-    from importlib.util import find_spec
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
     command = [sys.executable] + [fname] + original_args
@@ -264,9 +354,74 @@ def launcher(args):
 
 
 def service(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+
     print("dummy -- invoking balsam metascheduler service")
 
+def dbserver(args):
+    from balsam.django_config import serverinfo
+    fname = find_spec("balsam.django_config.db_daemon").origin
+
+    if args.reset:
+        path = os.path.join(args.reset, serverinfo.ADDRESS_FNAME)
+        if not os.path.exists(path):
+            print("No db address file at reset path")
+            sys.exit(0)
+        else:
+            info = serverinfo.ServerInfo(args.reset)
+            info.update({'address': None})
+            print("Reset done")
+            sys.exit(0)
+
+    if args.stop:
+        server_pids = [int(line.split()[1]) for line in ls_procs('db_daemon')]
+        if not server_pids:
+            print(f"No db_daemon processes running under {getpass.getuser()}")
+        else:
+            assert len(server_pids) == 1
+            pid = server_pids[0]
+            print(f"Stopping db_daemon {pid}")
+            os.kill(pid, signal.SIGUSR1)
+    else:
+        path = args.path
+        if path: cmd = [sys.executable, fname, path]
+        else: cmd = [sys.executable, fname]
+        p = subprocess.Popen(cmd)
+        print(f"Starting Balsam DB server daemon (PID: {p.pid})")
+
+def init(args):
+    from balsam.django_config.serverinfo import ServerInfo
+    path = os.path.expanduser(args.path)
+    if os.path.exists(path):
+        if not os.path.isdir(path):
+            print(f"{path} is not a directory")
+            sys.exit(1)
+    else:
+        try: 
+            os.mkdir(path, mode=0o755)
+        except:
+            print(f"Failed to create directory {path}")
+            sys.exit(1)
+        
+    db_type = args.db_type
+    serverinfo = ServerInfo(path)
+    serverinfo.update({'db_type': db_type})
+
+    fname = find_spec("balsam.scripts.init").origin
+    p = subprocess.Popen(f'BALSAM_DB_PATH={path} {sys.executable} {fname}',
+                     shell=True)
+    p.wait()
+
+
 def make_dummies(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    from balsam.service import models
+    Job = models.BalsamJob
+
     for i in range(args.num):
         job = Job()
         job.name = f'dummy{i}'

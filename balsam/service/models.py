@@ -12,9 +12,7 @@ from django.db import models
 from concurrency.fields import IntegerVersionField
 from concurrency.exceptions import RecordModifiedError
 
-from balsam.service import db_writer
-
-logger = logging.getLogger('balsam.service')
+logger = logging.getLogger('balsam.service.models')
 
 class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
@@ -245,8 +243,6 @@ class BalsamJob(models.Model):
         help_text="Chronological record of the job's states",
         default=history_line)
 
-    db_write_client = None
-
     def _save_direct(self, force_insert=False, force_update=False, using=None, 
              update_fields=None):
         '''Override default Django save to ensure version always updated'''
@@ -257,21 +253,19 @@ class BalsamJob(models.Model):
         models.Model.save(self, force_insert, force_update, using, update_fields)
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        if BalsamJob.db_write_client is None:
-            BalsamJob.db_write_client = db_writer.ZMQClient()
-
-        if BalsamJob.db_write_client.zmq_server is None:
+        if settings.SAVE_CLIENT is None:
             logger.info(f"direct save of {self.cute_id}")
             self._save_direct(force_insert, force_update, using, update_fields)
         else:
             logger.info(f"sending request for save of {self.cute_id}")
-            BalsamJob.db_write_client.save(self, force_insert, force_update, using, update_fields)
+            settings.SAVE_CLIENT.save(self, force_insert, force_update, using, update_fields)
+            self.refresh_from_db()
 
     @staticmethod
     def from_dict(d):
         job = BalsamJob()
         SERIAL_FIELDS = [f for f in job.__dict__ if f not in
-                '_state version force_insert force_update using update_fields'.split()
+                '_state force_insert force_update using update_fields'.split()
                 ]
 
         if type(d['job_id']) is str:
@@ -428,8 +422,9 @@ auto timeout retry:     {self.auto_timeout_retry}
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 
-        try: self.refresh_from_db()
-        except ObjectDoesNotExist: pass
+        # If already exists
+        if not self._state.adding:
+            self.refresh_from_db()
         if self.state == 'USER_KILLED': return
 
         self.state_history += history_line(new_state, message)
@@ -496,7 +491,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         return path
 
     def to_dict(self):
-        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state', 'version']]
+        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state']]
         d = {field : self.__dict__[field] for field in SERIAL_FIELDS}
         return d
 

@@ -10,18 +10,159 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.9/ref/settings/
 """
 
-import os,logging
-logger = logging.getLogger(__name__)
+import os
+import sys
+from balsam.django_config import serverinfo
 from balsam.user_settings import *
 
+# ---------------
+# DATABASE SETUP
+# ---------------
+def resolve_db_path(path=None):
+    if path:
+        assert os.path.exists(path)
+    elif os.environ.get('BALSAM_DB_PATH'):
+        path = os.environ['BALSAM_DB_PATH']
+        assert os.path.exists(path)
+    else:
+        path = default_db_path
+    return path
 
+def configure_db_backend(db_path):
+    ENGINES = {
+        'sqlite3' : 'django.db.backends.sqlite3',
+    }
+    NAMES = {
+        'sqlite3' : 'db.sqlite3',
+    }
+    OPTIONS = {
+        'sqlite3' : {'timeout' : 5000},
+    }
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    info = serverinfo.ServerInfo(db_path)
+    db_type = info['db_type']
+    user = info.get('user', '')
+    password = info.get('password', '')
+    db_name = os.path.join(db_path, NAMES[db_type])
+
+    db = dict(ENGINE=ENGINES[db_type], NAME=db_name,
+              OPTIONS=OPTIONS[db_type], USER=user, PASSWORD=password)
+
+    DATABASES = {'default':db}
+    return DATABASES
+
 CONCURRENCY_ENABLED = True
+BALSAM_PATH = resolve_db_path()
+DATABASES = configure_db_backend(BALSAM_PATH)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/1.9/howto/deployment/checklist/
+# --------------------
+# SUBDIRECTORY SETUP
+# --------------------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOGGING_DIRECTORY = os.path.join(BALSAM_PATH , 'log') 
+DATA_PATH = os.path.join(BALSAM_PATH ,'data')
+BALSAM_WORK_DIRECTORY = DATA_PATH
+
+for d in [
+      BALSAM_PATH ,
+      DATA_PATH,
+      LOGGING_DIRECTORY,
+      BALSAM_WORK_DIRECTORY,
+]:
+    if not os.path.exists(d):
+        os.makedirs(d)
+
+# ----------------
+# LOGGING SETUP
+# ----------------
+HANDLER_FILE = os.path.join(LOGGING_DIRECTORY, LOG_FILENAME)
+BALSAM_DB_CONFIG_LOG = os.path.join(LOGGING_DIRECTORY, "balsamdb-config.log")
+LOGGING = {
+   'version': 1,
+   'disable_existing_loggers': False,
+   'formatters': {
+      'standard': {
+      'format' : '%(asctime)s|%(process)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s',
+      'datefmt' : "%d-%b-%Y %H:%M:%S"
+      },
+   },
+   'handlers': {
+      'console': {
+         'class':'logging.StreamHandler',
+         'formatter': 'standard',
+          'level' : 'DEBUG'
+      },
+      'default': {
+         'level':LOG_HANDLER_LEVEL,
+         'class':'logging.handlers.RotatingFileHandler',
+         'filename': HANDLER_FILE,
+         'maxBytes': LOG_FILE_SIZE_LIMIT,
+         'backupCount': LOG_BACKUP_COUNT,
+         'formatter': 'standard',
+      },
+      'balsam-db-config': {
+         'level':LOG_HANDLER_LEVEL,
+         'class':'logging.handlers.RotatingFileHandler',
+         'filename': BALSAM_DB_CONFIG_LOG,
+         'maxBytes': LOG_FILE_SIZE_LIMIT,
+         'backupCount': LOG_BACKUP_COUNT,
+         'formatter': 'standard',
+      },
+      'django': {
+         'level': LOG_HANDLER_LEVEL,
+         'class':'logging.handlers.RotatingFileHandler',
+         'filename': os.path.join(LOGGING_DIRECTORY, 'django.log'),
+         'maxBytes': LOG_FILE_SIZE_LIMIT,
+         'backupCount': LOG_BACKUP_COUNT,
+         'formatter': 'standard',
+      },
+   },
+   'loggers': {
+      'django': {
+         'handlers': ['django'],
+         'level': 'DEBUG',
+         'propagate': True,
+      },
+      'balsam': {
+         'handlers': ['default'],
+         'level': 'DEBUG',
+          'propagate': True,
+      },
+      'balsam.django_config': {
+         'handlers': ['balsam-db-config'],
+         'level': 'DEBUG',
+          'propagate': False,
+      },
+      'balsam.service.models': {
+         'handlers': ['balsam-db-config'],
+         'level': 'DEBUG',
+          'propagate': False,
+      },
+   }
+}
+
+import logging
+logger = logging.getLogger(__name__)
+def log_uncaught_exceptions(exctype, value, tb,logger=logger):
+   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+   logger = logging.getLogger('console')
+   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+sys.excepthook = log_uncaught_exceptions
+
+# -----------------------
+# SQLITE CLIENT SETUP
+# ------------------------
+is_server = os.environ.get('IS_BALSAM_SERVER')=='True'
+is_daemon = os.environ.get('IS_SERVER_DAEMON')=='True'
+using_sqlite = DATABASES['default']['ENGINE'].endswith('sqlite3')
+SAVE_CLIENT = None
+
+if using_sqlite and not (is_server or is_daemon):
+    from balsam.django_config import sqlite_client
+    SAVE_CLIENT = sqlite_client.Client(serverinfo.ServerInfo(BALSAM_PATH))
+    if SAVE_CLIENT.serverAddr is None:
+        SAVE_CLIENT = None
+
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = '=gyp#o9ac0@w3&-^@a)j&f#_n-o=k%z2=g5u@z5+klmh_*hebj'
@@ -30,7 +171,6 @@ SECRET_KEY = '=gyp#o9ac0@w3&-^@a)j&f#_n-o=k%z2=g5u@z5+klmh_*hebj'
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
 
 # Application definition
 

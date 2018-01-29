@@ -48,15 +48,12 @@ logger = logging.getLogger('balsam.launcher.transitions')
 class DummyLock:
     def acquire(self): pass
     def release(self): pass
-if sys.platform.startswith('darwin'):
-    LockClass = multiprocessing.Lock
-elif sys.platform.startswith('win32'):
-    LockClass = multiprocessing.Lock
-else:
-    LockClass = DummyLock
-#LockClass = multiprocessing.Lock
 
-LockClass = DummyLock # With db_writer proxy; no need for lock!
+if settings.SAVE_CLIENT:
+    LockClass = DummyLock # With db_writer proxy; no need for lock!
+else:
+    LockClass = multiprocessing.Lock
+
 logger.debug(f'Using lock: {LockClass}')
 
 PREPROCESS_TIMEOUT_SECONDS = 300
