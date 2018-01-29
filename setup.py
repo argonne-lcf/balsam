@@ -8,14 +8,19 @@ from setuptools.command.develop import develop
 from codecs import open
 from os import path
 import os
+import time
 
 
 def auto_setup_db():
     here = path.abspath(path.dirname(__file__))
     default_db_path = os.path.join(here , 'default_balsamdb')
     os.mkdir(default_db_path, mode=0o755)
-    with open("default_db_path/dbwriter_address", 'w') as fp:
+    time.sleep(1)
+    cwd = os.getcwd()
+    os.chdir(default_db_path)
+    with open("dbwriter_address", 'w') as fp:
         fp.write('{"db_type": "sqlite3"}')
+    os.chdir(cwd)
 
     import django
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
