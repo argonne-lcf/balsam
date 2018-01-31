@@ -1,10 +1,10 @@
 # BENCHMARK: test_concurrent_mpi_insert
-# Host: alcfwl130.alcf.anl.gov
+# Host: alcfwl138.alcf.anl.gov
 # Each rank simultaneously calls dag.add_job (num_ranks simultaneous insertions)
 #     num_nodes    ranks_per_node    num_ranks    total_time_sec
 # --------------------------------------------------------------
               1                 4            4             1.700
-              1                 8            8             2.000
-              1                16           16             2.800
-              1                32           32             4.470
+              1                 8            8             2.010
+              1                16           16             2.780
+              1                32           32             4.400
 

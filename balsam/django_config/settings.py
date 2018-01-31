@@ -20,10 +20,11 @@ from balsam.user_settings import *
 # ---------------
 def resolve_db_path(path=None):
     if path:
+        path = os.path.expanduser(path)
         assert os.path.exists(path)
     elif os.environ.get('BALSAM_DB_PATH'):
         path = os.environ['BALSAM_DB_PATH']
-        assert os.path.exists(path)
+        assert os.path.exists(path), f"balsamDB path {path} not found"
     else:
         path = default_db_path
     return path
