@@ -257,7 +257,6 @@ class BalsamJob(models.Model):
             logger.info(f"direct save of {self.cute_id}")
             self._save_direct(force_insert, force_update, using, update_fields)
         else:
-            logger.info(f"sending request for save of {self.cute_id}")
             settings.SAVE_CLIENT.save(self, force_insert, force_update, using, update_fields)
             self.refresh_from_db()
 

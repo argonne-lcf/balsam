@@ -1,7 +1,7 @@
 import random
 import tempfile
 
-from tests.BalsamTestCase import BalsamTestCase, cmdline, create_job
+from tests.BalsamTestCase import BalsamTestCase, create_job
 from balsam.launcher import jobreader
 from balsam.launcher.launcher import get_args
 from balsam.service.models import BalsamJob

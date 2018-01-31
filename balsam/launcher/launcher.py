@@ -227,9 +227,10 @@ def get_args(inputcmd=None):
                         help="Continuously run all jobs from DB")
     group.add_argument('--wf-name',
                        help="Continuously run jobs of specified workflow")
-    parser.add_argument('--num-workers', type=int, default=1,
+    parser.add_argument('--num-workers', type=int, default=0,
                         help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser.add_argument('--nodes-per-worker', type=int, default=1)
+    parser.add_argument('--nodes-per-worker', help="(BG/Q only) # nodes per sublock", 
+                        type=int, default=1)
     parser.add_argument('--max-ranks-per-node', type=int, default=1,
                         help="For non-MPI jobs, how many to pack per worker")
     parser.add_argument('--time-limit-minutes', type=float, default=0,

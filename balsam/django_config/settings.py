@@ -76,7 +76,7 @@ for d in [
 # LOGGING SETUP
 # ----------------
 HANDLER_FILE = os.path.join(LOGGING_DIRECTORY, LOG_FILENAME)
-BALSAM_DB_CONFIG_LOG = os.path.join(LOGGING_DIRECTORY, "balsamdb-config.log")
+BALSAM_DB_CONFIG_LOG = os.path.join(LOGGING_DIRECTORY, "db.log")
 LOGGING = {
    'version': 1,
    'disable_existing_loggers': False,

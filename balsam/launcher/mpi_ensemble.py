@@ -15,7 +15,7 @@ from subprocess import Popen, STDOUT, TimeoutExpired
 
 from mpi4py import MPI
 
-from balsam.launcher.util import cd, get_tail
+from balsam.launcher.util import cd, get_tail, parse_real_time
 from balsam.launcher.exceptions import *
 from balsam.service.models import BalsamJob
 
@@ -89,8 +89,9 @@ def run(job):
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
 
+            cmd = f"time -p ( {job.cmd} )"
             env = job_from_db.get_envs() # TODO: Should we include this?
-            proc = Popen(job.cmd, stdout=outf, stderr=STDOUT,
+            proc = Popen(cmd, stdout=outf, stderr=STDOUT,
                          cwd=job.workdir,env=env)
 
             handler = lambda a,b: on_exit(proc)
@@ -106,7 +107,9 @@ def run(job):
         else:
             if retcode == 0: 
                 logger.debug(f"mpi_ensemble rank {RANK}: job returned 0")
-                status_msg(job.id, "RUN_DONE")
+                elapsed = parse_real_time(get_tail(outname, indent=''))
+                msg = f"elapsed seconds {elapsed}" if elapsed else ""
+                status_msg(job.id, "RUN_DONE", msg=msg)
             elif retcode == "USER_KILLED":
                 status_msg(job.id, "USER_KILLED", msg="mpi_ensemble aborting job due to user request")
             else:

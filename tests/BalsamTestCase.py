@@ -1,7 +1,6 @@
 import os
 import unittest
 import subprocess
-import time
 
 from django.core.management import call_command
 from django import db
@@ -35,20 +34,7 @@ class BalsamTestCase(unittest.TestCase):
             raise RuntimeError("Test DB not configured")
         call_command('flush',interactive=False,verbosity=0)
 
-def cmdline(cmd,envs=None,shell=True):
-    '''Return string output from a command line'''
-    p = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT,env=envs)
-    return p.communicate()[0].decode('utf-8')
 
-def poll_until_returns_true(function, *, args=(), period=1.0, timeout=12.0):
-    start = time.time()
-    result = False
-    while time.time() - start < timeout:
-        result = function(*args)
-        if result: break
-        else: time.sleep(period)
-    return result
 
 def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE, num_nodes=1,
                ranks_per_node=1, threads_per_rank=1, threads_per_core=1, args='', workflow='', 

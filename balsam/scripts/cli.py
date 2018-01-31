@@ -182,7 +182,7 @@ def make_parser():
 
     # QSUB
     # ----
-    parser_qsub = subparsers.add_parser('qsub', help="add a one-line job to the database, bypassing Application table")
+    parser_qsub = subparsers.add_parser('qsub', help="add a one-line bash command or script job")
     parser_qsub.set_defaults(func=qsub)
     parser_qsub.add_argument('command', nargs='+')
     parser_qsub.add_argument('-n', '--nodes', type=int, default=1, help="Number of compute nodes on which to run job")

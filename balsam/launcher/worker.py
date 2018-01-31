@@ -44,6 +44,10 @@ class WorkerGroup:
         self.workers = []
         self.setup = getattr(self, f"setup_{self.host_type}")
         self.setup(config)
+
+        if config.num_workers >= 1:
+            self.workers = self.workers[:config.num_workers]
+
         logger.info(f"Built {len(self.workers)} {self.host_type} workers")
         for worker in self.workers:
             logger.debug(
@@ -108,7 +112,10 @@ class WorkerGroup:
     def setup_DEFAULT(self, config):
         # Use command line config: num_workers, nodes_per_worker,
         # max_ranks_per_node
-        for i in range(config.num_workers):
+        num_workers = config.num_workers
+        if not num_workers or num_workers < 1:
+            num_workers = 1
+        for i in range(num_workers):
             w = Worker(i, host_type='DEFAULT',
                        num_nodes=config.nodes_per_worker,
                        max_ranks_per_node=config.max_ranks_per_node)

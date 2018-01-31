@@ -1,7 +1,6 @@
 from tests.BalsamTestCase import BalsamTestCase
 from balsam.service.models import BalsamJob, InvalidStateError
 
-
 class BalsamJobDBTests(BalsamTestCase):
     '''Exercise direct manipulation of BalsamJob database'''
 

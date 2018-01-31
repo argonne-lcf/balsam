@@ -2,78 +2,27 @@ from collections import namedtuple
 import getpass
 import os
 import random
-import signal
 from multiprocessing import Lock
 import sys
-import subprocess
 import time
 from uuid import UUID
 from importlib.util import find_spec
-from tests.BalsamTestCase import BalsamTestCase, cmdline
-from tests.BalsamTestCase import poll_until_returns_true
+from tests.BalsamTestCase import BalsamTestCase
 from tests.BalsamTestCase import create_job, create_app
 
 from django.conf import settings
 
-from balsam.service.schedulers import Scheduler
 from balsam.service.models import BalsamJob
-
-from balsam.launcher import worker
 from balsam.launcher import runners
-from balsam.launcher.launcher import get_args, create_runner
+from balsam.launcher.launcher import create_runner
+from tests import util
 
-def ls_procs(keywords):
-    if type(keywords) == str: 
-        keywords = keywords.split()
-
-    username = getpass.getuser()
-    
-    searchcmd = 'ps aux | grep '
-    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords) 
-    grep = subprocess.Popen(searchcmd, shell=True, stdout=subprocess.PIPE)
-    stdout,stderr = grep.communicate()
-    stdout = stdout.decode('utf-8')
-
-    processes = [line for line in stdout.split('\n') if 'python' in line and line.split()[0]==username]
-    return processes
-
-
-def sig_processes(process_lines, signal):
-    for line in process_lines:
-        proc = int(line.split()[1])
-        try: 
-            os.kill(proc, signal)
-        except ProcessLookupError:
-            pass
-
-
-def stop_processes(name):
-    processes = ls_procs(name)
-    sig_processes(processes, signal.SIGTERM)
-    
-    def check_processes_done():
-        procs = ls_procs(name)
-        return len(procs) == 0
-
-    poll_until_returns_true(check_processes_done, period=2, timeout=12)
-    processes = ls_procs(name)
-    if processes:
-        sig_processes(processes, signal.SIGKILL)
-        time.sleep(3)
 
 class TestMPIRunner(BalsamTestCase):
     '''start, update_jobs, finished, error/timeout handling'''
     def setUp(self):
-        scheduler = Scheduler.scheduler_main
-        self.host_type = scheduler.host_type
-        if self.host_type == 'DEFAULT':
-            config = get_args('--consume-all --num-workers 1 --max-ranks-per-node 4'.split())
-        else:
-            config = get_args('--consume-all'.split())
-
-        self.worker_group = worker.WorkerGroup(config, host_type=self.host_type,
-                                               workers_str=scheduler.workers_str,
-                                               workers_file=scheduler.workers_file)
+        launchInfo = util.launcher_info()
+        self.worker_group = launchInfo.workerGroup
 
         app_path = f"{sys.executable}  {find_spec('tests.mock_mpi_app').origin}"
         self.app = create_app(name="mock_mpi",description="print and sleep",
@@ -124,7 +73,7 @@ class TestMPIRunner(BalsamTestCase):
 
             # Now wait for the job to finish
             # On sucessful run, it should be RUN_DONE
-            poll_until_returns_true(runner.finished, period=0.5, timeout=40)
+            util.poll_until_returns_true(runner.finished, period=0.5, timeout=40)
             self.assertTrue(runner.finished())
             runner.update_jobs()
             self.assertEquals(job.state, 'RUN_DONE')
@@ -148,7 +97,7 @@ class TestMPIRunner(BalsamTestCase):
             runner = runners.MPIRunner([job], workerslist)
             runner.start()
             
-            poll_until_returns_true(runner.finished, period=0.5)
+            util.poll_until_returns_true(runner.finished, period=0.5)
             runner.update_jobs()
             self.assertEquals(job.state, 'RUN_ERROR')
             stop_processes('mock_mpi')
@@ -180,23 +129,15 @@ class TestMPIRunner(BalsamTestCase):
             self.assertEquals(job.state, 'RUN_TIMEOUT')
 
             # A moment later, the runner process is indeed terminated
-            term = poll_until_returns_true(runner.finished, period=0.1, 
+            term = util.poll_until_returns_true(runner.finished, period=0.1, 
                                            timeout=6.0)
             self.assertTrue(term)
             stop_processes('mock_mpi')
     
 class TestMPIEnsemble(BalsamTestCase):
     def setUp(self):
-        scheduler = Scheduler.scheduler_main
-        self.host_type = scheduler.host_type
-        if self.host_type == 'DEFAULT':
-            config = get_args('--consume-all --num-workers 1 --max-ranks-per-node 4'.split())
-        else:
-            config = get_args('--consume-all'.split())
-
-        self.worker_group = worker.WorkerGroup(config, host_type=self.host_type,
-                                               workers_str=scheduler.workers_str,
-                                               workers_file=scheduler.workers_file)
+        launchInfo = util.launcher_info()
+        self.worker_group = launchInfo.workerGroup
 
         app_path = f"{sys.executable}  {find_spec('tests.mock_serial_app').origin}"
         self.app = create_app(name="mock_serial", description="square a number",
@@ -259,7 +200,7 @@ class TestMPIEnsemble(BalsamTestCase):
             error_done  = all(j.state=='RUN_ERROR' for j in jobs['fail'])
             return normal_done and qsub_done and error_done
 
-        finished = poll_until_returns_true(check_done, period=1, timeout=20)
+        finished = util.poll_until_returns_true(check_done, period=1, timeout=20)
         self.assertTrue(finished)
 
         # And the long-running jobs in the ensemble are still going:
@@ -283,16 +224,8 @@ class TestMPIEnsemble(BalsamTestCase):
 
 class TestRunnerGroup(BalsamTestCase):
     def setUp(self):
-        scheduler = Scheduler.scheduler_main
-        self.host_type = scheduler.host_type
-        if self.host_type == 'DEFAULT':
-            config = get_args('--consume-all --num-workers 1 --max-ranks-per-node 8'.split())
-        else:
-            config = get_args('--consume-all'.split())
-
-        self.worker_group = worker.WorkerGroup(config, host_type=self.host_type,
-                                               workers_str=scheduler.workers_str,
-                                               workers_file=scheduler.workers_file)
+        launchInfo = util.launcher_info()
+        self.worker_group = launchInfo.workerGroup
 
         app_path = f"{sys.executable}  {find_spec('tests.mock_mpi_app').origin}"
         self.mpiapp = create_app(name="mock_mpi", description="print and sleep",
@@ -378,7 +311,7 @@ class TestRunnerGroup(BalsamTestCase):
             runner_group.update_and_remove_finished()
             return all(r.finished() for r in runner_group)
 
-        success = poll_until_returns_true(check_done, timeout=40)
+        success = util.poll_until_returns_true(check_done, timeout=40)
         self.assertTrue(success)
         
         stop_processes('mpi_ensemble')
