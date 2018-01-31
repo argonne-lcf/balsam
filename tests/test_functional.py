@@ -846,7 +846,7 @@ class TestUserKill(BalsamTestCase):
         self.assertEqual(slow_job.state, "USER_KILLED")
         preproc_out = slow_job.read_file_in_workdir('preprocess.log')
         self.assertIn("Sleeping for a long time", preproc_out)
-        self.assertNotIn("RUNNING", slow_job.state_history)
+        self.assertNotIn("RUN_DONE", slow_job.state_history)
         self.assertIn("STAGED_IN", slow_job.state_history)
 
     def test_kill_during_execution_serial(self):
