@@ -444,7 +444,8 @@ class TestDAG(BalsamTestCase):
         resultpath = os.path.join(remote_dir.name, 'reduce.out')
         result = open(resultpath).read()
         self.assertIn('Total area:', result)
-        result = float(result.split()[-1])
+        result_line = [l for l in result.split('\n') if 'Total area:' in l][0]
+        result = float(result_line.split()[-1])
         self.assertAlmostEqual(result, expected_result)
 
     def triplet_data_check(self, parent, A, B):
@@ -700,7 +701,8 @@ class TestDAG(BalsamTestCase):
         resultpath = os.path.join(remote_dir.name, 'sum_squares.out')
         result = open(resultpath).read()
         self.assertIn('Total area:', result)
-        result = float(result.split()[-1])
+        result_line = [l for l in result.split('\n') if 'Total area:' in l][0]
+        result = float(result_line.split()[-1])
         self.assertAlmostEqual(result, expected_result)
 
         # Checking the post-processor log, we see that those jobs were actually
