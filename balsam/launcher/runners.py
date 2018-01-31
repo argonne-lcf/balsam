@@ -160,6 +160,7 @@ class MPIRunner(Runner):
         self.popen_args['stdout'] = self.outfile
         self.popen_args['stderr'] = STDOUT
         self.popen_args['shell'] = True
+        self.popen_args['executable'] = '/bin/bash'
         self.popen_args['bufsize'] = 1
         logger.info(f"MPIRunner {job.cute_id} Popen:\n{self.popen_args['args']}")
         logger.info(f"MPIRunner: writing output to {outname}")

@@ -8,7 +8,8 @@ def time_cmd(cmd, stdout=PIPE, stderr=STDOUT, envs=None):
 
     cmd = f'time ( {cmd} )'
     p = subprocess.Popen(cmd, shell=True, stdout=stdout,
-                         stderr=stdout, env=envs)
+                         stderr=stdout, env=envs,
+                         executable='/bin/bash')
     stdout = p.communicate()[0].decode('utf-8')
     real_seconds = parse_real_time(stdout)
     return stdout, realtime

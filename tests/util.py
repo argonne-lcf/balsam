@@ -78,7 +78,8 @@ def cmdline(cmd,envs=None):
 
     cmd = f'time -p ( {cmd} )'
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT,env=envs)
+                         stderr=subprocess.STDOUT,env=envs,
+                         executable='/bin/bash')
     stdout = p.communicate()[0].decode('utf-8')
     realtime = get_real_time(stdout)
     return stdout, realtime

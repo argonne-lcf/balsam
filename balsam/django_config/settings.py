@@ -27,6 +27,10 @@ def resolve_db_path(path=None):
         assert os.path.exists(path), f"balsamDB path {path} not found"
     else:
         path = default_db_path
+
+    path = os.path.expanduser(path)
+    path = os.path.abspath(path)
+    os.environ['BALSAM_DB_PATH'] = path
     return path
 
 def configure_db_backend(db_path):

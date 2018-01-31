@@ -93,7 +93,8 @@ def run(job):
             cmd = f"time -p ( {job.cmd} )"
             env = job_from_db.get_envs() # TODO: Should we include this?
             proc = Popen(cmd, stdout=outf, stderr=STDOUT,
-                         cwd=job.workdir,env=env, shell=True)
+                         cwd=job.workdir,env=env, shell=True,
+                         executable='/bin/bash')
 
             handler = lambda a,b: on_exit(proc)
             signal.signal(signal.SIGINT, handler)
