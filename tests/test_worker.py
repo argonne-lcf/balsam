@@ -23,7 +23,7 @@ class WorkerGroupUnitTests(BalsamTestCase):
         group = worker.WorkerGroup(config, host_type='DEFAULT', workers_str=None)
         self.assertEqual(len(group.workers), 1)
         self.assertEqual(group.workers[0].num_nodes, 1)
-        self.assertEqual(group.workers[0].max_ranks_per_node, 1)
+        self.assertEqual(group.workers[0].max_ranks_per_node, 4)
         
         config = get_args('--consume-all --num-workers 3 --max-ranks-per-node 4'.split())
         group = worker.WorkerGroup(config, host_type='DEFAULT', workers_str=None)
@@ -67,4 +67,3 @@ class WorkerGroupUnitTests(BalsamTestCase):
         stdout, _ = util.cmdline(mpi_str)
         self.assertIn('Rank 0', stdout)
         self.assertIn('Rank 1', stdout)
-        self.assertEqual(mpi.returncode, 0)

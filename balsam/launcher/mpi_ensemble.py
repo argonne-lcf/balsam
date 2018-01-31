@@ -52,6 +52,7 @@ def read_jobs(fp):
     for line in fp:
         try:
             id, workdir, *command = line.split()
+            command = ' '.join(command)
             logger.debug(f"Read Job {id}  CMD: {command}  DIR: {workdir}")
         except:
             logger.debug("Invalid jobline")
@@ -92,7 +93,7 @@ def run(job):
             cmd = f"time -p ( {job.cmd} )"
             env = job_from_db.get_envs() # TODO: Should we include this?
             proc = Popen(cmd, stdout=outf, stderr=STDOUT,
-                         cwd=job.workdir,env=env)
+                         cwd=job.workdir,env=env, shell=True)
 
             handler = lambda a,b: on_exit(proc)
             signal.signal(signal.SIGINT, handler)
@@ -108,7 +109,7 @@ def run(job):
             if retcode == 0: 
                 logger.debug(f"mpi_ensemble rank {RANK}: job returned 0")
                 elapsed = parse_real_time(get_tail(outname, indent=''))
-                msg = f"elapsed seconds {elapsed}" if elapsed else ""
+                msg = f"elapsed seconds {elapsed}" if elapsed is not None else ""
                 status_msg(job.id, "RUN_DONE", msg=msg)
             elif retcode == "USER_KILLED":
                 status_msg(job.id, "USER_KILLED", msg="mpi_ensemble aborting job due to user request")

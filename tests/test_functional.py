@@ -2,7 +2,6 @@ from collections import defaultdict
 import glob
 import os
 import random
-import getpass
 import sys
 import tempfile
 from importlib.util import find_spec
@@ -820,7 +819,6 @@ class TestConcurrentDB(BalsamTestCase):
 
         created_jobs = BalsamJob.objects.filter(name__icontains='hello')
         self.assertEqual(created_jobs.count(), num_ranks)
-        print(f"Successfully created {num_ranks} jobs by concurrent insertion")
 
 
 class TestUserKill(BalsamTestCase):

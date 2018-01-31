@@ -231,7 +231,7 @@ def get_args(inputcmd=None):
                         help="Theta: defaults to # nodes. BGQ: the # of subblocks")
     parser.add_argument('--nodes-per-worker', help="(BG/Q only) # nodes per sublock", 
                         type=int, default=1)
-    parser.add_argument('--max-ranks-per-node', type=int, default=1,
+    parser.add_argument('--max-ranks-per-node', type=int, default=4,
                         help="For non-MPI jobs, how many to pack per worker")
     parser.add_argument('--time-limit-minutes', type=float, default=0,
                         help="Provide a walltime limit if not already imposed")

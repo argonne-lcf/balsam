@@ -1,3 +1,4 @@
+import getpass
 import os
 import subprocess
 import signal
@@ -14,12 +15,12 @@ def launcher_info(num_workers=None, max_ranks=None):
     from balsam.launcher.launcher import get_args
     from balsam.launcher import mpi_commands
 
-    args = '--consume-all'
+    args = '--consume-all '
     if num_workers and num_workers > 0:
-        args += f'--num-workers {num_workers}'
+        args += f'--num-workers {num_workers} '
 
     if max_ranks and max_ranks > 0:
-        args += f'--max-ranks-per-node {max_ranks}'
+        args += f'--max-ranks-per-node {max_ranks} '
 
     config = get_args(args.split())
     scheduler = Scheduler.scheduler_main
@@ -90,7 +91,7 @@ def ls_procs(keywords):
     
     searchcmd = 'ps aux | grep '
     searchcmd += ' | grep '.join(f'"{k}"' for k in keywords) 
-    grep_out, _ = cmdline(searchcmd)
+    stdout, _ = cmdline(searchcmd)
 
     processes = [line for line in stdout.split('\n') if 'python' in line and line.split()[0]==username]
     return processes
@@ -118,10 +119,10 @@ def stop_processes(name):
         time.sleep(3)
 
 def stop_launcher_processes():
-    stop_processes('launcher.py --consume')
+    stop_processes('launcher.py')
 
-def run_launcher_until(function, args=(), period=1.0, timeout=60.0, maxrpn=16):
-    cmd = 'balsam launcher --consume --max-ranks-per-node {maxrpn}'
+def run_launcher_until(function, args=(), period=1.0, timeout=60.0, maxrpn=8):
+    cmd = f'balsam launcher --consume --max-ranks-per-node {maxrpn}'
     launcher_proc = subprocess.Popen(cmd.split(),
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,

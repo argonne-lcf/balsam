@@ -1,5 +1,4 @@
 from collections import namedtuple
-import getpass
 import os
 import random
 from multiprocessing import Lock
@@ -77,7 +76,7 @@ class TestMPIRunner(BalsamTestCase):
             self.assertTrue(runner.finished())
             runner.update_jobs()
             self.assertEquals(job.state, 'RUN_DONE')
-            stop_processes('mock_mpi')
+            util.stop_processes('mock_mpi')
 
             # Check that the correct output is really there:
             outpath = runner.outfile.name
@@ -100,7 +99,7 @@ class TestMPIRunner(BalsamTestCase):
             util.poll_until_returns_true(runner.finished, period=0.5)
             runner.update_jobs()
             self.assertEquals(job.state, 'RUN_ERROR')
-            stop_processes('mock_mpi')
+            util.stop_processes('mock_mpi')
     
     def test_timeouts(self):
         '''MPI application runs for too long, call timeout, marked RUN_TIMEOUT'''
@@ -132,11 +131,11 @@ class TestMPIRunner(BalsamTestCase):
             term = util.poll_until_returns_true(runner.finished, period=0.1, 
                                            timeout=6.0)
             self.assertTrue(term)
-            stop_processes('mock_mpi')
+            util.stop_processes('mock_mpi')
     
 class TestMPIEnsemble(BalsamTestCase):
     def setUp(self):
-        launchInfo = util.launcher_info()
+        launchInfo = util.launcher_info(max_ranks=8)
         self.worker_group = launchInfo.workerGroup
 
         app_path = f"{sys.executable}  {find_spec('tests.mock_serial_app').origin}"
@@ -219,12 +218,12 @@ class TestMPIEnsemble(BalsamTestCase):
         self.assertTrue(all(j.state=='RUN_ERROR' for j in jobs['fail']))
 
         # Kill the sleeping jobs in case they do not terminate
-        stop_processes('mpi_ensemble mock_serial')
+        util.stop_processes('mpi_ensemble mock_serial')
 
 
 class TestRunnerGroup(BalsamTestCase):
     def setUp(self):
-        launchInfo = util.launcher_info()
+        launchInfo = util.launcher_info(max_ranks=4)
         self.worker_group = launchInfo.workerGroup
 
         app_path = f"{sys.executable}  {find_spec('tests.mock_mpi_app').origin}"
@@ -314,9 +313,9 @@ class TestRunnerGroup(BalsamTestCase):
         success = util.poll_until_returns_true(check_done, timeout=40)
         self.assertTrue(success)
         
-        stop_processes('mpi_ensemble')
-        stop_processes('mock_serial')
-        stop_processes('mock_mpi')
+        util.stop_processes('mpi_ensemble')
+        util.stop_processes('mock_serial')
+        util.stop_processes('mock_mpi')
 
         # Now there should be no runners, PKs, or busy workers left
         self.assertListEqual(list(runner_group), [])

@@ -458,11 +458,11 @@ auto timeout retry:     {self.auto_timeout_retry}
         return f' {str(self.pk):36} | {self.name:26} | {self.workflow:26} | {app:26} | {recent_state}'
 
     def runtime_str(self):
-        if self.runtime_seconds == 0: return ''
         minutes, seconds = divmod(self.runtime_seconds, 60)
         hours, minutes = divmod(minutes, 60)
-        if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:02d} sec"
-        else: return f"{minutes:02d} min : {seconds:02d} sec"
+        hours, minutes = round(hours), round(minutes)
+        if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:05.2f} sec"
+        else: return f"{minutes:02d} min : {seconds:05.2f} sec"
 
     @staticmethod
     def get_header():

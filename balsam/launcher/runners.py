@@ -155,10 +155,11 @@ class MPIRunner(Runner):
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
         self.outfile = open(outname, 'w+b')
-        self.popen_args['args'] = shlex.split(mpi_str)
+        self.popen_args['args'] = mpi_str
         self.popen_args['cwd'] = job.working_directory
         self.popen_args['stdout'] = self.outfile
         self.popen_args['stderr'] = STDOUT
+        self.popen_args['shell'] = True
         self.popen_args['bufsize'] = 1
         logger.info(f"MPIRunner {job.cute_id} Popen:\n{self.popen_args['args']}")
         logger.info(f"MPIRunner: writing output to {outname}")
@@ -270,8 +271,8 @@ class MPIEnsembleRunner(Runner):
         if timeout:
             for job in self.jobs:
                 if job.state == 'RUNNING':
-                    logger.debug(f"MPIEnsemble job {job.cute_id} RUN_TIMEOUT")
                     job.update_state('RUN_TIMEOUT', 'timed out during MPIEnsemble')
+                    logger.debug(f"MPIEnsemble job {job.cute_id} RUN_TIMEOUT")
         else:
             retcode = self.process.poll()
             if retcode not in [None, 0]:

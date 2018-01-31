@@ -447,7 +447,7 @@ def make_dummies(args):
         job.stage_in_url = ''
         job.stage_out_url = ''
         job.stage_out_files = ''
-        job.direct_command = 'echo hello'
+        job.direct_command = 'sleep 0.1 && echo hello'
 
         job.save()
     print(f"Added {args.num} dummy jobs to the DB")
