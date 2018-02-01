@@ -33,13 +33,15 @@ HPC resources.
     :caption: Quickstart
 
     quick/quickstart.rst
-    quick/tutorial.rst
+    quick/db.rst
+    quick/hello.rst
 
 .. toctree::
     :maxdepth: 2
     :caption: User Guide
 
     userguide/overview
+    userguide/tutorial.rst
     userguide/dag
 
 .. _dev_docs:
@@ -50,6 +52,12 @@ HPC resources.
     devguide/roadmap
     devguide/launcher
 
+.. toctree::
+    :maxdepth: 2
+    :caption: Use Cases
+
+    example/dl-hps.rst
+    example/recipes.rst
 
 
 Indices and tables

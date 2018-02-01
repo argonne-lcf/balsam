@@ -1,4 +1,4 @@
-Balsam Tutorial
+Workflow Tutorial
 ===================
 
 The goal of Balsam is to manage and optimize workflow execution with a minimum of user intervention,
@@ -63,6 +63,18 @@ Let's first write these mock applications in Python. Create a new folder and pop
 .. literalinclude:: balsam_tutorial/reduce.py
     :caption: reduce.py
 
+We can set up a Balsam DB just for this tutorial::
+    
+    $ source activate balsam
+    $ balsam init tutorial_db
+    $ export BALSAM_DB_PATH=$(PWD)/tutorial_db
+    $ balsam dbserver --path=tutorial_db
+
+.. note::
+    This dbserver must be reachable from all the Balsam processes. On
+    Theta@ALCF, you can run these commands on a login node. Jobs running on the
+    MOM/compute nodes will automatically reach back to this server, as long as
+    ``BALSAM_DB_PATH`` is set correctly in the batch script/interactive session.
 
 Writing dynamic workflows
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

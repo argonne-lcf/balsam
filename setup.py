@@ -10,11 +10,15 @@ from os import path
 import os
 import time
 
-
 def auto_setup_db():
     here = path.abspath(path.dirname(__file__))
     default_db_path = os.path.join(here , 'default_balsamdb')
-    os.mkdir(default_db_path, mode=0o755)
+    try:
+        os.mkdir(default_db_path, mode=0o755)
+    except OSError:
+        from shutil import rmtree
+        rmtree(default_db_path)
+        os.mkdir(default_db_path, mode=0o755)
     time.sleep(1)
     cwd = os.getcwd()
     os.chdir(default_db_path)
