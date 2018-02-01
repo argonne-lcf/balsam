@@ -8,8 +8,8 @@ import zmq
 from django.db.utils import OperationalError
 from concurrency.exceptions import RecordModifiedError
 
-REQ_TIMEOUT = 10000 # 10 seconds
-REQ_RETRY = 3
+REQ_TIMEOUT = 30000 # 30 seconds
+REQ_RETRY = 4
 
 
 class Client:
@@ -21,7 +21,7 @@ class Client:
         self.first_message = True
         if self.serverAddr:
             try:
-                response = self.send_request('TEST_ALIVE', timeout=300)
+                response = self.send_request('TEST_ALIVE', timeout=3000)
             except:
                 raise RuntimeError("Cannot reach server at {self.serverAddr}")
             else:

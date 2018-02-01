@@ -21,7 +21,7 @@ class TestInsertion(BalsamTestCase):
         max_workers = self.launcherInfo.num_workers
         worker_counts = takewhile(lambda x: x<=max_workers, (2**i for i in range(20)))
         ranks_per_node = [4, 8, 16, 32]
-        self.experiments = list(product(worker_counts, ranks_per_node))
+        self.experiments = list(reversed(list(product(worker_counts, ranks_per_node))))
 
     def test_concurrent_mpi_insert(self):
         '''Timing: many MPI ranks simultaneously call dag.add_job'''
