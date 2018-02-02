@@ -1,14 +1,6 @@
 .*
 !.gitignore
 *.pyc
-exe
-log
-argojobs
-balsamjobs
-argobalsam_env
-env
-db.sqlite3
-db_writer_socket
 
 balsam/argo/migrations/*.py
 !balsam/argo/migrations/__init__.py
