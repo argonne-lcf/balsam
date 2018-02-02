@@ -20,8 +20,24 @@ class TestInsertion(BalsamTestCase):
         
         max_workers = self.launcherInfo.num_workers
         worker_counts = takewhile(lambda x: x<=max_workers, (2**i for i in range(20)))
-        ranks_per_node = [4, 8, 16, 32]
-        self.experiments = list(reversed(list(product(worker_counts, ranks_per_node))))
+        #ranks_per_node = [4, 8, 16, 32]
+        ranks_per_node = [32]
+        self.experiments = product(worker_counts, ranks_per_node)
+        
+        # Load mpi4py/Balsam on compute nodes prior to experiments
+        hello = find_spec("tests.benchmarks.concurrent_insert.hello").origin
+        python = sys.executable
+        app_cmd = f"{python} {hello}"
+        mpi_str = self.launcherInfo.mpi_cmd(
+            self.launcherInfo.workerGroup.workers,
+            app_cmd=app_cmd,
+            envs={},
+            num_ranks=max_workers,
+            ranks_per_node=1,
+            threads_per_rank=1,
+            threads_per_core=1
+        )
+        stdout, elapsed_time = util.cmdline(mpi_str)
 
     def test_concurrent_mpi_insert(self):
         '''Timing: many MPI ranks simultaneously call dag.add_job'''
@@ -56,8 +72,7 @@ class TestInsertion(BalsamTestCase):
                 threads_per_rank=1,
                 threads_per_core=1
             )
-            cmdline = f"time -p ( {mpi_str} )"
-            stdout, elapsed_time = util.cmdline(cmdline)
+            stdout, elapsed_time = util.cmdline(mpi_str)
             
             success = list(l for l in stdout.split('\n') if 'added job: success' in l)
             self.assertEqual(len(success), total_ranks)
