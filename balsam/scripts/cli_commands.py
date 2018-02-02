@@ -410,7 +410,7 @@ def init(args):
     serverinfo.update({'db_type': db_type})
 
     fname = find_spec("balsam.scripts.init").origin
-    p = subprocess.Popen(f'BALSAM_DB_PATH={path} {sys.executable} {fname}',
+    p = subprocess.Popen(f'BALSAM_DB_PATH={path} {sys.executable} {fname} {path}',
                      shell=True)
     p.wait()
 

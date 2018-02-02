@@ -317,7 +317,7 @@ def make_parser():
     # --------
     parser_init = subparsers.add_parser('init', help="Create new balsam DB")
     parser_init.add_argument('path', help="Path to Balsam DB directory")
-    parser_init.add_argument('--db-type', choices=['sqlite3'],
+    parser_init.add_argument('--db-type', choices=['sqlite3', 'postgres'],
                              default='sqlite3', help="choose backend to use")
     parser_init.set_defaults(func=init)
     # -----------------

@@ -36,22 +36,29 @@ def resolve_db_path(path=None):
 def configure_db_backend(db_path):
     ENGINES = {
         'sqlite3' : 'django.db.backends.sqlite3',
+        'postgres': 'django.db.backends.postgresql_psycopg2',
     }
     NAMES = {
-        'sqlite3' : 'db.sqlite3',
+        'sqlite3' : os.path.join(db_path, 'db.sqlite3'),
+        'postgres': 'balsam',
     }
     OPTIONS = {
         'sqlite3' : {'timeout' : 5000},
+        'postgres' : {},
     }
 
     info = serverinfo.ServerInfo(db_path)
     db_type = info['db_type']
     user = info.get('user', '')
     password = info.get('password', '')
-    db_name = os.path.join(db_path, NAMES[db_type])
+    host = info.get('host', '')
+    port = info.get('port', '')
+
+    db_name = NAMES[db_type]
 
     db = dict(ENGINE=ENGINES[db_type], NAME=db_name,
-              OPTIONS=OPTIONS[db_type], USER=user, PASSWORD=password)
+              OPTIONS=OPTIONS[db_type], USER=user, PASSWORD=password,
+              HOST=host, PORT=port)
 
     DATABASES = {'default':db}
     return DATABASES
