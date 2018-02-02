@@ -8,8 +8,10 @@ import zmq
 from django.db.utils import OperationalError
 from concurrency.exceptions import RecordModifiedError
 
-REQ_TIMEOUT = 30000 # 30 seconds
-REQ_RETRY = 4
+# These are ridiculously high to benchmark
+# Should be more like 5-10 sec, 3-4 retry
+REQ_TIMEOUT = 60000 # 60 seconds 
+REQ_RETRY = 56 
 
 
 class Client:

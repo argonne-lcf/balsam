@@ -1,0 +1,30 @@
+Jobid: 182461
+qsub --mode script -A datascience -n 256 -q default -t 45 -M msalim@anl.gov run_bench_insert.sh
+Fri Feb 02 17:43:35 2018 +0000 (UTC) submitted with cwd set to: /gpfs/mira-home/msalim/hpc-edge-service/tests/benchmarks/scripts
+jobid 182461 submitted from terminal /dev/pts/31
+2018-02-02 17:44:28,169 INFO: Starting Resource_Prologue
+2018-02-02 17:44:28,171 DEBUG: no enabling attribute found
+2018-02-02 17:44:28,172 INFO: Resource_Prologue finished with exit code 0
+Fri Feb 02 17:44:47 2018 +0000 (UTC) 
+Fri Feb 02 17:44:47 2018 +0000 (UTC) Command: '/gpfs/mira-home/msalim/hpc-edge-service/tests/benchmarks/scripts/run_bench_insert.sh'
+Fri Feb 02 17:44:47 2018 +0000 (UTC) 
+Fri Feb 02 17:44:47 2018 +0000 (UTC) Environment:
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_PARTCORES=64
+Fri Feb 02 17:44:47 2018 +0000 (UTC) SHELL=/bin/bash
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_PROJECT=datascience
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_PARTNAME=70-75,310-319,630,664-665,667-669,770-779,860-869,880-889,1040-1049,1262,1264-1269,1310-1319,1330-1337,1460-1469,1684-1689,1910-1925,2020-2029,2113,2117,2324,2411,2460-2461,2692,2694,2698,2750,2752-2759,2908,2970-2977,3020-3021,3025,3027,3035,3095,3124-3129,3141,3201,3273,3276,3283,3285-3289,3341,3402-3405,3407,3442-3445,3447-3449,3491,3610-3611,3669,3722,3729,3948-3949,3970,3973,3976-3977,3983,3988,4014,4050,4052-4053,4055-4056,4059,4089,4120-4125,4127-4128,4210-4212,4214,4216-4218,4230-4239,4302-4303,4306,4313,4327,4359,4361,4367,4553,4555,4557,4587,4590-4592,4595-4597
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_JOBID=182461
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_STARTTIME=1517593442
+Fri Feb 02 17:44:47 2018 +0000 (UTC) LOGNAME=msalim
+Fri Feb 02 17:44:47 2018 +0000 (UTC) USER=msalim
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_ENDTIME=1517596142
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_PARTSIZE=256
+Fri Feb 02 17:44:47 2018 +0000 (UTC) HOME=/home/msalim
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_JOBSIZE=256
+Fri Feb 02 17:44:47 2018 +0000 (UTC) COBALT_QUEUE=default
+Fri Feb 02 17:44:47 2018 +0000 (UTC) 
+Fri Feb 02 17:44:47 2018 +0000 (UTC) Info: stdin received from /dev/null
+Fri Feb 02 17:44:47 2018 +0000 (UTC) Info: stdout sent to /gpfs/mira-home/msalim/hpc-edge-service/tests/benchmarks/scripts/182461.output
+Fri Feb 02 17:44:47 2018 +0000 (UTC) Info: stderr sent to /gpfs/mira-home/msalim/hpc-edge-service/tests/benchmarks/scripts/182461.error
+Fri Feb 02 17:44:47 2018 +0000 (UTC) 
+Fri Feb 02 18:00:04 2018 +0000 (UTC) Info: task completed normally with an exit code of 0; initiating job cleanup and removal

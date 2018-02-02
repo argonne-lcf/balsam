@@ -20,7 +20,7 @@ from concurrency.exceptions import RecordModifiedError
 
 logger = logging.getLogger('balsam.django_config.sqlite_server')
 
-SERVER_PERIOD = 1000
+SERVER_PERIOD = 2000
 TERM_LINGER = 3 # wait 3 sec after final save() to exit
 terminate = False
 
