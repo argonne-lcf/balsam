@@ -71,7 +71,7 @@ class WorkerGroup:
             raise ValueError("Cray WorkerGroup needs workers_str to setup")
             
         serial_rpn = config.max_ranks_per_node
-        if serial_rpn <= 1: serial_rpn = 16
+        if serial_rpn < 1: serial_rpn = 16
 
         ranges = self.workers_str.split(',')
         for node_range in ranges:
@@ -103,7 +103,7 @@ class WorkerGroup:
         self.workers_str = " ".join(node_ids)
         
         serial_rpn = config.max_ranks_per_node
-        if serial_rpn <= 1: serial_rpn = 16
+        if serial_rpn < 1: serial_rpn = 16
 
         for id in node_ids:
             self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1,
