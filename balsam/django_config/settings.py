@@ -58,7 +58,7 @@ def configure_db_backend(db_path):
 
     db = dict(ENGINE=ENGINES[db_type], NAME=db_name,
               OPTIONS=OPTIONS[db_type], USER=user, PASSWORD=password,
-              HOST=host, PORT=port)
+              HOST=host, PORT=port, CONN_MAX_AGE=60)
 
     DATABASES = {'default':db}
     return DATABASES
@@ -120,21 +120,21 @@ LOGGING = {
          'backupCount': LOG_BACKUP_COUNT,
          'formatter': 'standard',
       },
-      'django': {
-         'level': LOG_HANDLER_LEVEL,
-         'class':'logging.handlers.RotatingFileHandler',
-         'filename': os.path.join(LOGGING_DIRECTORY, 'django.log'),
-         'maxBytes': LOG_FILE_SIZE_LIMIT,
-         'backupCount': LOG_BACKUP_COUNT,
-         'formatter': 'standard',
-      },
+      #'django': {
+      #   'level': LOG_HANDLER_LEVEL,
+      #   'class':'logging.handlers.RotatingFileHandler',
+      #   'filename': os.path.join(LOGGING_DIRECTORY, 'django.log'),
+      #   'maxBytes': LOG_FILE_SIZE_LIMIT,
+      #   'backupCount': LOG_BACKUP_COUNT,
+      #   'formatter': 'standard',
+      #},
    },
    'loggers': {
-      'django': {
-         'handlers': ['django'],
-         'level': 'DEBUG',
-         'propagate': True,
-      },
+      #'django': {
+      #   'handlers': ['django'],
+      #   'level': 'DEBUG',
+      #   'propagate': True,
+      #},
       'balsam': {
          'handlers': ['default'],
          'level': 'DEBUG',

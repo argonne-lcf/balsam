@@ -158,11 +158,14 @@ class FormatTable:
         self.rows.append(row)
 
     def create_header(self, title, comment):
+        from django.conf import settings
         header = ''
         cobalt_envs = {k:v for k,v in os.environ.items() if 'COBALT' in k}
         header += f'# BENCHMARK: {title}\n'
         header += f'# Host: {gethostname()}\n'
         for k, v in cobalt_envs.items():
+            header += f'# {k}: {v}\n'
+        for k, v in settings.DATABASES['default'].items():
             header += f'# {k}: {v}\n'
         header += f"# {comment}\n"
         return header

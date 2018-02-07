@@ -10,7 +10,7 @@ from concurrency.exceptions import RecordModifiedError
 
 # These are ridiculously high to benchmark
 # Should be more like 5-10 sec, 3-4 retry
-REQ_TIMEOUT = 60000 # 60 seconds 
+REQ_TIMEOUT = 300000 # 5 minutes
 REQ_RETRY = 56 
 
 
@@ -23,7 +23,7 @@ class Client:
         self.first_message = True
         if self.serverAddr:
             try:
-                response = self.send_request('TEST_ALIVE', timeout=3000)
+                response = self.send_request('TEST_ALIVE', timeout=30000)
             except:
                 raise RuntimeError("Cannot reach server at {self.serverAddr}")
             else:

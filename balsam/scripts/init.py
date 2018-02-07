@@ -1,6 +1,7 @@
 from getpass import getuser
 import os
 import sys
+from pprint import pprint
 import time
 import subprocess
 from balsam.django_config.serverinfo import ServerInfo
@@ -14,12 +15,21 @@ def postgres_init(serverInfo):
     p = subprocess.Popen(f'initdb -D {db_path} -U $USER', shell=True)
     retcode = p.wait()
     if retcode != 0: raise RuntimeError("initdb failed")
+    
+    with open(os.path.join(db_path, 'postgresql.conf'), 'a') as fp:
+        fp.write("listen_addresses = '*' # appended from balsam init\n")
+        fp.write('port=0 # appended from balsam init\n')
+        fp.write('max_connections=128 # appended from balsam init\n')
+        fp.write('shared_buffers=2GB # appended from balsam init\n')
+        fp.write('synchronous_commit=off # appended from balsam init\n')
+        fp.write('wal_writer_delay=400ms # appended from balsam init\n')
+    
+    with open(os.path.join(db_path, 'pg_hba.conf'), 'a') as fp:
+        fp.write(f"host all all 0.0.0.0/0 trust\n")
 
     serverInfo.update({'user' : getuser()})
     serverInfo.reset_server_address()
     port = serverInfo['port']
-    with open(os.path.join(db_path, 'postgresql.conf'), 'a') as fp:
-        fp.write(f'port={port} # appended from balsam init\n')
 
     serv_proc = subprocess.Popen(f'pg_ctl -D {db_path} -w start', shell=True)
     time.sleep(2)
@@ -31,8 +41,8 @@ def postgres_post(serverInfo):
     db_path = serverInfo['balsamdb_path']
     db_path = os.path.join(db_path, 'balsamdb')
     serv_proc = subprocess.Popen(f'pg_ctl -D {db_path} -w stop', shell=True)
-    serv_proc.wait()
-
+    time.sleep(1)
+    serverInfo.update({'host':None, 'port':None})
 
 def run_migrations():
     import django
@@ -45,16 +55,21 @@ def run_migrations():
 
     print(f"DB settings:", settings.DATABASES['default'])
 
-    db_path = db.connection.settings_dict['NAME']
-    print(f"Setting up new balsam database: {db_path}")
+    db_info = db.connection.settings_dict['NAME']
+    print(f"Setting up new balsam database:")
+    pprint(db_info, width=60)
     call_command('makemigrations', interactive=False, verbosity=0)
     call_command('migrate', interactive=False, verbosity=0)
 
-    new_path = settings.DATABASES['default']['NAME']
-    if os.path.exists(new_path):
-        print(f"Set up new DB at {new_path}")
+    try:
+        from balsam.service.models import BalsamJob
+        j = BalsamJob()
+        j.save()
+        j.delete()
+    except:
+        raise RuntimeError("BalsamJob table not properly created")
     else:
-        raise RuntimeError(f"Failed to created DB at {new_path}")
+        print("BalsamJob table created successfully")
 
 if __name__ == "__main__":
     serverInfo = ServerInfo(sys.argv[1])
@@ -70,3 +85,4 @@ if __name__ == "__main__":
     run_migrations()
     if db_type == 'postgres':
         postgres_post(serverInfo)
+        print("OK")

@@ -24,6 +24,13 @@ class ServerInfo:
                                ' daemon did not have a clean shutdown.\n  Use "balsam'
                                ' dbserver --reset <balsam_db_directory>" to reset the server file'
                               )
+        if self.data.get('host') and os.environ.get('IS_SERVER_DAEMON')=='True':
+            raise RuntimeError(f"A running server address is already posted at {self.path}\n"
+                               '  Use "balsam dbserver --stop" to shut it down.\n'
+                               '  If you are sure there is no running server process, the'
+                               ' daemon did not have a clean shutdown.\n  Use "balsam'
+                               ' dbserver --reset <balsam_db_directory>" to reset the server file'
+                              )
 
     def get_free_port_and_address(self):
         hostname = socket.gethostname()
@@ -50,13 +57,32 @@ class ServerInfo:
     def get_postgres_info(self):
         hostname = socket.gethostname()
         port = self.get_free_port()
-        info = dict(host=hostname, port=port)
+        pg_db_path = os.path.join(self['balsamdb_path'], 'balsamdb')
+        info = dict(host=hostname, port=port, pg_db_path=pg_db_path)
         return info
+
+    def update_sqlite3_config(self):
+        pass
+
+    def update_postgres_config(self):
+        conf_path = os.path.join(self['pg_db_path'], 'postgresql.conf')
+        config = open(conf_path).read()
+
+        with open(f"{conf_path}.new", 'w') as fp:
+            for line in config.split('\n'):
+                if line.startswith('port'):
+                    port_line = f"port={self['port']} # auto-set by balsam db\n"
+                    fp.write(port_line)
+                else:
+                    fp.write(line + "\n")
+        os.rename(f"{conf_path}.new", conf_path)
+
 
     def reset_server_address(self):
         db = self['db_type']
         info = getattr(self, f'get_{db}_info')()
         self.update(info)
+        getattr(self, f'update_{db}_config')()
     
     def update(self, update_dict):
         self.refresh()

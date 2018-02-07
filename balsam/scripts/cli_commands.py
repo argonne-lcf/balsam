@@ -231,11 +231,11 @@ def rm(args):
     # Are we removing jobs or apps?
     if objects_name.startswith('job'): cls = Job
     elif objects_name.startswith('app'): cls = AppDef
-    objects = cls.objects.all()
+    objects = cls.objects
 
     # Filter: all objects, by name-match (multiple), or by ID (unique)?
     if deleteall:
-        deletion_objs = objects
+        deletion_objs = objects.all()
         message = f"ALL {objects_name}"
     elif name: 
         deletion_objs = objects.filter(name__icontains=name)
@@ -259,10 +259,8 @@ def rm(args):
             return
 
     # Actually delete things here
-    for obj in deletion_objs:
-        msg = f"Deleted {objects_name[:-1]} {obj.cute_id}"
-        obj.delete()
-        print(msg)
+    deletion_objs.delete()
+    print("Deleted.")
 
 
 def qsub(args):
@@ -371,7 +369,7 @@ def dbserver(args):
             sys.exit(0)
         else:
             info = serverinfo.ServerInfo(args.reset)
-            info.update({'address': None})
+            info.update({'address': None, 'host':None, 'port':None})
             print("Reset done")
             sys.exit(0)
 
@@ -380,10 +378,10 @@ def dbserver(args):
         if not server_pids:
             print(f"No db_daemon processes running under {getpass.getuser()}")
         else:
-            assert len(server_pids) == 1
-            pid = server_pids[0]
-            print(f"Stopping db_daemon {pid}")
-            os.kill(pid, signal.SIGUSR1)
+            assert len(server_pids) >= 1
+            for pid in server_pids:
+                print(f"Stopping db_daemon {pid}")
+                os.kill(pid, signal.SIGUSR1)
     else:
         path = args.path
         if path: cmd = [sys.executable, fname, path]
@@ -414,6 +412,13 @@ def init(args):
                      shell=True)
     p.wait()
 
+
+def which(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+    import pprint
+    pprint.pprint(settings.DATABASES['default'])
 
 def make_dummies(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'

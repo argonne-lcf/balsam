@@ -34,7 +34,12 @@ class ZMQServer:
         self.address = self.info['address']
         port = int(self.address.split(':')[2])
 
-        self.context = zmq.Context(1)
+        self.context = zmq.Context(4)
+        self.context.setsockopt(zmq.BACKLOG, 32768)
+        self.context.setsockopt(zmq.SNDHWM, 32768)
+        self.context.setsockopt(zmq.RCVHWM, 32768)
+        self.context.setsockopt(zmq.SNDBUF, 1000000000)
+        self.context.setsockopt(zmq.RCVBUF, 1000000000)
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind(f'tcp://*:{port}')
         logger.info(f"db_writer bound to socket @ {self.address}")

@@ -1,6 +1,6 @@
 #!/bin/bash -x
 #COBALT -A datascience
-#COBALT -n 256
+#COBALT -n 1024
 #COBALT -q default
 #COBALT -t 45
 #COBALT -M msalim@anl.gov

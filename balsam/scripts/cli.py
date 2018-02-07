@@ -4,7 +4,7 @@ import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from balsam.scripts.cli_commands import dbserver, init
+from balsam.scripts.cli_commands import dbserver, init, which
 
 def main():
     parser = make_parser()
@@ -335,6 +335,11 @@ def make_parser():
     parser_dummy = subparsers.add_parser('make_dummies')
     parser_dummy.add_argument('num', type=int)
     parser_dummy.set_defaults(func=make_dummies)
+    
+    # WHICH
+    # ---------
+    parser_which = subparsers.add_parser('which')
+    parser_which.set_defaults(func=which)
 
     return parser
 

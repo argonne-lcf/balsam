@@ -1,0 +1,28 @@
+# BENCHMARK: test_concurrent_mpi_insert
+# Host: thetamom2
+# COBALT_BLOCKNAME: 3830,3832,3836
+# COBALT_PARTNAME: 3830,3832,3836
+# COBALT_JOBID: 184028
+# COBALT_PARTSIZE: 3
+# COBALT_NODEFILE: /var/tmp/cobalt.184028
+# COBALT_JOBSIZE: 3
+# COBALT_BLOCKSIZE: 3
+# ENGINE: django.db.backends.postgresql_psycopg2
+# NAME: balsam
+# OPTIONS: {}
+# USER: msalim
+# PASSWORD: 
+# HOST: thetalogin4
+# PORT: 35700
+# ATOMIC_REQUESTS: False
+# AUTOCOMMIT: True
+# CONN_MAX_AGE: 0
+# TIME_ZONE: None
+# TEST: {'CHARSET': None, 'COLLATION': None, 'NAME': None, 'MIRROR': None}
+# Each rank simultaneously calls dag.add_job (num_ranks simultaneous insertions)
+#     num_nodes    ranks_per_node    num_ranks    total_time_sec
+# --------------------------------------------------------------
+              1                32           32            24.130
+              2                32           64            22.990
+              3                32           96            25.130
+

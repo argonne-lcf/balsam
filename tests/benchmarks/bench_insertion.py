@@ -19,7 +19,10 @@ class TestInsertion(BalsamTestCase):
         self.launcherInfo = util.launcher_info()
         
         max_workers = self.launcherInfo.num_workers
-        worker_counts = takewhile(lambda x: x<=max_workers, (2**i for i in range(20)))
+        worker_counts = list(takewhile(lambda x: x<=max_workers, (2**i for i in range(20))))
+        if max_workers not in worker_counts:
+            worker_counts.append(max_workers)
+        worker_counts = list(reversed(worker_counts))
         #ranks_per_node = [4, 8, 16, 32]
         ranks_per_node = [32]
         self.experiments = product(worker_counts, ranks_per_node)
