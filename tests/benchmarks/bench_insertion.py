@@ -1,7 +1,5 @@
 import os
 import sys
-import time
-import subprocess
 from importlib.util import find_spec
 
 from balsam.service.models import BalsamJob
