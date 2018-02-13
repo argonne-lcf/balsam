@@ -225,7 +225,6 @@ def spawn_child(clone=False, **kwargs):
             raise ValueError(f"Invalid field {k}")
 
     child.working_directory = '' # This is essential
-    child.db_write_client = None
 
     newparents = json.loads(current_job.parents)
     newparents.append(str(current_job.job_id))

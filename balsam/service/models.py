@@ -341,7 +341,7 @@ auto timeout retry:     {self.auto_timeout_retry}
             app = ApplicationDefinition.objects.get(name=self.application)
             line = f"{app.executable} {self.application_args}"
         else:
-            line = self.direct_command
+            line = f"{self.direct_command} {self.application_args}"
         return ' '.join(os.path.expanduser(w) for w in line.split())
 
     def get_children(self):
