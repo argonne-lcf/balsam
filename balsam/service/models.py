@@ -1,10 +1,10 @@
 import os
 import json
 import logging
+import re
 import sys
 from datetime import datetime
 import uuid
-import time
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
@@ -69,6 +69,18 @@ JOB_FINISHED
 FAILED
 USER_KILLED
 PARENT_KILLED'''.split()
+        
+STATE_TIME_PATTERN = re.compile(r'''
+^                  # start of line
+\[                 # opening square bracket
+(\d+-\d+-\d\d\d\d  # date MM-DD-YYYY
+\s+                # one or more space
+\d+:\d+:\d+)       # time HH:MM:SS
+\s+                # one or more space
+(\w+)              # state
+\s*                # 0 or more space
+\]                 # closing square bracket
+''', re.VERBOSE | re.MULTILINE)
 
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
@@ -334,6 +346,10 @@ auto timeout retry:     {self.auto_timeout_retry}
             return f"[{self.name} | { str(self.pk)[:8] }]"
         else:
             return f"[{ str(self.pk)[:8] }]"
+    
+    @staticmethod
+    def short_exe(exe):
+        return " ".join(os.path.basename(p) for p in exe.split())
 
     @property
     def app_cmd(self):
@@ -455,7 +471,8 @@ auto timeout retry:     {self.auto_timeout_retry}
     def get_line_string(self):
         recent_state = self.get_recent_state_str()
         app = self.application if self.application else self.direct_command
-        return f' {str(self.pk):36} | {self.name:26} | {self.workflow:26} | {app:26} | {recent_state}'
+        app = self.short_exe(app)
+        return f' {str(self.pk):36} | {self.name:20} | {self.workflow:20} | {app:36} | {recent_state}'
 
     def runtime_str(self):
         minutes, seconds = divmod(self.runtime_seconds, 60)
@@ -466,7 +483,13 @@ auto timeout retry:     {self.auto_timeout_retry}
 
     @staticmethod
     def get_header():
-        return f' {"job_id":36} | {"name":26} | {"workflow":26} | {"application":26} | {"latest update"}'
+        return f' {"job_id":36} | {"name":20} | {"workflow":20} | {"application":36} | {"latest update"}'
+
+    def get_state_times(self):
+        matches = STATE_TIME_PATTERN.findall(self.state_history)
+        return {state: datetime.strptime(timestr, TIME_FMT)
+                for timestr, state in matches
+               }
 
     def create_working_path(self):
         top = settings.BALSAM_WORK_DIRECTORY
@@ -556,16 +579,18 @@ Envs:           {self.environ_vars}
 '''.strip() + '\n'
 
     def get_line_string(self):
-        format = ' %20s | %20s | %20s | %20s | %s '
-        output = format % (self.name, self.executable,
-                           self.default_preprocess, 
-                           self.default_postprocess,
-                           self.description)
+        format = ' %20s | %30s | %20s | %20s | %s '
+        output = format % (self.name,
+                           self.short_exe(self.executable),
+                           self.short_exe(self.default_preprocess),
+                           self.short_exe(self.default_postprocess),
+                           self.description
+                          )
         return output
 
     @staticmethod
     def get_header():
-        format = ' %20s | %20s | %20s | %20s | %s '
+        format = ' %20s | %30s | %20s | %20s | %s '
         output = format % ('name', 'executable',
                            'preprocess', 'postprocess',
                            'description')
@@ -574,3 +599,7 @@ Envs:           {self.environ_vars}
     @property
     def cute_id(self):
         return f"[{self.name} | { str(self.pk)[:8] }]"
+
+    @staticmethod
+    def short_exe(exe):
+        return " ".join(os.path.basename(p) for p in exe.split())
