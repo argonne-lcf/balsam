@@ -347,10 +347,6 @@ auto timeout retry:     {self.auto_timeout_retry}
         else:
             return f"[{ str(self.pk)[:8] }]"
     
-    @staticmethod
-    def short_exe(exe):
-        return " ".join(os.path.basename(p) for p in exe.split())
-
     @property
     def app_cmd(self):
         if self.application:
@@ -468,22 +464,12 @@ auto timeout retry:     {self.auto_timeout_retry}
         else:
             return open(path).read()
 
-    def get_line_string(self):
-        recent_state = self.get_recent_state_str()
-        app = self.application if self.application else self.direct_command
-        app = self.short_exe(app)
-        return f' {str(self.pk):36} | {self.name:20} | {self.workflow:20} | {app:36} | {recent_state}'
-
     def runtime_str(self):
         minutes, seconds = divmod(self.runtime_seconds, 60)
         hours, minutes = divmod(minutes, 60)
         hours, minutes = round(hours), round(minutes)
         if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:05.2f} sec"
         else: return f"{minutes:02d} min : {seconds:05.2f} sec"
-
-    @staticmethod
-    def get_header():
-        return f' {"job_id":36} | {"name":20} | {"workflow":20} | {"application":36} | {"latest update"}'
 
     def get_state_times(self):
         matches = STATE_TIME_PATTERN.findall(self.state_history)
@@ -578,28 +564,6 @@ Postprocess:    {self.default_postprocess}
 Envs:           {self.environ_vars}
 '''.strip() + '\n'
 
-    def get_line_string(self):
-        format = ' %20s | %30s | %20s | %20s | %s '
-        output = format % (self.name,
-                           self.short_exe(self.executable),
-                           self.short_exe(self.default_preprocess),
-                           self.short_exe(self.default_postprocess),
-                           self.description
-                          )
-        return output
-
-    @staticmethod
-    def get_header():
-        format = ' %20s | %30s | %20s | %20s | %s '
-        output = format % ('name', 'executable',
-                           'preprocess', 'postprocess',
-                           'description')
-        return output
-    
     @property
     def cute_id(self):
         return f"[{self.name} | { str(self.pk)[:8] }]"
-
-    @staticmethod
-    def short_exe(exe):
-        return " ".join(os.path.basename(p) for p in exe.split())

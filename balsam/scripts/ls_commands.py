@@ -1,24 +1,42 @@
 from balsam.service import models
+from os.path import basename
 import uuid
 Job = models.BalsamJob
 AppDef = models.ApplicationDefinition
 
+def app_string(app, cmd=''):
+    if not app:
+        return " ".join(basename(p) for p in cmd.split())
+    else:
+        return " ".join(basename(p) for p in app.split())
+
 def print_history(jobs):
-    for job in jobs:
-        print(f'Job {job.name} [{job.job_id}]')
+    query = jobs.values_list('name', 'job_id', 'state_history')
+    for (name,job_id,state_history) in query:
+        print(f'Job {name} [{job_id}]')
         print(f'------------------------------------------------')
-        print(f'{job.state_history}\n')
+        print(f'{state_history}\n')
 
 def print_jobs(jobs, verbose):
-    if not verbose:
-        header = Job.get_header()
-        print(header)
-        print('-'*len(header))
-        for job in jobs:
-            print(job.get_line_string())
-    else:
-        for job in jobs:
-            print(job)
+    if verbose:
+        for job in jobs: print(job)
+        return
+
+    query = jobs.values_list('job_id', 'name', 'workflow', 'application', 'direct_command', 'state')
+    apps = [app_string(job[3], job[4]) for job in query]
+    jobs = [ (str(job[0]), job[1], job[2], app, job[5]) 
+              for job,app in zip(query, apps) ]
+    fields = ("job_id", "name", "workflow", "application", "state")
+
+    widths = [max((len(job[field]) for job in jobs)) for field in range(5)]
+    widths = [max(w,len(f)) for w,f in zip(widths, fields)]
+    format = ' | '.join(f'%{width}s' for width in widths)
+    header = format % fields
+
+    print(header)
+    print('-'*len(header))
+    for job in jobs:
+        print(format % tuple(f.ljust(w) for f,w in zip(job, widths)))
 
 def print_subtree(job, indent=1):
     def job_str(job): return f"{job.name:10} {job.cute_id}"
@@ -34,17 +52,20 @@ def print_jobs_tree(jobs):
 def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
     results = Job.objects.all()
     if namestr: results = results.filter(name__icontains=namestr)
-    if jobid:
+
+    if jobid and len(jobid) < 36:
+        results = results.filter(job_id__icontains=jobid)
+    elif jobid:
         try:
             pk = uuid.UUID(jobid.strip())
-            results = [Job.objects.get(job_id=pk)]
+            results = results.filter(job_id=pk)
         except ValueError:
             results = results.filter(job_id__icontains=jobid)
 
     if wf: results = results.filter(workflow__icontains=wf)
     if state: results = results.filter(state=state)
     
-    if not results:
+    if not results.exists():
         print("No jobs found matching query")
         return
 
@@ -64,12 +85,22 @@ def ls_apps(namestr, appid, verbose):
         return
     if verbose:
         for app in results: print(app)
-    else:
-        header = AppDef.get_header()
-        print(header)
-        print('-'*len(header))
-        for app in results:
-            print(app.get_line_string())
+        return
+
+    fields = ('pk', 'name', 'executable', 'description')
+    query = results.values_list(*fields)
+    exes = [app_string(app[2]) for app in query]
+    apps = [ (str(q[0]), q[1], exe, q[3]) for q,exe in zip(query, exes) ]
+
+    widths = [max((len(app[field]) for app in apps)) for field in range(4)]
+    widths = [max(w,len(f)) for w,f in zip(widths, fields)] 
+    format = ' | '.join(f'%{width}s' for width in widths)
+    header = format % fields
+
+    print(header)
+    print('-'*len(header))
+    for app in apps:
+        print(format % tuple(f.ljust(w) for f,w in zip(app, widths)))
 
 
 def ls_wf(name, verbose, tree, wf):
