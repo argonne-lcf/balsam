@@ -42,12 +42,7 @@ class TestInsertion(BalsamTestCase):
 
     def test_concurrent_mpi_insert(self):
         '''Timing: many MPI ranks simultaneously call dag.add_job'''
-        base = os.path.join(util.DATA_DIR, 'concurrent_insert.dat')
-        resultpath = base
-        i = 1
-        while os.path.exists(resultpath):
-            resultpath = f"{base}.{i}"
-            i += 1
+        resultpath = util.benchmark_outfile_path('concurrent_insert.dat')
 
         title = 'test_concurrent_mpi_insert'
         comment = 'Each rank simultaneously calls dag.add_job (num_ranks simultaneous insertions)'

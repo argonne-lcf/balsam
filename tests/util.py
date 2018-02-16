@@ -157,7 +157,8 @@ class FormatTable:
             self.widths[col] = max(self.widths[col], len(field)+4)
         self.rows.append(row)
 
-    def create_header(self, title, comment):
+    @staticmethod
+    def create_header(title, comment):
         from django.conf import settings
         header = ''
         cobalt_envs = {k:v for k,v in os.environ.items() if 'COBALT' in k}
@@ -184,3 +185,58 @@ class FormatTable:
                               zip(row, self.columns))
             table += "\n"
         return table+"\n"
+
+def process_job_times(time0=None):
+    '''Return a dict of {state : [list_of_seconds_for_each_job_to_reach_state]}
+    Useful for building CDF of completion times and profiling job processing throughput'''
+    from balsam.service.models import TIME_FMT, BalsamJob, STATE_TIME_PATTERN
+    from collections import defaultdict
+    from datetime import datetime
+
+    data = BalsamJob.objects.values_list('state_history', flat=True)
+    data = '\n'.join(data)
+    matches = STATE_TIME_PATTERN.finditer(data)
+    result = ( m.groups() for m in matches )
+    result = ( (state, datetime.strptime(time_str, TIME_FMT))
+              for (time_str, state) in result )
+    
+    time_data = defaultdict(list)
+    for state, time in result:
+        time_data[state].append(time)
+
+    if time0 is None: time0 = min(time_data['READY'])
+
+    for state in time_data.keys():
+        time_data[state] = [(t - time0).total_seconds() for t in sorted(time_data[state])]
+
+    return time_data
+
+def print_jobtimes_cdf(job_times):
+    import numpy as np
+
+    ready_times = np.array(job_times['READY'])
+    pre_times = np.array(job_times['PREPROCESSED'])
+    rundone_times = np.array(job_times['RUN_DONE'])
+    jobfin_times = np.array(job_times['JOB_FINISHED'])
+
+    max_time = round(max(jobfin_times) + 1.5)
+    time_grid = np.arange(0, max_time, 0.1)
+
+    count_ready = [(ready_times <= time_grid[i]).sum() for i in range(len(time_grid))]
+    count_pre = [(pre_times <= time_grid[i]).sum() for i in range(len(time_grid))]
+    count_rundone = [(rundone_times <= time_grid[i]).sum() for i in range(len(time_grid))]
+    count_jobfin = [(jobfin_times <= time_grid[i]).sum() for i in range(len(time_grid))]
+
+    result = "# Time num_ready num_preprocessed num_run_done num_job_finished\n"
+    for time, *counts in zip(time_grid, count_ready, count_pre, count_rundone, count_jobfin):
+        result += f'{time:8.3f} {" ".join("%3d" % c for c in counts)}\n'
+    return result
+
+def benchmark_outfile_path(file_basename):
+    base = os.path.join(DATA_DIR, file_basename)
+    resultpath = base
+    i = 1
+    while os.path.exists(resultpath):
+        resultpath = f"{base}.{i}"
+        i += 1
+    return resultpath

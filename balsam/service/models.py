@@ -18,7 +18,7 @@ class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
 class NoApplication(Exception): pass
 
-TIME_FMT = '%m-%d-%Y %H:%M:%S'
+TIME_FMT = '%m-%d-%Y %H:%M:%S.%f'
 
 STATES = '''
 CREATED
@@ -75,7 +75,7 @@ STATE_TIME_PATTERN = re.compile(r'''
 \[                 # opening square bracket
 (\d+-\d+-\d\d\d\d  # date MM-DD-YYYY
 \s+                # one or more space
-\d+:\d+:\d+)       # time HH:MM:SS
+\d+:\d+:\d+\.\d+)  # time HH:MM:SS.MICROSEC
 \s+                # one or more space
 (\w+)              # state
 \s*                # 0 or more space
