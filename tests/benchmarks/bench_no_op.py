@@ -20,8 +20,8 @@ class TestNoOp(BalsamTestCase):
             num_nodes.append(max_workers)
 
         rpn = [64]
-        #jpn = [64, 512]
-        jpn = [16]
+        jpn = [64, 512]
+        #jpn = [16]
         self.experiments = product(num_nodes, rpn, jpn)
 
     def create_serial_expt(self, num_nodes, rpn, jpn):

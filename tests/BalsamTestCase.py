@@ -18,8 +18,6 @@ class BalsamTestCase(unittest.TestCase):
         call_command('migrate',interactive=False,verbosity=0)
         call_command('flush',interactive=False,verbosity=0)
 
-        assert os.path.exists(settings.DATABASES['default']['NAME'])
-
     @classmethod
     def tearDownClass(cls):
         pass
