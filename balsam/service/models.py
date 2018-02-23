@@ -189,6 +189,11 @@ class BalsamJob(models.Model):
         'Number of hyperthreads per physical core (if applicable)',
         help_text='Number of hyperthreads per physical core.',
         default=1)
+    serial_node_packing_count = models.IntegerField(
+        'For serial (non-MPI) jobs only. How many to run concurrently on a node.',
+        help_text='Setting this field at 2 means two serial jobs will run at a '
+        'time on a node. This field is ignored for MPI jobs.',
+        default=16)
     environ_vars = models.TextField(
         'Environment variables specific to this job',
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",

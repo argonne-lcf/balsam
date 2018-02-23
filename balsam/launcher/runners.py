@@ -25,7 +25,6 @@ import shlex
 import sys
 from subprocess import Popen, PIPE, STDOUT
 from tempfile import NamedTemporaryFile
-from threading import Thread
 from queue import Queue, Empty
 
 from django.conf import settings
@@ -41,26 +40,6 @@ logger = logging.getLogger(__name__)
     
 from importlib.util import find_spec
 MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
-
-
-class MonitorStream(Thread):
-    '''Thread: non-blocking read of a process's stdout'''
-    def __init__(self, runner_output):
-        super().__init__()
-        self.stream = runner_output
-        self.queue = Queue()
-        self.daemon = True
-
-    def run(self):
-        # Call readline until empty string is returned
-        for line in iter(self.stream.readline, b''):
-            self.queue.put(line.decode('utf-8'))
-        self.stream.close()
-
-    def available_lines(self):
-        while True:
-            try: yield self.queue.get_nowait()
-            except Empty: return
 
 
 class Runner:

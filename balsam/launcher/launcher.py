@@ -37,59 +37,15 @@ from balsam.launcher import jobreader
 from balsam.launcher import transitions
 from balsam.launcher import worker
 from balsam.launcher import runners
+from balsam.launcher.util import remaining_time_minutes
 from balsam.launcher.exceptions import *
 
-ALMOST_RUNNABLE_STATES = ['READY','STAGED_IN']
-RUNNABLE_STATES = ['PREPROCESSED', 'RESTART_READY']
-WAITING_STATES = ['CREATED', 'LAUNCHER_QUEUED', 'AWAITING_PARENTS']
 HANDLING_EXIT = False
-
-def delay_generator(period=settings.BALSAM_SERVICE_PERIOD):
-    '''Generator: Block for ``period`` seconds since the last call to __next__()'''
-    nexttime = time.time() + period
-    while True:
-        now = time.time()
-        tosleep = nexttime - now
-        if tosleep <= 0:
-            nexttime = now + period
-        else:
-            time.sleep(tosleep)
-            nexttime = now + tosleep + period
-        yield
-
-def elapsed_time_minutes():
-    '''Generator: yield elapsed time in minutes since first call to __next__'''
-    start = time.time()
-    while True:
-        yield (time.time() - start) / 60.0
-
-def remaining_time_minutes(time_limit_minutes=0.0):
-    '''Generator: yield remaining time for Launcher execution
-
-    If time_limit_minutes is given, use internal timer to count down remaining
-    time. Otherwise, query scheduler for remaining time.
-
-    Args:
-        - ``time_limit_minutes`` (*float*): runtime limit
-    Yields:
-        - ``remaining`` (*float*): remaining time
-    Raises:
-        - ``StopIteration``: when there is no time left
-    '''
-    elapsed_timer = elapsed_time_minutes()
-    while True:
-        if time_limit_minutes > 0.0:
-            remaining = time_limit_minutes - next(elapsed_timer)
-        else:
-            remaining = scheduler.remaining_time_seconds() / 60.0
-        if remaining > 0: yield remaining
-        else: break
 
 def check_parents(job, lock):
     '''Check job's dependencies, update to READY if satisfied'''
-    job.refresh_from_db()
     parents = job.get_parents()
-    ready = all(p.state == 'JOB_FINISHED' for p in parents)
+    ready = parents.count() == parents.filter(state='JOB_FINISHED').count()
 
     if ready or not job.wait_for_parents:
         lock.acquire()
@@ -111,21 +67,17 @@ def log_time(minutes_left):
     time_str = f"{whole_minutes:02d} min : {whole_seconds:02d} sec remaining"
     logger.info(time_str)
 
-def create_runner(jobs, runner_group, worker_group, remaining_minutes, last_runner_created):
+def create_runner(job_source, runner_group, worker_group, remaining_minutes, last_runner_created):
     '''Decide whether or not to create another runner. Considers how many jobs
     can run, how many can *almost* run, how long since the last Runner was
     created, and how many jobs are serial as opposed to MPI.
     '''
-    runnable_jobs = [
-        job for job in jobs
-        if job.pk not in runner_group.running_job_pks and
-        job.state in RUNNABLE_STATES and
-        job.wall_time_minutes <= remaining_minutes
-    ]
-    logger.debug(f"Have {len(runnable_jobs)} runnable jobs")
+    runnable_jobs = job_source.get_runnable(remaining_minutes)
+    runnable_jobs = runnable_jobs.exclude(job_pk__in=runner_group.running_job_pks)
+    logger.debug(f"Have {runnable_jobs.count()} runnable jobs")
 
     # If nothing is getting pre-processed, don't bother waiting
-    almost_runnable = any(j.state in ALMOST_RUNNABLE_STATES for j in jobs)
+    almost_runnable = job_source.by_states(job_source.ALMOST_RUNNABLE_STATES).exists()
 
     # If it has been runner_create_period seconds, don't wait any more
     runner_create_period = settings.BALSAM_RUNNER_CREATION_PERIOD_SEC
@@ -133,7 +85,7 @@ def create_runner(jobs, runner_group, worker_group, remaining_minutes, last_runn
     runner_ready = bool(now - last_runner_created > runner_create_period)
 
     # If there are enough serial jobs, don't wait to run
-    num_serial = len([j for j in runnable_jobs if j.num_ranks == 1])
+    num_serial = runnable_jobs.filter(num_nodes=1).filter(ranks_per_node=1).count()
     worker = worker_group[0]
     max_serial_per_ensemble = 2 * worker.num_nodes * worker.max_ranks_per_node
     ensemble_ready = (num_serial >= max_serial_per_ensemble) or (num_serial == 0)
@@ -166,22 +118,20 @@ def main(args, transition_pool, runner_group, job_source):
 
         # Update after any finished transitions
         for stat in transition_pool.get_statuses(): delay = False
-        job_source.refresh_from_db()
 
         # Update jobs awaiting dependencies
-        waiting_jobs = (j for j in job_source.jobs if j.state in WAITING_STATES)
+        waiting_jobs = job_source.by_states(job_source.WAITING_STATES)
         for job in waiting_jobs: 
             check_parents(job, transition_pool.lock)
         
         # Enqueue new transitions
-        transitionable_jobs = [
-            job for job in job_source.jobs
-            if job not in transition_pool
-            and job.state in transitions.TRANSITIONS
-        ]
+        transition_jobs = job_source.by_states(transitions.TRANSITIONS)
+        transition_jobs = transition_jobs.exclude(
+            pk__in=transition_pool.transitions_pk_list
+        )
 
-        for job in transitionable_jobs:
-            transition_pool.add_job(job)
+        for pk,state in transition_jobs.values_list('pk', 'state'):
+            transition_pool.add_job(pk,state)
             delay = False
             fxn = transitions.TRANSITIONS[job.state]
             logger.info(f"Queued transition: {job.cute_id} will undergo {fxn}")
@@ -189,7 +139,6 @@ def main(args, transition_pool, runner_group, job_source):
         # Update jobs that are running/finished
         any_finished = runner_group.update_and_remove_finished()
         if any_finished: delay = False
-        job_source.refresh_from_db()
     
         # Decide whether or not to start a new runner
         last_runner_created = create_runner(job_source.jobs, runner_group, 
@@ -197,7 +146,7 @@ def main(args, transition_pool, runner_group, job_source):
                                              last_runner_created)
 
         if delay: next(delay_sleeper)
-        if all(j.state in END_STATES for j in job_source.jobs):
+        if job_source.by_states(END_STATES).count() == job_source.jobs.count():
             logger.info("No jobs to process. Exiting main loop now.")
             break
     
@@ -244,7 +193,7 @@ def get_args(inputcmd=None):
 def detect_dead_runners(job_source):
     '''Jobs found in the RUNNING state before the Launcher starts may have
     crashed; pick them up and restart'''
-    for job in job_source.by_states['RUNNING']:
+    for job in job_source.by_states('RUNNING'):
         logger.info(f'Picked up dead running job {job.cute_id}: marking RESTART_READY')
         job.update_state('RESTART_READY', 'Detected dead runner')
 
@@ -253,7 +202,6 @@ if __name__ == "__main__":
     args = get_args()
     
     job_source = jobreader.JobReader.from_config(args)
-    job_source.refresh_from_db()
     transition_pool = transitions.TransitionProcessPool()
     runner_group  = runners.RunnerGroup(transition_pool.lock)
     worker_group = worker.WorkerGroup(args, host_type=scheduler.host_type,

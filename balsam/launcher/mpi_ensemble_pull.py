@@ -15,24 +15,24 @@ from subprocess import Popen, STDOUT, TimeoutExpired
 
 from mpi4py import MPI
 
-from balsam.launcher.util import cd, get_tail, parse_real_time
+from balsam.launcher.util import cd, get_tail, parse_real_time, remaining_time_minutes
 from balsam.launcher.exceptions import *
 from balsam.service.models import BalsamJob
 
 COMM = MPI.COMM_WORLD
 RANK = COMM.Get_rank()
 HANDLE_EXIT = False
+django.db.connections.close_all()
 
 class Tags:
     EXIT = 0  # master --> worker: exit now
     NEW = 1 # master --> worker: new job spec
     KILL = 2 # master --> worker: stop current job
-    ASK = 3  # worker --> master: ask for update
-    READY = 4 # worker --> master: ask for new job
+    CONTINUE = 3 # master --> worker: keep running current job
+    ASK = 4  # worker --> master: ask for update
     DONE = 5 # worker --> master: job success
     ERROR = 6 # worker --> master: job error
     TIMEOUT = 7 # worker --> master: job timedout
-    CONTINUE = 8 # master --> worker: keep going
 
 
 def on_exit(job):
@@ -136,14 +136,73 @@ def run(job):
             proc.kill()
 
 
-def refresh_jobs
-def master_main(host_names):
-    node_occupancy = {name : 0.0 for name in set(host_names)}
-    idle_ranks = [True for i in range(COMM.size)]
-    idle_ranks[0] = False
+def get_runnable_jobs(job_source):
+    job_source.refresh_from_db()
+    return job_source.jobs.filter(num_nodes=1).filter(ranks_per_node=1)
 
-    with open(sys.argv[1]) as fp:
-        config = json.load(fp)
+class Config:
+    def __init__(self, path):
+        with open(sys.argv[1]) as fp: data = json.load(fp)
+
+        job_file = data['job_file']
+        wf_name = data['wf_name']
+        self.time_limit_min = data['time_limit_min']
+
+        if job_file:
+            self.job_source = jobreader.FileJobReader(job_file)
+        else:
+            self.job_source = jobreader.WFJobReader(wf_name)
+
+
+class ResourceManager:
+    def __init__(self, host_names, job_source):
+        self.host_names = host_names
+        self.job_source = job_source
+        self.node_occupancy = {name : 0.0 for name in set(host_names)}
+        self.job_assignments = [None for i in range(COMM.size)]
+        self.job_assignments[0] = 'master'
+
+        self.host_rank_map = {}
+        for name in set(host_names):
+            self.host_rank_map[name] = [i for i,hostname in enumerate(host_names) if hostname == name]
+
+        self.recv_requests = []
+
+    def allocate_next_jobs(self, time_limit_min):
+        '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
+        jobquery = self.job_source.get_runnable(time_limit_min, serial_only=True)
+        jobs = jobquery.order_by('-serial_node_packing_count') # descending order
+        for job in jobs:
+            job_occ = 1.0 / job.serial_node_packing_count
+            free_node = next((name for name,occ in self.node_occupancy.items() if job_occ+occ < 1.01), None)
+            if free_node is None: 
+                rank = None
+                raise StopIteration
+            else:
+                rank = next((i for i in self.host_rank_map[free_node] if self.job_assignments[i] is None), None)
+            if rank is None:
+                raise StopIteration
+            else:
+                self.node_occupancy[free_node] += job_occ
+                self.job_assignments[rank] = job.pk
+                yield job, rank
+    
+    def send_job(self, job, rank):
+        COMM.isend(jobmsg, dest=rank, tag=Tags.NEW)
+        req = COMM.irecv(source=rank)
+        self.recv_requests.append(req)
+        
+def master_main(host_names):
+
+    config = Config(sys.argv[1])
+    job_source = config.job_source
+    time_limit_min = config.time_limit_min
+    manager = ResourceManager(host_names, job_source)
+
+    remaining_timer = remaining_time_minutes(time_limit_min)
+    next(remaining_timer)
+
+
 
 
 if __name__ == "__main__":

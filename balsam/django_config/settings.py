@@ -166,10 +166,10 @@ sys.excepthook = log_uncaught_exceptions
 # ------------------------
 is_server = os.environ.get('IS_BALSAM_SERVER')=='True'
 is_daemon = os.environ.get('IS_SERVER_DAEMON')=='True'
-using_sqlite = DATABASES['default']['ENGINE'].endswith('sqlite3')
+USING_SQLITE = DATABASES['default']['ENGINE'].endswith('sqlite3')
 SAVE_CLIENT = None
 
-if using_sqlite and not (is_server or is_daemon):
+if USING_SQLITE and not (is_server or is_daemon):
     from balsam.django_config import sqlite_client
     SAVE_CLIENT = sqlite_client.Client(serverinfo.ServerInfo(BALSAM_PATH))
     if SAVE_CLIENT.serverAddr is None:

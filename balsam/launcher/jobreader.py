@@ -13,8 +13,14 @@ import logging
 import uuid
 logger = logging.getLogger(__name__)
 
+
 class JobReader():
     '''Define JobReader interface and provide generic constructor, filters'''
+
+    WAITING_STATES = ['CREATED', 'LAUNCHER_QUEUED', 'AWAITING_PARENTS']
+    RUNNABLE_STATES = ['PREPROCESSED', 'RESTART_READY']
+    ALMOST_RUNNABLE_STATES = ['READY','STAGED_IN']
+
     @staticmethod
     def from_config(config):
         '''Constructor: build a FileJobReader or WFJobReader from argparse
@@ -33,19 +39,28 @@ class JobReader():
         if config.job_file: return FileJobReader(config.job_file)
         else: return WFJobReader(config.wf_name)
     
-    @property
-    def by_states(self):
-        '''A dictionary of jobs keyed by their state'''
-        result = defaultdict(list)
-        for job in self.jobs:
-            result[job.state].append(job)
-        return result
+    def by_states(self, states):
+        '''Queryset of jobs matching one of states'''
+        self.refresh_from_db()
+        if isinstance(states, str):
+            states = [states]
+        elif isinstance(states, dict):
+            states = states.keys()
+        return self.jobs.filter(state__in=states)
     
     def refresh_from_db(self):
         '''Reload and re-filter jobs from the database'''
         jobs = self._get_jobs()
         jobs = self._filter(jobs)
         self.jobs = jobs
+
+    def get_runnable(self, remaining_minutes, serial_only=False):
+        runnable_jobs = self.by_states(self.RUNNABLE_STATES)
+        runnable_jobs = runnable_jobs.filter(wall_time_minutes__lte=remaining_minutes)
+        if serial_only:
+            runnable_jobs = runnable_jobs.filter(num_nodes=1)
+            runnable_jobs = runnable_jobs.filter(ranks_per_node=1)
+        return runnable_jobs
    
     def _get_jobs(self): raise NotImplementedError
     

@@ -51,6 +51,8 @@ class DummyLock:
 
 if settings.SAVE_CLIENT:
     LockClass = DummyLock # With db_writer proxy; no need for lock!
+elif not settings.USING_SQLITE:
+    LockClass = DummyLock # With postgres; no need for lock!
 else:
     LockClass = multiprocessing.Lock
 
@@ -126,11 +128,17 @@ class TransitionProcessPool:
         signal.signal(signal.SIGINT, handler)
         signal.signal(signal.SIGTERM, handler)
 
-        class PQueueManager(multiprocessing.managers.SyncManager): pass
-        PQueueManager.register("PriorityQueue", queue.PriorityQueue)
-        self.pqueue_manager = PQueueManager()
-        self.pqueue_manager.start()
-        self.job_queue = self.pqueue_manager.PriorityQueue()
+        if settings.PRIORITIZE_TRANSITIONS:
+            class PQueueManager(multiprocessing.managers.SyncManager): pass
+            PQueueManager.register("PriorityQueue", queue.PriorityQueue)
+            self.pqueue_manager = PQueueManager()
+            self.pqueue_manager.start()
+            self.job_queue = self.pqueue_manager.PriorityQueue()
+            logger.debug("Using priority queue for transitions")
+        else:
+            logger.debug("Using ordinary queue for transitions")
+            self.job_queue = multiprocessing.Queue()
+            self.pqueue_manager = None
 
         self.status_queue = multiprocessing.Queue()
         self.lock = LockClass()
@@ -151,20 +159,20 @@ class TransitionProcessPool:
         '''Check if a job is currently in a transition'''
         return job.pk in self.transitions_pk_list
 
-    def add_job(self, job):
+    def add_job(self, job_pk, job_state):
         '''Add job to the job_queue.  A transition process will pull this job
         off the queue and carry out the transition.  
 
         The job primary key is added to ``transitions_pk_list`` so that the Launcher can
         easily check which jobs are currently in transition
         '''
-        if job in self: raise BalsamTransitionError("already in transition")
-        if job.state not in TRANSITIONS: raise TransitionNotFoundError
+        if job_pk in self.transitions_pk_list: raise BalsamTransitionError("already in transition")
+        if job_state not in TRANSITIONS: raise TransitionNotFoundError
         
-        priority = PRIORITIES[job.state]
-        job_msg = (priority, job.pk)
+        priority = PRIORITIES[job_state]
+        job_msg = (priority, job_pk)
         self.job_queue.put(job_msg)
-        self.transitions_pk_list.append(job.pk)
+        self.transitions_pk_list.append(job_pk)
 
     def get_statuses(self):
         '''Generator: pull statuses off the status queue until it's exhausted.
@@ -184,6 +192,11 @@ class TransitionProcessPool:
         '''Flush the queue (or for priority queue, place a high-priority END
         message) in the queue. Allow all transition processes to finish the
         current step before shutdown.'''
+        if not settings.PRIORITIZE_TRANSITIONS:
+            while not self.job_queue.empty():
+                try: self.job_queue.get_nowait()
+                except queue.Empty: break
+
         priority = PRIORITIES['end']
         job_msg = (priority, 'end')
         logger.debug("Sending end message and waiting on transition processes")
@@ -191,7 +204,8 @@ class TransitionProcessPool:
             self.job_queue.put(job_msg)
         for proc in self.procs: 
             proc.join()
-        self.pqueue_manager.shutdown()
+
+        if self.pqueue_manager is not None: self.pqueue_manager.shutdown()
         logger.info("All Transition processes joined: done.")
         self.transitions_pk_list = []
 
