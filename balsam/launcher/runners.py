@@ -240,10 +240,13 @@ class MPIEnsembleRunner(Runner):
         rpn = worker_list[0].max_ranks_per_node
         nranks = sum(w.num_nodes*rpn for w in worker_list)
         envs = self.jobs[0].get_envs() # TODO: is pulling envs in runner inefficient?
+        tpr = self.jobs[0].threads_per_rank
+        tpc = self.jobs[0].threads_per_core
         app_cmd = f"{sys.executable} {MPI_ENSEMBLE_EXE} {ensemble_filename}"
 
         mpi_str = self.mpi_cmd(worker_list, app_cmd=app_cmd, envs=envs,
-                               num_ranks=nranks, ranks_per_node=rpn)
+                               num_ranks=nranks, ranks_per_node=rpn,
+                               threads_per_rank=tpr, threads_per_core=tpc)
 
         self.popen_args['args'] = shlex.split(mpi_str)
         logger.info(f"MPIEnsemble Popen:\n {self.popen_args['args']}")
