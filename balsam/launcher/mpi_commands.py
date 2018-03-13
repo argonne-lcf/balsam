@@ -111,9 +111,12 @@ class CRAYMPICommand(MPICommand):
         self.nproc = '-n'
         self.ppn = '-N'
         self.env = '-e'
-        self.cpu_binding = '-cc depth'
-        self.threads_per_rank = '-d'
-        self.threads_per_core = '-j'
+        #self.cpu_binding = '-cc depth'
+        #self.threads_per_rank = '-d'
+        #self.threads_per_core = '-j'
+        self.cpu_binding = '-cc none'
+        self.threads_per_rank = ''
+        self.threads_per_core = ''
     
     def worker_str(self, workers):
         if not workers:
