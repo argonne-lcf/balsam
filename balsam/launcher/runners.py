@@ -39,7 +39,7 @@ import logging
 logger = logging.getLogger(__name__)
     
 from importlib.util import find_spec
-MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
+MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble_pull").origin
 
 
 class Runner:
