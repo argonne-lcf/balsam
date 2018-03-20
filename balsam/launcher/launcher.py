@@ -107,6 +107,7 @@ def main(args, transition_pool, runner_group, job_source):
     delay_sleeper = delay_generator()
     last_runner_created = time.time()
     remaining_timer = remaining_time_minutes(args.time_limit_minutes)
+    exit_counter = 0
 
     for remaining_minutes in remaining_timer:
 
@@ -147,8 +148,12 @@ def main(args, transition_pool, runner_group, job_source):
 
         if delay: next(delay_sleeper)
         if job_source.by_states(END_STATES).count() == job_source.jobs.count():
-            logger.info("No jobs to process. Exiting main loop now.")
-            break
+            exit_counter += 1
+            if exit_counter == 15:
+                logger.info("No jobs to process. Exiting main loop now.")
+                break
+        else:
+            exit_counter = 0
     
 def on_exit(runner_group, transition_pool, job_source):
     '''Exit cleanup'''

@@ -427,7 +427,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         )
 
         if self.threads_per_rank > 1:
-            balsam_envs['OMP_NUM_THREADS'] = self.threads_per_rank
+            balsam_envs['OMP_NUM_THREADS'] = str(self.threads_per_rank)
 
         if timeout: balsam_envs['BALSAM_JOB_TIMEOUT']="TRUE"
         if error: balsam_envs['BALSAM_JOB_ERROR']="TRUE"
