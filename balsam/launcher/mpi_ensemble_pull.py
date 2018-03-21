@@ -87,12 +87,27 @@ class ResourceManager:
         send_requests = []
 
         for cache_idx, job in enumerate(self.job_cache):
+            logger.debug(f'trying to assign {job.cute_id} to a rank...')
             job_occ = 1.0 / job.serial_node_packing_count
-            free_node = next((name for name,occ in self.node_occupancy.items() if job_occ+occ < 1.01), None)
-            if free_node is None: break
             
-            rank = next((i for i in self.host_rank_map[free_node] if self.job_assignments[i] is None), None)
-            if rank is None: break
+            free_nodes = [name for name,occ in self.node_occupancy.items() if job_occ+occ < 1.01]
+            if not free_nodes:
+                logger.debug(f'no free nodes: job_occ {job_occ}')
+                break
+            
+            rank = None
+            free_node = None
+            for node in free_nodes:
+                rank = next((i for i in self.host_rank_map[node] if self.job_assignments[i] is None), None)
+                if rank is not None: 
+                    free_node = node
+                    break
+
+            if rank is None:
+                logger.debug(f'no free ranks on node {free_node}')
+                logger.debug(f'{self.host_rank_map}')
+                logger.debug(f'{self.job_assignments}')
+                break
 
             self.node_occupancy[free_node] += job_occ
             self.job_assignments[rank] = (job.pk, job_occ)
@@ -113,6 +128,9 @@ class ResourceManager:
     def _send_job(self, job, rank):
         '''Send message to compute rank'''
         job_spec = {}
+        if not job.working_directory:
+            job.create_working_path()
+
         job_spec['workdir'] = job.working_directory
         job_spec['name'] = job.name
         job_spec['cuteid'] = job.cute_id
