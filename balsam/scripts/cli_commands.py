@@ -431,6 +431,7 @@ def make_dummies(args):
         job = Job()
         job.name = f'dummy{i}'
         job.description = 'Added by balsam make_dummies'
+        job.serial_node_packing_count = 64
         job.workflow = 'dummy'
         job.allowed_work_sites = settings.BALSAM_SITE
 
@@ -452,7 +453,7 @@ def make_dummies(args):
         job.stage_in_url = ''
         job.stage_out_url = ''
         job.stage_out_files = ''
-        job.direct_command = 'sleep 0.1 && echo hello'
+        job.direct_command = 'echo hello'
 
         job.save()
     print(f"Added {args.num} dummy jobs to the DB")
