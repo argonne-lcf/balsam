@@ -82,6 +82,7 @@ class ResourceManager:
             self.last_killed_refresh = now
             if self.killed_pks: logger.debug(f"Killed jobs: {self.killed_pks}")
         
+    @django.db.transaction.atomic
     def allocate_next_jobs(self, time_limit_min):
         '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
         self.refresh_job_cache(time_limit_min)
@@ -282,9 +283,10 @@ def master_main(host_names):
         assert num_timeout == len(outstanding_job_pks)
         logger.info(f"Shutting down with {num_timeout} jobs still running")
         
-        for job in outstanding_jobs:
-            job.update_state('RUN_TIMEOUT', 'timed out in MPI Ensemble')
-            logger.info(f"{job.cute_id} RUN_TIMEOUT")
+        with django.db.transaction.atomic():
+            for job in outstanding_jobs:
+                job.update_state('RUN_TIMEOUT', 'timed out in MPI Ensemble')
+                logger.info(f"{job.cute_id} RUN_TIMEOUT")
         
         #outstanding_jobs = BalsamJob.objects.filter(job_id__in=outstanding_job_pks)
         #for job in outstanding_jobs:
@@ -316,7 +318,8 @@ def master_main(host_names):
         if RUN_NEW_JOBS:
             ran_anything = manager.allocate_next_jobs(remaining_minutes)
         start = time.time()
-        while manager.serve_request(): got_requests += 1
+        with django.db.transaction.atomic():
+            while manager.serve_request(): got_requests += 1
         elapsed = time.time() - start
         logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
 
