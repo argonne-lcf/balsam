@@ -82,6 +82,7 @@ class ResourceManager:
             self.last_killed_refresh = now
             if self.killed_pks: logger.debug(f"Killed jobs: {self.killed_pks}")
         
+    @django.db.transaction.atomic
     def allocate_next_jobs(self, time_limit_min):
         '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
         self.refresh_job_cache(time_limit_min)
@@ -282,9 +283,10 @@ def master_main(host_names):
         assert num_timeout == len(outstanding_job_pks)
         logger.info(f"Shutting down with {num_timeout} jobs still running")
         
-        for job in outstanding_jobs:
-            job.update_state('RUN_TIMEOUT', 'timed out in MPI Ensemble')
-            logger.info(f"{job.cute_id} RUN_TIMEOUT")
+        with django.db.transaction.atomic():
+            for job in outstanding_jobs:
+                job.update_state('RUN_TIMEOUT', 'timed out in MPI Ensemble')
+                logger.info(f"{job.cute_id} RUN_TIMEOUT")
         
         #outstanding_jobs = BalsamJob.objects.filter(job_id__in=outstanding_job_pks)
         #for job in outstanding_jobs:
@@ -316,7 +318,8 @@ def master_main(host_names):
         if RUN_NEW_JOBS:
             ran_anything = manager.allocate_next_jobs(remaining_minutes)
         start = time.time()
-        while manager.serve_request(): got_requests += 1
+        with django.db.transaction.atomic():
+            while manager.serve_request(): got_requests += 1
         elapsed = time.time() - start
         logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
 
@@ -343,9 +346,10 @@ class Worker:
     
     def wait_for_retcode(self):
         try: retcode = self.process.wait(timeout=self.CHECK_PERIOD)
-        except TimeoutExpired: 
+        except TimeoutExpired:
             return None
         else: 
+            self.process.communicate()
             self.process = None
             self.cuteid = None
             self.outfile.close()
@@ -377,6 +381,11 @@ class Worker:
         cmd = job_dict['cmd']
         envs = job_dict['envs']
 
+        # GPU: COOLEY SPECIFIC RIGHT NOW
+        gpu_device = RANK % 2  # TODO: generalize to multi-GPU system
+        envs['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
+        envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
+
         out_name = f'{name}.out'
         logger.debug(f"rank {RANK} {self.cuteid}\nPopen: {cmd}")
         timed_cmd = f"time -p ( {cmd} )"
@@ -389,7 +398,7 @@ class Worker:
             try:
                 self.process = Popen(timed_cmd, stdout=self.outfile, stderr=STDOUT,
                                      cwd=workdir, env=envs, shell=True, 
-                                     executable='/bin/bash')
+                                     executable='/bin/bash', bufsize=1)
             except Exception as e:
                 self.process = None
                 logger.warning(f"rank {RANK} Popen error:\n{str(e)}\nRetrying Popen...")

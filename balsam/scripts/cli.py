@@ -39,6 +39,8 @@ def make_parser():
                             help="Environment variables specific " 
                             "to this app; specify multiple envs like " 
                             "'--env VAR1=VAL1 --env VAR2=VAL2'.  ")
+    parser_app.add_argument('--no-check-path', action='store_true',
+    help="Create app even if the specified paths do not exist")
     # -------------------------------------------------------------------
 
 

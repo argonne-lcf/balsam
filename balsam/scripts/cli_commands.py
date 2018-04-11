@@ -53,10 +53,11 @@ def newapp(args):
     if AppDef.objects.filter(name=args.name).exists():
         raise RuntimeError(f"An application named {args.name} exists")
     
-    for arg in (args.executable,args.preprocess,args.postprocess):
-        paths = arg.split()
-        if arg and not all(os.path.exists(p) for p in paths):
-            raise RuntimeError(f"{paths} not found")
+    if not args.no_check_path:
+        for arg in (args.executable,args.preprocess,args.postprocess):
+            paths = arg.split()
+            if arg and not all(os.path.exists(p) for p in paths):
+                raise RuntimeError(f"{paths} not found")
 
     app = AppDef()
     app.name = args.name
@@ -454,6 +455,7 @@ def make_dummies(args):
         job.stage_out_url = ''
         job.stage_out_files = ''
         job.direct_command = 'echo hello'
+        job.state = 'PREPROCESSED'
 
         job.save()
     print(f"Added {args.num} dummy jobs to the DB")
