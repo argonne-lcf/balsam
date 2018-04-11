@@ -82,7 +82,6 @@ class ResourceManager:
             self.last_killed_refresh = now
             if self.killed_pks: logger.debug(f"Killed jobs: {self.killed_pks}")
         
-    @django.db.transaction.atomic
     def allocate_next_jobs(self, time_limit_min):
         '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
         self.refresh_job_cache(time_limit_min)
@@ -250,13 +249,15 @@ def parse_args():
     parser.add_argument('--job-file')
     parser.add_argument('--time-limit-min', type=int,
                         default=72*60)
+    parser.add_argument('--gpus-per-node', type=int, default=0)
+    parser.add_argument('--db-transaction', action='store_true')
     args = parser.parse_args()
     if args.job_file:
         job_source = jobreader.FileJobReader(args.job_file)
     else:
         job_source = jobreader.WFJobReader(args.wf_name)
 
-    return job_source, args.time_limit_min
+    return job_source, args.time_limit_min, args.gpus_per_node, db_transaction
 
 def master_main(host_names):
     MAX_IDLE_TIME = 10.0
@@ -265,8 +266,17 @@ def master_main(host_names):
     idle_time = 0.0
     ON_EXIT = False
     
-    job_source, time_limit_min = parse_args()
+    job_source, time_limit_min, gpus_per_node, db_transaction = parse_args()
     manager = ResourceManager(host_names, job_source)
+    gpus_per_node = comm.bcast(gpus_per_node, root=0)
+
+    if db_transaction:
+        transaction_context = django.db.transaction.atomic
+    else:
+        class DummyContext:
+            def __enter__(self): pass
+            def __exit__(self, *args): pass
+        transaction_context = DummyContext
 
     def handle_sigusr1(signum, stack):
         nonlocal RUN_NEW_JOBS
@@ -283,7 +293,7 @@ def master_main(host_names):
         assert num_timeout == len(outstanding_job_pks)
         logger.info(f"Shutting down with {num_timeout} jobs still running")
         
-        with django.db.transaction.atomic():
+        with transaction_context():
             for job in outstanding_jobs:
                 job.update_state('RUN_TIMEOUT', 'timed out in MPI Ensemble')
                 logger.info(f"{job.cute_id} RUN_TIMEOUT")
@@ -316,9 +326,10 @@ def master_main(host_names):
         got_requests = 0
 
         if RUN_NEW_JOBS:
-            ran_anything = manager.allocate_next_jobs(remaining_minutes)
+            with transaction_context():
+                ran_anything = manager.allocate_next_jobs(remaining_minutes)
         start = time.time()
-        with django.db.transaction.atomic():
+        with transaction_context():
             while manager.serve_request(): got_requests += 1
         elapsed = time.time() - start
         logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
@@ -382,9 +393,10 @@ class Worker:
         envs = job_dict['envs']
 
         # GPU: COOLEY SPECIFIC RIGHT NOW
-        gpu_device = RANK % 2  # TODO: generalize to multi-GPU system
-        envs['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
-        envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
+        if self.gpus_per_node > 0:
+            gpu_device = RANK % self.gpus_per_node  # TODO: generalize to multi-GPU system
+            envs['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
+            envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
 
         out_name = f'{name}.out'
         logger.debug(f"rank {RANK} {self.cuteid}\nPopen: {cmd}")
@@ -415,6 +427,8 @@ class Worker:
         tag = None
         stat = MPI.Status()
 
+        gpus_per_node = None
+        self.gpus_per_node = comm.bcast(gpus_per_node, root=0)
         signal.signal(signal.SIGUSR1, signal.SIG_IGN)
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
