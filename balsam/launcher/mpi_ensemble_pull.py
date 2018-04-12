@@ -257,7 +257,7 @@ def parse_args():
     else:
         job_source = jobreader.WFJobReader(args.wf_name)
 
-    return job_source, args.time_limit_min, args.gpus_per_node, db_transaction
+    return job_source, args.time_limit_min, args.gpus_per_node, args.db_transaction
 
 def master_main(host_names):
     MAX_IDLE_TIME = 10.0

@@ -107,7 +107,7 @@ class LocalHandler:
               shell=True)
       stdout,stderr = p.communicate()
       if p.returncode != 0:
-         raise Exception("Error in stage_in: %d output:\n" % (p.returncode,stdout))
+          raise Exception(f"Stage in process returned {p.returncode}: {stdout}")
 
    def stage_out( self, source_directory, destination_url ):
       parts = urlparse.urlparse( destination_url )
