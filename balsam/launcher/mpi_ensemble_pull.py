@@ -272,11 +272,13 @@ def master_main(host_names):
 
     if db_transaction:
         transaction_context = django.db.transaction.atomic
+        logger.info(f"Using real transactions: {transaction_context}")
     else:
         class DummyContext:
             def __enter__(self): pass
             def __exit__(self, *args): pass
         transaction_context = DummyContext
+        logger.info(f"No transactions: {transaction_context}")
 
     def handle_sigusr1(signum, stack):
         nonlocal RUN_NEW_JOBS
