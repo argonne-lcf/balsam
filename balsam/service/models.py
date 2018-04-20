@@ -82,6 +82,35 @@ STATE_TIME_PATTERN = re.compile(r'''
 \]                 # closing square bracket
 ''', re.VERBOSE | re.MULTILINE)
 
+def process_job_times(time0=None, state0=None):
+    '''Returns {state : [elapsed_seconds_for_each_job_to_reach_state]}
+    Useful for tracking job performance/throughput'''
+    from collections import defaultdict
+
+    if state0 is None: state0 = 'READY'
+    data = BalsamJob.objects.values_list('state_history', flat=True)
+    data = '\n'.join(data)
+    matches = STATE_TIME_PATTERN.finditer(data)
+    result = ( m.groups() for m in matches )
+    result = ( (state, datetime.strptime(time_str, TIME_FMT))
+              for (time_str, state) in result )
+    
+    time_data = defaultdict(list)
+    for state, time in result:
+        time_data[state].append(time)
+
+    if time0 is None: 
+        if state0 not in time_data:
+            raise ValueError(f"Requested time-zero at first instance of {state0}, "
+                "but there are no jobs in the DB with this state!")
+        time0 = min(time_data[state0])
+
+    for state in time_data.keys():
+        time_data[state] = [(t - time0).total_seconds() for t in sorted(time_data[state])]
+
+    return time_data
+
+
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
     joined = [state for g in groups for state in g]
