@@ -26,7 +26,6 @@ from balsam.service.models import BalsamJob
 
 comm = MPI.COMM_WORLD
 RANK = comm.Get_rank()
-HANDLE_EXIT = False
 django.db.connections.close_all()
 
 
@@ -264,7 +263,7 @@ def master_main(host_names):
     DELAY_PERIOD = 1.0
     RUN_NEW_JOBS = True
     idle_time = 0.0
-    ON_EXIT = False
+    EXIT_FLAG = False
     
     job_source, time_limit_min, gpus_per_node, db_transaction = parse_args()
     manager = ResourceManager(host_names, job_source)
@@ -285,8 +284,6 @@ def master_main(host_names):
         RUN_NEW_JOBS = False
 
     def master_exit():
-        nonlocal ON_EXIT
-        ON_EXIT = True
         manager.send_exit()
         logger.debug("Send_exit: master done")
         outstanding_job_pks = [j[0] for j in manager.job_assignments[1:] if j is not None]
@@ -310,11 +307,9 @@ def master_main(host_names):
         sys.exit(0)
 
     def handle_term(signum, stack):
-        nonlocal ON_EXIT
-        if ON_EXIT: return
-        ON_EXIT = True
-        logger.info(f"ensemble master handling term signal")
-        master_exit()
+        nonlocal EXIT_FLAG
+        EXIT_FLAG = True
+        logger.info(f"ensemble master got signal {signum}: switching on EXIT_FLAG")
         
     signal.signal(signal.SIGUSR1, handle_sigusr1)
     signal.signal(signal.SIGINT, handle_term)
@@ -346,6 +341,8 @@ def master_main(host_names):
             if all(job == None for job in manager.job_assignments[1:]):
                 logger.info(f"Nothing to do for {MAX_IDLE_TIME} seconds: quitting")
                 break
+        if EXIT_FLAG:
+            break
     master_exit()
 
 
@@ -388,11 +385,14 @@ class Worker:
         sys.exit(0)
 
     def start_job(self, job_dict):
+
         workdir = job_dict['workdir']
         name = job_dict['name']
         self.cuteid = job_dict['cuteid']
         cmd = job_dict['cmd']
         envs = job_dict['envs']
+
+        if type(cmd) is str: cmd = cmd.split()
 
         # GPU: COOLEY SPECIFIC RIGHT NOW
         if self.gpus_per_node > 0:
@@ -402,7 +402,6 @@ class Worker:
 
         out_name = f'{name}.out'
         logger.debug(f"rank {RANK} {self.cuteid}\nPopen: {cmd}")
-        timed_cmd = f"time -p ( {cmd} )"
 
         os.chdir(workdir)
         self.outfile = open(out_name, 'wb')
@@ -410,9 +409,8 @@ class Worker:
         while counter < 4:
             counter += 1
             try:
-                self.process = Popen(timed_cmd, stdout=self.outfile, stderr=STDOUT,
-                                     cwd=workdir, env=envs, shell=True, 
-                                     executable='/bin/bash', bufsize=1)
+                self.process = Popen(cmd, stdout=self.outfile, stderr=STDOUT,
+                                     cwd=workdir, env=envs, shell=False, bufsize=1,)
             except Exception as e:
                 self.process = None
                 logger.warning(f"rank {RANK} Popen error:\n{str(e)}\nRetrying Popen...")
@@ -441,6 +439,7 @@ class Worker:
 
             if tag == Tags.NEW:
                 success = self.start_job(msg)
+                self.job_start_time = time.time()
                 if not success:
                     errMsg = {'retcode' : 123 , 'tail' : 'Could not Popen from mpi_ensemble'}
                     comm.send(errMsg, dest=0, tag=Tags.ERROR)
@@ -448,7 +447,7 @@ class Worker:
                 #logger.debug(f"rank {RANK} received KILL")
                 self.kill()
             elif tag == Tags.EXIT:
-                #logger.debug(f"rank {RANK} received EXIT")
+                logger.debug(f"rank {RANK} received EXIT")
                 self.kill()
                 break
 
@@ -457,7 +456,8 @@ class Worker:
                 if retcode is None:
                     message, requestTag = 'ask', Tags.ASK
                 elif retcode == 0:
-                    elapsed = parse_real_time(get_tail(self.outfile.name, indent=''))
+                    #elapsed = parse_real_time(get_tail(self.outfile.name, indent=''))
+                    elapsed = time.time() - self.job_start_time
                     doneMsg = {'elapsed_seconds' : elapsed}
                     message, requestTag = doneMsg, Tags.DONE
                 else:
