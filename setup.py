@@ -11,28 +11,9 @@ import os
 import time
 
 def auto_setup_db():
-    here = path.abspath(path.dirname(__file__))
-    default_db_path = os.path.join(here , 'default_balsamdb')
-    try:
-        os.mkdir(default_db_path, mode=0o755)
-    except OSError:
-        from shutil import rmtree
-        rmtree(default_db_path)
-        os.mkdir(default_db_path, mode=0o755)
-    time.sleep(1)
-    cwd = os.getcwd()
-    os.chdir(default_db_path)
-    with open("dbwriter_address", 'w') as fp:
-        fp.write('{"db_type": "sqlite3"}')
-    os.chdir(cwd)
-
     import django
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
-    from django.core.management import call_command
-    call_command('makemigrations',interactive=False,verbosity=2)
-    call_command('migrate',interactive=False,verbosity=2)
-
 
 class PostInstallCommand(install):
     '''Post-installation for installation mode'''
@@ -49,6 +30,8 @@ class PostDevelopCommand(develop):
 
 
 here = path.abspath(path.dirname(__file__))
+activate_script = path.join(here, 'balsam', 'scripts', 'balsamactivate')
+deactivate_script = path.join(here, 'balsam', 'scripts', 'balsamdeactivate')
 
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
@@ -72,6 +55,9 @@ setup(
     install_requires=['django', 'django-concurrency', 'pyzmq'],
 
     include_package_data=True,
+
+    # Command-line bash scripts (to be used as "source balsamactivate")
+    scripts = [activate_script, deactivate_script],
 
     # Register command-line tools here
     entry_points={

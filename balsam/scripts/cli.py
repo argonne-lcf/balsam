@@ -339,6 +339,8 @@ def make_parser():
     # WHICH
     # ---------
     parser_which = subparsers.add_parser('which')
+    parser_which.add_argument('--list', action='store_true')
+    parser_which.add_argument('--name')
     parser_which.set_defaults(func=which)
 
     return parser

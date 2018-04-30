@@ -4,7 +4,11 @@ import sys
 from pprint import pprint
 import time
 import subprocess
-from balsam.django_config.serverinfo import ServerInfo
+try:
+    from balsam.django_config.serverinfo import ServerInfo
+except:
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    from balsam.django_config.serverinfo import ServerInfo
 
 def sqlite3_init(serverInfo):
     pass
@@ -52,6 +56,7 @@ def run_migrations():
     from django import db
     from django.core.management import call_command
     from django.conf import settings
+    from balsam.django_config.db_index import refresh_db_index
 
     print(f"DB settings:", settings.DATABASES['default'])
 
@@ -60,6 +65,7 @@ def run_migrations():
     pprint(db_info, width=60)
     call_command('makemigrations', interactive=False, verbosity=0)
     call_command('migrate', interactive=False, verbosity=0)
+    refresh_db_index()
 
     try:
         from balsam.service.models import BalsamJob

@@ -10,10 +10,41 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.9/ref/settings/
 """
 
+import json
 import os
 import sys
+import shutil
+import time
+import subprocess
 from balsam.django_config import serverinfo
-from balsam.user_settings import *
+from balsam.django_config.db_index import refresh_db_index
+from django.core.management import call_command
+
+home_dir = os.path.expanduser('~')
+BALSAM_HOME = os.path.join(home_dir, '.balsam')
+default_db_path = os.path.join(BALSAM_HOME , 'default_db')
+
+def bootstrap():
+    if not os.path.exists(default_db_path):
+        os.makedirs(default_db_path, mode=0o755)
+        time.sleep(1)
+
+    addr_path = os.path.join(default_db_path, 'dbwriter_address')
+    if not os.path.exists(addr_path):
+        with open(addr_path, 'w') as fp: 
+            fp.write('{"db_type": "sqlite3"}')
+
+    user_settings_path = os.path.join(BALSAM_HOME, 'settings.json')
+    if not os.path.exists(user_settings_path):
+        here = os.path.dirname(os.path.abspath(__file__))
+        default_settings_path = os.path.join(here, 'default_settings.json')
+        shutil.copy(default_settings_path, user_settings_path)
+        print("Created Balsam JSON settings at", user_settings_path)
+
+    thismodule = sys.modules[__name__]
+    user_settings = json.load(open(user_settings_path))
+    for k, v in user_settings.items():
+        setattr(thismodule, k, v)
 
 # ---------------
 # DATABASE SETUP
@@ -62,10 +93,26 @@ def configure_db_backend(db_path):
 
     DATABASES = {'default':db}
     return DATABASES
-
+    
+bootstrap()
 CONCURRENCY_ENABLED = True
 BALSAM_PATH = resolve_db_path()
 DATABASES = configure_db_backend(BALSAM_PATH)
+
+db_type = DATABASES['default']['ENGINE']
+db_name = DATABASES['default']['NAME']
+if os.environ['BALSAM_DB_PATH'] == default_db_path and not os.path.exists(db_name) and 'BALSAM_BOOTSTRAP' not in os.environ:
+    print("Bootstrapping sqlite DB at", db_name)
+    here = os.path.dirname(os.path.abspath(__file__))
+    initpath = os.path.join(os.path.dirname(here), 'scripts', 'init.py')
+    cmd = f"{sys.executable} {initpath}"
+    proc = subprocess.run(f'BALSAM_BOOTSTRAP=1 {cmd} {BALSAM_PATH}', shell=True,
+                   check=False, stdout=subprocess.PIPE,
+                   stderr=subprocess.STDOUT)
+    if proc.returncode != 0:
+        print(proc.stdout.decode('utf-8'))
+        raise RuntimeError
+    refresh_db_index()
 
 # --------------------
 # SUBDIRECTORY SETUP
