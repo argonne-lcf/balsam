@@ -15,3 +15,4 @@ docs/_static/*
 default_balsamdb
 testdb
 nohup.out
+env-balsam

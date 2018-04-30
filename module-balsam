@@ -1,0 +1,26 @@
+#%Module2.0
+## balsam modulefile
+##
+proc ModulesHelp { } {
+   puts stderr "This module adds the Balsam commandline tools and Python package to your environment (requires Python >= 3.6)"
+}
+
+set _module_nme   [module-info name]
+set is_module_rm  [module-info mode remove]
+set sys           [uname sysname]
+set os            [uname release]
+
+conflict cray-python
+conflict intelpython27
+conflict intelpython35
+conflict alcfpython
+conflict miniconda-2.7/conda-4.4.1
+conflict miniconda-3.6/conda-4.3.31
+module load miniconda-3.6/conda-4.4.1
+
+append-path   PATH              /projects/datascience/msalim/balsam/env-balsam/bin
+append-path   PYTHONPATH        /projects/datascience/msalim/balsam/env-balsam/lib/python3.6/site-packages
+append-path   PYTHONPATH        /projects/datascience/msalim/balsam
+setenv PYTHONHOME               /soft/datascience/conda/miniconda3/4.4.10
+
+module-whatis  "Balsam environment"

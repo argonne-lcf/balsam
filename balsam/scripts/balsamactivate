@@ -44,5 +44,5 @@ then
     unset OLD_PS1
 fi
 export OLD_PS1=$PS1
-export PS1="[BalsamDB: $1] $PS1"
+export PS1="[BalsamDB: $(basename $1)] $PS1"
 return 0
