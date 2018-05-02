@@ -41,8 +41,8 @@ class Tags:
 
 class ResourceManager:
 
-    FETCH_PERIOD = 5.0
-    KILLED_REFRESH_PERIOD = 10.0
+    FETCH_PERIOD = 2.0
+    KILLED_REFRESH_PERIOD = 5.0
 
     def __init__(self, host_names, job_source):
         self.host_names = host_names
@@ -64,7 +64,7 @@ class ResourceManager:
 
     def refresh_job_cache(self, time_limit_min):
         now = time.time()
-        if now - self.last_job_fetch > self.FETCH_PERIOD:
+        if len(self.job_cache) == 0 or (now-self.last_job_fetch) > self.FETCH_PERIOD:
             jobquery = self.job_source.get_runnable(time_limit_min, serial_only=True)
             jobs = jobquery.order_by('-serial_node_packing_count') # descending order
             self.job_cache = list(jobs)
@@ -109,127 +109,107 @@ class ResourceManager:
             submitted_indices.append(cache_idx)
             logger.debug(f"Sent {job.cute_id} to rank {rank} on {free_node}: occupancy is now {self.node_occupancy[free_node]}")
 
+        submitted_pks = [self.job_cache[i].pk for i in submitted_indices]
+        BalsamJob.batch_update_state(submitted_pks, 'RUNNING', 'submitted in MPI Ensemble')
         self.job_cache = [job for i, job in enumerate(self.job_cache)
                           if i not in submitted_indices]
         
         MPI.Request.waitall(send_requests)
         return len(submitted_indices) > 0
 
-    
     def _send_job(self, job, rank):
         '''Send message to compute rank'''
-        start = time.time()
         job_spec = {}
-        if not job.working_directory:
-            job.create_working_path()
 
         job_spec['workdir'] = job.working_directory
         job_spec['name'] = job.name
         job_spec['cuteid'] = job.cute_id
         job_spec['cmd'] = job.app_cmd
-        start_envs = time.time()
         job_spec['envs'] = job.get_envs()
-        end_envs = time.time()
 
         req = comm.isend(job_spec, dest=rank, tag=Tags.NEW)
         self.recv_requests[rank] = comm.irecv(source=rank)
-        requests_posted = time.time()
-        job.update_state('RUNNING', f'MPI Ensemble rank {rank}')
-        end = time.time()
-
-        prep_time = requests_posted - start
-        update_state_time = end - requests_posted
-        envs_time = end_envs - start_envs
-        fraction_envs = envs_time / prep_time
-        logger.debug(f"time to prep job; post send/recv: {prep_time:.3f} ({fraction_envs:.2f} spent just in get_envs)")
-        logger.debug(f"time to call update_state to RUNNING: {update_state_time:.3f}")
         return req
 
-    def serve_request(self):
-        request = self._get_request()
-        if request is not None:
-            msg, source, tag = request
-            self._handle_request(msg, source, tag)
-            return True
-        else:
-            return False
-
-    def _get_request(self):
-        if not self.recv_requests: return None
+    def _get_requests(self):
+        completed_requests = []
         stat = MPI.Status()
-        requests = list(self.recv_requests.values())
-        _, got_msg, msg = MPI.Request.testany(requests, status=stat)
-        if not got_msg:
-            return None
-        else:
-            source, tag = stat.source, stat.tag
-            del self.recv_requests[source]
-            return msg, source, tag
+        for rank in self.recv_requests:
+            req = self.recv_requests[rank]
+            done, msg = req.test(status = stat)
+            if done: 
+                completed_requests.append((msg, stat.source, stat.tag))
+                assert stat.source == rank
 
-    def _handle_request(self, msg, source, tag):
-        if tag == Tags.ASK:
-            self._handle_ask(msg, source, tag)
-        elif tag == Tags.DONE:
-            self._handle_done(msg, source, tag)
-        elif tag == Tags.ERROR:
-            self._handle_error(msg, source, tag)
-        else:
-            raise RuntimeError(f"Unexpected tag from worker: {tag}")
+        for msg,rank,tag in completed_requests:
+            del self.recv_requests[rank]
+        return completed_requests
 
-    def _handle_ask(self, msg, source, tag):
-        self.refresh_killed_jobs()
-        pk, occ = self.job_assignments[source]
+    def serve_requests(self):
+        requests = self._get_requests()
+        ask_reqs =   [rank for (msg,rank,tag) in requests if tag==Tags.ASK]
+        done_reqs =  [rank for (msg,rank,tag) in requests if tag==Tags.DONE]
+        error_reqs = [(msg, rank) for (msg,rank,tag) in requests if tag==Tags.ERROR]
+        assert len(ask_reqs)+len(done_reqs)+len(error_reqs) == len(requests)
 
-        if pk in self.killed_pks:
-            req = comm.isend("kill", dest=source, tag=Tags.KILL)
-            self.job_assignments[source] = None
-            hostname = self.host_names[source]
-            self.node_occupancy[hostname] -= occ
-            logger.debug(f"Sent KILL to rank {source} on {hostname}: occupancy is now {self.node_occupancy[hostname]}")
-        else:
-            req = comm.isend("continue", dest=source, tag=Tags.CONTINUE)
-            self.recv_requests[source] = comm.irecv(source=source)
-        req.wait()
-    
-    def _handle_done(self, msg, source, tag):
-        TIMEstart = time.time()
-        pk, occ = self.job_assignments[source]
-
-        job = BalsamJob.objects.get(pk=pk)
-        TIMEend_get = time.time()
-        elapsed_seconds = msg['elapsed_seconds']
-        job.update_state('RUN_DONE', f"elapsed sec {elapsed_seconds}")
-        TIMEupdate = time.time()
-        logger.debug(f"{job.cute_id} RUN_DONE from rank {source}")
-        TIMEsavetime = None
-        if elapsed_seconds is not None:
-            job.runtime_seconds = float(elapsed_seconds)
-            job.save(update_fields = ['runtime_seconds'])
-            TIMEsavetime = time.time()
-
-        self.job_assignments[source] = None
-        hostname = self.host_names[source]
-        self.node_occupancy[hostname] -= occ
+        if ask_reqs:   self._handle_asks(ask_reqs)
+        if done_reqs:  self._handle_dones(done_reqs)
+        if error_reqs: self._handle_errors(error_reqs)
+        return len(requests)
         
-        logger.debug(f"_handle_done: time for GET: {TIMEend_get-TIMEstart:.3f}")
-        logger.debug(f"_handle_done: time for update_state: {TIMEupdate-TIMEend_get:.3f}")
-        if TIMEsavetime is not None:
-            logger.debug(f"_handle_done: time for update runtime: {TIMEsavetime-TIMEupdate:.3f}")
-        logger.debug(f"_handle_done: total time: {time.time()-TIMEstart:.3f}")
+    def _handle_asks(self, ask_ranks):
+        self.refresh_killed_jobs()
+        send_reqs = []
+
+        for rank in ask_ranks:
+            pk, occ = self.job_assignments[rank]
+
+            if pk in self.killed_pks:
+                req = comm.isend("kill", dest=rank, tag=Tags.KILL)
+                self.job_assignments[rank] = None
+                hostname = self.host_names[rank]
+                self.node_occupancy[hostname] -= occ
+                logger.debug(f"Sent KILL to rank {rank} on {hostname}: occupancy is now {self.node_occupancy[hostname]}")
+            else:
+                req = comm.isend("continue", dest=rank, tag=Tags.CONTINUE)
+                self.recv_requests[rank] = comm.irecv(source=rank)
+            send_reqs.append(req)
+        MPI.Request.waitall(send_reqs)
     
-    def _handle_error(self, msg, source, tag):
-        pk, occ = self.job_assignments[source]
+    def _handle_dones(self, done_ranks):
+        TIMEstart = time.time()
 
-        job = BalsamJob.objects.get(pk=pk)
-        retcode, tail = msg['retcode'], msg['tail']
-        state_msg = f"nonzero return {retcode}: {tail}"
-        job.update_state('RUN_ERROR', state_msg)
-        logger.error(f"{job.cute_id} RUN_ERROR from rank {source}")
-        logger.error(state_msg)
+        done_pks = []
+        for rank in done_ranks:
+            pk, occ = self.job_assignments[rank]
+            done_pks.append(pk)
+            
+            self.job_assignments[rank] = None
+            hostname = self.host_names[rank]
+            self.node_occupancy[hostname] -= occ
 
-        self.job_assignments[source] = None
-        hostname = self.host_names[source]
-        self.node_occupancy[hostname] -= occ
+        BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
+        
+        done_msg = ' '.join(str((pk,rank)) for pk,rank in zip(done_pks, done_ranks))
+        logger.debug(f"RUN_DONE: {done_msg}")
+        logger.debug(f"_handle_dones: {len(done_ranks)} handled in {time.time()-TIMEstart:.3f} seconds")
+    
+    def _handle_errors(self, error_reqs):
+        TIMEstart = time.time()
+        for msg,rank in error_reqs:
+            pk, occ = self.job_assignments[rank]
+            job = BalsamJob.objects.get(pk=pk)
+
+            retcode, tail = msg['retcode'], msg['tail']
+            state_msg = f"nonzero return {retcode}: {tail}"
+            job.update_state('RUN_ERROR', state_msg)
+            logger.error(f"{job.cute_id} RUN_ERROR from rank {rank}")
+            logger.error(state_msg)
+
+            self.job_assignments[rank] = None
+            hostname = self.host_names[rank]
+            self.node_occupancy[hostname] -= occ
+        logger.debug(f"_handle_errors: {len(error_reqs)} handled in {time.time()-TIMEstart:.3f} seconds")
     
     def send_exit(self):
         logger.info(f"send_exit: waiting on all pending recvs")
@@ -327,7 +307,7 @@ def master_main(host_names):
                 ran_anything = manager.allocate_next_jobs(remaining_minutes)
         start = time.time()
         with transaction_context():
-            while manager.serve_request(): got_requests += 1
+            got_requests = manager.serve_requests()
         elapsed = time.time() - start
         logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
 
@@ -403,6 +383,7 @@ class Worker:
         out_name = f'{name}.out'
         logger.debug(f"rank {RANK} {self.cuteid}\nPopen: {cmd}")
 
+        if not os.path.exists(workdir): os.makedirs(workdir)
         os.chdir(workdir)
         self.outfile = open(out_name, 'wb')
         counter = 0
@@ -439,7 +420,6 @@ class Worker:
 
             if tag == Tags.NEW:
                 success = self.start_job(msg)
-                self.job_start_time = time.time()
                 if not success:
                     errMsg = {'retcode' : 123 , 'tail' : 'Could not Popen from mpi_ensemble'}
                     comm.send(errMsg, dest=0, tag=Tags.ERROR)
@@ -456,10 +436,7 @@ class Worker:
                 if retcode is None:
                     message, requestTag = 'ask', Tags.ASK
                 elif retcode == 0:
-                    #elapsed = parse_real_time(get_tail(self.outfile.name, indent=''))
-                    elapsed = time.time() - self.job_start_time
-                    doneMsg = {'elapsed_seconds' : elapsed}
-                    message, requestTag = doneMsg, Tags.DONE
+                    message, requestTag = 'done', Tags.DONE
                 else:
                     tail = get_tail(self.outfile.name, nlines=10)
                     errMsg = {'retcode' : retcode, 'tail' : tail}

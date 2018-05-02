@@ -9,6 +9,8 @@ import uuid
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
 from django.db import models
+from django.db.models import Value as V
+from django.db.models.functions import Concat
 from concurrency.fields import IntegerVersionField
 from concurrency.exceptions import RecordModifiedError
 
@@ -81,6 +83,8 @@ STATE_TIME_PATTERN = re.compile(r'''
 \s*                # 0 or more space
 \]                 # closing square bracket
 ''', re.VERBOSE | re.MULTILINE)
+
+_app_cache = {}
 
 def process_job_times(time0=None, state0=None):
     '''Returns {state : [elapsed_seconds_for_each_job_to_reach_state]}
@@ -167,10 +171,6 @@ class BalsamJob(models.Model):
         help_text='A description of the job.',
         default='')
 
-    working_directory = models.TextField(
-        'Local Job Directory',
-        help_text='Local working directory where job files are stored.',
-        default='')
     parents = models.TextField(
         'IDs of the parent jobs which must complete prior to the start of this job.',
         default='[]')
@@ -198,10 +198,6 @@ class BalsamJob(models.Model):
         'Job Wall Time in Minutes',
         help_text='The number of minutes the job is expected to take',
         default=1)
-    runtime_seconds = models.FloatField(
-        'Measured Job Execution Time in seconds',
-        help_text='The actual elapsed runtime of the job, measured by launcher.',
-        default=0.0)
     num_nodes = models.IntegerField(
         'Number of Compute Nodes',
         help_text='The number of compute nodes requested for this job.',
@@ -344,7 +340,6 @@ stage_in_url:           {self.stage_in_url}
 stage_out_url:          {self.stage_out_url}
 stage_out_files:        {self.stage_out_files}
 wall_time_minutes:      {self.wall_time_minutes}
-actual_runtime:         {self.runtime_str()}
 num_nodes:              {self.num_nodes}
 threads per rank:       {self.threads_per_rank}
 threads per core:       {self.threads_per_core}
@@ -384,7 +379,11 @@ auto timeout retry:     {self.auto_timeout_retry}
     @property
     def app_cmd(self):
         if self.application:
-            app = ApplicationDefinition.objects.get(name=self.application)
+            if self.application in _app_cache:
+                app = _app_cache[self.application]
+            else:
+                app = ApplicationDefinition.objects.get(name=self.application)
+                _app_cache[self.application] = app
             line = f"{app.executable} {self.application_args}"
         else:
             line = f"{self.direct_command} {self.application_args}"
@@ -436,23 +435,14 @@ auto timeout retry:     {self.auto_timeout_retry}
         keywords = 'BALSAM DJANGO PYTHON'.split()
         envs = {var:value for var,value in os.environ.items() 
                 if any(keyword in var for keyword in keywords)}
-        try:
-            app = self.get_application()
-        except NoApplication:
-            app = None
-        if app and app.environ_vars:
-            app_vars = self.parse_envstring(app.environ_vars)
-            envs.update(app_vars)
+        
         if self.environ_vars:
             job_vars = self.parse_envstring(self.environ_vars)
             envs.update(job_vars)
     
-        children = self.get_children_by_id()
-        children = json.dumps([str(c) for c in children])
         balsam_envs = dict(
             BALSAM_JOB_ID=str(self.pk),
             BALSAM_PARENT_IDS=str(self.parents),
-            BALSAM_CHILD_IDS=children,
         )
 
         if self.threads_per_rank > 1:
@@ -462,6 +452,22 @@ auto timeout retry:     {self.auto_timeout_retry}
         if error: balsam_envs['BALSAM_JOB_ERROR']="TRUE"
         envs.update(balsam_envs)
         return envs
+
+    @classmethod
+    def batch_update_state(cls, pk_list, new_state, message=''):
+        if new_state not in STATES:
+            raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
+
+        states = cls.objects.filter(job_id__in=pk_list).values_list('job_id', 'state')
+        assert len(states) == len(pk_list)
+        update_ids = [jid for (jid,state) in states if state != 'USER_KILLED']
+
+        update_jobs = cls.objects.filter(job_id__in=update_ids)
+        msg = history_line(new_state, message)
+
+        update_jobs.update(state=new_state,
+                           state_history=Concat('state_history', V(msg))
+                          )
 
     def update_state(self, new_state, message='',using=None):
         if new_state not in STATES:
@@ -498,38 +504,30 @@ auto timeout retry:     {self.auto_timeout_retry}
         else:
             return open(path).read()
 
-    def runtime_str(self):
-        minutes, seconds = divmod(self.runtime_seconds, 60)
-        hours, minutes = divmod(minutes, 60)
-        hours, minutes = round(hours), round(minutes)
-        if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:05.2f} sec"
-        else: return f"{minutes:02d} min : {seconds:05.2f} sec"
-
     def get_state_times(self):
         matches = STATE_TIME_PATTERN.findall(self.state_history)
         return {state: datetime.strptime(timestr, TIME_FMT)
                 for timestr, state in matches
                }
 
-    def create_working_path(self):
+    @property
+    def runtime_seconds(self):
+        times = self.get_state_times()
+        t0 = times.get('RUNNING', None) 
+        t1 = times.get('RUN_DONE', None) 
+        if t0 and t1:
+            return (t1-t0).total_seconds()
+        else:
+            return None
+
+    @property
+    def working_directory(self):
         top = settings.BALSAM_WORK_DIRECTORY
         if self.workflow:
             top = os.path.join(top, self.workflow)
         name = self.name.strip().replace(' ', '_')
-        name += '_' + str(self.pk)[:8]
+        name += '_' + str(self.pk)
         path = os.path.join(top, name)
-
-        if os.path.exists(path):
-            jid = str(self.pk)[8:]
-            path += jid[0]
-            i = 1
-            while os.path.exists(path):
-                path += jid[i]
-                i += 1
-                
-        os.makedirs(path)
-        self.working_directory = path
-        self.save(update_fields=['working_directory'])
         return path
 
     def to_dict(self):
@@ -580,10 +578,6 @@ class ApplicationDefinition(models.Model):
         'Postprocessing Script',
         help_text='A script that is run in a job working directory after the job has completed.',
         default='')
-    environ_vars = models.TextField(
-        'Environment variables specific to this application',
-        help_text="Colon-separated list of envs like VAR1=value2:VAR2=value2",
-        default='')
 
     def __str__(self):
         return f'''
@@ -595,7 +589,6 @@ Description:    {self.description}
 Executable:     {self.executable}
 Preprocess:     {self.default_preprocess}
 Postprocess:    {self.default_postprocess}
-Envs:           {self.environ_vars}
 '''.strip() + '\n'
 
     @property

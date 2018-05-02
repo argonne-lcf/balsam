@@ -72,7 +72,7 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
     
     if save:
         job.save()
-        job.create_working_path()
+        #job.create_working_path() # No working path in this branch (computed on the fly)
     return job
 
 def create_app(*, name='', description='', executable='', preproc='',

@@ -213,11 +213,11 @@ def stage_in(job, lock):
     # Create workdirs for jobs: use job.create_working_path
     logger.debug(f'{job.cute_id} in stage_in')
 
-    if not os.path.exists(job.working_directory):
-        lock.acquire()
-        job.create_working_path()
-        lock.release()
     work_dir = job.working_directory
+    if not os.path.exists(work_dir):
+        lock.acquire()
+        os.makedirs(work_dir)
+        lock.release()
     logger.info(f"{job.cute_id} working directory {work_dir}")
 
     # stage in all remote urls

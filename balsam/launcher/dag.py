@@ -224,7 +224,7 @@ def spawn_child(clone=False, **kwargs):
         else:
             raise ValueError(f"Invalid field {k}")
 
-    child.working_directory = '' # This is essential
+    #child.working_directory = '' # working directory is computed property instead
 
     newparents = json.loads(current_job.parents)
     newparents.append(str(current_job.job_id))
