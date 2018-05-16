@@ -1,5 +1,5 @@
 Theta Workflows Tutorial
-===================
+=========================
 
 The goal of Balsam is to manage and optimize workflow execution with a minimum of user intervention,
 while placing very few restrictions on what kinds of jobs can run. Because of this, it takes some 
