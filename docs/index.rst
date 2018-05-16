@@ -41,6 +41,7 @@ HPC resources.
     :caption: User Guide
 
     userguide/overview
+    userguide/tutorial-theta.rst
     userguide/tutorial.rst
     userguide/dag
 
