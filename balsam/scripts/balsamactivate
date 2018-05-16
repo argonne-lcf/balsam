@@ -39,7 +39,7 @@ else
         echo "No Balsam DB found in dir $1"
         return 1
     fi
-    db_path=$1
+    db_path=$(readlink -f $1)
     temp=$(BALSAM_DB_PATH=$db_path balsam which --list 2> /dev/null)
 fi
 
