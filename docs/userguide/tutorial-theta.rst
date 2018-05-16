@@ -51,6 +51,7 @@ Let's first write these mock applications in Python. Create a new folder and pop
     >>> mkdir ~/balsam_tutorial
     >>> cd ~/balsam_tutorial
 
+
 .. literalinclude:: balsam_tutorial/parent.py
     :caption: parent.py
 
@@ -67,8 +68,8 @@ We can set up a Balsam DB just for this tutorial::
     
     $ module load miniconda-3.6
     $ module load /projects/datascience/msalim/balsam-0.1
-    $ balsam init ~/tutorial
-    $ source balsamactivate ~/tutorial
+    $ balsam init tutorial
+    $ source balsamactivate tutorial
 
 
 Writing dynamic workflows
@@ -110,25 +111,25 @@ Assuming your Balsam environment allows you to run MPI locally with four ranks, 
 the Launcher:
 
     >>> qsub -A Comp_Perf_Workshop -n 1 -t 30 -q training -I
+    >>> cd ~/balsam_tutorial
     >>> module load miniconda-3.6
-    >>> module load /project/datascience/msalim/balsam-0.1
-    >>> source balsamactivate ~/tutorial
+    >>> module load /projects/datascience/msalim/balsam-0.1
+    >>> source balsamactivate tutorial
     >>> $ balsam launcher --consume-all --max-ranks=16
 
 
 Checking the workflow output
 -------------------------------
-You should very quickly see the ``balsam_tutorial`` subdirectory created in in
-the ``data/balsamjobs`` subdirectory of the Balsam installation. This is the
+You should very quickly see the ``balsam_tutorial`` subdirectory created in
+the ``tutorial/data`` subdirectory. This is the
 main purpose of the ``--workflow`` field in BalsamJobs -- it allows you to
 organize related jobs into named **workflows**.  In addition to capabilities for
 querying and traversing DAGs by workflow, the job data is organized into
 folders accordingly.
 
 In the **parent** subdirectory (which includes part of a UUID suffix and looks
-like ``balsamjobs/balsam_tutorial/parent1_db3abd55``) you should find the
+like ``balsam_tutorial/parent1_db3abd55``) you should find the
 generated matrix files and standard-output of the job and postprocessor script.
-
 
 In the **eigen** subdirectories, you will just find one matrix file like
 ``output1.npy`` and one eigenvalues array file like ``eigvals0.npy``.  How did
@@ -137,7 +138,8 @@ dynamically in ``parent-post.py``.  The call to ``dag.spawn_child()`` created
 one **eigen** job for each of the matrix files.  The ``input_files`` named
 argument to ``spawn_child()`` specifies which files will be transferred from
 parent to child job; it accepts wildcards and in fact defaults to ``*``, so
-that *all* files are transferred from parent to child working directory.
+that *all* files are transferred from parent to child working directory unless
+instructed otherwise.
 
 .. note::
     When two BalsamJobs run in the same file system, symbolic links are created in the child subdirectory to input_files matched in the
@@ -149,7 +151,7 @@ its ``input_files`` was left as the default value of ``*``.
 
 Tracking Launcher execution
 ------------------------------
-Now take a look in ``log/launcher.log``.  You will find many status messages allowing you to monitor the health of the Launcher 
+Now take a look in ``tutorial/log/launcher.log``.  You will find many status messages allowing you to monitor the health of the Launcher 
 (e.g. by searching for the word ``error`` or ``except``) and track the state of various jobs.  Since we ran the 
 Launcher on our own laptop/workstation with 4 MPI ranks, we should be able to see how all of the **eigen** jobs ran concurrently,
 being packaged into one ensemble. Search for the string "running serial jobs on" and you should find a couple lines like::
