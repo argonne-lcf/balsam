@@ -2,6 +2,12 @@
 
 [[ "$0" = *"balsamactivate"* ]] && echo "Must source this script" && exit
 
+py_version=$(python --version 2>&1)
+if [[ $py_version != *"3.6"* ]]; then
+    echo "Balsam requires Python 3.6; current version is: $py_version"
+    return 1
+fi
+
 known_list=$(balsam which --list 2> /dev/null)
 if [ $? -ne 0 ]
 then
