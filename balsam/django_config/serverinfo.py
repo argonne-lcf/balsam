@@ -6,6 +6,7 @@ ADDRESS_FNAME = 'dbwriter_address'
 
 class ServerInfo:
     def __init__(self, balsam_db_path):
+        balsam_db_path = os.path.abspath(os.path.expanduser(balsam_db_path))
         self.path = os.path.join(balsam_db_path, ADDRESS_FNAME)
         self.data = {}
 
