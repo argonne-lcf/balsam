@@ -418,8 +418,35 @@ def which(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
     from django.conf import settings
+    from balsam.django_config.db_index import refresh_db_index
     import pprint
-    pprint.pprint(settings.DATABASES['default'])
+
+    if args.list:
+        pprint.pprint(refresh_db_index())
+    elif args.name:
+        db_list = refresh_db_index()
+
+        # Try exact match first
+        name = os.path.abspath(os.path.expanduser(args.name))
+        if name in db_list:
+            print(name)
+            sys.exit(0)
+
+        matches = [db for db in db_list if args.name in db]
+        if len(matches) == 0:
+            sys.stderr.write(f"No DB matching {args.name} is cached\n\n")
+            sys.exit(1)
+        elif len(matches) > 1:
+            sys.stderr.write(f"DB name {args.name} is too ambiguous; multiple matches\n"
+                              "Please give a longer unique substring\n\n"
+                            )
+            sys.exit(1)
+        else:
+            print(matches[0])
+            sys.exit(0)
+    else:
+        print("Current Balsam DB:", os.environ['BALSAM_DB_PATH'])
+        pprint.pprint(settings.DATABASES['default'])
 
 def make_dummies(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'

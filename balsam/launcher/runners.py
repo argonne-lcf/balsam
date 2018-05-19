@@ -119,6 +119,7 @@ class MPIRunner(Runner):
         envs = job.get_envs() # dict
         app_cmd = job.app_cmd
         nranks = job.num_ranks
+        affinity = job.cpu_affinity
         rpn = job.ranks_per_node
         tpr = job.threads_per_rank
         tpc = job.threads_per_core
@@ -128,7 +129,7 @@ class MPIRunner(Runner):
         # https://www.alcf.anl.gov/user-guides/running-jobs-xc40#environment-variables
         mpi_str = self.mpi_cmd(worker_list, app_cmd=app_cmd, envs=envs,
                                num_ranks=nranks, ranks_per_node=rpn,
-                               threads_per_rank=tpr, threads_per_core=tpc)
+                               affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         
         mpi_str = f'time -p ( {mpi_str} )'
         basename = job.name

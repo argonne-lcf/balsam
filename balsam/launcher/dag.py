@@ -98,7 +98,7 @@ if JOB_ID:
         parents = current_job.get_parents()
         children = current_job.get_children()
 
-def add_job(**kwargs):
+def add_job(save=True, **kwargs):
     '''Add a new job to the BalsamJob DB
     
     Creates a new job and saves it to the database in CREATED state.
@@ -125,7 +125,8 @@ def add_job(**kwargs):
             setattr(job, k, v)
     if 'allowed_work_sites' not in kwargs:
         job.allowed_work_sites = settings.BALSAM_SITE
-    job.save()
+    if save:
+        job.save()
     return job
 
 def detect_circular(job, path=[]):

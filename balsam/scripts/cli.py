@@ -7,6 +7,9 @@ from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummi
 from balsam.scripts.cli_commands import dbserver, init, which
 
 def main():
+    if not sys.version_info >= (3,6):
+        sys.stderr.write("Balsam requires Python version >= 3.6\n")
+        sys.exit(1)
     parser = make_parser()
     args = parser.parse_args()
     if len(sys.argv) == 1:
@@ -341,6 +344,8 @@ def make_parser():
     # WHICH
     # ---------
     parser_which = subparsers.add_parser('which')
+    parser_which.add_argument('--list', action='store_true')
+    parser_which.add_argument('--name')
     parser_which.set_defaults(func=which)
 
     return parser

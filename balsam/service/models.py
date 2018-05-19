@@ -206,6 +206,9 @@ class BalsamJob(models.Model):
         'Number of ranks per node',
         help_text='The number of MPI ranks per node to schedule for this job.',
         default=1)
+    cpu_affinity = models.TextField(
+        'Cray CPU Affinity ("depth" or "none")'
+        default="depth")
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
         help_text='The number of OpenMP threads per MPI rank (if applicable)',
