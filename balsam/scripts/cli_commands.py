@@ -6,6 +6,7 @@ import signal
 import sys
 
 import django
+DB_TYPE = 'postgres'
 
 def ls_procs(keywords):
     if type(keywords) == str: keywords = [keywords]
@@ -359,36 +360,6 @@ def service(args):
 
     print("dummy -- invoking balsam metascheduler service")
 
-def dbserver(args):
-    from balsam.django_config import serverinfo
-    fname = find_spec("balsam.django_config.db_daemon").origin
-
-    if args.reset:
-        path = os.path.join(args.reset, serverinfo.ADDRESS_FNAME)
-        if not os.path.exists(path):
-            print("No db address file at reset path")
-            sys.exit(0)
-        else:
-            info = serverinfo.ServerInfo(args.reset)
-            info.update({'address': None, 'host':None, 'port':None})
-            print("Reset done")
-            sys.exit(0)
-
-    if args.stop:
-        server_pids = [int(line.split()[1]) for line in ls_procs('db_daemon')]
-        if not server_pids:
-            print(f"No db_daemon processes running under {getpass.getuser()}")
-        else:
-            assert len(server_pids) >= 1
-            for pid in server_pids:
-                print(f"Stopping db_daemon {pid}")
-                os.kill(pid, signal.SIGUSR1)
-    else:
-        path = args.path
-        if path: cmd = [sys.executable, fname, path]
-        else: cmd = [sys.executable, fname]
-        p = subprocess.Popen(cmd)
-        print(f"Starting Balsam DB server daemon (PID: {p.pid})")
 
 def init(args):
     from balsam.django_config.serverinfo import ServerInfo
@@ -404,9 +375,8 @@ def init(args):
             print(f"Failed to create directory {path}")
             sys.exit(1)
         
-    db_type = args.db_type
     serverinfo = ServerInfo(path)
-    serverinfo.update({'db_type': db_type})
+    serverinfo.update({'db_type': DB_TYPE})
 
     fname = find_spec("balsam.scripts.init").origin
     p = subprocess.Popen(f'BALSAM_DB_PATH={path} {sys.executable} {fname} {path}',
@@ -482,7 +452,6 @@ def make_dummies(args):
         job.stage_out_url = ''
         job.stage_out_files = ''
         job.direct_command = 'echo hello'
-        job.state = 'PREPROCESSED'
 
         job.save()
     print(f"Added {args.num} dummy jobs to the DB")

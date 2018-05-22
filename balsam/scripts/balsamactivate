@@ -26,6 +26,7 @@ then
     return 1
 fi
 
+# Not a dirname; search index
 if [ ! -d $1 ]
 then
     db_path=$(balsam which --name $1)
@@ -51,4 +52,5 @@ then
 fi
 export OLD_PS1=$PS1
 export PS1="[BalsamDB: $(basename $1)] $PS1"
+python server_control.py
 return 0

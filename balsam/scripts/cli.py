@@ -4,7 +4,7 @@ import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from balsam.scripts.cli_commands import dbserver, init, which
+from balsam.scripts.cli_commands import init, which
 
 def main():
     if not sys.version_info >= (3,6):
@@ -303,27 +303,10 @@ def make_parser():
     parser_launcher.set_defaults(func=launcher)
     # -----------------
     
-    # DBSERVER
-    # --------
-    parser_dbserver = subparsers.add_parser('dbserver', help="Start/stop database server process")
-    group = parser_dbserver.add_mutually_exclusive_group(required=False)
-    group.add_argument('--start', action='store_true',
-                       default=True, help="Start the DB server")
-    group.add_argument('--stop', action='store_true', 
-                       default=False, help="Kill the DB server")
-    group.add_argument('--reset', type=str,
-                       default='', help="Balsam DB path at which to reset the address file")
-    parser_dbserver.add_argument('--path', type=str, default='',
-                        help="Balsam DB directory path")
-    parser_dbserver.set_defaults(func=dbserver)
-    # -----------------
-    
     # INIT
     # --------
     parser_init = subparsers.add_parser('init', help="Create new balsam DB")
     parser_init.add_argument('path', help="Path to Balsam DB directory")
-    parser_init.add_argument('--db-type', choices=['sqlite3', 'postgres'],
-                             default='sqlite3', help="choose backend to use")
     parser_init.set_defaults(func=init)
     # -----------------
 

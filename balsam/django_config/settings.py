@@ -29,11 +29,6 @@ def bootstrap():
         os.makedirs(default_db_path, mode=0o755)
         time.sleep(1)
 
-    addr_path = os.path.join(default_db_path, 'dbwriter_address')
-    if not os.path.exists(addr_path):
-        with open(addr_path, 'w') as fp: 
-            fp.write('{"db_type": "sqlite3"}')
-
     user_settings_path = os.path.join(BALSAM_HOME, 'settings.json')
     if not os.path.exists(user_settings_path):
         here = os.path.dirname(os.path.abspath(__file__))
@@ -49,18 +44,19 @@ def bootstrap():
 # ---------------
 # DATABASE SETUP
 # ---------------
-def resolve_db_path(path=None):
-    if path:
-        path = os.path.expanduser(path)
-        assert os.path.exists(path)
-    elif os.environ.get('BALSAM_DB_PATH'):
+def resolve_db_path():
+    if os.environ.get('BALSAM_DB_PATH'):
         path = os.environ['BALSAM_DB_PATH']
-        assert os.path.exists(path), f"balsamDB path {path} not found"
+        path = os.path.expanduser(path)
+        path = os.path.abspath(path)
     else:
         path = default_db_path
 
-    path = os.path.expanduser(path)
-    path = os.path.abspath(path)
+    if not os.path.exists(path):
+        sys.stderr.write(f"balsamDB path {path} does not exist!\n")
+        sys.stderr.write(f"Please use `source balsamactivate` to set BALSAM_DB_PATH to a valid location\n")
+        sys.exit(1)
+
     os.environ['BALSAM_DB_PATH'] = path
     return path
 
@@ -95,24 +91,24 @@ def configure_db_backend(db_path):
     return DATABASES
     
 bootstrap()
-CONCURRENCY_ENABLED = True
 BALSAM_PATH = resolve_db_path()
 DATABASES = configure_db_backend(BALSAM_PATH)
 
-db_type = DATABASES['default']['ENGINE']
-db_name = DATABASES['default']['NAME']
-if os.environ['BALSAM_DB_PATH'] == default_db_path and not os.path.exists(db_name) and 'BALSAM_BOOTSTRAP' not in os.environ:
-    print("Bootstrapping sqlite DB at", db_name)
+pg_db_path = os.path.join(BALSAM_PATH, 'balsamdb')
+if not os.path.exists(pg_db_path) and 'BALSAM_BOOTSTRAP' not in os.environ:
+    print("Bootstrapping Postgres DB at", pg_db_path, "(this can take a minute)...")
     here = os.path.dirname(os.path.abspath(__file__))
     initpath = os.path.join(os.path.dirname(here), 'scripts', 'init.py')
     cmd = f"{sys.executable} {initpath}"
     proc = subprocess.run(f'BALSAM_BOOTSTRAP=1 {cmd} {BALSAM_PATH}', shell=True,
-                   check=False, stdout=subprocess.PIPE,
-                   stderr=subprocess.STDOUT)
+                   check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if proc.returncode != 0:
         print(proc.stdout.decode('utf-8'))
         raise RuntimeError
-    refresh_db_index()
+    else:
+        refresh_db_index()
+        print(f"\nSuccessfully created Balsam DB at: {BALSAM_PATH}")
+        print(f"Use `source balsamactivate {os.path.basename(BALSAM_PATH)}` to begin working.\n")
 
 # --------------------
 # SUBDIRECTORY SETUP
@@ -201,26 +197,24 @@ LOGGING = {
 }
 
 import logging
-logger = logging.getLogger(__name__)
-def log_uncaught_exceptions(exctype, value, tb,logger=logger):
-   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
-   logger = logging.getLogger('console')
-   logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+from django.db import OperationalError
+
+def log_uncaught_exceptions(exctype, value, tb):
+    logger = logging.getLogger(__name__)
+    logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+
+    if isinstance(value, OperationalError):
+        db_path = os.environ.get('BALSAM_DB_PATH')
+        if not DATABASES['default']['PORT']:
+            print("Please use `source balsamactivate` to activate a Balsam DB")
+            print("Use `balsam which --list` for a listing of valid DB paths")
+        else:
+            print("Failed to reach the Balsam DB server at", db_path, "(see detailed traceback in db.log)")
+    else:
+        logger = logging.getLogger('console')
+        logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+
 sys.excepthook = log_uncaught_exceptions
-
-# -----------------------
-# SQLITE CLIENT SETUP
-# ------------------------
-is_server = os.environ.get('IS_BALSAM_SERVER')=='True'
-is_daemon = os.environ.get('IS_SERVER_DAEMON')=='True'
-USING_SQLITE = DATABASES['default']['ENGINE'].endswith('sqlite3')
-SAVE_CLIENT = None
-
-if USING_SQLITE and not (is_server or is_daemon):
-    from balsam.django_config import sqlite_client
-    SAVE_CLIENT = sqlite_client.Client(serverinfo.ServerInfo(BALSAM_PATH))
-    if SAVE_CLIENT.serverAddr is None:
-        SAVE_CLIENT = None
 
 
 # SECURITY WARNING: keep the secret key used in production secret!

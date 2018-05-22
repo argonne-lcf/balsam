@@ -8,11 +8,9 @@ import uuid
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Value as V
 from django.db.models.functions import Concat
-from concurrency.fields import IntegerVersionField
-from concurrency.exceptions import RecordModifiedError
 
 logger = logging.getLogger('balsam.service.models')
 
@@ -143,8 +141,6 @@ def history_line(state='CREATED', message=''):
 class BalsamJob(models.Model):
     ''' A DB representation of a Balsam Job '''
 
-    version = IntegerVersionField() # optimistic lock
-
     job_id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -202,12 +198,19 @@ class BalsamJob(models.Model):
         'Number of Compute Nodes',
         help_text='The number of compute nodes requested for this job.',
         default=1)
+    coschedule_num_nodes = models.IntegerField(
+        'Number of additional compute nodes to reserve alongside this job',
+        help_text='''Used by Balsam service only.  If a pilot job runs on one or a
+        few nodes, but requires additional worker nodes alongside it,
+        use this field to specify the number of additional nodes that will be
+        reserved by the service for this job.''',
+        default=0)
     ranks_per_node = models.IntegerField(
         'Number of ranks per node',
         help_text='The number of MPI ranks per node to schedule for this job.',
         default=1)
     cpu_affinity = models.TextField(
-        'Cray CPU Affinity ("depth" or "none")'
+        'Cray CPU Affinity ("depth" or "none")',
         default="depth")
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
@@ -287,23 +290,6 @@ class BalsamJob(models.Model):
         'Job State History',
         help_text="Chronological record of the job's states",
         default=history_line)
-
-    def _save_direct(self, force_insert=False, force_update=False, using=None, 
-             update_fields=None):
-        '''Override default Django save to ensure version always updated'''
-        if update_fields is not None: 
-            update_fields.append('version')
-        if self._state.adding:
-            update_fields = None
-        models.Model.save(self, force_insert, force_update, using, update_fields)
-
-    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        if settings.SAVE_CLIENT is None:
-            logger.info(f"direct save of {self.cute_id}")
-            self._save_direct(force_insert, force_update, using, update_fields)
-        else:
-            settings.SAVE_CLIENT.save(self, force_insert, force_update, using, update_fields)
-            self.refresh_from_db()
 
     @staticmethod
     def from_dict(d):
@@ -457,15 +443,19 @@ auto timeout retry:     {self.auto_timeout_retry}
         return envs
 
     @classmethod
+    @transaction.atomic
     def batch_update_state(cls, pk_list, new_state, message=''):
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 
-        states = cls.objects.filter(job_id__in=pk_list).values_list('job_id', 'state')
-        assert len(states) == len(pk_list)
-        update_ids = [jid for (jid,state) in states if state != 'USER_KILLED']
+        update_jobs = cls.objects.filter(job_id__in=pk_list).select_for_update()
+        update_jobs = update_jobs.exclude(state='USER_KILLED')
 
-        update_jobs = cls.objects.filter(job_id__in=update_ids)
+        #states = cls.objects.filter(job_id__in=pk_list).values_list('job_id', 'state')
+        #assert len(states) == len(pk_list)
+        #update_ids = [jid for (jid,state) in states if state != 'USER_KILLED']
+
+        #update_jobs = cls.objects.filter(job_id__in=update_ids)
         msg = history_line(new_state, message)
 
         update_jobs.update(state=new_state,
@@ -483,18 +473,7 @@ auto timeout retry:     {self.auto_timeout_retry}
 
         self.state_history += history_line(new_state, message)
         self.state = new_state
-        try:
-            self.save(update_fields=['state', 'state_history'],using=using)
-        except RecordModifiedError:
-            self.refresh_from_db()
-            if self.state == 'USER_KILLED' and new_state != 'USER_KILLED':
-                return
-            elif new_state == 'USER_KILLED':
-                self.state_history += history_line(new_state, message)
-                self.state = new_state
-                self.save(update_fields=['state', 'state_history'],using=using)
-            else:
-                raise
+        self.save(update_fields=['state', 'state_history'],using=using)
 
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()

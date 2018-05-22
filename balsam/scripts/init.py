@@ -10,9 +10,6 @@ except:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     from balsam.django_config.serverinfo import ServerInfo
 
-def sqlite3_init(serverInfo):
-    pass
-
 def postgres_init(serverInfo):
     db_path = serverInfo['balsamdb_path']
     db_path = os.path.join(db_path, 'balsamdb')
@@ -81,9 +78,7 @@ if __name__ == "__main__":
     serverInfo = ServerInfo(sys.argv[1])
     db_type = serverInfo['db_type']
 
-    if db_type == 'sqlite3':
-        sqlite3_init(serverInfo)
-    elif db_type == 'postgres':
+    if db_type == 'postgres':
         postgres_init(serverInfo)
     else:
         raise RuntimeError(f'init doesnt support DB type {db_type}')
