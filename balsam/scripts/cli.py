@@ -4,7 +4,7 @@ import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from balsam.scripts.cli_commands import init, which
+from balsam.scripts.cli_commands import init, which, server
 
 def main():
     if not sys.version_info >= (3,6):
@@ -75,11 +75,6 @@ def make_parser():
                             'ranks_per_node. If only 1 total ranks, treated as serial '
                             'job).')
     
-    parser_job.add_argument('--allowed-site', action='append',
-                            required=False, default=[],
-                            help="Balsam instances where this job can run; "
-                            "defaults to the local Balsam instance")
-
     parser_job.add_argument('--description', required=False, nargs='*',
                             default=[])
 
@@ -226,11 +221,6 @@ def make_parser():
     parser_mkchild.add_argument('--ranks-per-node',
                             type=int, required=True)
     
-    parser_mkchild.add_argument('--allowed-site', action='append',
-                            required=False, default=[],
-                            help="Balsam instances where this job can run; "
-                            "defaults to the local Balsam instance")
-
     parser_mkchild.add_argument('--description', required=False, nargs='*',
                             default=[])
 
@@ -330,6 +320,15 @@ def make_parser():
     parser_which.add_argument('--list', action='store_true')
     parser_which.add_argument('--name')
     parser_which.set_defaults(func=which)
+    
+    # SERVER
+    # ---------
+    parser_server = subparsers.add_parser('server')
+    group = parser_server.add_mutually_exclusive_group()
+    group.add_argument('--connect', action='store_true')
+    group.add_argument('--disconnect', action='store_true')
+    group.add_argument('--reset', action='store_true')
+    group.set_defaults(func=server)
 
     return parser
 

@@ -71,7 +71,7 @@ def configure_db_backend(db_path):
     }
     OPTIONS = {
         'sqlite3' : {'timeout' : 5000},
-        'postgres' : {},
+        'postgres' : {'connect_timeout' : 5},
     }
 
     info = serverinfo.ServerInfo(db_path)
@@ -101,9 +101,8 @@ if not os.path.exists(pg_db_path) and 'BALSAM_BOOTSTRAP' not in os.environ:
     initpath = os.path.join(os.path.dirname(here), 'scripts', 'init.py')
     cmd = f"{sys.executable} {initpath}"
     proc = subprocess.run(f'BALSAM_BOOTSTRAP=1 {cmd} {BALSAM_PATH}', shell=True,
-                   check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                   check=False,)# stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if proc.returncode != 0:
-        print(proc.stdout.decode('utf-8'))
         raise RuntimeError
     else:
         refresh_db_index()
@@ -206,10 +205,11 @@ def log_uncaught_exceptions(exctype, value, tb):
     if isinstance(value, OperationalError):
         db_path = os.environ.get('BALSAM_DB_PATH')
         if not DATABASES['default']['PORT']:
+            print("Balsam OperationalError: No DB is currently active")
             print("Please use `source balsamactivate` to activate a Balsam DB")
-            print("Use `balsam which --list` for a listing of valid DB paths")
+            print("Use `balsam which --list` for a listing of known DB names")
         else:
-            print("Failed to reach the Balsam DB server at", db_path, "(see detailed traceback in db.log)")
+            print("Failed to reach the Balsam DB server at", db_path, f"(detailed traceback in {db_path}/log/db.log)")
     else:
         logger = logging.getLogger('console')
         logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))

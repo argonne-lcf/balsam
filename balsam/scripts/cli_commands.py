@@ -64,8 +64,8 @@ def newapp(args):
     app.name = args.name
     app.description = ' '.join(args.description)
     app.executable = py_app_path(args.executable)
-    app.default_preprocess = py_app_path(args.preprocess)
-    app.default_postprocess = py_app_path(args.postprocess)
+    app.preprocess = py_app_path(args.preprocess)
+    app.postprocess = py_app_path(args.postprocess)
     app.environ_vars = ":".join(args.env)
     app.save()
     print(app)
@@ -80,10 +80,6 @@ def newjob(args):
     from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
-    BALSAM_SITE = settings.BALSAM_SITE
-
-    if not args.allowed_site:
-        args.allowed_site = [BALSAM_SITE]
 
     if not AppDef.objects.filter(name=args.application).exists():
         raise RuntimeError(f"App {args.application} not registered in local DB")
@@ -92,7 +88,6 @@ def newjob(args):
     job.name = args.name
     job.description = ' '.join(args.description)
     job.workflow = args.workflow
-    job.allowed_work_sites = ' '.join(args.allowed_site)
 
     job.wall_time_minutes = args.wall_minutes
     job.num_nodes = args.num_nodes
@@ -278,7 +273,6 @@ def qsub(args):
     job.name = args.name if args.name else "default"
     job.description = 'Added by balsam qsub'
     job.workflow = 'qsub'
-    job.allowed_work_sites = settings.BALSAM_SITE
 
     job.wall_time_minutes = args.wall_minutes
     job.num_nodes = args.nodes
@@ -389,6 +383,7 @@ def which(args):
     django.setup()
     from django.conf import settings
     from balsam.django_config.db_index import refresh_db_index
+    from balsam.django_config.serverinfo import ServerInfo
     import pprint
 
     if args.list:
@@ -416,7 +411,25 @@ def which(args):
             sys.exit(0)
     else:
         print("Current Balsam DB:", os.environ['BALSAM_DB_PATH'])
-        pprint.pprint(settings.DATABASES['default'])
+        fields = 'HOST NAME PASSWORD PORT USER active_clients'.split()
+        dat = {}
+        dat.update(settings.DATABASES['default'])
+        dat.update(ServerInfo(os.environ['BALSAM_DB_PATH']).data)
+        dat = { k:v for k,v in dat.items() if k in fields}
+        pprint.pprint(dat)
+
+def server(args):
+    from balsam.scripts import server_control
+    db_path = os.environ.get('BALSAM_DB_PATH', None)
+    if not db_path:
+        raise RuntimeError('BALSAM_DB_PATH needs to be set before server can be started\n')
+
+    if args.connect:
+        server_control.start_main(db_path)
+    elif args.disconnect:
+        server_control.disconnect_main(db_path)
+    elif args.reset:
+        server_control.reset_main(db_path)
 
 def make_dummies(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -431,7 +444,6 @@ def make_dummies(args):
         job.description = 'Added by balsam make_dummies'
         job.serial_node_packing_count = 64
         job.workflow = 'dummy'
-        job.allowed_work_sites = settings.BALSAM_SITE
 
         job.wall_time_minutes = 0
         job.num_nodes = 1
@@ -442,8 +454,6 @@ def make_dummies(args):
 
         job.application = ''
         job.application_args = ''
-        job.preprocess = ''
-        job.postprocess = ''
         job.post_error_handler = False
         job.post_timeout_handler = False
         job.auto_timeout_retry = False

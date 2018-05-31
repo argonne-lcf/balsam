@@ -42,21 +42,6 @@ from balsam.launcher.exceptions import *
 
 HANDLING_EXIT = False
 
-def check_parents(job, lock):
-    '''Check job's dependencies, update to READY if satisfied'''
-    parents = job.get_parents()
-    ready = parents.count() == parents.filter(state='JOB_FINISHED').count()
-
-    if ready or not job.wait_for_parents:
-        lock.acquire()
-        job.update_state('READY', 'dependencies satisfied')
-        lock.release()
-        logger.info(f'{job.cute_id} ready')
-    elif job.state != 'AWAITING_PARENTS':
-        lock.acquire()
-        job.update_state('AWAITING_PARENTS', f'{len(parents)} parents')
-        lock.release()
-        logger.info(f'{job.cute_id} waiting for parents')
 
 def log_time(minutes_left):
     '''Pretty log of remaining time'''

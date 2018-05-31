@@ -60,8 +60,8 @@ def run_migrations():
     db_info = db.connection.settings_dict['NAME']
     print(f"Setting up new balsam database:")
     pprint(db_info, width=60)
-    call_command('makemigrations', interactive=False, verbosity=0)
-    call_command('migrate', interactive=False, verbosity=0)
+    call_command('makemigrations', interactive=False, verbosity=2)
+    call_command('migrate', interactive=False, verbosity=2)
     refresh_db_index()
 
     try:
@@ -86,4 +86,5 @@ if __name__ == "__main__":
     run_migrations()
     if db_type == 'postgres':
         postgres_post(serverInfo)
-        print("OK")
+        basename = os.path.basename(sys.argv[1])
+        print(f"Balsam init OK: use 'source balsamactivate {basename}' to begin working")

@@ -6,6 +6,16 @@ import socket
 import subprocess
 import os
 
+def ps_list():
+    def tryint(s):
+        try: return int(s)
+        except ValueError: pass
+    ps = subprocess.run("ps aux | awk '{print $2}'", shell=True, stdout=subprocess.PIPE)
+    pids = ps.stdout.decode('utf-8').split('\n')
+    pids = [tryint(pid) for pid in pids]
+    pids = [pid for pid in pids if type(pid) is int]
+    return pids
+
 def launch_server(info):
     info.reset_server_address()
     start_cmd = f"pg_ctl -w start -D {info['pg_db_path']}"
@@ -25,23 +35,7 @@ def kill_server(info):
     else:
         print("Stopping remote Balsam DB server")
         subprocess.run(f"ssh {server_host} {stop_cmd}", shell=True)
-
     info.update(dict(host='', port='', active_clients=[]))
-
-def disconnect_main(db_path):
-    lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
-
-    with FileLock(lockfile, timeout=5):
-        info = serverinfo.ServerInfo(db_path)
-
-        client_id = [socket.gethostname(), os.getppid()]
-        active_clients = info.get('active_clients', [])
-        # get PS list on the current host
-        # remove any entries from "active_clients" if they match the current host and process is no longer running
-        active_clients = [cid for cid in active_clients if cid != client_id]
-        info.update({'active_clients' : active_clients})
-        if len(active_clients) == 0:
-            kill_server(info)
 
 def test_connection(info, raises=False):
     from balsam.launcher import dag
@@ -62,9 +56,39 @@ def test_connection(info, raises=False):
         assert type(count) is int
         return True
 
+def reset_main(db_path):
+    start_main(db_path)
+    
+    from balsam.launcher.dag import BalsamJob
+    BalsamJob.release_all_locks()
+
+    lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
+    with FileLock(lockfile, timeout=5):
+        info = serverinfo.ServerInfo(db_path)
+        kill_server(info)
+
+
+def disconnect_main(db_path):
+    lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
+    with FileLock(lockfile, timeout=5):
+        info = serverinfo.ServerInfo(db_path)
+
+        local_host = socket.gethostname()
+        local_ps_list = ps_list()
+        client_id = [local_host, os.getppid()]
+
+        active_clients = info.get('active_clients', [])
+        disconnected_clients = [cid for cid in active_clients
+                                if (cid[0] == local_host) and (cid[1] not in local_ps_list)]
+        disconnected_clients.append(client_id)
+
+        active_clients = [cid for cid in active_clients if cid not in disconnected_clients]
+        info.update({'active_clients' : active_clients})
+        if len(active_clients) == 0:
+            kill_server(info)
+
 
 def start_main(db_path):
-
     lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
     with FileLock(lockfile, timeout=5):
         info = serverinfo.ServerInfo(db_path)
@@ -72,28 +96,16 @@ def start_main(db_path):
         if not (info['host'] or info['port']):
             launch_server(info)
             test_connection(info, raises=True)
-            is_active = True
+        elif test_connection(info):
+            print("Connected to already running Balsam DB server!")
         else:
-            is_active = test_connection(info)
-
-        if not is_active:
             print(f"Server at {info['host']}:{info['port']} isn't responsive; will try to kill and restart")
             kill_server(info)
             launch_server(info)
             test_connection(info, raises=True)
-        else:
-            print("Connected to existing Balsam DB server")
 
         client_id = [socket.gethostname(), os.getppid()]
         active_clients = info.get('active_clients', [])
         if client_id not in active_clients:
             active_clients.append(client_id)
             info.update({'active_clients' : active_clients})
-
-
-if __name__ == "__main__":
-    db_path = os.environ.get('BALSAM_DB_PATH', None)
-    if db_path:
-        start_main(db_path)
-    else:
-        raise RuntimeError('BALSAM_DB_PATH needs to be set before server can be started\n')
