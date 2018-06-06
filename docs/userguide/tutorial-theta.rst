@@ -67,7 +67,7 @@ Let's first write these mock applications in Python. Create a new folder and pop
 We can set up a Balsam DB just for this tutorial::
     
     $ module load miniconda-3.6
-    $ module load /projects/datascience/msalim/balsam-0.1
+    $ module load balsam
     $ balsam init tutorial
     $ source balsamactivate tutorial
 
@@ -113,7 +113,7 @@ the Launcher:
     >>> qsub -A Comp_Perf_Workshop -n 1 -t 30 -q training -I
     >>> cd ~/balsam_tutorial
     >>> module load miniconda-3.6
-    >>> module load /projects/datascience/msalim/balsam-0.1
+    >>> module load balsam
     >>> source balsamactivate tutorial
     >>> $ balsam launcher --consume-all --max-ranks=16
 
