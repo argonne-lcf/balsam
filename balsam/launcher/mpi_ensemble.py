@@ -1,3 +1,5 @@
+'''mpi4py wrapper that allows an ensemble of serial applications to run in
+parallel across ranks on the computing resource'''
 from collections import namedtuple
 import os
 import sys
@@ -9,11 +11,11 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
 django.setup()
 logger = logging.getLogger('balsam.launcher.mpi_ensemble')
 
-from subprocess import Popen, STDOUT
+from subprocess import Popen, STDOUT, TimeoutExpired
 
 from mpi4py import MPI
 
-from balsam.launcher.util import cd, get_tail
+from balsam.launcher.util import cd, get_tail, parse_real_time
 from balsam.launcher.exceptions import *
 from balsam.service.models import BalsamJob
 
@@ -50,6 +52,7 @@ def read_jobs(fp):
     for line in fp:
         try:
             id, workdir, *command = line.split()
+            command = ' '.join(command)
             logger.debug(f"Read Job {id}  CMD: {command}  DIR: {workdir}")
         except:
             logger.debug("Invalid jobline")
@@ -59,10 +62,27 @@ def read_jobs(fp):
         else:
             logger.debug("Invalid workdir")
 
+def poll_execution_or_killed(job, proc, period=10):
+    retcode = None
+    while retcode is None:
+        try:
+            retcode = proc.wait(timeout=period)
+        except TimeoutExpired:
+            job.refresh_from_db()
+            if job.state == 'USER_KILLED':
+                logger.debug(f"{job.cute_id} USER_KILLED; terminating it now")
+                proc.terminate()
+                return "USER_KILLED"
+        else:
+            return retcode
 
 def run(job):
-
     job_from_db = BalsamJob.objects.get(pk=job.id)
+
+    if job_from_db.state == 'USER_KILLED':
+        status_msg(job.id, "USER_KILLED", msg="mpi_ensemble skipping this job")
+        return
+
     basename = job_from_db.name
     outname = f"{basename}.out"
     logger.debug(f"mpi_ensemble rank {RANK}: starting job {job.id}")
@@ -70,15 +90,18 @@ def run(job):
         try:
             status_msg(job.id, "RUNNING", msg="executing from mpi_ensemble")
 
+            cmd = f"time -p ( {job.cmd} )"
             env = job_from_db.get_envs() # TODO: Should we include this?
-            proc = Popen(job.cmd, stdout=outf, stderr=STDOUT,
-                         cwd=job.workdir,env=env)
+            proc = Popen(cmd, stdout=outf, stderr=STDOUT,
+                         cwd=job.workdir,env=env, shell=True,
+                         executable='/bin/bash')
 
             handler = lambda a,b: on_exit(proc)
             signal.signal(signal.SIGINT, handler)
             signal.signal(signal.SIGTERM, handler)
 
-            retcode = proc.wait()
+            retcode = poll_execution_or_killed(job_from_db, proc)
+
         except Exception as e:
             logger.exception(f"mpi_ensemble rank {RANK} job {job.id}: exception during Popen")
             status_msg(job.id, "FAILED", msg=str(e))
@@ -86,7 +109,11 @@ def run(job):
         else:
             if retcode == 0: 
                 logger.debug(f"mpi_ensemble rank {RANK}: job returned 0")
-                status_msg(job.id, "RUN_DONE")
+                elapsed = parse_real_time(get_tail(outname, indent=''))
+                msg = f"elapsed seconds {elapsed}" if elapsed is not None else ""
+                status_msg(job.id, "RUN_DONE", msg=msg)
+            elif retcode == "USER_KILLED":
+                status_msg(job.id, "USER_KILLED", msg="mpi_ensemble aborting job due to user request")
             else:
                 outf.flush()
                 tail = get_tail(outf.name).replace('\n', '\\n')

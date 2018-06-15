@@ -1,16 +1,15 @@
 # These must come before any other imports
-import django
-import os
-os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-django.setup()
 # --------------
 import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from django.conf import settings
+from balsam.scripts.cli_commands import dbserver, init, which
 
 def main():
+    if not sys.version_info >= (3,6):
+        sys.stderr.write("Balsam requires Python version >= 3.6\n")
+        sys.exit(1)
     parser = make_parser()
     args = parser.parse_args()
     if len(sys.argv) == 1:
@@ -48,7 +47,6 @@ def make_parser():
 
     # ADD JOB
     # -------
-    BALSAM_SITE = settings.BALSAM_SITE
     parser_job = subparsers.add_parser('job',
                                        help="add a new Balsam job",
                                        description="add a new Balsam job",
@@ -64,12 +62,19 @@ def make_parser():
     
     parser_job.add_argument('--wall-minutes', type=int, required=True)
     parser_job.add_argument('--num-nodes',
-                            type=int, required=True)
-    parser_job.add_argument('--processes-per-node',
-                            type=int, required=True)
+                            type=int, required=True,
+                            help='Number of compute nodes on which to run MPI '
+                            'job. (Total number of MPI ranks determined as '
+                            'num_nodes * ranks_per_node).')
+    parser_job.add_argument('--ranks-per-node',
+                            type=int, required=True,
+                            help='Number of MPI ranks per compute node. '
+                            '(Total MPI ranks calculated from num_nodes * '
+                            'ranks_per_node. If only 1 total ranks, treated as serial '
+                            'job).')
     
     parser_job.add_argument('--allowed-site', action='append',
-                            required=False, default=[BALSAM_SITE],
+                            required=False, default=[],
                             help="Balsam instances where this job can run; "
                             "defaults to the local Balsam instance")
 
@@ -145,6 +150,7 @@ def make_parser():
     parser_ls.add_argument('--name', help="match any substring of job name")
     parser_ls.add_argument('--history', help="show state history", action='store_true')
     parser_ls.add_argument('--id', help="match any substring of job id")
+    parser_ls.add_argument('--state', help="list jobs matching a state")
     parser_ls.add_argument('--wf', help="Filter jobs matching a workflow")
     parser_ls.add_argument('--verbose', action='store_true')
     parser_ls.add_argument('--tree', action='store_true', help="show DAG in tree format")
@@ -179,12 +185,12 @@ def make_parser():
 
     # QSUB
     # ----
-    parser_qsub = subparsers.add_parser('qsub', help="add a one-line job to the database, bypassing Application table")
+    parser_qsub = subparsers.add_parser('qsub', help="add a one-line bash command or script job")
     parser_qsub.set_defaults(func=qsub)
     parser_qsub.add_argument('command', nargs='+')
-    parser_qsub.add_argument('-n', '--nodes', type=int, default=1)
-    parser_qsub.add_argument('-N', '--ppn', type=int, default=1)
-    parser_qsub.add_argument('--name', default='')
+    parser_qsub.add_argument('-n', '--nodes', type=int, default=1, help="Number of compute nodes on which to run job")
+    parser_qsub.add_argument('-N', '--ranks-per-node', type=int, default=1, help="Number of MPI ranks per compute node")
+    parser_qsub.add_argument('--name', default='job')
     parser_qsub.add_argument('-t', '--wall-minutes', type=int, required=True)
     parser_qsub.add_argument('-d', '--threads-per-rank',type=int, default=1)
     parser_qsub.add_argument('-j', '--threads-per-core',type=int, default=1)
@@ -215,11 +221,11 @@ def make_parser():
     parser_mkchild.add_argument('--wall-minutes', type=int, required=True)
     parser_mkchild.add_argument('--num-nodes',
                             type=int, required=True)
-    parser_mkchild.add_argument('--processes-per-node',
+    parser_mkchild.add_argument('--ranks-per-node',
                             type=int, required=True)
     
     parser_mkchild.add_argument('--allowed-site', action='append',
-                            required=False, default=[BALSAM_SITE],
+                            required=False, default=[],
                             help="Balsam instances where this job can run; "
                             "defaults to the local Balsam instance")
 
@@ -285,14 +291,38 @@ def make_parser():
                        help="Continuously run jobs of specified workflow")
     parser_launcher.add_argument('--num-workers', type=int, default=1,
                         help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser_launcher.add_argument('--nodes-per-worker', type=int, default=1,
-                        help="For non-MPI jobs, how many to pack per worker")
-    parser_launcher.add_argument('--max-ranks-per-node', type=int, default=1)
+    parser_launcher.add_argument('--nodes-per-worker', type=int, default=1)
+    parser_launcher.add_argument('--max-ranks-per-node', type=int, default=1,
+            help="How many serial jobs can run concurrently per node")
     parser_launcher.add_argument('--time-limit-minutes', type=float,
                         help="Override auto-detected walltime limit (runs"
                         " forever if no limit is detected or specified)")
     parser_launcher.add_argument('--daemon', action='store_true')
     parser_launcher.set_defaults(func=launcher)
+    # -----------------
+    
+    # DBSERVER
+    # --------
+    parser_dbserver = subparsers.add_parser('dbserver', help="Start/stop database server process")
+    group = parser_dbserver.add_mutually_exclusive_group(required=False)
+    group.add_argument('--start', action='store_true',
+                       default=True, help="Start the DB server")
+    group.add_argument('--stop', action='store_true', 
+                       default=False, help="Kill the DB server")
+    group.add_argument('--reset', type=str,
+                       default='', help="Balsam DB path at which to reset the address file")
+    parser_dbserver.add_argument('--path', type=str, default='',
+                        help="Balsam DB directory path")
+    parser_dbserver.set_defaults(func=dbserver)
+    # -----------------
+    
+    # INIT
+    # --------
+    parser_init = subparsers.add_parser('init', help="Create new balsam DB")
+    parser_init.add_argument('path', help="Path to Balsam DB directory")
+    parser_init.add_argument('--db-type', choices=['sqlite3', 'postgres'],
+                             default='sqlite3', help="choose backend to use")
+    parser_init.set_defaults(func=init)
     # -----------------
 
 
@@ -308,6 +338,13 @@ def make_parser():
     parser_dummy = subparsers.add_parser('make_dummies')
     parser_dummy.add_argument('num', type=int)
     parser_dummy.set_defaults(func=make_dummies)
+    
+    # WHICH
+    # ---------
+    parser_which = subparsers.add_parser('which')
+    parser_which.add_argument('--list', action='store_true')
+    parser_which.add_argument('--name')
+    parser_which.set_defaults(func=which)
 
     return parser
 

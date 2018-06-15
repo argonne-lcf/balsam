@@ -8,16 +8,12 @@ from setuptools.command.develop import develop
 from codecs import open
 from os import path
 import os
-
+import time
 
 def auto_setup_db():
     import django
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
-    from django.core.management import call_command
-    call_command('makemigrations',interactive=False,verbosity=2)
-    call_command('migrate',interactive=False,verbosity=2)
-
 
 class PostInstallCommand(install):
     '''Post-installation for installation mode'''
@@ -34,6 +30,8 @@ class PostDevelopCommand(develop):
 
 
 here = path.abspath(path.dirname(__file__))
+activate_script = path.join(here, 'balsam', 'scripts', 'balsamactivate')
+deactivate_script = path.join(here, 'balsam', 'scripts', 'balsamdeactivate')
 
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
@@ -54,9 +52,12 @@ setup(
 
     packages=find_packages(exclude=['docs','__pycache__','data','experiments','log',]),
 
-    install_requires=['django', 'django-concurrency'],
+    install_requires=['django', 'django-concurrency', 'pyzmq'],
 
     include_package_data=True,
+
+    # Command-line bash scripts (to be used as "source balsamactivate")
+    scripts = [activate_script, deactivate_script],
 
     # Register command-line tools here
     entry_points={

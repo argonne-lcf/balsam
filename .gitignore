@@ -1,13 +1,6 @@
 .*
 !.gitignore
 *.pyc
-exe
-log
-argojobs
-balsamjobs
-argobalsam_env
-env
-db.sqlite3
 
 balsam/argo/migrations/*.py
 !balsam/argo/migrations/__init__.py
@@ -16,4 +9,10 @@ balsam/service/migrations/*.py
 
 experiments
 docs/_build/*
+docs/_static/*
 *.egg-info
+
+default_balsamdb
+testdb
+nohup.out
+env-balsam

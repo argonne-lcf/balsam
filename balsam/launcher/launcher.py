@@ -1,10 +1,21 @@
-'''The Launcher is either invoked by the user, who bypasses the Balsam
-scheduling service and submits directly to a local job queue, or by the
-Balsam service metascheduler'''
+'''Main Launcher entry point
+
+The ``main()`` function contains the Launcher service loop, in which:
+    1. Transitions are checked for completion and jobs states are updated
+    2. Dependencies of waiting jobs are checked
+    3. New transitions are added to the transitions queue
+    4. The RunnerGroup is checked for jobs that have stopped execution
+    5. A new Runner is created according to logic in create_next_runner
+
+The ``on_exit()`` handler is invoked either when the time limit is exceeded or
+if the program receives a SIGTERM or SIGINT. This takes the necessary cleanup
+actions and is guaranteed to execute only once through the HANDLING_EXIT global
+flag.
+'''
 import argparse
 from math import floor
 import os
-from sys import exit
+import sys
 import signal
 import time
 
@@ -18,6 +29,8 @@ logger = logging.getLogger('balsam.launcher')
 logger.info("Loading Balsam Launcher")
 
 from balsam.service.schedulers import Scheduler
+from balsam.service.models import END_STATES
+
 scheduler = Scheduler.scheduler_main
 
 from balsam.launcher import jobreader
@@ -32,6 +45,7 @@ WAITING_STATES = ['CREATED', 'LAUNCHER_QUEUED', 'AWAITING_PARENTS']
 HANDLING_EXIT = False
 
 def delay_generator(period=settings.BALSAM_SERVICE_PERIOD):
+    '''Generator: Block for ``period`` seconds since the last call to __next__()'''
     nexttime = time.time() + period
     while True:
         now = time.time()
@@ -44,11 +58,24 @@ def delay_generator(period=settings.BALSAM_SERVICE_PERIOD):
         yield
 
 def elapsed_time_minutes():
+    '''Generator: yield elapsed time in minutes since first call to __next__'''
     start = time.time()
     while True:
         yield (time.time() - start) / 60.0
 
 def remaining_time_minutes(time_limit_minutes=0.0):
+    '''Generator: yield remaining time for Launcher execution
+
+    If time_limit_minutes is given, use internal timer to count down remaining
+    time. Otherwise, query scheduler for remaining time.
+
+    Args:
+        - ``time_limit_minutes`` (*float*): runtime limit
+    Yields:
+        - ``remaining`` (*float*): remaining time
+    Raises:
+        - ``StopIteration``: when there is no time left
+    '''
     elapsed_timer = elapsed_time_minutes()
     while True:
         if time_limit_minutes > 0.0:
@@ -59,10 +86,12 @@ def remaining_time_minutes(time_limit_minutes=0.0):
         else: break
 
 def check_parents(job, lock):
+    '''Check job's dependencies, update to READY if satisfied'''
     job.refresh_from_db()
     parents = job.get_parents()
     ready = all(p.state == 'JOB_FINISHED' for p in parents)
-    if ready:
+
+    if ready or not job.wait_for_parents:
         lock.acquire()
         job.update_state('READY', 'dependencies satisfied')
         lock.release()
@@ -74,6 +103,7 @@ def check_parents(job, lock):
         logger.info(f'{job.cute_id} waiting for parents')
 
 def log_time(minutes_left):
+    '''Pretty log of remaining time'''
     if minutes_left > 1e12:
         return
     whole_minutes = floor(minutes_left)
@@ -82,6 +112,10 @@ def log_time(minutes_left):
     logger.info(time_str)
 
 def create_runner(jobs, runner_group, worker_group, remaining_minutes, last_runner_created):
+    '''Decide whether or not to create another runner. Considers how many jobs
+    can run, how many can *almost* run, how long since the last Runner was
+    created, and how many jobs are serial as opposed to MPI.
+    '''
     runnable_jobs = [
         job for job in jobs
         if job.pk not in runner_group.running_job_pks and
@@ -117,10 +151,11 @@ def create_runner(jobs, runner_group, worker_group, remaining_minutes, last_runn
     return last_runner_created
 
 def main(args, transition_pool, runner_group, job_source):
-
+    '''Main Launcher service loop'''
     delay_sleeper = delay_generator()
     last_runner_created = time.time()
     remaining_timer = remaining_time_minutes(args.time_limit_minutes)
+    exit_counter = 0
 
     for remaining_minutes in remaining_timer:
 
@@ -163,8 +198,16 @@ def main(args, transition_pool, runner_group, job_source):
                                              last_runner_created)
 
         if delay: next(delay_sleeper)
+        if all(j.state in END_STATES for j in job_source.jobs):
+            exit_counter += 1
+            if exit_counter == 15:
+                logger.info("No jobs to process. Exiting main loop now.")
+                break
+        else:
+            exit_counter = 0
     
 def on_exit(runner_group, transition_pool, job_source):
+    '''Exit cleanup'''
     global HANDLING_EXIT
     if HANDLING_EXIT: return
     HANDLING_EXIT = True
@@ -175,11 +218,13 @@ def on_exit(runner_group, transition_pool, job_source):
 
     logger.debug("on_exit: send end message to transition threads")
     transition_pool.end_and_wait()
+    
     logger.debug("on_exit: Launcher exit graceful\n\n")
-    exit(0)
+    sys.exit(0)
 
 
 def get_args(inputcmd=None):
+    '''Parse command line arguments'''
     parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--job-file', help="File of Balsam job IDs")
@@ -187,10 +232,11 @@ def get_args(inputcmd=None):
                         help="Continuously run all jobs from DB")
     group.add_argument('--wf-name',
                        help="Continuously run jobs of specified workflow")
-    parser.add_argument('--num-workers', type=int, default=1,
+    parser.add_argument('--num-workers', type=int, default=0,
                         help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser.add_argument('--nodes-per-worker', type=int, default=1)
-    parser.add_argument('--max-ranks-per-node', type=int, default=1,
+    parser.add_argument('--nodes-per-worker', help="(BG/Q only) # nodes per sublock", 
+                        type=int, default=1)
+    parser.add_argument('--max-ranks-per-node', type=int, default=4,
                         help="For non-MPI jobs, how many to pack per worker")
     parser.add_argument('--time-limit-minutes', type=float, default=0,
                         help="Provide a walltime limit if not already imposed")
@@ -201,9 +247,12 @@ def get_args(inputcmd=None):
         return parser.parse_args()
 
 def detect_dead_runners(job_source):
+    '''Jobs found in the RUNNING state before the Launcher starts may have
+    crashed; pick them up and restart'''
     for job in job_source.by_states['RUNNING']:
         logger.info(f'Picked up dead running job {job.cute_id}: marking RESTART_READY')
         job.update_state('RESTART_READY', 'Detected dead runner')
+
 
 if __name__ == "__main__":
     args = get_args()

@@ -1,88 +1,15 @@
+from collections import defaultdict
+import glob
 import os
 import random
-import getpass
 import sys
-import signal
-import subprocess
 import tempfile
 from importlib.util import find_spec
 
 from balsam.service.models import BalsamJob
-from tests.BalsamTestCase import BalsamTestCase, cmdline
-from tests.BalsamTestCase import poll_until_returns_true
+from tests.BalsamTestCase import BalsamTestCase
+from tests import util
 from tests.BalsamTestCase import create_job, create_app
-
-
-def ls_procs(keywords):
-    if type(keywords) == str: keywords = [keywords]
-
-    username = getpass.getuser()
-    
-    searchcmd = 'ps aux | grep '
-    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords) 
-    grep = subprocess.Popen(searchcmd, shell=True, stdout=subprocess.PIPE)
-    stdout,stderr = grep.communicate()
-    stdout = stdout.decode('utf-8')
-
-    processes = [line for line in stdout.split('\n') if 'python' in line and line.split()[0]==username]
-    return processes
-
-
-def sig_processes(process_lines, signal):
-    for line in process_lines:
-        proc = int(line.split()[1])
-        try: 
-            os.kill(proc, signal)
-        except ProcessLookupError:
-            print(f"WARNING: could not find:\n{line}\ntried to send {signal}")
-
-
-def stop_launcher_processes():
-    processes = ls_procs('launcher.py --consume')
-    sig_processes(processes, signal.SIGTERM)
-    
-    def check_processes_done():
-        procs = ls_procs('launcher.py --consume')
-        return len(procs) == 0
-
-    poll_until_returns_true(check_processes_done, period=2, timeout=12)
-    processes = ls_procs('launcher.py --consume')
-    if processes:
-        print("Warning: these did not properly shutdown on SIGTERM:")
-        print("\n".join(processes))
-        print("Sending SIGKILL")
-        sig_processes(processes, signal.SIGKILL)
-
-
-def run_launcher_until(function, args=(), period=1.0, timeout=60.0):
-    launcher_proc = subprocess.Popen(['balsam', 'launcher', '--consume',
-                                      '--max-ranks-per-node', '8'],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT,
-                                     preexec_fn=os.setsid)
-    success = poll_until_returns_true(function, args=args, period=period, timeout=timeout)
-    stop_launcher_processes()
-    return success
-
-def run_launcher_seconds(seconds):
-    minutes = seconds / 60.0
-    launcher_path = sys.executable + " " + find_spec("balsam.launcher.launcher").origin
-    launcher_path += " --consume --max-ranks 8 --time-limit-minutes " + str(minutes)
-    launcher_proc = subprocess.Popen(launcher_path.split(),
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT,
-                                     preexec_fn=os.setsid)
-    try: launcher_proc.communicate(timeout=seconds+30)
-    finally: stop_launcher_processes()
-
-
-def run_launcher_until_state(job, state, period=1.0, timeout=60.0):
-    def check():
-        job.refresh_from_db()
-        return job.state == state
-    success = run_launcher_until(check, period=period, timeout=timeout)
-    return success
-
 
 class TestSingleJobTransitions(BalsamTestCase):
     def setUp(self):
@@ -90,9 +17,9 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.apps = {}
         for name in aliases:
             interpreter = sys.executable
-            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}').origin
-            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_pre').origin
-            post_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_post').origin
+            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}').origin
+            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_pre').origin
+            post_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_post').origin
             app = create_app(name=name, executable=exe_path, preproc=pre_path,
                              postproc=post_path)
             self.apps[name] = app
@@ -119,7 +46,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         
         # Run the launcher and make sure that the job gets carried all the way
         # through to completion
-        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        success = util.run_launcher_until_state(job, 'JOB_FINISHED')
         self.assertTrue(success)
 
         # job staged in this remote side0.dat file; it contains "9"
@@ -185,7 +112,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertEqual(BalsamJob.objects.all().count(), 1)
         
         # The job is marked FAILED due to unhandled nonzero return code
-        success = run_launcher_until_state(job, 'FAILED')
+        success = util.run_launcher_until_state(job, 'FAILED')
         self.assertTrue(success)
         
         # (But actually the application ran and printed its result correctly)
@@ -215,7 +142,7 @@ class TestSingleJobTransitions(BalsamTestCase):
         self.assertEqual(BalsamJob.objects.all().count(), 1)
         
         # The job finished successfully despite a nonzero return code
-        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        success = util.run_launcher_until_state(job, 'JOB_FINISHED')
         self.assertTrue(success)
 
         # Make sure at some point, it was marked with RUN_ERROR
@@ -248,7 +175,7 @@ class TestSingleJobTransitions(BalsamTestCase):
                          url_out=f'local:{remote_dir.name}')
                          
         # Job reaches the RUNNING state and then times out
-        success = run_launcher_until_state(job, 'RUNNING')
+        success = util.run_launcher_until_state(job, 'RUNNING')
         self.assertTrue(success)
 
         # On termination, actively running job is marked RUN_TIMEOUT
@@ -256,12 +183,12 @@ class TestSingleJobTransitions(BalsamTestCase):
             job.refresh_from_db()
             return job.state == 'RUN_TIMEOUT'
 
-        success = poll_until_returns_true(check,timeout=12)
+        success = util.poll_until_returns_true(check,timeout=12)
         self.assertTrue(success)
         self.assertEquals(job.state, 'RUN_TIMEOUT')
         
         # If we run the launcher again, it will pick up the timed out job
-        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        success = util.run_launcher_until_state(job, 'JOB_FINISHED')
         self.assertTrue(success)
         self.assertIn('RESTART_READY', job.state_history)
         
@@ -285,7 +212,7 @@ class TestSingleJobTransitions(BalsamTestCase):
                          post_timeout_handler=True)
                          
         # Job reaches the RUNNING state and then times out
-        success = run_launcher_until_state(job, 'RUNNING')
+        success = util.run_launcher_until_state(job, 'RUNNING')
         self.assertTrue(success)
 
         # On termination, actively running job is marked RUN_TIMEOUT
@@ -293,11 +220,11 @@ class TestSingleJobTransitions(BalsamTestCase):
             job.refresh_from_db()
             return job.state == 'RUN_TIMEOUT'
 
-        success = poll_until_returns_true(check,timeout=12)
+        success = util.poll_until_returns_true(check,timeout=12)
         self.assertEquals(job.state, 'RUN_TIMEOUT')
         
         # If we run the launcher again, it will pick up the timed out job
-        success = run_launcher_until_state(job, 'JOB_FINISHED')
+        success = util.run_launcher_until_state(job, 'JOB_FINISHED')
         self.assertTrue(success)
         self.assertNotIn('RESTART_READY', job.state_history)
         self.assertIn('handled timeout in square_post', job.state_history)
@@ -323,7 +250,7 @@ class TestSingleJobTransitions(BalsamTestCase):
                          auto_timeout_retry=False)
                          
         # Job reaches the RUNNING state and then times out
-        success = run_launcher_until_state(job, 'RUNNING')
+        success = util.run_launcher_until_state(job, 'RUNNING')
         self.assertTrue(success)
 
         # On termination, actively running job is marked RUN_TIMEOUT
@@ -331,12 +258,12 @@ class TestSingleJobTransitions(BalsamTestCase):
             job.refresh_from_db()
             return job.state == 'RUN_TIMEOUT'
 
-        success = poll_until_returns_true(check,timeout=12)
+        success = util.poll_until_returns_true(check,timeout=12)
         self.assertEqual(job.state, 'RUN_TIMEOUT')
         
         # If we run the launcher again, it will pick up the timed out job
         # But without timeout handling, it fails
-        success = run_launcher_until_state(job, 'FAILED')
+        success = util.run_launcher_until_state(job, 'FAILED')
         self.assertTrue(success)
 
 class TestDAG(BalsamTestCase):
@@ -345,9 +272,9 @@ class TestDAG(BalsamTestCase):
         self.apps = {}
         for name in aliases:
             interpreter = sys.executable
-            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}').origin
-            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_pre').origin
-            post_path = interpreter + " " + find_spec(f'tests.ft_apps.{name}_post').origin
+            exe_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}').origin
+            pre_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_pre').origin
+            post_path = interpreter + " " + find_spec(f'tests.ft_apps.dag.{name}_post').origin
             app = create_app(name=name, executable=exe_path, preproc=pre_path,
                              postproc=post_path)
             self.apps[name] = app
@@ -446,8 +373,8 @@ class TestDAG(BalsamTestCase):
             running = BalsamJob.objects.filter(state='RUNNING')
             finished = BalsamJob.objects.filter(state='JOB_FINISHED')
             return running.count() >= N_run and finished.count() >= N_finish
-        run_launcher_until(check, args=(1, 1)) # interrupt at least 1
-        run_launcher_until(check, args=(2, 5)) # interrupt at least 2
+        util.run_launcher_until(check, args=(1, 1)) # interrupt at least 1
+        util.run_launcher_until(check, args=(2, 5)) # interrupt at least 2
 
         # Get rid of the sleep now to speed up finish
         slow_jobs = BalsamJob.objects.filter(application_args__contains="sleep")
@@ -459,7 +386,7 @@ class TestDAG(BalsamTestCase):
             return all(j.state == 'JOB_FINISHED' for j in BalsamJob.objects.all())
 
         # Just check that all jobs reach JOB_FINISHED state
-        success = run_launcher_until(check, timeout=360.0)
+        success = util.run_launcher_until(check, timeout=360.0)
         self.assertTrue(success)
 
         # No race conditions in working directory naming: each job must have a
@@ -500,7 +427,7 @@ class TestDAG(BalsamTestCase):
         reduce_job.set_parents(square_jobs.values())
         
         # Run the entire DAG until finished
-        success = run_launcher_until_state(reduce_job, 'JOB_FINISHED',
+        success = util.run_launcher_until_state(reduce_job, 'JOB_FINISHED',
                                            timeout=180.0)
         self.assertTrue(success)
         for job in (parent, *square_jobs.values(), reduce_job):
@@ -517,7 +444,8 @@ class TestDAG(BalsamTestCase):
         resultpath = os.path.join(remote_dir.name, 'reduce.out')
         result = open(resultpath).read()
         self.assertIn('Total area:', result)
-        result = float(result.split()[-1])
+        result_line = [l for l in result.split('\n') if 'Total area:' in l][0]
+        result = float(result_line.split()[-1])
         self.assertAlmostEqual(result, expected_result)
 
     def triplet_data_check(self, parent, A, B):
@@ -551,19 +479,19 @@ class TestDAG(BalsamTestCase):
             chB.refresh_from_db()
             return chA.state=='JOB_FINISHED' and chB.state=='RUNNING'
 
-        success = run_launcher_until(check)
+        success = util.run_launcher_until(check)
         self.assertTrue(success)
 
         # Give the launcher time to clean up and mark B as timed out
         def check():
             chB.refresh_from_db()
             return chB.state == 'RUN_TIMEOUT'
-        success = poll_until_returns_true(check, timeout=12)
+        success = util.poll_until_returns_true(check, timeout=12)
         self.assertEqual(chB.state, 'RUN_TIMEOUT')
 
         # Since B has a timeout handler, when we re-run the launcher, 
         # It is handled gracefully
-        success = run_launcher_until_state(chB, 'JOB_FINISHED')
+        success = util.run_launcher_until_state(chB, 'JOB_FINISHED')
 
         parent.refresh_from_db()
         chA.refresh_from_db()
@@ -597,7 +525,7 @@ class TestDAG(BalsamTestCase):
         def check():
             return all(j.state=='JOB_FINISHED' for j in BalsamJob.objects.all())
 
-        success = run_launcher_until(check)
+        success = util.run_launcher_until(check, timeout=120)
         self.assertTrue(success)
         
         parent.refresh_from_db()
@@ -632,14 +560,14 @@ class TestDAG(BalsamTestCase):
         chB.set_parents([parent])
 
         # We run the launcher and kill it once parent starts running
-        success = run_launcher_until_state(parent, 'RUNNING')
+        success = util.run_launcher_until_state(parent, 'RUNNING')
         self.assertTrue(success)
         
         # Parent timed out
         def check():
             parent.refresh_from_db()
             return parent.state == 'RUN_TIMEOUT'
-        success = poll_until_returns_true(check,timeout=12)
+        success = util.poll_until_returns_true(check,timeout=12)
         self.assertTrue(success)
 
         parent.refresh_from_db()
@@ -654,7 +582,7 @@ class TestDAG(BalsamTestCase):
             chA.refresh_from_db()
             chB.refresh_from_db()
             return chA.state=='JOB_FINISHED' and chB.state=='JOB_FINISHED'
-        success = run_launcher_until(check)
+        success = util.run_launcher_until(check, timeout=120)
 
         parent.refresh_from_db()
         chA.refresh_from_db()
@@ -711,7 +639,7 @@ class TestDAG(BalsamTestCase):
             return all(j.state == 'JOB_FINISHED' for j in jobs)
 
         # Everything finished successfully
-        success = run_launcher_until(check)
+        success = util.run_launcher_until(check, timeout=120)
         self.assertTrue(success)
 
         parent.refresh_from_db()
@@ -757,7 +685,7 @@ class TestDAG(BalsamTestCase):
         reduce_job.set_parents([parent])
         
         # Run the entire DAG until finished
-        success = run_launcher_until_state(reduce_job, 'JOB_FINISHED',
+        success = util.run_launcher_until_state(reduce_job, 'JOB_FINISHED',
                                            timeout=200.0)
         self.assertTrue(success)
         for job in BalsamJob.objects.all():
@@ -773,7 +701,8 @@ class TestDAG(BalsamTestCase):
         resultpath = os.path.join(remote_dir.name, 'sum_squares.out')
         result = open(resultpath).read()
         self.assertIn('Total area:', result)
-        result = float(result.split()[-1])
+        result_line = [l for l in result.split('\n') if 'Total area:' in l][0]
+        result = float(result_line.split()[-1])
         self.assertAlmostEqual(result, expected_result)
 
         # Checking the post-processor log, we see that those jobs were actually
@@ -791,3 +720,169 @@ class TestDAG(BalsamTestCase):
         # Make sure that the correct number of dependencies were created for the
         # reduce job: one for each dynamically-spawned job (plus the original)
         self.assertEqual(reduce_job.get_parents().count(), NUM_SIDES+1)
+
+class TestThreadPlacement(BalsamTestCase):
+
+    def setUp(self):
+        self.app_path = os.path.dirname(find_spec("tests.ft_apps.c_apps").origin)
+        self.app = create_app(name='omp')
+
+        self.job0 = create_job(name='job0', app='omp', num_nodes=2, ranks_per_node=32, threads_per_rank=2)
+        self.job1 = create_job(name='job1', app='omp', num_nodes=2, ranks_per_node=64, threads_per_rank=1)
+        self.job2 = create_job(name='job2', app='omp', num_nodes=1, ranks_per_node=2, threads_per_rank=64, threads_per_core=2)
+
+    def check_omp_exe_output(self, job):
+        fname = job.name + '.out'
+        out = job.read_file_in_workdir(fname)
+        
+        proc_counts = defaultdict(int)
+        ranks = []
+        threads = []
+
+        for line in out.split('\n'):
+            dat = line.split()
+            if len(dat) == 3:
+                name, rank, thread = dat
+                proc_counts[name] += 1
+                ranks.append(int(rank))
+                threads.append(int(thread))
+
+        proc_names = proc_counts.keys()
+        self.assertEqual(len(proc_names), job.num_nodes)
+        if job.num_nodes == 2:
+            proc1, proc2 = proc_names
+            self.assertEqual(proc_counts[proc1], proc_counts[proc2])
+
+        expected_ranks = list(range(job.num_ranks)) * job.threads_per_rank
+        self.assertListEqual(sorted(ranks), sorted(expected_ranks))
+
+        expected_threads = list(range(job.threads_per_rank)) * job.num_ranks
+        self.assertListEqual(sorted(threads), sorted(expected_threads))
+
+    def test_Theta(self):
+        '''MPI/OMP C binary for Theta: check thread/rank placement'''
+        launcherInfo = util.launcher_info()
+
+        if launcherInfo.host_type != 'CRAY':
+            self.skipTest('did not recognize Cray environment')
+        if launcherInfo.num_workers < 2:
+            self.skipTest('need at least two nodes reserved to run this test')
+
+        binary = glob.glob(os.path.join(self.app_path, 'omp.theta.x'))
+        self.app.executable = binary[0]
+        self.app.save()
+
+        def check():
+            jobs = BalsamJob.objects.all()
+            return all(j.state == 'JOB_FINISHED' for j in jobs)
+
+        util.run_launcher_until(check)
+        self.job0.refresh_from_db()
+        self.job1.refresh_from_db()
+        self.job2.refresh_from_db()
+
+        self.assertEqual(self.job0.state, 'JOB_FINISHED')
+        self.assertEqual(self.job1.state, 'JOB_FINISHED')
+        self.assertEqual(self.job2.state, 'JOB_FINISHED')
+
+        # Check output of dummy MPI/OpenMP C program
+        self.check_omp_exe_output(self.job0)
+        self.check_omp_exe_output(self.job1)
+        self.check_omp_exe_output(self.job2)
+
+class TestConcurrentDB(BalsamTestCase):
+    def setUp(self):
+        launcherInfo = util.launcher_info()
+        self.num_nodes = len(launcherInfo.workerGroup.workers)
+
+        hello_path = find_spec("tests.ft_apps.concurrent.hello").origin
+        insert_path = find_spec("tests.ft_apps.concurrent.mpi_insert").origin
+        interpreter = sys.executable
+        hello_path= f"{sys.executable} {hello_path}"
+        insert_path= f"{sys.executable} {insert_path}"
+        create_app(name="hello", executable=hello_path)
+        create_app(name="mpi4py-insert", executable=insert_path)
+
+    def test_many_write(self):
+        '''Many ranks can simultaneously add a job to the DB'''
+        job = create_job(name="mpi_insert", app='mpi4py-insert',
+                         num_nodes=self.num_nodes, ranks_per_node=16)
+        num_ranks = job.num_ranks
+        
+        def check():
+            jobs = BalsamJob.objects.filter(state='JOB_FINISHED')
+            return jobs.count() == num_ranks+1
+
+        success = util.run_launcher_until(check, timeout=200)
+        job.refresh_from_db()
+        self.assertEqual(job.state, 'JOB_FINISHED')
+        jobs = BalsamJob.objects.all()
+        self.assertListEqual(['JOB_FINISHED']*len(jobs), [j.state for j in jobs])
+
+        created_jobs = BalsamJob.objects.filter(name__icontains='hello')
+        self.assertEqual(created_jobs.count(), num_ranks)
+
+
+class TestUserKill(BalsamTestCase):
+    def setUp(self):
+        killer_name = find_spec("tests.ft_apps.dynamic_kill.killer").origin
+        slow_name = find_spec("tests.ft_apps.dynamic_kill.slow").origin
+        interpreter = sys.executable
+        self.killer_name = f"{interpreter} {killer_name}"
+        self.slow_name = f"{interpreter} {slow_name}"
+
+        create_app(name="killer", executable=self.killer_name)
+        create_app(name="slow", executable=self.slow_name)
+
+    def test_kill_during_preprocess(self):
+        '''Job killed while pre-processing is properly marked'''
+        killer_job = create_job(name="killer", app="killer")
+        slow_job = create_job(name="slow_job", app="slow", preproc=self.slow_name, args="30")
+
+        success = util.run_launcher_until_state(killer_job, 'JOB_FINISHED')
+        self.assertTrue(success)
+
+        slow_job.refresh_from_db()
+        self.assertEqual(slow_job.state, "USER_KILLED")
+        preproc_out = slow_job.read_file_in_workdir('preprocess.log')
+        self.assertIn("Sleeping for a long time", preproc_out)
+        self.assertNotIn("RUN_DONE", slow_job.state_history)
+        self.assertIn("STAGED_IN", slow_job.state_history)
+
+    def test_kill_during_execution_serial(self):
+        '''Serial job running in mpi_ensemble is properly terminated'''
+        killer_job = create_job(name="killer", app="killer", args="when-running")
+        slow_job = create_job(name="slow_job", app="slow", args="30")
+        
+        success = util.run_launcher_until_state(killer_job, 'JOB_FINISHED')
+        self.assertTrue(success)
+
+        slow_job.refresh_from_db()
+        self.assertEqual(slow_job.state, "USER_KILLED")
+        stdout = slow_job.read_file_in_workdir('slow_job.out')
+        self.assertIn("Sleeping for a long time", stdout)
+        self.assertIn("RUNNING", slow_job.state_history)
+        self.assertIn("USER_KILLED", slow_job.state_history)
+        self.assertNotIn("RUN_DONE", slow_job.state_history)
+    
+    def test_kill_during_execution_mpi(self):
+        '''Parallel MPIRunner job is properly terminated'''
+        launcherInfo = util.launcher_info()
+        if len(launcherInfo.workerGroup.workers) < 2:
+            self.skipTest("Need at least 2 workers to run this test")
+
+        killer_job = create_job(name="killer", app="killer")
+        slow_job = create_job(name="slow_job", app="slow", ranks_per_node=2,
+                              args="30 parallel")
+        
+        success = util.run_launcher_until_state(killer_job, 'JOB_FINISHED')
+        self.assertTrue(success)
+
+        slow_job.refresh_from_db()
+        self.assertEqual(slow_job.state, "USER_KILLED")
+        stdout = slow_job.read_file_in_workdir('slow_job.out')
+        self.assertIn("Rank 0 Sleeping for a long time", stdout)
+        self.assertIn("Rank 1 Sleeping for a long time", stdout)
+        self.assertIn("RUNNING", slow_job.state_history)
+        self.assertIn("USER_KILLED", slow_job.state_history)
+        self.assertNotIn("RUN_DONE", slow_job.state_history)

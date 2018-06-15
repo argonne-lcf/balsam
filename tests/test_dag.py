@@ -1,6 +1,7 @@
 import sys
 
-from tests.BalsamTestCase import BalsamTestCase, cmdline
+from tests.BalsamTestCase import BalsamTestCase
+from tests.util import cmdline
 from balsam.service.models import BalsamJob
 
 class BalsamDAGTests(BalsamTestCase):
@@ -13,7 +14,7 @@ class BalsamDAGTests(BalsamTestCase):
     def mock_postprocessor_run(self, job, keyword):
         '''Run the mock postprocesser as if it were happening in a Balsam Transition'''
         envs = job.get_envs()
-        stdout = cmdline(' '.join([sys.executable, self.user_script, keyword]),
+        stdout, time = cmdline(' '.join([sys.executable, self.user_script, keyword]),
                       envs=envs)
         return stdout
 

@@ -1,0 +1,23 @@
+# BENCHMARK: test_concurrent_mpi_insert
+# Host: thetamom3
+# COBALT_PARTCORES: 64
+# COBALT_ENDTIME: 1517596142
+# COBALT_QUEUE: default
+# COBALT_PARTNAME: 70-75,310-319,630,664-665,667-669,770-779,860-869,880-889,1040-1049,1262,1264-1269,1310-1319,1330-1337,1460-1469,1684-1689,1910-1925,2020-2029,2113,2117,2324,2411,2460-2461,2692,2694,2698,2750,2752-2759,2908,2970-2977,3020-3021,3025,3027,3035,3095,3124-3129,3141,3201,3273,3276,3283,3285-3289,3341,3402-3405,3407,3442-3445,3447-3449,3491,3610-3611,3669,3722,3729,3948-3949,3970,3973,3976-3977,3983,3988,4014,4050,4052-4053,4055-4056,4059,4089,4120-4125,4127-4128,4210-4212,4214,4216-4218,4230-4239,4302-4303,4306,4313,4327,4359,4361,4367,4553,4555,4557,4587,4590-4592,4595-4597
+# COBALT_STARTTIME: 1517593442
+# COBALT_JOBID: 182461
+# COBALT_PARTSIZE: 256
+# COBALT_JOBSIZE: 256
+# COBALT_PROJECT: datascience
+# Each rank simultaneously calls dag.add_job (num_ranks simultaneous insertions)
+# At 64 nodes/2048 ranks, we made it all the way to 2046 successful saves, very painfully (server crashed and restarted many times)
+# Two saves got lost; hence failed at 2048 concurrent saves. Reaches peak of about 9 insert per second
+#     num_nodes    ranks_per_node    num_ranks    total_time_sec
+# --------------------------------------------------------------
+              1                32           32            29.020
+              2                32           64            28.930
+              4                32          128            35.160
+              8                32          256            43.350
+             16                32          512            64.740
+             32                32         1024           114.590
+

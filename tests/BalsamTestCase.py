@@ -1,7 +1,6 @@
 import os
 import unittest
 import subprocess
-import time
 
 from django.core.management import call_command
 from django import db
@@ -12,9 +11,13 @@ from balsam.service.models import BalsamJob, ApplicationDefinition
 class BalsamTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        assert db.connection.settings_dict['NAME'].endswith('test_db.sqlite3')
+        test_db_path = os.environ['BALSAM_DB_PATH']
+        assert 'test' in test_db_path
+
         call_command('makemigrations',interactive=False,verbosity=0)
         call_command('migrate',interactive=False,verbosity=0)
+        call_command('flush',interactive=False,verbosity=0)
+
         assert os.path.exists(settings.DATABASES['default']['NAME'])
 
     @classmethod
@@ -25,30 +28,16 @@ class BalsamTestCase(unittest.TestCase):
         pass # to be implemented by test cases
 
     def tearDown(self):
-        if not db.connection.settings_dict['NAME'].endswith('test_db.sqlite3'):
-            raise RuntimeError("Test DB not configured")
         call_command('flush',interactive=False,verbosity=0)
 
-def cmdline(cmd,envs=None,shell=True):
-    '''Return string output from a command line'''
-    p = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT,env=envs)
-    return p.communicate()[0].decode('utf-8')
 
-def poll_until_returns_true(function, *, args=(), period=1.0, timeout=12.0):
-    start = time.time()
-    result = False
-    while time.time() - start < timeout:
-        result = function(*args)
-        if result: break
-        else: time.sleep(period)
-    return result
 
 def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE, num_nodes=1,
-               ranks_per_node=1, args='', workflow='', envs={}, state='CREATED',
-               url_in='', input_files='', url_out='', stage_out_files='', 
+               ranks_per_node=1, threads_per_rank=1, threads_per_core=1, args='', workflow='', 
+               envs={}, state='CREATED', url_in='', input_files='', url_out='', stage_out_files='', 
                post_error_handler=False, post_timeout_handler=False,
-               auto_timeout_retry=True, preproc='', postproc='', wtime=1):
+               auto_timeout_retry=True, preproc='', postproc='', wtime=1,
+               save=True):
 
     if app and direct_command:
         raise ValueError("Cannot have both application and direct command")
@@ -62,6 +51,8 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
     
     job.num_nodes = num_nodes
     job.ranks_per_node = ranks_per_node
+    job.threads_per_rank = threads_per_rank
+    job.threads_per_core = threads_per_core
     job.application_args = args
     
     job.workflow = workflow
@@ -81,8 +72,9 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
     job.postprocess = postproc
     job.wall_time_minutes = wtime
     
-    job.save()
-    job.create_working_path()
+    if save:
+        job.save()
+        job.create_working_path()
     return job
 
 def create_app(*, name='', description='', executable='', preproc='',

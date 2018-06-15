@@ -1,25 +1,24 @@
 import os
 import json
 import logging
+import re
 import sys
 from datetime import datetime
-from socket import gethostname
 import uuid
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
 from django.db import models
 from concurrency.fields import IntegerVersionField
+from concurrency.exceptions import RecordModifiedError
 
-from balsam.common import Serializer
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('balsam.service.models')
 
 class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
 class NoApplication(Exception): pass
 
-TIME_FMT = '%m-%d-%Y %H:%M:%S'
+TIME_FMT = '%m-%d-%Y %H:%M:%S.%f'
 
 STATES = '''
 CREATED
@@ -70,6 +69,18 @@ JOB_FINISHED
 FAILED
 USER_KILLED
 PARENT_KILLED'''.split()
+        
+STATE_TIME_PATTERN = re.compile(r'''
+^                  # start of line
+\[                 # opening square bracket
+(\d+-\d+-\d\d\d\d  # date MM-DD-YYYY
+\s+                # one or more space
+\d+:\d+:\d+\.\d+)  # time HH:MM:SS.MICROSEC
+\s+                # one or more space
+(\w+)              # state
+\s*                # 0 or more space
+\]                 # closing square bracket
+''', re.VERBOSE | re.MULTILINE)
 
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
@@ -167,8 +178,8 @@ class BalsamJob(models.Model):
         help_text='The number of compute nodes requested for this job.',
         default=1)
     ranks_per_node = models.IntegerField(
-        'Number of Processes per Node',
-        help_text='The number of MPI processes per node to schedule for this job.',
+        'Number of ranks per node',
+        help_text='The number of MPI ranks per node to schedule for this job.',
         default=1)
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
@@ -215,6 +226,9 @@ class BalsamJob(models.Model):
         help_text='A script that is run in a job working directory after the job has completed.'
         ' If blank, will default to the default_postprocess script defined for the application.',
         default='')
+    wait_for_parents = models.BooleanField(
+            'If True, do not process this job until parents are FINISHED',
+            default=True)
     post_error_handler = models.BooleanField(
         'Let postprocesser try to handle RUN_ERROR',
         help_text='If true, the postprocessor will be invoked for RUN_ERROR jobs'
@@ -240,8 +254,8 @@ class BalsamJob(models.Model):
         'Job State History',
         help_text="Chronological record of the job's states",
         default=history_line)
-    
-    def save(self, force_insert=False, force_update=False, using=None, 
+
+    def _save_direct(self, force_insert=False, force_update=False, using=None, 
              update_fields=None):
         '''Override default Django save to ensure version always updated'''
         if update_fields is not None: 
@@ -249,6 +263,34 @@ class BalsamJob(models.Model):
         if self._state.adding:
             update_fields = None
         models.Model.save(self, force_insert, force_update, using, update_fields)
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        if settings.SAVE_CLIENT is None:
+            logger.info(f"direct save of {self.cute_id}")
+            self._save_direct(force_insert, force_update, using, update_fields)
+        else:
+            settings.SAVE_CLIENT.save(self, force_insert, force_update, using, update_fields)
+            self.refresh_from_db()
+
+    @staticmethod
+    def from_dict(d):
+        job = BalsamJob()
+        SERIAL_FIELDS = [f for f in job.__dict__ if f not in
+                '_state force_insert force_update using update_fields'.split()
+                ]
+
+        if type(d['job_id']) is str:
+            d['job_id'] = uuid.UUID(d['job_id'])
+        else:
+            assert d['job_id'] is None
+            d['job_id'] = job.job_id
+
+        for field in SERIAL_FIELDS:
+            job.__dict__[field] = d[field]
+
+        assert type(job.job_id) == uuid.UUID
+        return job
+
 
     def __str__(self):
         return f'''
@@ -304,14 +346,14 @@ auto timeout retry:     {self.auto_timeout_retry}
             return f"[{self.name} | { str(self.pk)[:8] }]"
         else:
             return f"[{ str(self.pk)[:8] }]"
-
+    
     @property
     def app_cmd(self):
         if self.application:
             app = ApplicationDefinition.objects.get(name=self.application)
             line = f"{app.executable} {self.application_args}"
         else:
-            line = self.direct_command
+            line = f"{self.direct_command} {self.application_args}"
         return ' '.join(os.path.expanduser(w) for w in line.split())
 
     def get_children(self):
@@ -338,7 +380,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         for i, parent in enumerate(parents_list):
             pk = parent.pk if isinstance(parent,BalsamJob) else parent
             if not BalsamJob.objects.filter(pk=pk).exists():
-                raise InvalidParentsError("Job PK {pk} is not in the BalsamJob DB")
+                raise InvalidParentsError(f"Job PK {pk} is not in the BalsamJob DB")
             parents_list[i] = str(pk)
         self.parents = json.dumps(parents_list)
         self.save(update_fields=['parents'])
@@ -357,7 +399,7 @@ auto timeout retry:     {self.auto_timeout_retry}
         return {variable:value for (variable,value) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
-        keywords = 'PATH LIBRARY BALSAM DJANGO PYTHON'.split()
+        keywords = 'BALSAM DJANGO PYTHON'.split()
         envs = {var:value for var,value in os.environ.items() 
                 if any(keyword in var for keyword in keywords)}
         try:
@@ -378,6 +420,10 @@ auto timeout retry:     {self.auto_timeout_retry}
             BALSAM_PARENT_IDS=str(self.parents),
             BALSAM_CHILD_IDS=children,
         )
+
+        if self.threads_per_rank > 1:
+            balsam_envs['OMP_NUM_THREADS'] = str(self.threads_per_rank)
+
         if timeout: balsam_envs['BALSAM_JOB_TIMEOUT']="TRUE"
         if error: balsam_envs['BALSAM_JOB_ERROR']="TRUE"
         envs.update(balsam_envs)
@@ -387,9 +433,25 @@ auto timeout retry:     {self.auto_timeout_retry}
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 
+        # If already exists
+        if not self._state.adding:
+            self.refresh_from_db()
+        if self.state == 'USER_KILLED': return
+
         self.state_history += history_line(new_state, message)
         self.state = new_state
-        self.save(update_fields=['state', 'state_history'],using=using)
+        try:
+            self.save(update_fields=['state', 'state_history'],using=using)
+        except RecordModifiedError:
+            self.refresh_from_db()
+            if self.state == 'USER_KILLED' and new_state != 'USER_KILLED':
+                return
+            elif new_state == 'USER_KILLED':
+                self.state_history += history_line(new_state, message)
+                self.state = new_state
+                self.save(update_fields=['state', 'state_history'],using=using)
+            else:
+                raise
 
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()
@@ -398,26 +460,22 @@ auto timeout retry:     {self.auto_timeout_retry}
         work_dir = self.working_directory
         path = os.path.join(work_dir, fname)
         if not os.path.exists(path):
-            raise ValueError(f"{fname} not found in working directory of"
-            " {self.cute_id}")
+            raise ValueError(f"{fname} not found in working directory of {self.cute_id}")
         else:
             return open(path).read()
 
-    def get_line_string(self):
-        recent_state = self.get_recent_state_str()
-        app = self.application if self.application else self.direct_command
-        return f' {str(self.pk):36} | {self.name:26} | {self.workflow:26} | {app:26} | {recent_state}'
-
     def runtime_str(self):
-        if self.runtime_seconds == 0: return ''
         minutes, seconds = divmod(self.runtime_seconds, 60)
         hours, minutes = divmod(minutes, 60)
-        if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:02d} sec"
-        else: return f"{minutes:02d} min : {seconds:02d} sec"
+        hours, minutes = round(hours), round(minutes)
+        if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:05.2f} sec"
+        else: return f"{minutes:02d} min : {seconds:05.2f} sec"
 
-    @staticmethod
-    def get_header():
-        return f' {"job_id":36} | {"name":26} | {"workflow":26} | {"application":26} | {"latest update"}'
+    def get_state_times(self):
+        matches = STATE_TIME_PATTERN.findall(self.state_history)
+        return {state: datetime.strptime(timestr, TIME_FMT)
+                for timestr, state in matches
+               }
 
     def create_working_path(self):
         top = settings.BALSAM_WORK_DIRECTORY
@@ -440,13 +498,30 @@ auto timeout retry:     {self.auto_timeout_retry}
         self.save(update_fields=['working_directory'])
         return path
 
-    def serialize(self):
-        pass
+    def to_dict(self):
+        SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state']]
+        d = {field : self.__dict__[field] for field in SERIAL_FIELDS}
+        return d
+
+    def serialize(self, **kwargs):
+        d = self.to_dict()
+        d.update(kwargs)
+        if type(self.job_id) == uuid.UUID:
+            d['job_id'] = str(self.job_id)
+        else:
+            assert self.job_id == d['job_id'] == None
+
+        serial_data = json.dumps(d)
+        return serial_data
 
     @classmethod
     def deserialize(cls, serial_data):
-        pass
-
+        if type(serial_data) is bytes:
+            serial_data = serial_data.decode('utf-8')
+        if type(serial_data) is str:
+            serial_data = json.loads(serial_data)
+        job = BalsamJob.from_dict(serial_data)
+        return job
 
 class ApplicationDefinition(models.Model):
     ''' application definition, each DB entry is a task that can be run
@@ -489,22 +564,6 @@ Postprocess:    {self.default_postprocess}
 Envs:           {self.environ_vars}
 '''.strip() + '\n'
 
-    def get_line_string(self):
-        format = ' %20s | %20s | %20s | %20s | %s '
-        output = format % (self.name, self.executable,
-                           self.default_preprocess, 
-                           self.default_postprocess,
-                           self.description)
-        return output
-
-    @staticmethod
-    def get_header():
-        format = ' %20s | %20s | %20s | %20s | %s '
-        output = format % ('name', 'executable',
-                           'preprocess', 'postprocess',
-                           'description')
-        return output
-    
     @property
     def cute_id(self):
         return f"[{self.name} | { str(self.pk)[:8] }]"

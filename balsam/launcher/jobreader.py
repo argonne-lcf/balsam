@@ -1,3 +1,9 @@
+'''JobReaders are responsible for pulling relevant jobs from the Balsam database.
+The base class provides a constructor that uses the command line arguments to
+initialize the appropriate JobReader. It also contains a generic method for
+filtering the Balsam Job database query (e.g. ignore jobs that are 
+finished, ignore jobs with Applications that cannot run locally)
+'''
 from collections import defaultdict
 from django.conf import settings
 from balsam.service import models
@@ -8,23 +14,35 @@ import uuid
 logger = logging.getLogger(__name__)
 
 class JobReader():
-    '''Interface with BalsamJob DB & pull relevant jobs'''
+    '''Define JobReader interface and provide generic constructor, filters'''
     @staticmethod
     def from_config(config):
-        '''Constructor'''
+        '''Constructor: build a FileJobReader or WFJobReader from argparse
+        arguments
+
+        If a job file is given, a FileJobReader will be constructed to read only
+        BalsamJob primary keys from that file. Otherwise, a WFJobReader is
+        created.
+        
+        Args:
+            - ``config``:  command-line arguments *namespace* object returned by
+              argparse.ArgumentParser
+        Returns:
+            - ``JobReader`` instance
+        '''
         if config.job_file: return FileJobReader(config.job_file)
         else: return WFJobReader(config.wf_name)
     
     @property
     def by_states(self):
-        '''dict of jobs keyed by state'''
+        '''A dictionary of jobs keyed by their state'''
         result = defaultdict(list)
         for job in self.jobs:
             result[job.state].append(job)
         return result
     
     def refresh_from_db(self):
-        '''caller invokes this to read from DB'''
+        '''Reload and re-filter jobs from the database'''
         jobs = self._get_jobs()
         jobs = self._filter(jobs)
         self.jobs = jobs
@@ -32,13 +50,15 @@ class JobReader():
     def _get_jobs(self): raise NotImplementedError
     
     def _filter(self, job_queryset):
+        '''Filter out jobs that are done or cannot run locally'''
         jobs = job_queryset.exclude(state__in=models.END_STATES)
         jobs = jobs.filter(allowed_work_sites__icontains=settings.BALSAM_SITE)
         return jobs
 
     
 class FileJobReader(JobReader):
-    '''Limit to job PKs specified in a file. Used by metascheduler.'''
+    '''Read a file of whitespace delimited BalsamJob primary keys. Primarily
+    intended for use by the Metascheduler to execute specific workloads.'''
     def __init__(self, job_file):
         self.jobs = []
         self.job_file = job_file

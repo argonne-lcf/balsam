@@ -1,0 +1,35 @@
+# BENCHMARK: test_concurrent_mpi_insert
+# Host: thetamom1
+# COBALT_PARTCORES: 64
+# COBALT_ENDTIME: 1517870456
+# COBALT_QUEUE: default
+# COBALT_PARTNAME: 60-69,200-209,404,500-503,505,507-509,632-633,636-639,788-789,830-831,834-839,920-929,1030,1032,1038,1101,1103,1108,1212-1213,1216-1218,1370-1371,1373,1376,1450,1452,1454-1459,1532,1534,1570-1577,1580-1586,1588-1589,1720-1721,1724-1729,1820-1829,1920-1929,1986-1987,2090-2099,2140-2145,2184-2185,2188,2231-2235,2237-2239,2411,2416,2433,2439,2520-2525,2527-2529,2700-2703,2708-2709,2742,2745,2890-2899,2950-2951,3008-3009,3024,3069,3087,3111,3190-3194,3199,3223,3270-3272,3275,3278-3279,3310-3313,3315-3319,3330-3332,3334-3335,3361,3471-3472,3476-3479,3490,3492-3494,3496-3499,3520-3526,3577,3596,3652-3657,3669,3692-3694,3696-3697
+# COBALT_STARTTIME: 1517867756
+# COBALT_JOBID: 184114
+# COBALT_PARTSIZE: 256
+# COBALT_JOBSIZE: 256
+# COBALT_PROJECT: datascience
+# ENGINE: django.db.backends.sqlite3
+# NAME: /home/msalim/hpc-edge-service/testdb/db.sqlite3
+# OPTIONS: {'timeout': 5000}
+# USER: 
+# PASSWORD: 
+# HOST: None
+# PORT: None
+# ATOMIC_REQUESTS: False
+# AUTOCOMMIT: True
+# CONN_MAX_AGE: 0
+# TIME_ZONE: None
+# TEST: {'CHARSET': None, 'COLLATION': None, 'NAME': None, 'MIRROR': None}
+# Each rank simultaneously calls dag.add_job (num_ranks simultaneous insertions)
+#     num_nodes    ranks_per_node    num_ranks    total_time_sec
+# --------------------------------------------------------------
+              1                32           32            30.920
+              2                32           64            29.290
+              4                32          128            32.520
+              8                32          256            36.330
+             16                32          512            45.540
+             32                32         1024            70.520
+             64                32         2048           205.150
+            128                32         4096           308.800
+

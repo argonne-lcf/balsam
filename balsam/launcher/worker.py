@@ -22,14 +22,32 @@ class Worker:
         self.idle = True
 
 class WorkerGroup:
+    '''Collection of Workers, constructed by passing in a specific host_type
+    
+    The host name and local batch scheduler's environment variables are used to
+    identify the available compute resources and partition the resource into
+    Workers.'''
     def __init__(self, config, *, host_type=None, workers_str=None,
                  workers_file=None):
+        '''Initialize WorkerGroup
+        
+        Args:
+            - ``host_type``: one of CRAY, BGQ, COOLEY, DEFAULT
+            - ``workers_str``: system-specific string identifying compute
+              resources
+            - ``workers_file``: system-specific file identifying compute
+              resources
+        '''
         self.host_type = host_type
         self.workers_str = workers_str
         self.workers_file = workers_file
         self.workers = []
         self.setup = getattr(self, f"setup_{self.host_type}")
         self.setup(config)
+
+        if config.num_workers >= 1:
+            self.workers = self.workers[:config.num_workers]
+
         logger.info(f"Built {len(self.workers)} {self.host_type} workers")
         for worker in self.workers:
             logger.debug(
@@ -52,6 +70,9 @@ class WorkerGroup:
         if not self.workers_str:
             raise ValueError("Cray WorkerGroup needs workers_str to setup")
             
+        serial_rpn = config.max_ranks_per_node
+        if serial_rpn < 1: serial_rpn = 16
+
         ranges = self.workers_str.split(',')
         for node_range in ranges:
             lo, *hi = node_range.split('-')
@@ -63,7 +84,7 @@ class WorkerGroup:
                 node_ids.append(lo)
         for id in node_ids:
             self.workers.append(Worker(id, host_type='CRAY',
-                                num_nodes=1, max_ranks_per_node=16))
+                                num_nodes=1, max_ranks_per_node=serial_rpn))
 
     def setup_BGQ(self, config):
         # Boot blocks
@@ -80,15 +101,21 @@ class WorkerGroup:
         splitter = ',' if ',' in data else None
         node_ids = data.split(splitter)
         self.workers_str = " ".join(node_ids)
+        
+        serial_rpn = config.max_ranks_per_node
+        if serial_rpn < 1: serial_rpn = 16
 
         for id in node_ids:
             self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1,
-                                       max_ranks_per_node=16))
+                                       max_ranks_per_node=serial_rpn))
 
     def setup_DEFAULT(self, config):
         # Use command line config: num_workers, nodes_per_worker,
         # max_ranks_per_node
-        for i in range(config.num_workers):
+        num_workers = config.num_workers
+        if not num_workers or num_workers < 1:
+            num_workers = 1
+        for i in range(num_workers):
             w = Worker(i, host_type='DEFAULT',
                        num_nodes=config.nodes_per_worker,
                        max_ranks_per_node=config.max_ranks_per_node)

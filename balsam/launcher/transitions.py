@@ -1,4 +1,16 @@
-'''BalsamJob pre and post execution'''
+'''BalsamJob Transitions
+
+The user selects ``BALSAM_MAX_CONCURRENT_TRANSITIONS`` processes to run
+alongside the main Launcher process.  These are created with ``multiprocessing.Process``
+and communicate with the Launcher through a ``multiprocessing.Queue`` (or a
+PriorityQueue via a ``multiprocessing.managers.SyncManager``)
+
+The transition processes pull jobs from the queue, execute the necessary
+transition function, and signal completion by putting a status message back on a
+status queue. These transition processes explicitly ignore SIGINT and SIGTERM
+interrupts, so that they can finish the current transition and exit gracefully,
+under control of the main Launcher process.
+'''
 from collections import namedtuple
 import glob
 import multiprocessing
@@ -33,16 +45,15 @@ logger = logging.getLogger('balsam.launcher.transitions')
 # DB writes become a bottleneck, we have to go to a DB that supports better
 # concurrency -- but SQLite makes it signifcantly easier for users to deploy
 # Balsam, because it's built in and requires zero user configuration
-if sys.platform.startswith('darwin'):
-    LockClass = multiprocessing.Lock
-elif sys.platform.startswith('win32'):
-    LockClass = multiprocessing.Lock
+class DummyLock:
+    def acquire(self): pass
+    def release(self): pass
+
+if settings.SAVE_CLIENT:
+    LockClass = DummyLock # With db_writer proxy; no need for lock!
 else:
-    class DummyLock:
-        def acquire(self): pass
-        def release(self): pass
-    LockClass = DummyLock
-LockClass = multiprocessing.Lock # TODO: replace with better solution!
+    LockClass = multiprocessing.Lock
+
 logger.debug(f'Using lock: {LockClass}')
 
 PREPROCESS_TIMEOUT_SECONDS = 300
@@ -102,11 +113,14 @@ def main(job_queue, status_queue, lock):
 
 
 class TransitionProcessPool:
-    
+    '''Contains the transition process objects, a job_queue PriorityQueue for adding
+    new transitions, and a status_queue for monitoring completion of
+    transitions'''
     NUM_PROC = settings.BALSAM_MAX_CONCURRENT_TRANSITIONS
 
     def __init__(self):
-        
+        '''Initialize the multiprocessing queues and start the transition
+        processes'''
         # Use a priority queue to ensure pre-run transitions occur fast
         handler = lambda a,b: on_exit()
         signal.signal(signal.SIGINT, handler)
@@ -134,9 +148,16 @@ class TransitionProcessPool:
             proc.start()
 
     def __contains__(self, job):
+        '''Check if a job is currently in a transition'''
         return job.pk in self.transitions_pk_list
 
     def add_job(self, job):
+        '''Add job to the job_queue.  A transition process will pull this job
+        off the queue and carry out the transition.  
+
+        The job primary key is added to ``transitions_pk_list`` so that the Launcher can
+        easily check which jobs are currently in transition
+        '''
         if job in self: raise BalsamTransitionError("already in transition")
         if job.state not in TRANSITIONS: raise TransitionNotFoundError
         
@@ -146,6 +167,11 @@ class TransitionProcessPool:
         self.transitions_pk_list.append(job.pk)
 
     def get_statuses(self):
+        '''Generator: pull statuses off the status queue until it's exhausted.
+
+        While the Launcher does not need to do anything with these status
+        messages, iterating over this object will clear ``transitions_pk_list``
+        which is used by the Launcher to identify jobs in transition.'''
         while not self.status_queue.empty():
             try:
                 stat = self.status_queue.get_nowait()
@@ -155,6 +181,9 @@ class TransitionProcessPool:
                 break
 
     def end_and_wait(self):
+        '''Flush the queue (or for priority queue, place a high-priority END
+        message) in the queue. Allow all transition processes to finish the
+        current step before shutdown.'''
         priority = PRIORITIES['end']
         job_msg = (priority, 'end')
         logger.debug("Sending end message and waiting on transition processes")
@@ -300,7 +329,8 @@ def preprocess(job, lock):
             lock.acquire()
             proc = subprocess.Popen(args, stdout=fp,
                                     stderr=subprocess.STDOUT, env=envs,
-                                    cwd=job.working_directory)
+                                    cwd=job.working_directory,
+                                    )
             retcode = proc.wait(timeout=PREPROCESS_TIMEOUT_SECONDS)
             proc.communicate()
             lock.release()
@@ -381,7 +411,8 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
             lock.acquire()
             proc = subprocess.Popen(args, stdout=fp,
                                     stderr=subprocess.STDOUT, env=envs,
-                                    cwd=job.working_directory)
+                                    cwd=job.working_directory,
+                                    )
             retcode = proc.wait(timeout=POSTPROCESS_TIMEOUT_SECONDS)
             proc.communicate()
             lock.release()
@@ -391,7 +422,7 @@ def postprocess(job, lock, *, error_handling=False, timeout_handling=False):
             raise BalsamTransitionError(message) from e
     
     if retcode != 0:
-        tail = get_tail(out)
+        tail = get_tail(out, nlines=30)
         message = f"{job.cute_id} postprocess returned {retcode}:\n{tail}"
         raise BalsamTransitionError(message)
 
@@ -445,7 +476,7 @@ TRANSITIONS = {
     'POSTPROCESSED':    stage_out,
 }
 PRIORITIES = {
-    'end' : -1,
+    'end' : -1, # highest priority
     'READY':            0,
     'STAGED_IN':        0,
     'RUN_TIMEOUT':      1,

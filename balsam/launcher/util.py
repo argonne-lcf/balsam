@@ -1,6 +1,37 @@
 from subprocess import Popen, PIPE, STDOUT
 import os
 
+def time_cmd(cmd, stdout=PIPE, stderr=STDOUT, envs=None):
+    '''Return string output from a command line'''
+    if type(cmd) == list:
+        cmd = ' '.join(cmd)
+
+    cmd = f'time ( {cmd} )'
+    p = subprocess.Popen(cmd, shell=True, stdout=stdout,
+                         stderr=stdout, env=envs,
+                         executable='/bin/bash')
+    stdout = p.communicate()[0].decode('utf-8')
+    real_seconds = parse_real_time(stdout)
+    return stdout, realtime
+
+def parse_real_time(stdout):
+    '''Parse linux "time -p" command'''
+    if type(stdout) == bytes:
+        stdout = stdout.decode()
+
+    lines = stdout.split('\n')
+
+    real_lines = [l for l in lines[-5:] if l.startswith('real')]
+    if not real_lines:
+        return None
+    elif len(real_lines) > 1:
+        real_line = real_lines[-1]
+    else:
+        real_line = real_lines[0]
+
+    time_str = real_line.split()[1]
+    return float(time_str)
+
 def get_tail(fname, nlines=5, indent='    '):
     '''grab last nlines of fname and format nicely'''
 
