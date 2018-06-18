@@ -163,9 +163,6 @@ class JobSource(models.Manager):
     def lockQuery(self):
         return Q(lock='') | Q(lock__startswith=self.lock_base)
 
-    def set_workflow(self, workflow):
-        self.workflow = workflow
-
     def get_lock_str(self, base_only=False):
         if base_only:
             return f"{socket.gethostname()}:{os.getpid()}"
@@ -186,11 +183,17 @@ class JobSource(models.Manager):
             states = states.keys()
         return self.get_queryset().filter(state__in=states)
 
-    def get_runnable(self, remaining_minutes, serial_only=False):
+    def get_runnable(self, *, max_nodes=0, remaining_minutes=0, mpi_only=False, serial_only=False):
+        if mpi_only and serial_only: 
+            raise ValueError("arguments mpi_only and serial_only are mutually exclusive")
         runnable = self.by_states(RUNNABLE_STATES)
-        runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes)
+        runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes,
+                                   num_nodes__lte=max_nodes)
         if serial_only:
             runnable = runnable.filter(num_nodes=1, ranks_per_node=1)
+        elif mpi_only:
+            mpiquery = Q(num_nodes__gt=1) | Q(ranks_per_node__gt=1)
+            runnable = runnable.filter(mpiquery)
         return runnable
 
     @transaction.atomic
@@ -252,9 +255,11 @@ class JobSource(models.Manager):
         all_jobs = objects.all().select_for_update()
         expired_time = timezone.now() - self.EXPIRATION_PERIOD
         expired_jobs = all_jobs.exclude(lock='').filter(tick__lte=expired_time)
+        revert_count = expired_jobs.filter(state='RUNNING').update(state='RESTART_READY')
         expired_count = expired_jobs.update(lock='')
         if expired_count:
             logger.info(f'Cleared stale lock on {expired_count} jobs')
+            if revert_count: logger.info(f'Reverted {revert_count} RUNNING jobs to RESTART_READY')
         elif locked_count:
             logger.info(f'No stale locks (older than {self.EXPIRATION_PERIOD.total_seconds()} seconds)')
 

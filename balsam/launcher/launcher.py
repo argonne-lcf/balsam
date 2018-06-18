@@ -9,7 +9,7 @@ The ``main()`` function contains the Launcher service loop, in which:
 
 The ``on_exit()`` handler is invoked either when the time limit is exceeded or
 if the program receives a SIGTERM or SIGINT. This takes the necessary cleanup
-actions and is guaranteed to execute only once through the HANDLING_EXIT global
+actions and is guaranteed to execute only once through the EXIT_FLAG global
 flag.
 '''
 import argparse
@@ -29,181 +29,201 @@ logger = logging.getLogger('balsam.launcher')
 logger.info("Loading Balsam Launcher")
 
 from balsam.service.schedulers import Scheduler
-from balsam.service.models import END_STATES
-
 scheduler = Scheduler.scheduler_main
 
-from balsam.launcher import jobreader
 from balsam.launcher import transitions
 from balsam.launcher import worker
 from balsam.launcher import runners
-from balsam.launcher.util import remaining_time_minutes
+from balsam.launcher.util import remaining_time_minutes, delay_generator
 from balsam.launcher.exceptions import *
 
-HANDLING_EXIT = False
+EXIT_FLAG = False
+
+def on_exit(signum, stack):
+    global EXIT_FLAG
+    EXIT_FLAG = True
 
 
-def log_time(minutes_left):
-    '''Pretty log of remaining time'''
-    if minutes_left > 1e12:
-        return
-    whole_minutes = floor(minutes_left)
-    whole_seconds = round((minutes_left - whole_minutes)*60)
-    time_str = f"{whole_minutes:02d} min : {whole_seconds:02d} sec remaining"
-    logger.info(time_str)
+class Launcher:
 
-def create_runner(job_source, runner_group, worker_group, remaining_minutes, last_runner_created):
-    '''Decide whether or not to create another runner. Considers how many jobs
-    can run, how many can *almost* run, how long since the last Runner was
-    created, and how many jobs are serial as opposed to MPI.
-    '''
-    runnable_jobs = job_source.get_runnable(remaining_minutes)
-    runnable_jobs = runnable_jobs.exclude(job_pk__in=runner_group.running_job_pks)
-    logger.debug(f"Have {runnable_jobs.count()} runnable jobs")
+    def __init__(self, wf_name, ensemble_nodes, ensemble_rpn, time_limit_minutes):
+        self.jobsource = BalsamJob.source
+        self.jobsource.workflow = wf_name
+        if wf_name:
+            logger.info(f'Filtering jobs with workflow matching {wf_name}')
+        else:
+            logger.info('Consuming all jobs from DB')
 
-    # If nothing is getting pre-processed, don't bother waiting
-    almost_runnable = job_source.by_states(job_source.ALMOST_RUNNABLE_STATES).exists()
+        self.jobsource.clear_stale_locks()
+        self.jobsource.start_tick()
+        self.mpi_jobs = []
+        self.worker_group = worker.WorkerGroup()
 
-    # If it has been runner_create_period seconds, don't wait any more
-    runner_create_period = settings.BALSAM_RUNNER_CREATION_PERIOD_SEC
-    now = time.time()
-    runner_ready = bool(now - last_runner_created > runner_create_period)
+        if self.ensemble_nodes
+        self.serial_ensemble = EnsembleRunner(wf_name, ensemble_nodes, ensemble_rpn,
+                                              time_limit_minutes)
 
-    # If there are enough serial jobs, don't wait to run
-    num_serial = runnable_jobs.filter(num_nodes=1).filter(ranks_per_node=1).count()
-    worker = worker_group[0]
-    max_serial_per_ensemble = 2 * worker.num_nodes * worker.max_ranks_per_node
-    ensemble_ready = (num_serial >= max_serial_per_ensemble) or (num_serial == 0)
+        self.total_nodes = sum(w.num_nodes for w in self.worker_group)
+        self.ensemble_nodes = ensemble_nodes
+        assert self.ensemble_nodes <= self.total_nodes
 
-    if runnable_jobs:
-        if runner_ready or not almost_runnable or ensemble_ready:
-            try:
-                runner_group.create_next_runner(runnable_jobs, worker_group)
-            except ExceededMaxRunners:
-                logger.info("Exceeded max concurrent runners; waiting")
-            except NoAvailableWorkers:
-                logger.info("Not enough idle workers to start any new runs")
-            else:
-                last_runner_created = now
-    return last_runner_created
+        self.timer = remaining_time_minutes(time_limit_minutes)
+        self.delayer = delay_generator()
 
-def main(args, transition_pool, runner_group, job_source):
+    def get_runnable(self):
+        manager = self.jobsource
+        num_idle = len(self.worker_group.idle_workers())
+        max_workers = len(self.worker_group) - self.ensemble_nodes
+        num_mpi_nodes = min(num_idle, max_workers)
+        runnable = manager.get_runnable(max_nodes=total_nodes, mpi_only=True,
+                                        time_limit_minutes=remaining_minutes)
+
+    def time_step(self):
+        '''Pretty log of remaining time'''
+        next(self.delayer)
+        minutes_left = next(self.timer)
+        if minutes_left > 1e12:
+            return
+        whole_minutes = floor(minutes_left)
+        whole_seconds = round((minutes_left - whole_minutes)*60)
+        time_str = f"{whole_minutes:02d} min : {whole_seconds:02d} sec remaining"
+        logger.info(time_str)
+
+    def launch_mpi(self):
+        '''Decide whether or not to create another runner. Considers how many jobs
+        can run, how many can *almost* run, how long since the last Runner was
+        created, and how many jobs are serial as opposed to MPI.
+        '''
+        jobsource = self.jobsource
+        runnable = jobsource.get_runnable(remaining_minutes)
+        runnable_jobs = runnable_jobs.exclude(job_pk__in=runner_group.running_job_pks)
+        logger.debug(f"Have {runnable_jobs.count()} runnable jobs")
+
+        # If nothing is getting pre-processed, don't bother waiting
+        almost_runnable = job_source.by_states(job_source.ALMOST_RUNNABLE_STATES).exists()
+
+        # If it has been runner_create_period seconds, don't wait any more
+        runner_create_period = settings.BALSAM_RUNNER_CREATION_PERIOD_SEC
+        now = time.time()
+        runner_ready = bool(now - last_runner_created > runner_create_period)
+
+        # If there are enough serial jobs, don't wait to run
+        num_serial = runnable_jobs.filter(num_nodes=1).filter(ranks_per_node=1).count()
+        worker = worker_group[0]
+        max_serial_per_ensemble = 2 * worker.num_nodes * worker.max_ranks_per_node
+        ensemble_ready = (num_serial >= max_serial_per_ensemble) or (num_serial == 0)
+
+        if runnable_jobs:
+            if runner_ready or not almost_runnable or ensemble_ready:
+                try:
+                    runner_group.create_next_runner(runnable_jobs, worker_group)
+                except ExceededMaxRunners:
+                    logger.info("Exceeded max concurrent runners; waiting")
+                except NoAvailableWorkers:
+                    logger.info("Not enough idle workers to start any new runs")
+                else:
+                    last_runner_created = now
+        return last_runner_created
+
+    def check_exit(self):
+        global EXIT_FLAG
+
+        remaining_minutes = next(self.timer)
+        if remaining_minutes <= 0:
+            EXIT_FLAG = True
+            return
+        
+        if self.serial_ensemble.is_active(): return
+        
+        manager = self.jobsource
+        processable_count = manager.by_states(PROCESSABLE_STATES).count()
+        if processable_count > 0: return
+        active_count = manager.by_states(ACTIVE_STATES).count()
+        if active_count > 0: return
+
+
+        # this should take account of how many nodes are allocated for MPI jobs
+        total_nodes = sum(w.num_nodes for w in self.worker_group) # FIX THIS
+        runnable = manager.get_runnable(max_nodes=total_nodes, mpi_only=True,
+                                        time_limit_minutes=remaining_minutes)
+        if runnable.count() > 0:
+            return
+        else:
+            EXIT_FLAG = True
+
+    def update_runners(self, timeout=False):
+        pass
+
+
+def _main(args, worker_group):
     '''Main Launcher service loop'''
+    global EXIT_FLAG
     delay_sleeper = delay_generator()
     last_runner_created = time.time()
-    remaining_timer = remaining_time_minutes(args.time_limit_minutes)
     exit_counter = 0
+    launcher = Launcher()
 
-    for remaining_minutes in remaining_timer:
+    while not EXIT_FLAG:
+        launcher.time_step()
 
-        logger.info("\n******************\n"
-                       "BEGIN SERVICE LOOP\n"
-                       "******************")
-        log_time(remaining_minutes)
-        delay = True
-
-        # Update after any finished transitions
-        for stat in transition_pool.get_statuses(): delay = False
-
-        # Update jobs awaiting dependencies
-        waiting_jobs = job_source.by_states(job_source.WAITING_STATES)
-        for job in waiting_jobs: 
-            check_parents(job, transition_pool.lock)
-        
-        # Enqueue new transitions
-        transition_jobs = job_source.by_states(transitions.TRANSITIONS)
-        transition_jobs = transition_jobs.exclude(
-            pk__in=transition_pool.transitions_pk_list
-        )
-
-        for pk,state in transition_jobs.values_list('pk', 'state'):
-            transition_pool.add_job(pk,state)
-            delay = False
-            fxn = transitions.TRANSITIONS[job.state]
-            logger.info(f"Queued transition: {job.cute_id} will undergo {fxn}")
-        
         # Update jobs that are running/finished
+        launcher.update_runners()
         any_finished = runner_group.update_and_remove_finished()
         if any_finished: delay = False
     
         # Decide whether or not to start a new runner
-        last_runner_created = create_runner(job_source.jobs, runner_group, 
+        last_runner_created = create_runner(runner_group, 
                                              worker_group, remaining_minutes, 
                                              last_runner_created)
 
-        if delay: next(delay_sleeper)
-        if job_source.by_states(END_STATES).count() == job_source.jobs.count():
-            exit_counter += 1
-            if exit_counter == 15:
-                logger.info("No jobs to process. Exiting main loop now.")
-                break
-        else:
-            exit_counter = 0
+        check_exit()
+
+    if EXIT_FLAG:
+        logger.info('EXIT: breaking launcher service loop')
+    launcher.update_runners(timeout=True)
+
+
+def main(args):
+    signal.signal(signal.SIGINT,  on_exit)
+    signal.signal(signal.SIGTERM, on_exit)
+
+    wf_filter = args.consume_workflow
+    num_ensemble_nodes = args.ensemble_nodes
+    timelimit_min = args.time_limit_minutes
+    nthread = args.num_transition_threads if args.num_transition threads
+              else settings.BALSAM_MAX_CONCURRENT_TRANSITIONS
+    ensemble_rpn = args.ensemble_ranks_per_node if args.ensemble_ranks_per_node
+              else settings.ENSEMBLE_RANKS_PER_NODE
     
-def on_exit(runner_group, transition_pool, job_source):
-    '''Exit cleanup'''
-    global HANDLING_EXIT
-    if HANDLING_EXIT: return
-    HANDLING_EXIT = True
-
-    logger.debug("Entering on_exit cleanup function")
-    logger.debug("on_exit: update/remove/timeout jobs from runner group")
-    runner_group.update_and_remove_finished(timeout=True)
-
-    logger.debug("on_exit: send end message to transition threads")
-    transition_pool.end_and_wait()
+    launcher = Launcher(wf_filter, num_ensemble_nodes, ensemble_rpn, timelimit_min)
     
-    logger.debug("on_exit: Launcher exit graceful\n\n")
-    sys.exit(0)
-
+    try:
+        transition_pool = transitions.TransitionProcessPool(nthread)
+        _main(args, worker_group)
+    except:
+        raise
+    finally:
+        transition_pool.terminate()
+        manager.release_all_owned()
+        logger.debug("Launcher exit graceful\n\n")
 
 def get_args(inputcmd=None):
     '''Parse command line arguments'''
     parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--job-file', help="File of Balsam job IDs")
-    group.add_argument('--consume-all', action='store_true', 
-                        help="Continuously run all jobs from DB")
-    group.add_argument('--wf-name',
-                       help="Continuously run jobs of specified workflow")
-    parser.add_argument('--num-workers', type=int, default=0,
-                        help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser.add_argument('--nodes-per-worker', help="(BG/Q only) # nodes per sublock", 
-                        type=int, default=1)
-    parser.add_argument('--max-ranks-per-node', type=int, default=4,
-                        help="For non-MPI jobs, how many to pack per worker")
-    parser.add_argument('--time-limit-minutes', type=float, default=0,
+    group.add_argument('--consume-all', action='store_true', help="Continuously run all jobs from DB")
+    group.add_argument('--consume-workflow', help="Continuously run jobs of specified workflow")
+    parser.add_argument('--ensemble-nodes', type=int, default=None)
+    parser.add_argument('--ensemble-ranks-per-node', type=int, default=None, 
+                        help="Single-node jobs: max-per-node")
+    parser.add_argument('--time-limit-minutes', type=float, default=0, 
                         help="Provide a walltime limit if not already imposed")
-    parser.add_argument('--daemon', action='store_true')
+    parser.add_argument('--num-transition-threads', type=int, default=None)
     if inputcmd:
         return parser.parse_args(inputcmd)
     else:
         return parser.parse_args()
 
-def detect_dead_runners(job_source):
-    '''Jobs found in the RUNNING state before the Launcher starts may have
-    crashed; pick them up and restart'''
-    for job in job_source.by_states('RUNNING'):
-        logger.info(f'Picked up dead running job {job.cute_id}: marking RESTART_READY')
-        job.update_state('RESTART_READY', 'Detected dead runner')
-
-
 if __name__ == "__main__":
     args = get_args()
-    
-    job_source = jobreader.JobReader.from_config(args)
-    transition_pool = transitions.TransitionProcessPool()
-    runner_group  = runners.RunnerGroup(transition_pool.lock)
-    worker_group = worker.WorkerGroup(args, host_type=scheduler.host_type,
-                                      workers_str=scheduler.workers_str,
-                                      workers_file=scheduler.workers_file)
-
-    detect_dead_runners(job_source)
-
-    handl = lambda a,b: on_exit(runner_group, transition_pool, job_source)
-    signal.signal(signal.SIGINT, handl)
-    signal.signal(signal.SIGTERM, handl)
-    signal.signal(signal.SIGHUP, handl)
-
-    main(args, transition_pool, runner_group, job_source)
-    on_exit(runner_group, transition_pool, job_source)
+    main(args)
