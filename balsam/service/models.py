@@ -585,6 +585,14 @@ auto timeout retry:     {self.auto_timeout_retry}
                            state_history=Concat('state_history', V(msg))
                           )
 
+    def update_state(self, new_state, message=''):
+        if new_state not in STATES:
+            raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
+        msg = history_line(new_state, message)
+        self.state = new_state
+        self.state_history += msg
+        self.save(update_fields=['state', 'state_history'])
+
     @classmethod
     @transaction.atomic
     def release_all_locks(cls):

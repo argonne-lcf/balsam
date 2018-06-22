@@ -131,7 +131,7 @@ class MPIRunner(Runner):
                                num_ranks=nranks, ranks_per_node=rpn,
                                affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         
-        mpi_str = f'time -p ( {mpi_str} )'
+        mpi_str = f'time -p ( {mpi_str} )' # GET RID OF TIME INSTRUMENT...THIS BLOCKS SIGNAL
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
         self.outfile = open(outname, 'w+b')

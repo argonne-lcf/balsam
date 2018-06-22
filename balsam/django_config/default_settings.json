@@ -1,17 +1,20 @@
 {
- "BALSAM_SCHEDULER_SUBMIT_EXE": "/usr/bin/qsub",
- "BALSAM_SCHEDULER_STATUS_EXE": "/usr/bin/qstat",
- "BALSAM_SCHEDULER_HISTORY_EXE": "/usr/bin/",
- "BALSAM_SERVICE_PERIOD": 1,
- "BALSAM_RUNNER_CREATION_PERIOD_SEC": 5,
- "BALSAM_MAX_QUEUED": 20,
- "BALSAM_SUBMIT_JOBS": true,
- "BALSAM_DEFAULT_QUEUE": "debug-cache-quad",
- "BALSAM_DEFAULT_PROJECT": "datascience",
- "BALSAM_SCHEDULER_CLASS": "CobaltScheduler",
- "BALSAM_MAX_CONCURRENT_TRANSITIONS": 5,
- "BALSAM_MAX_CONCURRENT_RUNNERS": 120,
+ # service options
+ "SCHEDULER_CLASS": "CobaltScheduler",
+ "SCHEDULER_SUBMIT_EXE": "/usr/bin/qsub",
+ "SCHEDULER_STATUS_EXE": "/usr/bin/qstat",
+ "DEFAULT_QUEUE": "debug-cache-quad",
+ "DEFAULT_PROJECT": "datascience",
+ "SERVICE_PERIOD": 1,
+ "MAX_QUEUED": 20,
+ "SUBMIT_JOBS": true,
+
+ # launcher options
+ "NUM_TRANSITION_THREADS": 5,
+ "MAX_CONCURRENT_MPIRUNS": 1000,
  "ENSEMBLE_RANKS_PER_NODE": 16,
+
+ # logging options
  "LOG_HANDLER_LEVEL": "DEBUG",
  "LOG_FILENAME": "balsam.log",
  "LOG_BACKUP_COUNT": 5,
