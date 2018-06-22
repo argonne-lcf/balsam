@@ -7,7 +7,7 @@ The ``main()`` function contains the Launcher service loop, in which:
     4. The RunnerGroup is checked for jobs that have stopped execution
     5. A new Runner is created according to logic in create_next_runner
 
-The ``on_exit()`` handler is invoked either when the time limit is exceeded or
+The ``sig_handler()`` handler is invoked either when the time limit is exceeded or
 if the program receives a SIGTERM or SIGINT. This takes the necessary cleanup
 actions and is guaranteed to execute only once through the EXIT_FLAG global
 flag.
@@ -36,17 +36,51 @@ from balsam.launcher.exceptions import *
 
 EXIT_FLAG = False
 
-def on_exit(signum, stack):
+def sig_handler(signum, stack):
     global EXIT_FLAG
     EXIT_FLAG = True
 
-class Launcher:
-    @classmethod
-    def init_launcher(cls, wf_name, job_mode, fork_rpn, time_limit_minutes):
-        if job_mode == 'mpi':
-            return MPILauncher(wf_name, time_limit_minutes)
-        elif job_mode == 'serial':
-            return SerialLauncher(wf_name, fork_rpn, time_limit_minutes)
+class MPIRun:
+    RUN_DELAY = 0.01 # 1000 jobs / 10 sec
+
+    def __init__(self, job, workers):
+        self.job = job
+        self.workers = workers
+        for w in self.workers: w.idle = False
+
+        envs = job.get_envs() # dict
+        app_cmd = job.app_cmd
+        nranks = job.num_ranks
+        affinity = job.cpu_affinity
+        rpn = job.ranks_per_node
+        tpr = job.threads_per_rank
+        tpc = job.threads_per_core
+
+        mpi_str = self.mpi_cmd(workers, app_cmd=app_cmd, envs=envs,
+                               num_ranks=nranks, ranks_per_node=rpn,
+                               affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
+        basename = job.name
+        outname = os.path.join(job.working_directory, f"{basename}.out")
+        logger.info(f"{job.cute_id} running:\n{mpi_str}")
+        self.outfile = open(outname, 'w+b')
+        self.process = subprocess.Popen(
+                args=mpi_str.split(),
+                cwd=job.working_directory,
+                stdout=self.outfile,
+                stderr=subprocess.STDOUT,
+                shell=False,
+                bufsize=1
+                )
+        self.current_state = 'RUNNING'
+        self.err_msg = None
+        time.sleep(self.RUN_DELAY)
+
+    def free_workers(self):
+        for worker in self.workers:
+            worker.idle = True
+
+class MPILauncher:
+    MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
     def __init__(self, wf_name, time_limit_minutes):
         self.jobsource = BalsamJob.source
@@ -63,6 +97,8 @@ class Launcher:
 
         self.timer = remaining_time_minutes(time_limit_minutes)
         self.delayer = delay_generator()
+        self.last_report = 0
+        self.mpi_runs = []
 
     def time_step(self):
         '''Pretty log of remaining time'''
@@ -77,7 +113,6 @@ class Launcher:
 
     def check_exit(self):
         global EXIT_FLAG
-
         remaining_minutes = next(self.timer)
         if remaining_minutes <= 0:
             EXIT_FLAG = True
@@ -96,42 +131,6 @@ class Launcher:
         if self.exit_counter == 10:
             EXIT_FLAG = True
 
-class MPILauncher(Launcher):
-    MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
-    class MPIRun:
-        def __init__(self, job, workers):
-            self.job = job
-
-            envs = job.get_envs() # dict
-            app_cmd = job.app_cmd
-            nranks = job.num_ranks
-            affinity = job.cpu_affinity
-            rpn = job.ranks_per_node
-            tpr = job.threads_per_rank
-            tpc = job.threads_per_core
-
-            mpi_str = self.mpi_cmd(workers, app_cmd=app_cmd, envs=envs,
-                                   num_ranks=nranks, ranks_per_node=rpn,
-                                   affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
-            basename = job.name
-            outname = os.path.join(job.working_directory, f"{basename}.out")
-            logger.info(f"{job.cute_id} running:\n{mpi_str}")
-            self.outfile = open(outname, 'w+b')
-            self.process = subprocess.Popen(
-                    args=mpi_str.split(),
-                    cwd=job.working_directory,
-                    stdout=self.outfile,
-                    stderr=subprocess.STDOUT,
-                    shell=False,
-                    bufsize=1
-                    )
-            self.current_state = 'RUNNING'
-            self.err_msg = None
-
-    def __init__(self, wf_name):
-        super().__init__(wf_name, time_limit_minutes)
-        self.mpi_runs = []
-
     def check_state(self, run):
         retcode = run.process.poll()
         if retcode is None:
@@ -140,6 +139,7 @@ class MPILauncher(Launcher):
             logger.info(f"MPIRun {run.job.cute_id} done")
             run.current_state = 'RUN_DONE'
             run.outfile.close()
+            run.free_workers()
         else:
             run.process.communicate()
             run.outfile.close()
@@ -147,6 +147,8 @@ class MPILauncher(Launcher):
             run.current_state = 'RUN_ERROR'
             run.err_msg = tail
             logger.info("MPIRun {run.job.cute_id} error code {retcode}:\n{tail}")
+            run.free_workers()
+        return run.current_state
 
     def timeout_kill(self, runs, timeout=10):
         for run in runs: run.process.terminate() #SIGTERM
@@ -157,86 +159,132 @@ class MPILauncher(Launcher):
             except: 
                 break
             if time.time() - start > timeout: break
-        for run in runs: run.process.kill()
+        for run in runs: 
+            run.process.kill()
+            run.free_workers()
 
     def update(self, timeout=False):
+        by_states = defaultdict(list)
         for run in self.mpi_runs:
-            self.check_state(run)
+            state = self.check_state(run)
+            by_states[state].append(run)
 
-        # done jobs
-        done_pks = [run.job.pk
-                    for run in self.mpi_runs
-                    if run.current_state == 'RUN_DONE']
-        if done_pks: BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
-
-        # error jobs
-        error_runs = [run for run in self.mpi_runs
-                     if run.current_state == 'RUN_ERROR']
+        done_pks = [r.job.pk for r in by_states['RUN_DONE']]
+        BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
+        self.jobsource.release(done_pks)
+        
+        error_pks = [r.job.pk for r in by_states['RUN_ERROR']]
         with db.transaction.atomic():
-            for run in error_runs: run.job.update_state('RUN_ERROR', run.err_msg)
+            for run in by_states['RUN_ERROR']:
+                run.job.update_state('RUN_ERROR', run.err_msg)
+        self.jobsource.release(error_pks)
         
-        # timedout or killed
-        active_runs = [run for run in self.mpi_runs if run.current_state == 'RUNNING']
-        active_pks = [r.job.pk for r in active_runs]
-        if timeout:
-            timedout_pks = active_pks
-            self.timeout_kill(active_runs)
-            if active_pks: BalsamJob.batch_update_state(active_pks, 'RUN_TIMEOUT')
+        active_pks = [r.job.pk for r in by_states['RUNNING']]
+        if timeout: 
+            self.timeout_kill(by_states['RUNNING'])
+            BalsamJob.batch_update_state(active_pks, 'RUN_TIMEOUT')
+            self.jobsource.release(active_pks)
         else:
-            timedout_pks = []
-            killed_pks = self.jobsource.filter(pk__in=active_pks,
-                    state='USER_KILLED').values_list('job_id', flat=True)
-            killed_runs = [run for run in self.mpi_runs if run.job.pk in killed_pks]
-            self.timeout_kill(killed_runs)
+            killquery = self.jobsource.filter(job_id__in=active_pks, state='USER_KILLED')
+            kill_pks  = killquery.values_list('job_id', flat=True)
+            to_kill = [run for run in by_states['RUNNING'] if run.job.pk in kill_pks]
+            self.timeout_kill(to_kill)
+            self.jobsource.release(kill_pks)
+            for run in to_kill: by_states['RUNNING'].remove(run)
 
-        # For finished runners, free workers; remove from list
-        error_pks = [r.job.pk for r in error_runs]
-        finished_pks = list(chain(done_pks, error_pks, timedout_pks, killed_pks))
-        self.mpi_runs = [r for r in self.mpi_runs if r.job.pk not in finished_pks]
+        if timeout:
+            self.mpi_runs = []
+        else:
+            self.mpi_runs = by_states['RUNNING']
         
-
     def get_runnable(self):
+        '''queryset: jobs that can finish on currently idle workers within time limits'''
+        remaining_minutes = next(self.timer)
         manager = self.jobsource
         num_idle = len(self.worker_group.idle_workers())
-        max_workers = len(self.worker_group) - self.ensemble_nodes
-        num_mpi_nodes = min(num_idle, max_workers)
-        runnable = manager.get_runnable(max_nodes=total_nodes, mpi_only=True,
-                                        time_limit_minutes=remaining_minutes)
+        if num_idle == 0:
+            logger.info(f'No idle worker nodes to run jobs')
+            return manager.none()
+        else:
+            logger.info(f'{num_idle} idle worker nodes')
+
+        return manager.get_runnable(max_nodes=num_idle,
+                                    remaining_minutes=remaining_minutes,
+                                    order_by='num_nodes')
+
+    def report_constrained(self):
+        now = time.time()
+        elapsed = now - self.last_report
+        if elapsed < 10:
+            return
+        else:
+            self.last_report = now
+
+        all_runnable = BalsamJob.objects.filter(state__in=models.RUNNABLE_STATES)
+        unlocked = all_runnable.filter(lock='')
+        logger.info(f'{all_runnable.count()} runnable jobs across entire Balsam DB')
+        logger.info(f'{unlocked.count()} of these are unlocked')
+        if self.jobsource.workflow:
+            wf_match = unlocked.filter(workflow=self.jobsource.workflow)
+            logger.info(f'{wf_match.count()} of these match the current workflow filter')
+        logger.info(f'If nothing is running; the job node requirements or walltime '
+                    'requirements may exceed the available nodes or remaining time')
 
     def launch(self):
-        if len(self.mpi_runs) == self.MAX_CONCURRENT_RUNS:
+        num_idle = len(self.worker_group.idle_workers())
+        num_active = len(self.mpi_runs)
+        max_acquire = min(num_idle, self.MAX_CONCURRENT_RUNS - num_active)
+        max_acquire = max(max_acquire, 0)
+
+        if num_active == self.MAX_CONCURRENT_RUNS:
             logger.info(f'Reached MAX_CONCURRENT_MPIRUNS limit')
             return
 
-        # get runnable
         runnable = self.get_runnable()
         num_runnable = runnable.count()
         if num_runnable > 0:
-            logger.debug(f"Have {runnable_jobs.count()} runnable jobs")
+            logger.debug(f"{runnable_jobs.count()} runnable jobs")
         else:
             logger.info('No runnable jobs')
+            self.report_constrained()
             return
 
-        # create list of jobs to run; pre-assign workers
-        # order by node count..favor large to small
-        # go ahead and run non-MPI jobs (but last..as aprun -n 1)
+        # pre-assign jobs to nodes (ascending order of node count)
+        cache = list(runnable[:max_acquire])
+        pre_assignments = []
+        for job in cache:
+            workers = self.worker_group.request(job.num_nodes)
+            if workers:
+                pre_assignments.append(job, workers)
+            else:
+                assert job.num_nodes > sum(w.num_nodes for w in self.worker_group.idle_workers())
+                break
 
         # acquire lock on jobs
+        to_acquire = [job.pk for (job,workers) in pre_assignments]
+        acquired = list(self.jobsource.acquire(to_acquire))
+        acquired_pks = [job.pk for job in acquired]
+        logger.info(f'Acquired lock on {len(acquired)} out of {len(pre_assignments)} jobs marked for running')
 
-        # dispatch runners; add to list
+        failed_assignments = []
+        ready_assignments = []
 
-        # batch-update RUNNING
-
-        # release workers that did not acquire the job
+        # dispatch runners; release workers that did not acquire job
+        for (job, workers) in pre_assignments:
+            if job.pk in acquired_pks:
+                run = MPIRun(job, workers)
+                self.mpi_runs.append(run)
+            else:
+                for w in workers: w.idle = True
+        BalsamJob.batch_update_state(acquired_pks, 'RUNNING')
 
     @property
     def is_active(self):
         return len(self.mpi_runs) > 0
 
 
-class SerialLauncher(Launcher):
+class SerialLauncher:
     def __init__(self, wf_name, fork_rpn, time_limit_minutes):
-        super().__init__(wf_name, time_limit_minutes)
         self.ensemble_runner = None
     
     def update(self, timeout=False):
@@ -249,11 +297,8 @@ class SerialLauncher(Launcher):
         except AttributeError:
             return False
     
-    def get_runnable(self):
-        pass
     
     def launch(self):
-        runnable = self.get_runnable()
         logger.debug(f"Have {runnable_jobs.count()} runnable jobs")
 
 
@@ -282,8 +327,8 @@ def _main(launcher):
 
 
 def main(args):
-    signal.signal(signal.SIGINT,  on_exit)
-    signal.signal(signal.SIGTERM, on_exit)
+    signal.signal(signal.SIGINT,  sig_handler)
+    signal.signal(signal.SIGTERM, sig_handler)
 
     wf_filter = args.wf_filter
     job_mode = args.job_mode
@@ -293,8 +338,10 @@ def main(args):
     fork_rpn = args.serial_jobs_per_node if args.serial_jobs_per_node
               else settings.SERIAL_JOBS_PER_NODE
     
+    Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
+    
     try:
-        launcher = Launcher.init_launcher(wf_filter, job_mode, fork_rpn, timelimit_min)
+        launcher = Launcher(wf_filter, job_mode, fork_rpn, timelimit_min)
         transition_pool = transitions.TransitionProcessPool(nthread)
         _main(launcher)
     except:

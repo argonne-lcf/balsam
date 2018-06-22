@@ -44,7 +44,7 @@ PREPROCESS_TIMEOUT_SECONDS = 300
 POSTPROCESS_TIMEOUT_SECONDS = 300
 EXIT_FLAG = False
 
-def on_exit():
+def handler(signum, stack):
     global EXIT_FLAG
     EXIT_FLAG = True
 
@@ -104,7 +104,6 @@ def release_jobs(job_cache):
 
 def main(num_threads):
     global EXIT_FLAG
-    handler = lambda a,b: on_exit()
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
     

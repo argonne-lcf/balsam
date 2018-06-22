@@ -183,9 +183,14 @@ class JobSource(models.Manager):
             states = states.keys()
         return self.get_queryset().filter(state__in=states)
 
-    def get_runnable(self, *, max_nodes=0, remaining_minutes=0, mpi_only=False, serial_only=False):
+    def get_runnable(self, *, max_nodes=0, remaining_minutes=0, mpi_only=False,
+                     serial_only=False, order_by=None):
         if mpi_only and serial_only: 
             raise ValueError("arguments mpi_only and serial_only are mutually exclusive")
+
+        if max_nodes < 1:
+            return self.get_queryset().none()
+
         runnable = self.by_states(RUNNABLE_STATES)
         runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes,
                                    num_nodes__lte=max_nodes)
@@ -194,6 +199,8 @@ class JobSource(models.Manager):
         elif mpi_only:
             mpiquery = Q(num_nodes__gt=1) | Q(ranks_per_node__gt=1)
             runnable = runnable.filter(mpiquery)
+        if order_by is not None:
+            runnable = runnable.order_by(order_by)
         return runnable
 
     @transaction.atomic
@@ -568,6 +575,12 @@ auto timeout retry:     {self.auto_timeout_retry}
     @classmethod
     @transaction.atomic
     def batch_update_state(cls, pk_list, new_state, message=''):
+        try:
+            exists = pk_list.exists()
+        except AttributeError:
+            exists = bool(pk_list)
+        if not exists: return
+
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 

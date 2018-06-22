@@ -60,6 +60,21 @@ class WorkerGroup:
     def idle_workers(self):
         return [w for w in self.workers if w.idle]
 
+    def request(self, num_nodes):
+        idle_workers = self.idle_workers()
+        assigned = []
+        nodes_assigned = 0
+        while nodes_assigned < num_nodes:
+            if not idle_workers: break
+            worker = idle_workers.pop()
+            assigned.append(worker)
+            nodes_assigned += worker.num_nodes
+        if nodes_assigned < num_nodes:
+            return []
+        else:
+            for worker in assigned: worker.idle = False
+            return assigned
+
     def __getitem__(self, i):
         return self.workers[i]
 
