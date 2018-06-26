@@ -183,13 +183,16 @@ class JobSource(models.Manager):
             states = states.keys()
         return self.get_queryset().filter(state__in=states)
 
-    def get_runnable(self, *, max_nodes=0, remaining_minutes=0, mpi_only=False,
+    def get_runnable(self, *, max_nodes, remaining_minutes=0, mpi_only=False,
                      serial_only=False, order_by=None):
         if mpi_only and serial_only: 
             raise ValueError("arguments mpi_only and serial_only are mutually exclusive")
 
         if max_nodes < 1:
-            return self.get_queryset().none()
+            raise ValueError("Must be positive number of nodes")
+
+        if serial_only:
+            assert max_nodes == 1
 
         runnable = self.by_states(RUNNABLE_STATES)
         runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes,
@@ -220,9 +223,8 @@ class JobSource(models.Manager):
         while len(acquired_jobs) < max_jobs:
             processable = self.by_states(PROCESSABLE_STATES).filter(lock='')
             if not processable.exists(): 
-                print("could not acquire", max_jobs, "only got", len(acquired_jobs))
+                logger.info(f"acquire_transitions: could not acquire {max_jobs}; only got {len(acquired_jobs)}")
                 break
-
             num_needed = max_jobs - len(acquired_jobs)
             batch = self.acquire(processable[:num_needed])
             acquired_jobs.extend(job for job in batch)

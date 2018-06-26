@@ -80,7 +80,7 @@ class MonitorStream(Thread):
             try: yield self.queue.get_nowait()
             except Empty: return
 
-def delay_generator(period=settings.BALSAM_SERVICE_PERIOD):
+def delay_generator(period=settings.SERVICE_PERIOD):
     '''Generator: Block for ``period`` seconds since the last call to __next__()'''
     nexttime = time.time() + period
     while True:

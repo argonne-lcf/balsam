@@ -201,6 +201,7 @@ from django.db import OperationalError
 def log_uncaught_exceptions(exctype, value, tb):
     logger = logging.getLogger(__name__)
     logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+    for handler in logger.handlers: handler.flush()
 
     if isinstance(value, OperationalError):
         db_path = os.environ.get('BALSAM_DB_PATH')
@@ -213,6 +214,7 @@ def log_uncaught_exceptions(exctype, value, tb):
     else:
         logger = logging.getLogger('console')
         logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+        [h.flush() for h in logger.handlers]
 
 sys.excepthook = log_uncaught_exceptions
 

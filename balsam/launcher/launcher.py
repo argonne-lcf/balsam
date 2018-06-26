@@ -13,10 +13,12 @@ actions and is guaranteed to execute only once through the EXIT_FLAG global
 flag.
 '''
 import argparse
+from importlib.util import find_spec
 from math import floor
 import os
 import sys
 import signal
+import subprocess
 import time
 
 import django
@@ -59,7 +61,7 @@ class MPIRun:
         mpi_cmd = workers[0].mpi_cmd
         mpi_str = mpi_cmd(workers, app_cmd=app_cmd, envs=envs,
                                num_ranks=nranks, ranks_per_node=rpn,
-                               affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
+                               cpu_affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
         logger.info(f"{job.cute_id} running:\n{mpi_str}")
@@ -301,20 +303,22 @@ class MPILauncher:
 
 
 class SerialLauncher:
-    MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble_pull").origin
+    MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
 
     def __init__(self, wf_name=None, fork_rpn=1, time_limit_minutes=60, gpus_per_node=None):
         self.wf_name = wf_name
         self.fork_rpn = fork_rpn
+        self.gpus_per_node = gpus_per_node
+
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
 
         self.app_cmd = f"{sys.executable} {self.MPI_ENSEMBLE_EXE}"
-        self.app_cmd += " --time-limit-min={minutes_left}"
-        if self.wf_name: self.app_cmd += " --wf-name={self.wf_name}"
-        if self.gpus_per_node: self.app_cmd += " --gpus-per-node={self.gpus_per_node}"
+        self.app_cmd += f" --time-limit-min={minutes_left}"
+        if self.wf_name: self.app_cmd += f" --wf-name={self.wf_name}"
+        if self.gpus_per_node: self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
     
     def run(self):
         global EXIT_FLAG
@@ -322,7 +326,7 @@ class SerialLauncher:
         num_ranks = self.total_nodes * self.fork_rpn
         mpi_str = workers.mpi_cmd(workers, app_cmd=self.app_cmd,
                                num_ranks=num_ranks, ranks_per_node=self.fork_rpn,
-                               affinity='none')
+                               cpu_affinity='none', envs={})
         logger.info(f'Starting MPI Fork ensemble process:\n{mpi_str}')
 
         self.outfile = open(os.path.join(settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
@@ -334,8 +338,13 @@ class SerialLauncher:
             shell=False)
 
         while not EXIT_FLAG:
-            try: self.process.wait(timeout=2)
-            except subprocess.TimeoutExpired: pass
+            try: 
+                retcode = self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired: 
+                pass
+            else:
+                logger.info(f'ensemble pull subprocess returned {retcode}')
+                break
 
         self.process.terminate()
         try:
@@ -352,7 +361,7 @@ def main(args):
     job_mode = args.job_mode
     timelimit_min = args.time_limit_minutes
     nthread = (args.num_transition_threads if args.num_transition_threads
-              else settings.BALSAM_MAX_CONCURRENT_TRANSITIONS)
+              else settings.NUM_TRANSITION_THREADS)
     fork_rpn = (args.serial_jobs_per_node if args.serial_jobs_per_node
               else settings.SERIAL_JOBS_PER_NODE)
     gpus_per_node = args.gpus_per_node

@@ -1,6 +1,6 @@
 '''BalsamJob Transitions
 
-The user selects ``BALSAM_MAX_CONCURRENT_TRANSITIONS`` processes to run
+The user selects ``NUM_TRANSITION_THREADS`` processes to run
 alongside the main Launcher process.  These are created with ``multiprocessing.Process``
 and communicate with the Launcher through a ``multiprocessing.Queue`` (or a
 PriorityQueue via a ``multiprocessing.managers.SyncManager``)
@@ -93,6 +93,8 @@ def refresh_cache(job_cache, num_threads):
     target_count = round(num_transitionable / num_threads + 0.5)
     num_to_acquire = max(0, target_count-len(job_cache))
     acquired = manager.acquire_transitionable(num_to_acquire)
+    if acquired:
+        logger.debug(f'Acquired {len(acquired)} new jobs: {[j.cute_id for j in acquired]}')
     job_cache.extend(acquired)
     for job in job_cache: job.__old_state = job.state
 
@@ -136,7 +138,6 @@ def _main(num_threads):
             refresh_cache(job_cache, num_threads)
             last_refresh = time.time()
             if elapsed < 1: time.sleep(1 - elapsed)
-            logger.debug(f'Holding lock on {len(job_cache)} processable jobs')
 
         # Fast-forward transitions & release locks
         fast_forward(job_cache)
@@ -224,7 +225,7 @@ def fast_forward(job_cache):
 
     # skip stageout (finished)
     stageout_jobs = (j for j in job_cache if j.state=='POSTPROCESSED'
-                     and not (j.url_out and j.stage_out_files)
+                     and not (j.stage_out_url and j.stage_out_files)
                     )
     for job in stageout_jobs: job.state = 'JOB_FINISHED'
     update_states_from_cache(job_cache)

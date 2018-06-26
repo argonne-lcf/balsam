@@ -65,7 +65,7 @@ class OPENMPICommand(MPICommand):
     def threads(self, cpu_affinity, thread_per_rank, thread_per_core):
         return ""
 
-    def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node, envs,threads_per_rank=1,threads_per_core=1):
+    def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node, envs, cpu_affinity, threads_per_rank=1,threads_per_core=1):
         '''Build the mpirun/aprun/runjob command line string'''
         workers = self.worker_str(workers)
         envs = self.env_str(envs)

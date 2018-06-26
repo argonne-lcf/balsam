@@ -19,8 +19,7 @@ from subprocess import Popen, STDOUT, TimeoutExpired
 
 from mpi4py import MPI
 
-from balsam.launcher import jobreader
-from balsam.launcher.util import cd, get_tail, parse_real_time, remaining_time_minutes
+from balsam.launcher.util import cd, get_tail, remaining_time_minutes
 from balsam.launcher.exceptions import *
 from balsam.service.models import BalsamJob
 
@@ -67,6 +66,7 @@ class ResourceManager:
         now = time.time()
         if len(self.job_cache) == 0 or (now-self.last_job_fetch) > self.FETCH_PERIOD:
             jobquery = self.job_source.get_runnable(
+                max_nodes=1,
                 remaining_minutes=time_limit_min, 
                 serial_only=True,
                 order_by='-serial_node_packing_count' # descending
@@ -86,13 +86,16 @@ class ResourceManager:
             self.killed_pks = killed_pks
             self.last_killed_refresh = now
         
-    def _assign(self, rank, free_node, job):
+    def pre_assign(self, rank, free_node, job):
         job_occ = 1.0 / job.serial_node_packing_count
         self.node_occupancy[free_node] += job_occ
         self.job_assignments[rank] = (job.pk, job_occ)
-        mpiReq = self._send_job(job, rank)
-        logger.debug(f"Sent {job.cute_id} to rank {rank} on {free_node}: occupancy is now {self.node_occupancy[free_node]}")
-        return mpiReq
+
+    def revert_assign(self, rank):
+        pk, occ = self.job_assignments[rank]
+        self.job_assignments[rank] = None
+        hostname = self.host_names[rank]
+        self.node_occupancy[hostname] -= occ
 
     def allocate_next_jobs(self, time_limit_min):
         '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
@@ -114,6 +117,9 @@ class ResourceManager:
 
             rank, free_node = assignment
             pre_assignments.append((rank, free_node, job))
+            self.pre_assign(rank, free_node, job)
+
+        if len(pre_assignments) == 0: return False
 
         to_acquire = [job.pk for (rank, free_node, job) in pre_assignments]
         acquired_pks = self.job_source.acquire(to_acquire).values_list('job_id', flat=True)
@@ -122,8 +128,11 @@ class ResourceManager:
         # Make actual assignment:
         for (rank, free_node, job) in pre_assignments:
             if job.pk in acquired_pks:
-                mpiReq = self._assign(rank, free_node, job)
+                mpiReq = self._send_job(job, rank)
+                logger.debug(f"Sent {job.cute_id} to rank {rank} on {free_node}: occupancy is now {self.node_occupancy[free_node]}")
                 send_requests.append(mpiReq)
+            else:
+                self.revert_assign(rank)
             self.job_cache.remove(job)
 
         BalsamJob.batch_update_state(acquired_pks, 'RUNNING', 'submitted in MPI Ensemble')
@@ -246,7 +255,7 @@ class ResourceManager:
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--wf-name')
-    parser.add_argument('--time-limit-min', type=int, default=72*60)
+    parser.add_argument('--time-limit-min', type=float, default=72.*60)
     parser.add_argument('--gpus-per-node', type=int, default=0)
     return parser.parse_args()
 
@@ -261,6 +270,7 @@ def master_main(host_names):
     job_source = BalsamJob.source
     job_source.workflow = args.wf_name
     job_source.start_tick()
+    job_source.clear_stale_locks()
     if job_source.workflow:
         logger.info(f'MPI Ensemble pulling jobs with WF {args.wf_name}')
     else:
@@ -316,7 +326,8 @@ def master_main(host_names):
         with transaction_context():
             got_requests = manager.serve_requests()
         elapsed = time.time() - start
-        logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
+        if got_requests:
+            logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
 
         if not (ran_anything or got_requests):
             time.sleep(DELAY_PERIOD)
