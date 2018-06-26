@@ -151,16 +151,14 @@ class MPIRunner(Runner):
                                num_ranks=nranks, ranks_per_node=rpn,
                                threads_per_rank=tpr, threads_per_core=tpc)
         
-        mpi_str = f'time -p ( {mpi_str} )'
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
         self.outfile = open(outname, 'w+b')
-        self.popen_args['args'] = mpi_str
+        self.popen_args['args'] = mpi_str.split()
         self.popen_args['cwd'] = job.working_directory
         self.popen_args['stdout'] = self.outfile
         self.popen_args['stderr'] = STDOUT
-        self.popen_args['shell'] = True
-        self.popen_args['executable'] = '/bin/bash'
+        self.popen_args['shell'] = False
         self.popen_args['bufsize'] = 1
         logger.info(f"MPIRunner {job.cute_id} Popen:\n{self.popen_args['args']}")
         logger.info(f"MPIRunner: writing output to {outname}")
@@ -193,11 +191,6 @@ class MPIRunner(Runner):
             logger.info(msg)
 
         if job.state != curstate:
-            if curstate == 'RUN_DONE':
-                elapsed = parse_real_time(get_tail(self.outfile.name, indent=''))
-                if elapsed:
-                    job.runtime_seconds = float(elapsed)
-                    job.save(update_fields=['runtime_seconds'])
             job.update_state(curstate, msg)
         else:
             job.refresh_from_db()
