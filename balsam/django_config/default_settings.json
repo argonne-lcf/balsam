@@ -1,5 +1,4 @@
 {
- # service options
  "SCHEDULER_CLASS": "CobaltScheduler",
  "SCHEDULER_SUBMIT_EXE": "/usr/bin/qsub",
  "SCHEDULER_STATUS_EXE": "/usr/bin/qstat",
@@ -9,12 +8,10 @@
  "MAX_QUEUED": 20,
  "SUBMIT_JOBS": true,
 
- # launcher options
  "NUM_TRANSITION_THREADS": 5,
  "MAX_CONCURRENT_MPIRUNS": 1000,
  "ENSEMBLE_RANKS_PER_NODE": 16,
 
- # logging options
  "LOG_HANDLER_LEVEL": "DEBUG",
  "LOG_FILENAME": "balsam.log",
  "LOG_BACKUP_COUNT": 5,

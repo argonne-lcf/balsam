@@ -17,6 +17,24 @@ def main():
         sys.exit(0)
     args.func(args)
 
+def config_launcher_subparser(subparser=None):
+    if subparser is None:
+        parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
+    else:
+        parser = subparser
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--consume-all', action='store_true', help="Continuously run all jobs from DB")
+    group.add_argument('--wf-filter', help="Continuously run jobs of specified workflow")
+    parser.add_argument('--job-mode', choices=['mpi', 'serial'],
+            required=True, default='mpi')
+    parser.add_argument('--serial-jobs-per-node', type=int, default=None, 
+                        help="Single-node jobs: max-per-node")
+    parser.add_argument('--time-limit-minutes', type=float, default=0, 
+                        help="Provide a walltime limit if not already imposed")
+    parser.add_argument('--num-transition-threads', type=int, default=None)
+    parser.add_argument('--gpus-per-node', type=int, default=None)
+    return parser
 
 def make_parser():
     parser = argparse.ArgumentParser(prog='balsam', description="Balsam command line interface")
@@ -275,21 +293,7 @@ def make_parser():
     # LAUNCHER
     # --------
     parser_launcher = subparsers.add_parser('launcher', help="Start an instance of the balsam launcher")
-    group = parser_launcher.add_mutually_exclusive_group(required=True)
-    group.add_argument('--job-file', help="File of Balsam job IDs")
-    group.add_argument('--consume-all', action='store_true', 
-                        help="Continuously run all jobs from DB")
-    group.add_argument('--wf-name',
-                       help="Continuously run jobs of specified workflow")
-    parser_launcher.add_argument('--num-workers', type=int, default=1,
-                        help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser_launcher.add_argument('--nodes-per-worker', type=int, default=1)
-    parser_launcher.add_argument('--max-ranks-per-node', type=int, default=1,
-            help="How many serial jobs can run concurrently per node")
-    parser_launcher.add_argument('--time-limit-minutes', type=float,
-                        help="Override auto-detected walltime limit (runs"
-                        " forever if no limit is detected or specified)")
-    parser_launcher.add_argument('--daemon', action='store_true')
+    parser_launcher = config_launcher_subparser(parser_launcher)
     parser_launcher.set_defaults(func=launcher)
     # -----------------
     

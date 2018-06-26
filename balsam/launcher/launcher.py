@@ -32,6 +32,7 @@ from balsam.launcher import transitions
 from balsam.launcher import worker
 from balsam.launcher.util import remaining_time_minutes, delay_generator
 from balsam.launcher.exceptions import *
+from balsam.scripts.cli import config_launcher_subparser
 
 EXIT_FLAG = False
 
@@ -328,7 +329,7 @@ class SerialLauncher:
         self.process = subprocess.Popen(
             args=mpi_str.split(),
             bufsize=1,
-            stdout=self.outfile
+            stdout=self.outfile,
             stderr=subprocess.STDOUT,
             shell=False)
 
@@ -350,10 +351,10 @@ def main(args):
     wf_filter = args.wf_filter
     job_mode = args.job_mode
     timelimit_min = args.time_limit_minutes
-    nthread = args.num_transition_threads if args.num_transition threads
-              else settings.BALSAM_MAX_CONCURRENT_TRANSITIONS
-    fork_rpn = args.serial_jobs_per_node if args.serial_jobs_per_node
-              else settings.SERIAL_JOBS_PER_NODE
+    nthread = (args.num_transition_threads if args.num_transition_threads
+              else settings.BALSAM_MAX_CONCURRENT_TRANSITIONS)
+    fork_rpn = (args.serial_jobs_per_node if args.serial_jobs_per_node
+              else settings.SERIAL_JOBS_PER_NODE)
     gpus_per_node = args.gpus_per_node
     
     Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
@@ -370,18 +371,7 @@ def main(args):
 
 def get_args(inputcmd=None):
     '''Parse command line arguments'''
-    parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--consume-all', action='store_true', help="Continuously run all jobs from DB")
-    group.add_argument('--wf-filter', help="Continuously run jobs of specified workflow")
-    parser.add_argument('--job-mode', choices=['mpi', 'serial'],
-            required=True, default='mpi')
-    parser.add_argument('--serial-jobs-per-node', type=int, default=None, 
-                        help="Single-node jobs: max-per-node")
-    parser.add_argument('--time-limit-minutes', type=float, default=0, 
-                        help="Provide a walltime limit if not already imposed")
-    parser.add_argument('--num-transition-threads', type=int, default=None)
-    parser.add_argument('--gpus-per-node', type=int, default=None)
+    parser = config_launcher_subparser()
     if inputcmd:
         return parser.parse_args(inputcmd)
     else:

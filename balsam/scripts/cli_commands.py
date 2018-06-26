@@ -334,18 +334,12 @@ def mkchild(args):
     print(f"Created link {dag.current_job.cute_id} --> {child_job.cute_id}")
 
 def launcher(args):
-    daemon = args.daemon
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
     command = [sys.executable] + [fname] + original_args
     print("Starting Balsam launcher")
     p = subprocess.Popen(command)
-
-    if args.daemon:
-        sys.exit(0)
-    else:
-        p.wait()
-
+    p.wait()
 
 def service(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
