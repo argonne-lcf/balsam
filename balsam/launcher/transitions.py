@@ -50,12 +50,12 @@ def handler(signum, stack):
 
 class TransitionProcessPool:
     '''Launch and terminate the transition processes'''
-    def __init__(self, num_threads):
+    def __init__(self, num_threads, wf_name):
 
         self.procs = [
             multiprocessing.Process(
                 target=main,
-                args=(num_threads,)
+                args=(num_threads, wf_name)
             )
             for i in range(num_threads)
         ]
@@ -102,12 +102,13 @@ def release_jobs(job_cache):
     manager.release(release_jobs)
     return [j for j in job_cache if j.pk not in release_jobs]
 
-def main(num_threads):
+def main(num_threads, wf_name):
     global EXIT_FLAG
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
     
     manager = BalsamJob.source
+    manager.workflow = wf_name
     time.sleep(random.random())
     manager.start_tick()
 

@@ -42,7 +42,7 @@ class Tags:
 class ResourceManager:
 
     FETCH_PERIOD = 2.0
-    KILLED_REFRESH_PERIOD = 5.0
+    KILLED_REFRESH_PERIOD = 3.0
 
     def __init__(self, host_names, job_source):
         self.host_names = host_names
@@ -54,6 +54,7 @@ class ResourceManager:
         self.last_job_fetch = -10.0
         self.last_killed_refresh = -10.0
         self.job_cache = []
+        self.killed_pks = []
 
         self.host_rank_map = {}
         for name in set(host_names):
@@ -65,9 +66,12 @@ class ResourceManager:
     def refresh_job_cache(self, time_limit_min):
         now = time.time()
         if len(self.job_cache) == 0 or (now-self.last_job_fetch) > self.FETCH_PERIOD:
-            jobquery = self.job_source.get_runnable(time_limit_min, serial_only=True)
-            jobs = jobquery.order_by('-serial_node_packing_count') # descending order
-            self.job_cache = list(jobs)
+            jobquery = self.job_source.get_runnable(
+                remaining_minutes=time_limit_min, 
+                serial_only=True,
+                order_by='-serial_node_packing_count' # descending
+            )
+            self.job_cache = list(jobquery)
             self.last_job_fetch = now
             job_str = '  '.join(j.cute_id for j in self.job_cache)
             logger.debug(f"Refreshed job cache: {len(self.job_cache)} runnable\n{job_str}")
@@ -75,19 +79,28 @@ class ResourceManager:
     def refresh_killed_jobs(self):
         now = time.time()
         if now - self.last_killed_refresh > self.KILLED_REFRESH_PERIOD:
-            self.killed_pks = list(
-                BalsamJob.objects.filter(state='USER_KILLED').values_list('job_id', flat=True)
-            )
+            killed_pks = self.job_source.filter(state='USER_KILLED').values_list('job_id', flat=True)
+
+            if len(killed_pks) > len(self.killed_pks): 
+                logger.debug(f"Killed jobs: {self.killed_pks}")
+            self.killed_pks = killed_pks
             self.last_killed_refresh = now
-            if self.killed_pks: logger.debug(f"Killed jobs: {self.killed_pks}")
         
+    def _assign(self, rank, free_node, job):
+        job_occ = 1.0 / job.serial_node_packing_count
+        self.node_occupancy[free_node] += job_occ
+        self.job_assignments[rank] = (job.pk, job_occ)
+        mpiReq = self._send_job(job, rank)
+        logger.debug(f"Sent {job.cute_id} to rank {rank} on {free_node}: occupancy is now {self.node_occupancy[free_node]}")
+        return mpiReq
+
     def allocate_next_jobs(self, time_limit_min):
         '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
         self.refresh_job_cache(time_limit_min)
-        submitted_indices = []
         send_requests = []
+        pre_assignments = []
 
-        for cache_idx, job in enumerate(self.job_cache):
+        for job in self.job_cache:
             job_occ = 1.0 / job.serial_node_packing_count
             
             free_nodes = (name for name,occ in self.node_occupancy.items() if job_occ+occ < 1.001)
@@ -100,22 +113,22 @@ class ResourceManager:
                 break
 
             rank, free_node = assignment
-            self.node_occupancy[free_node] += job_occ
-            self.job_assignments[rank] = (job.pk, job_occ)
+            pre_assignments.append((rank, free_node, job))
 
-            req = self._send_job(job, rank)
-            send_requests.append(req)
+        to_acquire = [job.pk for (rank, free_node, job) in pre_assignments]
+        acquired_pks = self.job_source.acquire(to_acquire).values_list('job_id', flat=True)
+        logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
 
-            submitted_indices.append(cache_idx)
-            logger.debug(f"Sent {job.cute_id} to rank {rank} on {free_node}: occupancy is now {self.node_occupancy[free_node]}")
+        # Make actual assignment:
+        for (rank, free_node, job) in pre_assignments:
+            if job.pk in acquired_pks:
+                mpiReq = self._assign(rank, free_node, job)
+                send_requests.append(mpiReq)
+            self.job_cache.remove(job)
 
-        submitted_pks = [self.job_cache[i].pk for i in submitted_indices]
-        BalsamJob.batch_update_state(submitted_pks, 'RUNNING', 'submitted in MPI Ensemble')
-        self.job_cache = [job for i, job in enumerate(self.job_cache)
-                          if i not in submitted_indices]
-        
+        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', 'submitted in MPI Ensemble')
         MPI.Request.waitall(send_requests)
-        return len(submitted_indices) > 0
+        return len(send_requests) > 0
 
     def _send_job(self, job, rank):
         '''Send message to compute rank'''
@@ -160,11 +173,13 @@ class ResourceManager:
     def _handle_asks(self, ask_ranks):
         self.refresh_killed_jobs()
         send_reqs = []
+        kill_pks = []
 
         for rank in ask_ranks:
             pk, occ = self.job_assignments[rank]
 
             if pk in self.killed_pks:
+                kill_pks.append(pk)
                 req = comm.isend("kill", dest=rank, tag=Tags.KILL)
                 self.job_assignments[rank] = None
                 hostname = self.host_names[rank]
@@ -174,6 +189,8 @@ class ResourceManager:
                 req = comm.isend("continue", dest=rank, tag=Tags.CONTINUE)
                 self.recv_requests[rank] = comm.irecv(source=rank)
             send_reqs.append(req)
+
+        if kill_pks: self.job_source.release(kill_pks)
         MPI.Request.waitall(send_reqs)
     
     def _handle_dones(self, done_ranks):
@@ -189,6 +206,7 @@ class ResourceManager:
             self.node_occupancy[hostname] -= occ
 
         BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
+        self.job_source.release(done_pks)
         
         done_msg = ' '.join(str((pk,rank)) for pk,rank in zip(done_pks, done_ranks))
         logger.debug(f"RUN_DONE: {done_msg}")
@@ -196,9 +214,11 @@ class ResourceManager:
     
     def _handle_errors(self, error_reqs):
         TIMEstart = time.time()
+        error_pks = []
         for msg,rank in error_reqs:
             pk, occ = self.job_assignments[rank]
             job = BalsamJob.objects.get(pk=pk)
+            error_pks.append(pk)
 
             retcode, tail = msg['retcode'], msg['tail']
             state_msg = f"nonzero return {retcode}: {tail}"
@@ -209,6 +229,7 @@ class ResourceManager:
             self.job_assignments[rank] = None
             hostname = self.host_names[rank]
             self.node_occupancy[hostname] -= occ
+        self.job_source.release(error_pks)
         logger.debug(f"_handle_errors: {len(error_reqs)} handled in {time.time()-TIMEstart:.3f} seconds")
     
     def send_exit(self):
@@ -225,18 +246,9 @@ class ResourceManager:
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--wf-name')
-    parser.add_argument('--job-file')
-    parser.add_argument('--time-limit-min', type=int,
-                        default=72*60)
+    parser.add_argument('--time-limit-min', type=int, default=72*60)
     parser.add_argument('--gpus-per-node', type=int, default=0)
-    parser.add_argument('--db-transaction', action='store_true')
-    args = parser.parse_args()
-    if args.job_file:
-        job_source = jobreader.FileJobReader(args.job_file)
-    else:
-        job_source = jobreader.WFJobReader(args.wf_name)
-
-    return job_source, args.time_limit_min, args.gpus_per_node, args.db_transaction
+    return parser.parse_args()
 
 def master_main(host_names):
     MAX_IDLE_TIME = 10.0
@@ -245,19 +257,23 @@ def master_main(host_names):
     idle_time = 0.0
     EXIT_FLAG = False
     
-    job_source, time_limit_min, gpus_per_node, db_transaction = parse_args()
+    args = parse_args()
+    job_source = BalsamJob.source
+    job_source.workflow = args.wf_name
+    job_source.start_tick()
+    if job_source.workflow:
+        logger.info(f'MPI Ensemble pulling jobs with WF {args.wf_name}')
+    else:
+        logger.info('MPI Ensemble consuming jobs matching any WF name')
+
+    gpus_per_node = args.gpus_per_node
+    time_limit_min = args.time_limit_min
+
     manager = ResourceManager(host_names, job_source)
     gpus_per_node = comm.bcast(gpus_per_node, root=0)
 
-    if db_transaction:
-        transaction_context = django.db.transaction.atomic
-        logger.info(f"Using real transactions: {transaction_context}")
-    else:
-        class DummyContext:
-            def __enter__(self): pass
-            def __exit__(self, *args): pass
-        transaction_context = DummyContext
-        logger.info(f"No transactions: {transaction_context}")
+    transaction_context = django.db.transaction.atomic
+    logger.info(f"Using real transactions: {transaction_context}")
 
     def handle_sigusr1(signum, stack):
         nonlocal RUN_NEW_JOBS
@@ -267,20 +283,11 @@ def master_main(host_names):
         manager.send_exit()
         logger.debug("Send_exit: master done")
         outstanding_job_pks = [j[0] for j in manager.job_assignments[1:] if j is not None]
-        outstanding_jobs = BalsamJob.objects.filter(job_id__in=outstanding_job_pks)
-        num_timeout = outstanding_jobs.count()
-        assert num_timeout == len(outstanding_job_pks)
-        logger.info(f"Shutting down with {num_timeout} jobs still running")
-        
-        with transaction_context():
-            for job in outstanding_jobs:
-                job.update_state('RUN_TIMEOUT', 'timed out in MPI Ensemble')
-                logger.info(f"{job.cute_id} RUN_TIMEOUT")
-        
-        #outstanding_jobs = BalsamJob.objects.filter(job_id__in=outstanding_job_pks)
-        #for job in outstanding_jobs:
-        #    logger.debug(f"Assert this is RUN_TIMEOUT: {job.state}")
+        num_timeout = len(outstanding_job_pks)
+        logger.info(f"Shutting down with {num_timeout} jobs still running..timing out")
+        BalsamJob.batch_update_state(outstanding_job_pks, 'RUN_TIMEOUT', 'timed out in MPI Ensemble')
 
+        manager.job_source.release_all_owned()
         logger.debug(f"master calling MPI Finalize")
         MPI.Finalize()
         logger.info(f"ensemble master exit gracefully")

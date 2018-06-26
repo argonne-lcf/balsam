@@ -11,6 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from balsam.service.schedulers import Scheduler
+from balsam.launcher import mpi_commands
 scheduler = Scheduler.scheduler_main
 
 class Worker:
@@ -46,9 +47,12 @@ class WorkerGroup:
         self.workers = []
         self.setup = getattr(self, f"setup_{self.host_type}")
         self.setup()
+        MPICommand = getattr(mpi_commands, f"{self.host_type}MPICommand")
+        self.mpi_cmd = MPICommand()
 
         logger.info(f"Built {len(self.workers)} {self.host_type} workers")
         for worker in self.workers:
+            worker.mpi_cmd = self.mpi_cmd
             logger.debug(f"ID {worker.id} NODES {worker.num_nodes}")
 
     def __iter__(self):

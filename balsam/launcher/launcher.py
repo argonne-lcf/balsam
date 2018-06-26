@@ -30,7 +30,6 @@ logger.info("Loading Balsam Launcher")
 
 from balsam.launcher import transitions
 from balsam.launcher import worker
-from balsam.launcher import runners
 from balsam.launcher.util import remaining_time_minutes, delay_generator
 from balsam.launcher.exceptions import *
 
@@ -56,7 +55,8 @@ class MPIRun:
         tpr = job.threads_per_rank
         tpc = job.threads_per_core
 
-        mpi_str = self.mpi_cmd(workers, app_cmd=app_cmd, envs=envs,
+        mpi_cmd = workers[0].mpi_cmd
+        mpi_str = mpi_cmd(workers, app_cmd=app_cmd, envs=envs,
                                num_ranks=nranks, ranks_per_node=rpn,
                                affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         basename = job.name
@@ -82,7 +82,7 @@ class MPIRun:
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
-    def __init__(self, wf_name, time_limit_minutes):
+    def __init__(self, wf_name, fork_rpn, time_limit_minutes, gpus_per_node):
         self.jobsource = BalsamJob.source
         self.jobsource.workflow = wf_name
         if wf_name:
@@ -99,6 +99,7 @@ class MPILauncher:
         self.delayer = delay_generator()
         self.last_report = 0
         self.mpi_runs = []
+        self.main()
 
     def time_step(self):
         '''Pretty log of remaining time'''
@@ -236,7 +237,7 @@ class MPILauncher:
         max_acquire = min(num_idle, self.MAX_CONCURRENT_RUNS - num_active)
         max_acquire = max(max_acquire, 0)
 
-        if num_active == self.MAX_CONCURRENT_RUNS:
+        if num_active >= self.MAX_CONCURRENT_RUNS:
             logger.info(f'Reached MAX_CONCURRENT_MPIRUNS limit')
             return
 
@@ -262,12 +263,8 @@ class MPILauncher:
 
         # acquire lock on jobs
         to_acquire = [job.pk for (job,workers) in pre_assignments]
-        acquired = list(self.jobsource.acquire(to_acquire))
-        acquired_pks = [job.pk for job in acquired]
-        logger.info(f'Acquired lock on {len(acquired)} out of {len(pre_assignments)} jobs marked for running')
-
-        failed_assignments = []
-        ready_assignments = []
+        acquired_pks = self.jobsource.acquire(to_acquire).values_list('job_id', flat=True)
+        logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
 
         # dispatch runners; release workers that did not acquire job
         for (job, workers) in pre_assignments:
@@ -278,54 +275,74 @@ class MPILauncher:
                 for w in workers: w.idle = True
         BalsamJob.batch_update_state(acquired_pks, 'RUNNING')
 
+    def run(self):
+        '''Main Launcher service loop'''
+        global EXIT_FLAG
+        try:
+            while not EXIT_FLAG:
+                self.time_step()
+                self.launch()
+                self.update()
+                self.check_exit()
+        except:
+            raise
+        finally:
+            logger.info('EXIT: breaking launcher service loop')
+            self.update(timeout=True)
+            assert not self.is_active
+            logger.info('All MPI runs terminated')
+            self.jobsource.release_all_owned()
+            logger.info('Released all BalsamJob locks')
+
     @property
     def is_active(self):
         return len(self.mpi_runs) > 0
 
 
 class SerialLauncher:
-    def __init__(self, wf_name, fork_rpn, time_limit_minutes):
-        self.ensemble_runner = None
-    
-    def update(self, timeout=False):
-        pass
+    MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble_pull").origin
 
-    @property
-    def is_active(self):
+    def __init__(self, wf_name=None, fork_rpn=1, time_limit_minutes=60, gpus_per_node=None):
+        self.wf_name = wf_name
+        self.fork_rpn = fork_rpn
+        timer = remaining_time_minutes(time_limit_minutes)
+        minutes_left = max(0.1, next(timer) - 1)
+        self.worker_group = worker.WorkerGroup()
+        self.total_nodes = sum(w.num_nodes for w in self.worker_group)
+
+        self.app_cmd = f"{sys.executable} {self.MPI_ENSEMBLE_EXE}"
+        self.app_cmd += " --time-limit-min={minutes_left}"
+        if self.wf_name: self.app_cmd += " --wf-name={self.wf_name}"
+        if self.gpus_per_node: self.app_cmd += " --gpus-per-node={self.gpus_per_node}"
+    
+    def run(self):
+        global EXIT_FLAG
+        workers = self.worker_group
+        num_ranks = self.total_nodes * self.fork_rpn
+        mpi_str = workers.mpi_cmd(workers, app_cmd=self.app_cmd,
+                               num_ranks=num_ranks, ranks_per_node=self.fork_rpn,
+                               affinity='none')
+        logger.info(f'Starting MPI Fork ensemble process:\n{mpi_str}')
+
+        self.outfile = open(os.path.join(settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
+        self.process = subprocess.Popen(
+            args=mpi_str.split(),
+            bufsize=1,
+            stdout=self.outfile
+            stderr=subprocess.STDOUT,
+            shell=False)
+
+        while not EXIT_FLAG:
+            try: self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired: pass
+
+        self.process.terminate()
         try:
-            return self.ensemble_runner.poll() is None
-        except AttributeError:
-            return False
-    
-    
-    def launch(self):
-        logger.debug(f"Have {runnable_jobs.count()} runnable jobs")
-
-
-def _main(launcher):
-    '''Main Launcher service loop'''
-    global EXIT_FLAG
-
-    while not EXIT_FLAG:
-        launcher.time_step()
-
-        # Update jobs that are running/finished
-        launcher.update_runners()
-        any_finished = runner_group.update_and_remove_finished()
-        if any_finished: delay = False
-    
-        # Decide whether or not to start a new runner
-        last_runner_created = create_runner(runner_group, 
-                                             worker_group, remaining_minutes, 
-                                             last_runner_created)
-
-        check_exit()
-
-    if EXIT_FLAG:
-        logger.info('EXIT: breaking launcher service loop')
-    launcher.update_runners(timeout=True)
-
-
+            self.process.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+        self.outfile.close()
+        
 def main(args):
     signal.signal(signal.SIGINT,  sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
@@ -337,18 +354,18 @@ def main(args):
               else settings.BALSAM_MAX_CONCURRENT_TRANSITIONS
     fork_rpn = args.serial_jobs_per_node if args.serial_jobs_per_node
               else settings.SERIAL_JOBS_PER_NODE
+    gpus_per_node = args.gpus_per_node
     
     Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
     
     try:
-        launcher = Launcher(wf_filter, job_mode, fork_rpn, timelimit_min)
-        transition_pool = transitions.TransitionProcessPool(nthread)
-        _main(launcher)
+        transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
+        launcher = Launcher(wf_filter, fork_rpn, timelimit_min, gpus_per_node)
+        launcher.run()
     except:
         raise
     finally:
         transition_pool.terminate()
-        manager.release_all_owned()
         logger.debug("Launcher exit graceful\n\n")
 
 def get_args(inputcmd=None):
@@ -364,6 +381,7 @@ def get_args(inputcmd=None):
     parser.add_argument('--time-limit-minutes', type=float, default=0, 
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--num-transition-threads', type=int, default=None)
+    parser.add_argument('--gpus-per-node', type=int, default=None)
     if inputcmd:
         return parser.parse_args(inputcmd)
     else:
