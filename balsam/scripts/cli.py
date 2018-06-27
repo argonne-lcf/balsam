@@ -4,7 +4,7 @@ import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from balsam.scripts.cli_commands import dbserver, init, which
+from balsam.scripts.cli_commands import init, which, server
 
 def main():
     if not sys.version_info >= (3,6):
@@ -17,6 +17,24 @@ def main():
         sys.exit(0)
     args.func(args)
 
+def config_launcher_subparser(subparser=None):
+    if subparser is None:
+        parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
+    else:
+        parser = subparser
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--consume-all', action='store_true', help="Continuously run all jobs from DB")
+    group.add_argument('--wf-filter', help="Continuously run jobs of specified workflow")
+    parser.add_argument('--job-mode', choices=['mpi', 'serial'],
+            required=True, default='mpi')
+    parser.add_argument('--serial-jobs-per-node', type=int, default=None, 
+                        help="Single-node jobs: max-per-node")
+    parser.add_argument('--time-limit-minutes', type=float, default=0, 
+                        help="Provide a walltime limit if not already imposed")
+    parser.add_argument('--num-transition-threads', type=int, default=None)
+    parser.add_argument('--gpus-per-node', type=int, default=None)
+    return parser
 
 def make_parser():
     parser = argparse.ArgumentParser(prog='balsam', description="Balsam command line interface")
@@ -42,6 +60,8 @@ def make_parser():
                             help="Environment variables specific " 
                             "to this app; specify multiple envs like " 
                             "'--env VAR1=VAL1 --env VAR2=VAL2'.  ")
+    parser_app.add_argument('--no-check-path', action='store_true',
+    help="Create app even if the specified paths do not exist")
     # -------------------------------------------------------------------
 
 
@@ -73,11 +93,6 @@ def make_parser():
                             'ranks_per_node. If only 1 total ranks, treated as serial '
                             'job).')
     
-    parser_job.add_argument('--allowed-site', action='append',
-                            required=False, default=[],
-                            help="Balsam instances where this job can run; "
-                            "defaults to the local Balsam instance")
-
     parser_job.add_argument('--description', required=False, nargs='*',
                             default=[])
 
@@ -224,11 +239,6 @@ def make_parser():
     parser_mkchild.add_argument('--ranks-per-node',
                             type=int, required=True)
     
-    parser_mkchild.add_argument('--allowed-site', action='append',
-                            required=False, default=[],
-                            help="Balsam instances where this job can run; "
-                            "defaults to the local Balsam instance")
-
     parser_mkchild.add_argument('--description', required=False, nargs='*',
                             default=[])
 
@@ -283,45 +293,14 @@ def make_parser():
     # LAUNCHER
     # --------
     parser_launcher = subparsers.add_parser('launcher', help="Start an instance of the balsam launcher")
-    group = parser_launcher.add_mutually_exclusive_group(required=True)
-    group.add_argument('--job-file', help="File of Balsam job IDs")
-    group.add_argument('--consume-all', action='store_true', 
-                        help="Continuously run all jobs from DB")
-    group.add_argument('--wf-name',
-                       help="Continuously run jobs of specified workflow")
-    parser_launcher.add_argument('--num-workers', type=int, default=1,
-                        help="Theta: defaults to # nodes. BGQ: the # of subblocks")
-    parser_launcher.add_argument('--nodes-per-worker', type=int, default=1)
-    parser_launcher.add_argument('--max-ranks-per-node', type=int, default=1,
-            help="How many serial jobs can run concurrently per node")
-    parser_launcher.add_argument('--time-limit-minutes', type=float,
-                        help="Override auto-detected walltime limit (runs"
-                        " forever if no limit is detected or specified)")
-    parser_launcher.add_argument('--daemon', action='store_true')
+    parser_launcher = config_launcher_subparser(parser_launcher)
     parser_launcher.set_defaults(func=launcher)
-    # -----------------
-    
-    # DBSERVER
-    # --------
-    parser_dbserver = subparsers.add_parser('dbserver', help="Start/stop database server process")
-    group = parser_dbserver.add_mutually_exclusive_group(required=False)
-    group.add_argument('--start', action='store_true',
-                       default=True, help="Start the DB server")
-    group.add_argument('--stop', action='store_true', 
-                       default=False, help="Kill the DB server")
-    group.add_argument('--reset', type=str,
-                       default='', help="Balsam DB path at which to reset the address file")
-    parser_dbserver.add_argument('--path', type=str, default='',
-                        help="Balsam DB directory path")
-    parser_dbserver.set_defaults(func=dbserver)
     # -----------------
     
     # INIT
     # --------
     parser_init = subparsers.add_parser('init', help="Create new balsam DB")
     parser_init.add_argument('path', help="Path to Balsam DB directory")
-    parser_init.add_argument('--db-type', choices=['sqlite3', 'postgres'],
-                             default='sqlite3', help="choose backend to use")
     parser_init.set_defaults(func=init)
     # -----------------
 
@@ -345,6 +324,15 @@ def make_parser():
     parser_which.add_argument('--list', action='store_true')
     parser_which.add_argument('--name')
     parser_which.set_defaults(func=which)
+    
+    # SERVER
+    # ---------
+    parser_server = subparsers.add_parser('server')
+    group = parser_server.add_mutually_exclusive_group()
+    group.add_argument('--connect', action='store_true')
+    group.add_argument('--disconnect', action='store_true')
+    group.add_argument('--reset', action='store_true')
+    group.set_defaults(func=server)
 
     return parser
 

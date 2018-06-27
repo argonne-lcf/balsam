@@ -30,7 +30,7 @@ class CobaltScheduler(Scheduler.Scheduler):
     GENERIC_NAME_MAP = {v:k for k,v in JOBSTATUS_VARIABLES.items()}
 
     def _make_submit_cmd(self, job, cmd):
-        exe = settings.BALSAM_SCHEDULER_SUBMIT_EXE # qsub
+        exe = settings.SCHEDULER_SUBMIT_EXE # qsub
         return (f"{exe} -A {job.project} -q {job.queue} -n {job.num_nodes} "
            f"-t {job.wall_time_minutes} --cwd {job.working_directory} {cmd}")
 
@@ -60,7 +60,7 @@ class CobaltScheduler(Scheduler.Scheduler):
         return info
 
 def qstat(scheduler_id, attrs):
-    exe = settings.BALSAM_SCHEDULER_STATUS_EXE
+    exe = settings.SCHEDULER_STATUS_EXE
     qstat_cmd = f"{exe} {scheduler_id}"
     os.environ['QSTAT_HEADER'] = ':'.join(attrs)
 

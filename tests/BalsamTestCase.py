@@ -12,13 +12,11 @@ class BalsamTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         test_db_path = os.environ['BALSAM_DB_PATH']
-        assert 'test' in test_db_path
+        assert 'testdb' in test_db_path
 
         call_command('makemigrations',interactive=False,verbosity=0)
         call_command('migrate',interactive=False,verbosity=0)
         call_command('flush',interactive=False,verbosity=0)
-
-        assert os.path.exists(settings.DATABASES['default']['NAME'])
 
     @classmethod
     def tearDownClass(cls):
@@ -74,7 +72,7 @@ def create_job(*, name='', app='', direct_command='', site=settings.BALSAM_SITE,
     
     if save:
         job.save()
-        job.create_working_path()
+        #job.create_working_path() # No working path in this branch (computed on the fly)
     return job
 
 def create_app(*, name='', description='', executable='', preproc='',

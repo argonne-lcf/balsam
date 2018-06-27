@@ -123,8 +123,6 @@ def add_job(save=True, **kwargs):
             raise ValueError(f"Invalid field {k}")
         else:
             setattr(job, k, v)
-    if 'allowed_work_sites' not in kwargs:
-        job.allowed_work_sites = settings.BALSAM_SITE
     if save:
         job.save()
     return job
@@ -205,8 +203,6 @@ def spawn_child(clone=False, **kwargs):
     if 'workflow' not in kwargs:
         kwargs['workflow'] = current_job.workflow
     
-    if 'allowed_work_sites' not in kwargs:
-        kwargs['allowed_work_sites'] = settings.BALSAM_SITE
 
     child = BalsamJob()
     new_pk = child.pk
@@ -225,7 +221,7 @@ def spawn_child(clone=False, **kwargs):
         else:
             raise ValueError(f"Invalid field {k}")
 
-    child.working_directory = '' # This is essential
+    #child.working_directory = '' # working directory is computed property instead
 
     newparents = json.loads(current_job.parents)
     newparents.append(str(current_job.job_id))

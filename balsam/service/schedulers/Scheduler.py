@@ -125,7 +125,7 @@ class Scheduler:
         '''Returns SubmissionRecord: contains scheduler ID'''
         pass
 
-scheduler_class = settings.BALSAM_SCHEDULER_CLASS
+scheduler_class = settings.SCHEDULER_CLASS
 
 if scheduler_class:
     _temp = import_module('balsam.service.schedulers.'+scheduler_class)

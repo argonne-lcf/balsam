@@ -6,6 +6,7 @@ import signal
 import sys
 
 import django
+DB_TYPE = 'postgres'
 
 def ls_procs(keywords):
     if type(keywords) == str: keywords = [keywords]
@@ -53,17 +54,18 @@ def newapp(args):
     if AppDef.objects.filter(name=args.name).exists():
         raise RuntimeError(f"An application named {args.name} exists")
     
-    for arg in (args.executable,args.preprocess,args.postprocess):
-        paths = arg.split()
-        if arg and not all(os.path.exists(p) for p in paths):
-            raise RuntimeError(f"{paths} not found")
+    if not args.no_check_path:
+        for arg in (args.executable,args.preprocess,args.postprocess):
+            paths = arg.split()
+            if arg and not all(os.path.exists(p) for p in paths):
+                raise RuntimeError(f"{paths} not found")
 
     app = AppDef()
     app.name = args.name
     app.description = ' '.join(args.description)
     app.executable = py_app_path(args.executable)
-    app.default_preprocess = py_app_path(args.preprocess)
-    app.default_postprocess = py_app_path(args.postprocess)
+    app.preprocess = py_app_path(args.preprocess)
+    app.postprocess = py_app_path(args.postprocess)
     app.environ_vars = ":".join(args.env)
     app.save()
     print(app)
@@ -78,10 +80,6 @@ def newjob(args):
     from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
-    BALSAM_SITE = settings.BALSAM_SITE
-
-    if not args.allowed_site:
-        args.allowed_site = [BALSAM_SITE]
 
     if not AppDef.objects.filter(name=args.application).exists():
         raise RuntimeError(f"App {args.application} not registered in local DB")
@@ -90,7 +88,6 @@ def newjob(args):
     job.name = args.name
     job.description = ' '.join(args.description)
     job.workflow = args.workflow
-    job.allowed_work_sites = ' '.join(args.allowed_site)
 
     job.wall_time_minutes = args.wall_minutes
     job.num_nodes = args.num_nodes
@@ -276,7 +273,6 @@ def qsub(args):
     job.name = args.name if args.name else "default"
     job.description = 'Added by balsam qsub'
     job.workflow = 'qsub'
-    job.allowed_work_sites = settings.BALSAM_SITE
 
     job.wall_time_minutes = args.wall_minutes
     job.num_nodes = args.nodes
@@ -338,18 +334,12 @@ def mkchild(args):
     print(f"Created link {dag.current_job.cute_id} --> {child_job.cute_id}")
 
 def launcher(args):
-    daemon = args.daemon
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
     command = [sys.executable] + [fname] + original_args
     print("Starting Balsam launcher")
     p = subprocess.Popen(command)
-
-    if args.daemon:
-        sys.exit(0)
-    else:
-        p.wait()
-
+    p.wait()
 
 def service(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -358,36 +348,6 @@ def service(args):
 
     print("dummy -- invoking balsam metascheduler service")
 
-def dbserver(args):
-    from balsam.django_config import serverinfo
-    fname = find_spec("balsam.django_config.db_daemon").origin
-
-    if args.reset:
-        path = os.path.join(args.reset, serverinfo.ADDRESS_FNAME)
-        if not os.path.exists(path):
-            print("No db address file at reset path")
-            sys.exit(0)
-        else:
-            info = serverinfo.ServerInfo(args.reset)
-            info.update({'address': None, 'host':None, 'port':None})
-            print("Reset done")
-            sys.exit(0)
-
-    if args.stop:
-        server_pids = [int(line.split()[1]) for line in ls_procs('db_daemon')]
-        if not server_pids:
-            print(f"No db_daemon processes running under {getpass.getuser()}")
-        else:
-            assert len(server_pids) >= 1
-            for pid in server_pids:
-                print(f"Stopping db_daemon {pid}")
-                os.kill(pid, signal.SIGUSR1)
-    else:
-        path = args.path
-        if path: cmd = [sys.executable, fname, path]
-        else: cmd = [sys.executable, fname]
-        p = subprocess.Popen(cmd)
-        print(f"Starting Balsam DB server daemon (PID: {p.pid})")
 
 def init(args):
     from balsam.django_config.serverinfo import ServerInfo
@@ -403,9 +363,8 @@ def init(args):
             print(f"Failed to create directory {path}")
             sys.exit(1)
         
-    db_type = args.db_type
     serverinfo = ServerInfo(path)
-    serverinfo.update({'db_type': db_type})
+    serverinfo.update({'db_type': DB_TYPE})
 
     fname = find_spec("balsam.scripts.init").origin
     p = subprocess.Popen(f'BALSAM_DB_PATH={path} {sys.executable} {fname} {path}',
@@ -418,6 +377,7 @@ def which(args):
     django.setup()
     from django.conf import settings
     from balsam.django_config.db_index import refresh_db_index
+    from balsam.django_config.serverinfo import ServerInfo
     import pprint
 
     if args.list:
@@ -445,7 +405,25 @@ def which(args):
             sys.exit(0)
     else:
         print("Current Balsam DB:", os.environ['BALSAM_DB_PATH'])
-        pprint.pprint(settings.DATABASES['default'])
+        fields = 'HOST NAME PASSWORD PORT USER active_clients'.split()
+        dat = {}
+        dat.update(settings.DATABASES['default'])
+        dat.update(ServerInfo(os.environ['BALSAM_DB_PATH']).data)
+        dat = { k:v for k,v in dat.items() if k in fields}
+        pprint.pprint(dat)
+
+def server(args):
+    from balsam.scripts import server_control
+    db_path = os.environ.get('BALSAM_DB_PATH', None)
+    if not db_path:
+        raise RuntimeError('BALSAM_DB_PATH needs to be set before server can be started\n')
+
+    if args.connect:
+        server_control.start_main(db_path)
+    elif args.disconnect:
+        server_control.disconnect_main(db_path)
+    elif args.reset:
+        server_control.reset_main(db_path)
 
 def make_dummies(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -458,8 +436,8 @@ def make_dummies(args):
         job = Job()
         job.name = f'dummy{i}'
         job.description = 'Added by balsam make_dummies'
+        job.serial_node_packing_count = 64
         job.workflow = 'dummy'
-        job.allowed_work_sites = settings.BALSAM_SITE
 
         job.wall_time_minutes = 0
         job.num_nodes = 1
@@ -470,8 +448,6 @@ def make_dummies(args):
 
         job.application = ''
         job.application_args = ''
-        job.preprocess = ''
-        job.postprocess = ''
         job.post_error_handler = False
         job.post_timeout_handler = False
         job.auto_timeout_retry = False
@@ -479,7 +455,7 @@ def make_dummies(args):
         job.stage_in_url = ''
         job.stage_out_url = ''
         job.stage_out_files = ''
-        job.direct_command = 'sleep 0.1 && echo hello'
+        job.direct_command = 'echo hello'
 
         job.save()
     print(f"Added {args.num} dummy jobs to the DB")

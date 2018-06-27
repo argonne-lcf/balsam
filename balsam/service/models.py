@@ -2,15 +2,19 @@ import os
 import json
 import logging
 import re
+import socket
 import sys
-from datetime import datetime
+import threading
+from datetime import datetime, timedelta
+from django.utils import timezone
 import uuid
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
-from django.db import models
-from concurrency.fields import IntegerVersionField
-from concurrency.exceptions import RecordModifiedError
+from django.db import models, transaction
+from django.db.models import Value as V
+from django.db.models import Q
+from django.db.models.functions import Concat
 
 logger = logging.getLogger('balsam.service.models')
 
@@ -22,7 +26,6 @@ TIME_FMT = '%m-%d-%Y %H:%M:%S.%f'
 
 STATES = '''
 CREATED
-LAUNCHER_QUEUED
 AWAITING_PARENTS
 READY
 
@@ -41,7 +44,7 @@ RESTART_READY
 
 FAILED
 USER_KILLED
-PARENT_KILLED'''.split()
+'''.split()
 
 ACTIVE_STATES = '''
 RUNNING
@@ -49,7 +52,6 @@ RUNNING
 
 PROCESSABLE_STATES = '''
 CREATED
-LAUNCHER_QUEUED
 AWAITING_PARENTS
 READY
 STAGED_IN
@@ -68,7 +70,7 @@ END_STATES = '''
 JOB_FINISHED
 FAILED
 USER_KILLED
-PARENT_KILLED'''.split()
+'''.split()
         
 STATE_TIME_PATTERN = re.compile(r'''
 ^                  # start of line
@@ -81,6 +83,37 @@ STATE_TIME_PATTERN = re.compile(r'''
 \s*                # 0 or more space
 \]                 # closing square bracket
 ''', re.VERBOSE | re.MULTILINE)
+
+_app_cache = {}
+
+def process_job_times(time0=None, state0=None):
+    '''Returns {state : [elapsed_seconds_for_each_job_to_reach_state]}
+    Useful for tracking job performance/throughput'''
+    from collections import defaultdict
+
+    if state0 is None: state0 = 'READY'
+    data = BalsamJob.objects.values_list('state_history', flat=True)
+    data = '\n'.join(data)
+    matches = STATE_TIME_PATTERN.finditer(data)
+    result = ( m.groups() for m in matches )
+    result = ( (state, datetime.strptime(time_str, TIME_FMT))
+              for (time_str, state) in result )
+    
+    time_data = defaultdict(list)
+    for state, time in result:
+        time_data[state].append(time)
+
+    if time0 is None: 
+        if state0 not in time_data:
+            raise ValueError(f"Requested time-zero at first instance of {state0}, "
+                "but there are no jobs in the DB with this state!")
+        time0 = min(time_data[state0])
+
+    for state in time_data.keys():
+        time_data[state] = [(t - time0).total_seconds() for t in sorted(time_data[state])]
+
+    return time_data
+
 
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
@@ -98,7 +131,7 @@ def validate_state(value):
         raise InvalidStateError(f"{value} is not a valid state in balsam.models")
 
 def get_time_string():
-    return datetime.now().strftime(TIME_FMT)
+    return timezone.now().strftime(TIME_FMT)
 
 def from_time_string(s):
     return datetime.strptime(s, TIME_FMT)
@@ -107,23 +140,149 @@ def history_line(state='CREATED', message=''):
     return f"\n[{get_time_string()} {state}] ".rjust(46) + message
 
 
+class JobSource(models.Manager):
+
+    TICK_PERIOD = timedelta(minutes=1)
+    EXPIRATION_PERIOD = timedelta(minutes=3)
+
+    def __init__(self, workflow=None):
+        super().__init__()
+        self.workflow = workflow
+        self._lock_base = None
+        self._pid = None
+
+    @property
+    def lock_base(self):
+        pid = os.getpid()
+        if pid != self._pid:
+            self._lock_base = self.get_lock_str(base_only=True)
+            self._pid = pid
+        return self._lock_base
+
+    @property
+    def lockQuery(self):
+        return Q(lock='') | Q(lock__startswith=self.lock_base)
+
+    def get_lock_str(self, base_only=False):
+        if base_only:
+            return f"{socket.gethostname()}:{os.getpid()}"
+        else:
+            return f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4()}"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = queryset.filter(self.lockQuery)
+        if self.workflow:
+            queryset = queryset.filter(workflow=self.workflow)
+        return queryset
+
+    def by_states(self, states):
+        if isinstance(states, str):
+            states = [states]
+        elif isinstance(states, dict):
+            states = states.keys()
+        return self.get_queryset().filter(state__in=states)
+
+    def get_runnable(self, *, max_nodes, remaining_minutes=0, mpi_only=False,
+                     serial_only=False, order_by=None):
+        if mpi_only and serial_only: 
+            raise ValueError("arguments mpi_only and serial_only are mutually exclusive")
+
+        if max_nodes < 1:
+            raise ValueError("Must be positive number of nodes")
+
+        if serial_only:
+            assert max_nodes == 1
+
+        runnable = self.by_states(RUNNABLE_STATES)
+        runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes,
+                                   num_nodes__lte=max_nodes)
+        if serial_only:
+            runnable = runnable.filter(num_nodes=1, ranks_per_node=1)
+        elif mpi_only:
+            mpiquery = Q(num_nodes__gt=1) | Q(ranks_per_node__gt=1)
+            runnable = runnable.filter(mpiquery)
+        if order_by is not None:
+            runnable = runnable.order_by(order_by)
+        return runnable
+
+    @transaction.atomic
+    def acquire(self, pk_list):
+        '''input can be actual list of PKs or a queryset'''
+        new_lock = self.get_lock_str()
+        to_lock = self.get_queryset().filter(pk__in=pk_list)
+        to_lock = to_lock.select_for_update().filter(lock='')
+        to_lock.update(lock=new_lock,
+                       tick=timezone.now())
+        acquired = self.get_queryset().filter(lock=new_lock)
+        return acquired
+
+    @transaction.atomic
+    def acquire_transitionable(self, max_jobs):
+        acquired_jobs = []
+        while len(acquired_jobs) < max_jobs:
+            processable = self.by_states(PROCESSABLE_STATES).filter(lock='')
+            if not processable.exists(): 
+                logger.info(f"acquire_transitions: could not acquire {max_jobs}; only got {len(acquired_jobs)}")
+                break
+            num_needed = max_jobs - len(acquired_jobs)
+            batch = self.acquire(processable[:num_needed])
+            acquired_jobs.extend(job for job in batch)
+        return acquired_jobs
+
+    def start_tick(self):
+        t = threading.Timer(self.TICK_PERIOD.total_seconds(), self.start_tick)
+        t.daemon = True
+        t.start()
+        self._tick()
+
+    @transaction.atomic
+    def _tick(self):
+        now = timezone.now()
+        queryset = self.get_queryset()
+        my_locked = queryset.filter(lock__startswith=self.lock_base)
+        my_locked.update(tick=now)
+
+    @transaction.atomic
+    def release(self, pk_list):
+        to_unlock = self.get_queryset().filter(pk__in=pk_list)
+        to_unlock = to_unlock.select_for_update()
+        to_unlock.update(lock='')
+
+    @transaction.atomic
+    def release_all_owned(self):
+        to_unlock = self.get_queryset()
+        to_unlock.filter(lock__startswith=self.lock_base).update(lock='')
+    
+    @transaction.atomic
+    def clear_stale_locks(self):
+        objects = self.model.objects
+        total_count = objects.count()
+        locked_count = objects.exclude(lock='').count()
+        logger.info(f'{locked_count} out of {total_count} jobs are locked')
+
+        all_jobs = objects.all().select_for_update()
+        expired_time = timezone.now() - self.EXPIRATION_PERIOD
+        expired_jobs = all_jobs.exclude(lock='').filter(tick__lte=expired_time)
+        revert_count = expired_jobs.filter(state='RUNNING').update(state='RESTART_READY')
+        expired_count = expired_jobs.update(lock='')
+        if expired_count:
+            logger.info(f'Cleared stale lock on {expired_count} jobs')
+            if revert_count: logger.info(f'Reverted {revert_count} RUNNING jobs to RESTART_READY')
+        elif locked_count:
+            logger.info(f'No stale locks (older than {self.EXPIRATION_PERIOD.total_seconds()} seconds)')
+
+
 class BalsamJob(models.Model):
     ''' A DB representation of a Balsam Job '''
 
-    version = IntegerVersionField() # optimistic lock
+    objects = models.Manager()
+    source = JobSource()
 
     job_id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
         editable=False)
-    allowed_work_sites = models.TextField(
-        'Allowed Work Sites',
-        help_text='Name of the Balsam instance(s) where this job can run.',
-        default='')
-    work_site = models.TextField(
-        'Actual work site',
-        help_text='Name of the Balsam instance that handled this job.',
-        default='')
 
     workflow = models.TextField(
         'Workflow Name',
@@ -137,11 +296,13 @@ class BalsamJob(models.Model):
         'Job Description',
         help_text='A description of the job.',
         default='')
+    lock = models.TextField(
+        'Process Lock',
+        help_text='{hostname}:{PID} set by process that currently owns the job',
+        default=''
+    )
+    tick = models.DateTimeField(auto_now_add=True)
 
-    working_directory = models.TextField(
-        'Local Job Directory',
-        help_text='Local working directory where job files are stored.',
-        default='')
     parents = models.TextField(
         'IDs of the parent jobs which must complete prior to the start of this job.',
         default='[]')
@@ -169,18 +330,24 @@ class BalsamJob(models.Model):
         'Job Wall Time in Minutes',
         help_text='The number of minutes the job is expected to take',
         default=1)
-    runtime_seconds = models.FloatField(
-        'Measured Job Execution Time in seconds',
-        help_text='The actual elapsed runtime of the job, measured by launcher.',
-        default=0.0)
     num_nodes = models.IntegerField(
         'Number of Compute Nodes',
         help_text='The number of compute nodes requested for this job.',
         default=1)
+    coschedule_num_nodes = models.IntegerField(
+        'Number of additional compute nodes to reserve alongside this job',
+        help_text='''Used by Balsam service only.  If a pilot job runs on one or a
+        few nodes, but requires additional worker nodes alongside it,
+        use this field to specify the number of additional nodes that will be
+        reserved by the service for this job.''',
+        default=0)
     ranks_per_node = models.IntegerField(
         'Number of ranks per node',
         help_text='The number of MPI ranks per node to schedule for this job.',
         default=1)
+    cpu_affinity = models.TextField(
+        'Cray CPU Affinity ("depth" or "none")',
+        default="depth")
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
         help_text='The number of OpenMP threads per MPI rank (if applicable)',
@@ -189,16 +356,16 @@ class BalsamJob(models.Model):
         'Number of hyperthreads per physical core (if applicable)',
         help_text='Number of hyperthreads per physical core.',
         default=1)
+    serial_node_packing_count = models.IntegerField(
+        'For serial (non-MPI) jobs only. How many to run concurrently on a node.',
+        help_text='Setting this field at 2 means two serial jobs will run at a '
+        'time on a node. This field is ignored for MPI jobs.',
+        default=16)
     environ_vars = models.TextField(
         'Environment variables specific to this job',
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
         default='')
     
-    scheduler_id = models.TextField(
-        'Scheduler ID',
-        help_text='Scheduler ID (if job assigned by metascheduler)',
-        default='')
-
     application = models.TextField(
         'Application to Run',
         help_text='The application to run; located in Applications database',
@@ -216,16 +383,6 @@ class BalsamJob(models.Model):
         "Balsam job launcher.",
         default='')
 
-    preprocess = models.TextField(
-        'Preprocessing Script',
-        help_text='A script that is run in a job working directory prior to submitting the job to the queue.'
-        ' If blank, will default to the default_preprocess script defined for the application.',
-        default='')
-    postprocess = models.TextField(
-        'Postprocessing Script',
-        help_text='A script that is run in a job working directory after the job has completed.'
-        ' If blank, will default to the default_postprocess script defined for the application.',
-        default='')
     wait_for_parents = models.BooleanField(
             'If True, do not process this job until parents are FINISHED',
             default=True)
@@ -254,23 +411,6 @@ class BalsamJob(models.Model):
         'Job State History',
         help_text="Chronological record of the job's states",
         default=history_line)
-
-    def _save_direct(self, force_insert=False, force_update=False, using=None, 
-             update_fields=None):
-        '''Override default Django save to ensure version always updated'''
-        if update_fields is not None: 
-            update_fields.append('version')
-        if self._state.adding:
-            update_fields = None
-        models.Model.save(self, force_insert, force_update, using, update_fields)
-
-    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        if settings.SAVE_CLIENT is None:
-            logger.info(f"direct save of {self.cute_id}")
-            self._save_direct(force_insert, force_update, using, update_fields)
-        else:
-            settings.SAVE_CLIENT.save(self, force_insert, force_update, using, update_fields)
-            self.refresh_from_db()
 
     @staticmethod
     def from_dict(d):
@@ -301,8 +441,6 @@ name:                   {self.name}
 workflow:               {self.workflow}
 latest state:           {self.get_recent_state_str()}
 description:            {self.description[:80]}
-work site:              {self.work_site} 
-allowed work sites:     {self.allowed_work_sites}
 working_directory:      {self.working_directory}
 parents:                {self.parents}
 input_files:            {self.input_files}
@@ -310,19 +448,15 @@ stage_in_url:           {self.stage_in_url}
 stage_out_url:          {self.stage_out_url}
 stage_out_files:        {self.stage_out_files}
 wall_time_minutes:      {self.wall_time_minutes}
-actual_runtime:         {self.runtime_str()}
 num_nodes:              {self.num_nodes}
 threads per rank:       {self.threads_per_rank}
 threads per core:       {self.threads_per_core}
 ranks_per_node:         {self.ranks_per_node}
-scheduler_id:           {self.scheduler_id}
 application:            {self.application if self.application else 
                             self.direct_command}
 args:                   {self.application_args}
 envs:                   {self.environ_vars}
 created with qsub:      {bool(self.direct_command)}
-preprocess override:    {self.preprocess}
-postprocess override:   {self.postprocess}
 post handles error:     {self.post_error_handler}
 post handles timeout:   {self.post_timeout_handler}
 auto timeout retry:     {self.auto_timeout_retry}
@@ -349,10 +483,10 @@ auto timeout retry:     {self.auto_timeout_retry}
     
     @property
     def app_cmd(self):
-        if self.application:
-            app = ApplicationDefinition.objects.get(name=self.application)
+        try:
+            app = self.get_application()
             line = f"{app.executable} {self.application_args}"
-        else:
+        except NoApplication:
             line = f"{self.direct_command} {self.application_args}"
         return ' '.join(os.path.expanduser(w) for w in line.split())
 
@@ -386,10 +520,30 @@ auto timeout retry:     {self.auto_timeout_retry}
         self.save(update_fields=['parents'])
 
     def get_application(self):
-        if self.application:
-            return ApplicationDefinition.objects.get(name=self.application)
-        else:
+        if not self.application: 
             raise NoApplication
+        elif self.application in _app_cache:
+            return _app_cache[self.application]
+        else:
+            app = ApplicationDefinition.objects.get(name=self.application)
+            _app_cache[self.application] = app
+            return app
+
+    @property
+    def preprocess(self):
+        try:
+            app = self.get_application()
+            return app.preprocess
+        except NoApplication:
+            return ''
+    
+    @property
+    def postprocess(self):
+        try:
+            app = self.get_application()
+            return app.postprocess
+        except NoApplication:
+            return ''
 
     @staticmethod
     def parse_envstring(s):
@@ -402,23 +556,14 @@ auto timeout retry:     {self.auto_timeout_retry}
         keywords = 'BALSAM DJANGO PYTHON'.split()
         envs = {var:value for var,value in os.environ.items() 
                 if any(keyword in var for keyword in keywords)}
-        try:
-            app = self.get_application()
-        except NoApplication:
-            app = None
-        if app and app.environ_vars:
-            app_vars = self.parse_envstring(app.environ_vars)
-            envs.update(app_vars)
+        
         if self.environ_vars:
             job_vars = self.parse_envstring(self.environ_vars)
             envs.update(job_vars)
     
-        children = self.get_children_by_id()
-        children = json.dumps([str(c) for c in children])
         balsam_envs = dict(
             BALSAM_JOB_ID=str(self.pk),
             BALSAM_PARENT_IDS=str(self.parents),
-            BALSAM_CHILD_IDS=children,
         )
 
         if self.threads_per_rank > 1:
@@ -429,29 +574,50 @@ auto timeout retry:     {self.auto_timeout_retry}
         envs.update(balsam_envs)
         return envs
 
-    def update_state(self, new_state, message='',using=None):
+    @classmethod
+    @transaction.atomic
+    def batch_update_state(cls, pk_list, new_state, message=''):
+        try:
+            exists = pk_list.exists()
+        except AttributeError:
+            exists = bool(pk_list)
+        if not exists: return
+
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 
-        # If already exists
-        if not self._state.adding:
-            self.refresh_from_db()
-        if self.state == 'USER_KILLED': return
+        update_jobs = cls.objects.filter(job_id__in=pk_list).select_for_update()
+        update_jobs = update_jobs.exclude(state='USER_KILLED')
 
-        self.state_history += history_line(new_state, message)
+        #states = cls.objects.filter(job_id__in=pk_list).values_list('job_id', 'state')
+        #assert len(states) == len(pk_list)
+        #update_ids = [jid for (jid,state) in states if state != 'USER_KILLED']
+
+        #update_jobs = cls.objects.filter(job_id__in=update_ids)
+        msg = history_line(new_state, message)
+
+        update_jobs.update(state=new_state,
+                           state_history=Concat('state_history', V(msg))
+                          )
+
+    def update_state(self, new_state, message=''):
+        if new_state not in STATES:
+            raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
+        msg = history_line(new_state, message)
         self.state = new_state
-        try:
-            self.save(update_fields=['state', 'state_history'],using=using)
-        except RecordModifiedError:
-            self.refresh_from_db()
-            if self.state == 'USER_KILLED' and new_state != 'USER_KILLED':
-                return
-            elif new_state == 'USER_KILLED':
-                self.state_history += history_line(new_state, message)
-                self.state = new_state
-                self.save(update_fields=['state', 'state_history'],using=using)
-            else:
-                raise
+        self.state_history += msg
+        self.save(update_fields=['state', 'state_history'])
+
+    @classmethod
+    @transaction.atomic
+    def release_all_locks(cls):
+        running_jobs = cls.objects.all().select_for_update().filter(state='RUNNING')
+        msg = history_line('RUN_TIMEOUT', 'reverted')
+        running_jobs.update(state='RUN_TIMEOUT',
+                            state_history=Concat('state_history', V(msg)))
+        cls.objects.all().select_for_update().update(lock='')
+
+
 
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()
@@ -464,38 +630,30 @@ auto timeout retry:     {self.auto_timeout_retry}
         else:
             return open(path).read()
 
-    def runtime_str(self):
-        minutes, seconds = divmod(self.runtime_seconds, 60)
-        hours, minutes = divmod(minutes, 60)
-        hours, minutes = round(hours), round(minutes)
-        if hours: return f"{hours:02d} hr : {minutes:02d} min : {seconds:05.2f} sec"
-        else: return f"{minutes:02d} min : {seconds:05.2f} sec"
-
     def get_state_times(self):
         matches = STATE_TIME_PATTERN.findall(self.state_history)
         return {state: datetime.strptime(timestr, TIME_FMT)
                 for timestr, state in matches
                }
 
-    def create_working_path(self):
+    @property
+    def runtime_seconds(self):
+        times = self.get_state_times()
+        t0 = times.get('RUNNING', None) 
+        t1 = times.get('RUN_DONE', None) 
+        if t0 and t1:
+            return (t1-t0).total_seconds()
+        else:
+            return None
+
+    @property
+    def working_directory(self):
         top = settings.BALSAM_WORK_DIRECTORY
         if self.workflow:
             top = os.path.join(top, self.workflow)
         name = self.name.strip().replace(' ', '_')
         name += '_' + str(self.pk)[:8]
         path = os.path.join(top, name)
-
-        if os.path.exists(path):
-            jid = str(self.pk)[8:]
-            path += jid[0]
-            i = 1
-            while os.path.exists(path):
-                path += jid[i]
-                i += 1
-                
-        os.makedirs(path)
-        self.working_directory = path
-        self.save(update_fields=['working_directory'])
         return path
 
     def to_dict(self):
@@ -538,17 +696,13 @@ class ApplicationDefinition(models.Model):
         'Executable',
         help_text='The executable and path need to run this application on the local system.',
         default='')
-    default_preprocess = models.TextField(
+    preprocess = models.TextField(
         'Preprocessing Script',
         help_text='A script that is run in a job working directory prior to submitting the job to the queue.',
         default='')
-    default_postprocess = models.TextField(
+    postprocess = models.TextField(
         'Postprocessing Script',
         help_text='A script that is run in a job working directory after the job has completed.',
-        default='')
-    environ_vars = models.TextField(
-        'Environment variables specific to this application',
-        help_text="Colon-separated list of envs like VAR1=value2:VAR2=value2",
         default='')
 
     def __str__(self):
@@ -559,9 +713,8 @@ PK:             {self.pk}
 Name:           {self.name}
 Description:    {self.description}
 Executable:     {self.executable}
-Preprocess:     {self.default_preprocess}
-Postprocess:    {self.default_postprocess}
-Envs:           {self.environ_vars}
+Preprocess:     {self.preprocess}
+Postprocess:    {self.postprocess}
 '''.strip() + '\n'
 
     @property

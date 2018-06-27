@@ -10,9 +10,6 @@ except:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     from balsam.django_config.serverinfo import ServerInfo
 
-def sqlite3_init(serverInfo):
-    pass
-
 def postgres_init(serverInfo):
     db_path = serverInfo['balsamdb_path']
     db_path = os.path.join(db_path, 'balsamdb')
@@ -63,8 +60,8 @@ def run_migrations():
     db_info = db.connection.settings_dict['NAME']
     print(f"Setting up new balsam database:")
     pprint(db_info, width=60)
-    call_command('makemigrations', interactive=False, verbosity=0)
-    call_command('migrate', interactive=False, verbosity=0)
+    call_command('makemigrations', interactive=False, verbosity=2)
+    call_command('migrate', interactive=False, verbosity=2)
     refresh_db_index()
 
     try:
@@ -81,9 +78,7 @@ if __name__ == "__main__":
     serverInfo = ServerInfo(sys.argv[1])
     db_type = serverInfo['db_type']
 
-    if db_type == 'sqlite3':
-        sqlite3_init(serverInfo)
-    elif db_type == 'postgres':
+    if db_type == 'postgres':
         postgres_init(serverInfo)
     else:
         raise RuntimeError(f'init doesnt support DB type {db_type}')
@@ -91,4 +86,5 @@ if __name__ == "__main__":
     run_migrations()
     if db_type == 'postgres':
         postgres_post(serverInfo)
-        print("OK")
+        basename = os.path.basename(sys.argv[1])
+        print(f"Balsam init OK: use 'source balsamactivate {basename}' to begin working")
