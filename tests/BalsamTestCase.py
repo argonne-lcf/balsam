@@ -12,7 +12,7 @@ class BalsamTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         test_db_path = os.environ['BALSAM_DB_PATH']
-        assert 'test' in test_db_path
+        assert 'testdb' in test_db_path
 
         call_command('makemigrations',interactive=False,verbosity=0)
         call_command('migrate',interactive=False,verbosity=0)

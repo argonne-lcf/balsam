@@ -13,6 +13,7 @@ actions and is guaranteed to execute only once through the EXIT_FLAG global
 flag.
 '''
 import argparse
+from collections import defaultdict
 from importlib.util import find_spec
 from math import floor
 import os
@@ -25,6 +26,7 @@ import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
 django.setup()
 from django.conf import settings
+from django import db
 
 import logging
 logger = logging.getLogger('balsam.launcher')
@@ -35,6 +37,8 @@ from balsam.launcher import worker
 from balsam.launcher.util import remaining_time_minutes, delay_generator
 from balsam.launcher.exceptions import *
 from balsam.scripts.cli import config_launcher_subparser
+from balsam.service import models
+BalsamJob = models.BalsamJob
 
 EXIT_FLAG = False
 
@@ -64,7 +68,7 @@ class MPIRun:
                                cpu_affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
-        logger.info(f"{job.cute_id} running:\n{mpi_str}")
+        logger.info(f"{job.cute_id} running:\n{mpi_str} on workers {workers}")
         self.outfile = open(outname, 'w+b')
         self.process = subprocess.Popen(
                 args=mpi_str.split(),
@@ -101,13 +105,20 @@ class MPILauncher:
         self.timer = remaining_time_minutes(time_limit_minutes)
         self.delayer = delay_generator()
         self.last_report = 0
+        self.exit_counter = 0
         self.mpi_runs = []
-        self.main()
 
     def time_step(self):
         '''Pretty log of remaining time'''
+        global EXIT_FLAG
+
         next(self.delayer)
-        minutes_left = next(self.timer)
+        try:
+            minutes_left = next(self.timer)
+        except StopIteration:
+            EXIT_FLAG = True
+            return
+
         if minutes_left > 1e12:
             return
         whole_minutes = floor(minutes_left)
@@ -124,7 +135,7 @@ class MPILauncher:
         if self.is_active: 
             return
         manager = self.jobsource
-        processable_count = manager.by_states(PROCESSABLE_STATES).count()
+        processable_count = manager.by_states(models.PROCESSABLE_STATES).count()
         if processable_count > 0: 
             return
         if self.get_runnable().count() > 0:
@@ -247,7 +258,7 @@ class MPILauncher:
         runnable = self.get_runnable()
         num_runnable = runnable.count()
         if num_runnable > 0:
-            logger.debug(f"{runnable_jobs.count()} runnable jobs")
+            logger.debug(f"{num_runnable} runnable jobs")
         else:
             logger.info('No runnable jobs')
             self.report_constrained()
@@ -259,7 +270,7 @@ class MPILauncher:
         for job in cache:
             workers = self.worker_group.request(job.num_nodes)
             if workers:
-                pre_assignments.append(job, workers)
+                pre_assignments.append((job, workers))
             else:
                 assert job.num_nodes > sum(w.num_nodes for w in self.worker_group.idle_workers())
                 break
@@ -348,7 +359,7 @@ class SerialLauncher:
 
         self.process.terminate()
         try:
-            self.process.wait(timeout=20)
+            self.process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             self.process.kill()
         self.outfile.close()

@@ -24,6 +24,8 @@ class Worker:
         self.num_nodes = num_nodes
         self.host_type = host_type
         self.idle = True
+    def __repr__(self):
+        return f"worker{self.id}"
 
 class WorkerGroup:
     '''Collection of Workers, constructed by passing in a specific host_type
@@ -124,4 +126,4 @@ class WorkerGroup:
         num_workers = settings.DEFAULT_NUM_WORKERS
         for i in range(num_workers):
             w = Worker(i, host_type='DEFAULT', num_nodes=1)
-        self.workers.append(w)
+            self.workers.append(w)
