@@ -194,6 +194,11 @@ class JobSource(models.Manager):
         if serial_only:
             assert max_nodes == 1
 
+        try:
+            remaining_minutes = int(remaining_minutes)
+        except:
+            remaining_minutes = 24 * 60
+
         runnable = self.by_states(RUNNABLE_STATES)
         runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes,
                                    num_nodes__lte=max_nodes)

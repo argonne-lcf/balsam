@@ -122,8 +122,5 @@ class WorkerGroup:
             self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1))
 
     def setup_DEFAULT(self):
-        from django.conf import settings
-        num_workers = settings.DEFAULT_NUM_WORKERS
-        for i in range(num_workers):
-            w = Worker(i, host_type='DEFAULT', num_nodes=1)
-            self.workers.append(w)
+        w = Worker(1, host_type='DEFAULT', num_nodes=1)
+        self.workers.append(w)
