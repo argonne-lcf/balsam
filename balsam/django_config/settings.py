@@ -34,6 +34,8 @@ def bootstrap():
         here = os.path.dirname(os.path.abspath(__file__))
         default_settings_path = os.path.join(here, 'default_settings.json')
         shutil.copy(default_settings_path, user_settings_path)
+        default_policy_path = os.path.join(here, 'theta.ini')
+        shutil.copy(default_policy_path, user_settings_path)
         print("Created Balsam JSON settings at", user_settings_path)
 
     thismodule = sys.modules[__name__]
@@ -85,7 +87,7 @@ def configure_db_backend(db_path):
 
     db = dict(ENGINE=ENGINES[db_type], NAME=db_name,
               OPTIONS=OPTIONS[db_type], USER=user, PASSWORD=password,
-              HOST=host, PORT=port, CONN_MAX_AGE=60)
+              HOST=host, PORT=port, CONN_MAX_AGE=None)
 
     DATABASES = {'default':db}
     return DATABASES

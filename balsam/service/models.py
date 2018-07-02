@@ -16,6 +16,9 @@ from django.db.models import Value as V
 from django.db.models import Q
 from django.db.models.functions import Concat
 
+from balsam.service.schedulers import Scheduler
+scheduler = Scheduler.scheduler_main
+
 logger = logging.getLogger('balsam.service.models')
 
 class InvalidStateError(ValidationError): pass
@@ -150,6 +153,14 @@ class JobSource(models.Manager):
         self.workflow = workflow
         self._lock_base = None
         self._pid = None
+        self.qLaunch = None
+
+        sched_id = scheduler.current_scheduler_id
+        if sched_id is not None:
+            try:
+                self.qLaunch = QueuedLaunch.get(scheduler_id=sched_id)
+            except ObjectDoesNotExist:
+                self.qLaunch = None
 
     @property
     def lock_base(self):
@@ -172,7 +183,9 @@ class JobSource(models.Manager):
     def get_queryset(self):
         queryset = super().get_queryset()
         queryset = queryset.filter(self.lockQuery)
-        if self.workflow:
+        if self.qLaunch:
+            queryset = queryset.filter(queued_launch=self.qLaunch)
+        elif self.workflow:
             queryset = queryset.filter(workflow=self.workflow)
         return queryset
 
@@ -417,6 +430,14 @@ class BalsamJob(models.Model):
         help_text="Chronological record of the job's states",
         default=history_line)
 
+    queued_launch = models.ForeignKey(
+        'QueuedLaunch',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
+
     @staticmethod
     def from_dict(d):
         job = BalsamJob()
@@ -436,27 +457,28 @@ class BalsamJob(models.Model):
         assert type(job.job_id) == uuid.UUID
         return job
 
-
-    def __str__(self):
+    def __repr__(self):
         return f'''
-Balsam Job
+BalsamJob {self.pk}
 ----------
-ID:                     {self.pk}
 name:                   {self.name} 
 workflow:               {self.workflow}
-latest state:           {self.get_recent_state_str()}
+state:                  {self.state}
+leased:                 {bool(self.lock)} {("last renewal " + str((timezone.now()-self.tick).total_seconds()) + " seconds ago") if self.lock else ''}
 description:            {self.description[:80]}
 working_directory:      {self.working_directory}
-parents:                {self.parents}
+parents:                {self.parents} (wait: {self.wait_for_parents})
 input_files:            {self.input_files}
 stage_in_url:           {self.stage_in_url}
 stage_out_url:          {self.stage_out_url}
 stage_out_files:        {self.stage_out_files}
 wall_time_minutes:      {self.wall_time_minutes}
 num_nodes:              {self.num_nodes}
+coschedule_nodes:       {self.coschedule_num_nodes}
+ranks_per_node:         {self.ranks_per_node}
 threads per rank:       {self.threads_per_rank}
 threads per core:       {self.threads_per_core}
-ranks_per_node:         {self.ranks_per_node}
+cpu affinity:           {self.cpu_affinity}
 application:            {self.application if self.application else 
                             self.direct_command}
 args:                   {self.application_args}
@@ -710,11 +732,10 @@ class ApplicationDefinition(models.Model):
         help_text='A script that is run in a job working directory after the job has completed.',
         default='')
 
-    def __str__(self):
+    def __repr__(self):
         return f'''
-Application:
-------------
-PK:             {self.pk}
+Application {self.pk}:
+----------------
 Name:           {self.name}
 Description:    {self.description}
 Executable:     {self.executable}
@@ -725,3 +746,22 @@ Postprocess:    {self.postprocess}
     @property
     def cute_id(self):
         return f"[{self.name} | { str(self.pk)[:8] }]"
+
+class QueuedLaunch(models.Model):
+
+    ADVISORY_LOCK_ID = 1
+    scheduler_id = models.IntegerField()
+    state = models.TextField()
+
+    @classmethod
+    def acquire_advisory(self):
+        from django.db import connection
+        with connection.cursor() as cursor:
+            command = f"SELECT pg_try_advisory_lock({self.ADVISORY_LOCK_ID})"
+            cursor.execute(command)
+            row = cursor.fetchone()
+            row = ' '.join(map(str, row)).strip().lower()
+        if 'true' in row:
+            return True
+        else:
+            return False
