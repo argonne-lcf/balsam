@@ -116,9 +116,8 @@ def remaining_time_minutes(time_limit_minutes=0.0):
         elapsed_timer = elapsed_time_minutes()
         get_remaining = lambda: time_limit_minutes - next(elapsed_timer)
     else:
-        from balsam.service.schedulers import Scheduler
-        scheduler = Scheduler.scheduler_main
-        get_remaining = lambda: scheduler.remaining_time_seconds() / 60.0
+        from balsam.service.schedulers import JobEnv
+        get_remaining = lambda: JobEnv.remaining_time_seconds() / 60.0
 
     while True:
         remaining_min = get_remaining()

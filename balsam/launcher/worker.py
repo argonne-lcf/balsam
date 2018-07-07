@@ -1,5 +1,5 @@
 '''Worker: Abstraction for the compute unit running a job.
-Cray: 1 worker = 1 node
+Theta: 1 worker = 1 node
 BG/Q: 1 worker = 1 subblock
 Default: 1 worker = local host machine
 
@@ -37,7 +37,7 @@ class WorkerGroup:
         '''Initialize WorkerGroup
         
         Args:
-            - ``host_type``: one of CRAY, BGQ, COOLEY, DEFAULT
+            - ``host_type``: one of THETA, BGQ, COOLEY, DEFAULT
             - ``workers_str``: system-specific string identifying compute
               resources
             - ``workers_file``: system-specific file identifying compute
@@ -84,11 +84,11 @@ class WorkerGroup:
     def __getitem__(self, i):
         return self.workers[i]
 
-    def setup_CRAY(self):
+    def setup_THETA(self):
         # workers_str is string like: 1001-1005,1030,1034-1200
         node_ids = []
         if not self.workers_str:
-            raise ValueError("Cray WorkerGroup needs workers_str to setup")
+            raise ValueError("Theta WorkerGroup needs workers_str to setup")
             
         ranges = self.workers_str.split(',')
         for node_range in ranges:
@@ -100,7 +100,7 @@ class WorkerGroup:
             else:
                 node_ids.append(lo)
         for id in node_ids:
-            self.workers.append(Worker(id, host_type='CRAY', num_nodes=1))
+            self.workers.append(Worker(id, host_type='THETA', num_nodes=1))
 
     def setup_BGQ(self):
         # Boot blocks

@@ -1,17 +1,28 @@
-pack_method = dummy_pack
+from balsam.service import models
+BalsamJob = models.BalsamJob
+QueuedLaunch = models.QueuedLaunch
 
-def pack(queues):
-    qlaunch, balsamjobs = pack_method(queues)
-    qlaunch.save()
-    jobs = BalsamJob.objects.filter(pk__in=balsamjobs)
-    jobs.update(queued_launch=qlaunch)
+_pack_jobs = dummy_pack
 
-def dummy_pack(queues):
-    count = models.QueuedLaunch.objects.count()
-    if count >= 1: return
+def create_qlaunch(jobs, queues):
+    qlaunch, to_launch = _pack_jobs(jobs, queues)
+    if qlaunch:
+        qlaunch.save()
+        num = BalsamJob.objects.filter(pk__in=to_launch).update(queued_launch=qlaunch)
+        logger.info(f'Scheduled {num} jobs in {qlaunch}')
+        return qlaunch
+    else:
+        return None
+
+def dummy_pack(jobs, queues):
+    '''Input: jobs (queryset of scheduleable jobs), queues(states of all queued
+    jobs); Return: a qlaunch object (from which launcher qsub can be generated),
+    and list/queryset of jobs scheduled for that launch'''
+    if queues.num_queued >= 1: return None, 0
     qname = queues.names[0]
     qlaunch = QueuedLaunch(queue=qname,
                            nodes=4,
                            job_mode='mpi',
                            time_minutes=10)
-    return qlaunch, BalsamJob.objects.all()
+    jobs = jobs.all()
+    return qlaunch, jobs

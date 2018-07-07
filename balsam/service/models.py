@@ -16,8 +16,7 @@ from django.db.models import Value as V
 from django.db.models import Q
 from django.db.models.functions import Concat
 
-from balsam.service.schedulers import Scheduler
-scheduler = Scheduler.scheduler_main
+from balsam.service.schedulers import JobEnv
 
 logger = logging.getLogger('balsam.service.models')
 
@@ -155,7 +154,7 @@ class JobSource(models.Manager):
         self._pid = None
         self.qLaunch = None
 
-        sched_id = scheduler.current_scheduler_id
+        sched_id = JobEnv.current_scheduler_id
         if sched_id is not None:
             try:
                 self.qLaunch = QueuedLaunch.get(scheduler_id=sched_id)
@@ -750,8 +749,14 @@ Postprocess:    {self.postprocess}
 class QueuedLaunch(models.Model):
 
     ADVISORY_LOCK_ID = 1
+    queue = models.TextField()
+    nodes = models.IntegerField()
+    wall_minutes = models.IntegerField()
+    job_mode = models.TextField()
+    wf_filter = models.TextField()
+    serial_jobs_per_node = models.IntegerField(default=1)
     scheduler_id = models.IntegerField()
-    state = models.TextField()
+    state = models.TextField(default='pending-submission')
 
     @classmethod
     def acquire_advisory(self):
@@ -760,8 +765,11 @@ class QueuedLaunch(models.Model):
             command = f"SELECT pg_try_advisory_lock({self.ADVISORY_LOCK_ID})"
             cursor.execute(command)
             row = cursor.fetchone()
-            row = ' '.join(map(str, row)).strip().lower()
+        row = ' '.join(map(str, row)).strip().lower()
         if 'true' in row:
             return True
         else:
             return False
+
+    def __repr__(self):
+        return f'''Qlaunch<queue {self.queue}, {self.nodes} nodes, {self.wall_minutes} minutes, job-mode:{self.job_mode}, schedulerID:{self.scheduler_id}, state:{self.state}>'''

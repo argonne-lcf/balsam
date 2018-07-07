@@ -22,7 +22,7 @@ def sig_handler(signum, stack):
 class ServiceManager:
 
     def __init__(self, args):
-        self.delayer = delay_generator()
+        self.delayer = delay_generator(period=5)
         self.queues = QueueManager()
         pass
 
@@ -36,36 +36,34 @@ class ServiceManager:
     def assign_nodehours(self):
         pass
 
-    def create_qlaunch(self):
+    def to_schedule(self):
+        return BalsamJob.objects.filter(lock='')
 
-
-    def refresh(self):
-        for q in self.queues:
-            q.status_update()
+    def refresh_qlaunches(self):
+        self.queues.refresh()
 
         for qlaunch in models.QueuedLaunch.objects.all():
-            qname = qlaunch.queue_name
-            if qlaunch.scheduler_id in self.queues[qname]:
-                state = self.queues[qname][qlaunch.scheduler_id]
+            try:
+                state = self.queues.get_state(qlaunch)
+            except queues.LaunchNotQueued:
+                logger.info(f'{qlaunch} no longer in job queue; deleting')
+                qlaunch.delete()
+            else:
                 if state != qlaunch.state:
                     qlaunch.state = state
                     qlaunch.save()
                     logger.info(f'{qlaunch} now in state: {state}')
-            else:
-                logger.info(f'{qlaunch} no longer in job queue; deleting')
-                qlaunch.delete()
 
     def update(self):
         next(self.delayer)
         self.argo_sync()
         self.update_perf_models()
         self.assign_nodehours()
-        self.refresh()
-        slaunch = self.create_schedLaunch()
-        if slaunch:
-            script = JobScript(slaunch)
-            self.queues[qname].submit(script)
-
+        self.refresh_qlaunches()
+        qlaunch = jobpacker.create_qlaunch(self.to_schedule(), self.queues)
+        if qlaunch:
+            script = JobScript(qlaunch)
+            self.queues[qlaunch.qname].submit(script)
 
 def main(args):
     signal.signal(signal.SIGINT,  sig_handler)
@@ -82,7 +80,7 @@ def main(args):
     try:
         while not EXIT_FLAG:
             manager.update()
-            time.sleep(manager.DELAY)
+            QueuedLaunch.acquire_advisory()
     except:
         raise
     finally:

@@ -3,6 +3,8 @@ import configparser
 import json
 from collections import namedtuple
 
+class LaunchNotQueued(Exception): pass
+
 QRule = namedtuple('QRule', ['min_nodes', 'max_nodes', 'min_time', 'max_time'])
 
 class JobQueue:
@@ -16,6 +18,10 @@ class JobQueue:
 
     def __repr__(self):
         return f'{self.name} submit:{self.submit_jobs} maxQueued:{self.max_queued}'
+
+    @property
+    def num_queueable(self):
+        return self.max_queued - len(self.jobs)
 
     def addRule(self, min_nodes, max_nodes, min_time, max_time):
         self.rules.append(QRule(min_nodes, max_nodes, min_time, max_time))
@@ -51,6 +57,13 @@ class QueueManager:
     def names(self):
         return list(self.queues.keys())
 
+    @property
+    def jobqueues(self):
+        return list(self.queues.values())
+
+    @property
+    def num_queued(self):
+        return sum(len(q) for q in self.jobqueues)
 
     def add_from_config(self, queue_name, qconf):
         try:
@@ -72,3 +85,10 @@ class QueueManager:
             logger.error(f'Failed to parse policy for {queue_name}: {e}')
         else:
             self.queues[queue_name] = q
+
+    def refresh(self):
+        queuedict = scheduler.jobs_byqueue()
+        for qname in queuedict:
+            if qname in self.names: 
+                jobs = queuedict[qname]
+                self.queues[queue].jobs = jobs

@@ -117,13 +117,14 @@ if not os.path.exists(pg_db_path) and 'BALSAM_BOOTSTRAP' not in os.environ:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGGING_DIRECTORY = os.path.join(BALSAM_PATH , 'log') 
 DATA_PATH = os.path.join(BALSAM_PATH ,'data')
+SERVICE_PATH = os.path.join(BALSAM_PATH ,'qsubmit')
 BALSAM_WORK_DIRECTORY = DATA_PATH
 
 for d in [
       BALSAM_PATH ,
       DATA_PATH,
       LOGGING_DIRECTORY,
-      BALSAM_WORK_DIRECTORY,
+      SERVICE_PATH
 ]:
     if not os.path.exists(d):
         os.makedirs(d)
