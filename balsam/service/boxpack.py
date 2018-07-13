@@ -117,11 +117,11 @@ class BinPacker:
         plt.show()
 
 def main_draw():
-    NUM_RECT = 500
+    NUM_RECT = 5000
     XMAX, YMAX = 2048, 1440
-    RECT_XRANGE = (16, 128)
-    RECT_YRANGE = (30, 100)
-    DRAW_INTERVAL = 50
+    RECT_XRANGE = (2, 128)
+    RECT_YRANGE = (30, 180)
+    DRAW_INTERVAL = 200
     packer = BinPacker(XMAX, YMAX)
     rects = [Rect.rand_rect(RECT_XRANGE, RECT_YRANGE) for i in range(NUM_RECT)]
 
@@ -130,16 +130,17 @@ def main_draw():
         for tot, r in enumerate(sorted(rects, key = lambda r: r.xdim, reverse=True), 1): 
             packer.try_place(r)
             if tot % DRAW_INTERVAL == 0: packer.report(draw=True)
+            print(tot)
     except KeyboardInterrupt:
         elapsed = time.time() - start
         print(f'packed {tot} in {elapsed} seconds')
         packer.report(draw=True)
 
 def main_prof():
-    NUM_RECT = 500
-    XMAX, YMAX = 1024, 600
-    RECT_XRANGE = (2, 64)
-    RECT_YRANGE = (30, 100)
+    NUM_RECT = 600
+    XMAX, YMAX = 2048, 1440
+    RECT_XRANGE = (2, 128)
+    RECT_YRANGE = (30, 180)
     packer = BinPacker(XMAX, YMAX)
     rects = [Rect.rand_rect(RECT_XRANGE, RECT_YRANGE) for i in range(NUM_RECT)]
     for r in sorted(rects, key = lambda r: r.xdim, reverse=True): 
@@ -156,5 +157,5 @@ def pack():
     packer.shrink_y_to_fit()
     packer.report(draw=True)
 
-#cProfile.run('main_prof()', sort='cumtime')
-pack()
+cProfile.run('main_prof()', sort='cumtime')
+#main_draw()

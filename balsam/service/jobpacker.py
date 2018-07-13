@@ -26,3 +26,7 @@ def dummy_pack(jobs, queues):
                            time_minutes=10)
     jobs = jobs.all()
     return qlaunch, jobs
+
+def box_pack(jobs, queues):
+    for q in queues:
+

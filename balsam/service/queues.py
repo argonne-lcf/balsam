@@ -5,15 +5,13 @@ from collections import namedtuple
 
 class LaunchNotQueued(Exception): pass
 
-QRule = namedtuple('QRule', ['min_nodes', 'max_nodes', 'min_time', 'max_time'])
-
 class JobQueue:
 
     def __init__(self, queue_name, submit_jobs, max_queued):
         self.name = queue_name
         self.submit_jobs = submit_jobs
         self.max_queued = max_queued
-        self.rules = []
+        self.rules = {}
         self.jobs = []
 
     def __repr__(self):
@@ -24,7 +22,9 @@ class JobQueue:
         return self.max_queued - len(self.jobs)
 
     def addRule(self, min_nodes, max_nodes, min_time, max_time):
-        self.rules.append(QRule(min_nodes, max_nodes, min_time, max_time))
+        key = (min_nodes, max_nodes)
+        val = (min_time, max_time)
+        self.rules[key] = val
 
     def status_update(self):
         pass
