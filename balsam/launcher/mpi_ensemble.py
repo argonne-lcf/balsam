@@ -7,6 +7,7 @@ import sys
 import logging
 import django
 import random
+import shlex
 import signal
 import time
 from socket import gethostname
@@ -390,7 +391,7 @@ class Worker:
         cmd = job_dict['cmd']
         envs = job_dict['envs']
 
-        if type(cmd) is str: cmd = cmd.split()
+        if type(cmd) is str: cmd = shlex.split(cmd)
 
         # GPU: COOLEY SPECIFIC RIGHT NOW
         if self.gpus_per_node > 0:
