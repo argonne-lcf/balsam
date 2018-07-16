@@ -97,8 +97,6 @@ def newjob(args):
 
     job.application = args.application
     job.application_args = ' '.join(args.args)
-    job.preprocess = args.preprocessor
-    job.postprocess = args.postprocessor
     job.post_error_handler = args.post_handle_error
     job.post_timeout_handler = args.post_handle_timeout
     job.auto_timeout_retry = not args.disable_auto_timeout_retry
