@@ -37,7 +37,7 @@ class ServiceManager:
         pass
 
     def to_schedule(self):
-        return BalsamJob.objects.filter(lock='')
+        return BalsamJob.objects.filter(lock='',queued_launch=None)
 
     def refresh_qlaunches(self):
         self.queues.refresh()

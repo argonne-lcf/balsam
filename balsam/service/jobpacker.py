@@ -28,5 +28,7 @@ def dummy_pack(jobs, queues):
     return qlaunch, jobs
 
 def box_pack(jobs, queues):
+    # gather serial jobs; group by serial_node_packing_count
+    # required nodes = num_nodes + coschedule_num_nodes
+    # schedule a fork_ensemble for each group
     for q in queues:
-

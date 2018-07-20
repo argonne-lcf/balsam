@@ -10,9 +10,8 @@ workers available in the current launcher instance'''
 import logging
 logger = logging.getLogger(__name__)
 
-from balsam.service.schedulers import Scheduler
+from balsam.service.schedulers import scheduler
 from balsam.launcher import mpi_commands
-scheduler = Scheduler.scheduler_main
 
 class Worker:
     def __init__(self, id, *, shape=None, block=None, corner=None,
@@ -49,8 +48,7 @@ class WorkerGroup:
         self.workers = []
         self.setup = getattr(self, f"setup_{self.host_type}")
         self.setup()
-        MPICommand = getattr(mpi_commands, f"{self.host_type}MPICommand")
-        self.mpi_cmd = MPICommand()
+        self.mpi_cmd = mpi_commands.MPIcmd()
 
         logger.info(f"Built {len(self.workers)} {self.host_type} workers")
         for worker in self.workers:

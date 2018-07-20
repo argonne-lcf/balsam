@@ -337,9 +337,8 @@ def launcher(args):
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
     command = [sys.executable] + [fname] + original_args
-    print("Starting Balsam launcher")
     p = subprocess.Popen(command)
-    p.wait()
+    print(f"Started Balsam launcher [{p.pid}]")
 
 def service(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'

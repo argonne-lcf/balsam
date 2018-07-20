@@ -101,6 +101,8 @@ class MPILauncher:
         self.jobsource.start_tick()
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
+        os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
+        os.environ['BALSAM_SERIAL_RPN'] = "0"
 
         self.timer = remaining_time_minutes(time_limit_minutes)
         self.delayer = delay_generator()
@@ -225,7 +227,7 @@ class MPILauncher:
 
         return manager.get_runnable(max_nodes=num_idle,
                                     remaining_minutes=remaining_minutes,
-                                    order_by='num_nodes')
+                                    order_by='-num_nodes')
 
     def report_constrained(self):
         now = time.time()
@@ -264,8 +266,8 @@ class MPILauncher:
             self.report_constrained()
             return
 
-        # pre-assign jobs to nodes (ascending order of node count)
-        cache = list(runnable[:max_acquire])
+        # pre-assign jobs to nodes (descending order of node count)
+        cache = list(runnable)
         pre_assignments = []
         for job in cache:
             workers = self.worker_group.request(job.num_nodes)
@@ -325,6 +327,8 @@ class SerialLauncher:
         minutes_left = max(0.1, next(timer) - 1)
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
+        os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
+        os.environ['BALSAM_SERIAL_RPN'] = str(self.fork_rpn)
 
         self.app_cmd = f"{sys.executable} {self.MPI_ENSEMBLE_EXE}"
         self.app_cmd += f" --time-limit-min={minutes_left}"
