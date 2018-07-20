@@ -16,7 +16,7 @@ def refresh_db_index():
     cur_db = os.path.abspath(os.path.expanduser(cur_db))
     if cur_db not in db_list: db_list.append(cur_db)
 
-    for i, db in enumerate(db_list[:]):
+    for i, db in reversed(list(enumerate(db_list[:]))):
         if not os.path.exists(db): del db_list[i]
     with open(index_path, 'w') as fp: json.dump(db_list, fp, indent=1)
     return db_list
