@@ -6,6 +6,15 @@ import bisect
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+cdef int any_occupied(int [:,:] a, int x1, int x2, int y1, int y2):
+    cdef int ix, iy
+    for ix in range(x1, x2+1):
+        for iy in range(y1, y2+1):
+            if a[ix, iy]: return 1
+    return 0
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef int bisect_left(double [:] a, int n,  double x):
     cdef Py_ssize_t lo, hi, mid
     lo = 0
@@ -68,7 +77,6 @@ class BinPacker:
         cdef double ul_x, ul_y, br_x, br_y
         cdef double [:] splits_x
         cdef double [:] splits_y
-        cdef int failed_place = 0
         cdef int nsplits_x, nsplits_y
 
         splits_x = self.splits_x
@@ -92,16 +100,7 @@ class BinPacker:
                 if br_x > max_x or br_y > max_y: continue
                 br_ix = bisect_left(splits_x, nsplits_x, br_x) - 1 # using custom-C bisect is performance-critical
                 br_iy = bisect_left(splits_y, nsplits_y, br_y) - 1
-                failed_place = 0
-                for i in range(ix, br_ix+1):
-                    for j in range(iy, br_iy+1):
-                        if grid[i,j]:
-                            failed_place = 1
-                            break
-                    if failed_place: break
-                if failed_place: 
-                    continue
-                else:
+                if not any_occupied(grid, ix, br_ix, iy, br_iy):
                     self.add_rect(ix, iy, br_x, br_y, br_ix, br_iy)
                     ul = self.splits_x[ix], self.splits_y[iy]
                     self.placed_rects.append((ul, rect))

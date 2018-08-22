@@ -749,13 +749,13 @@ Postprocess:    {self.postprocess}
 class QueuedLaunch(models.Model):
 
     ADVISORY_LOCK_ID = 1
+    scheduler_id = models.IntegerField(primary_key=True)
     queue = models.TextField()
     nodes = models.IntegerField()
     wall_minutes = models.IntegerField()
     job_mode = models.TextField()
     wf_filter = models.TextField()
     serial_jobs_per_node = models.IntegerField(default=1)
-    scheduler_id = models.IntegerField()
     state = models.TextField(default='pending-submission')
 
     @classmethod

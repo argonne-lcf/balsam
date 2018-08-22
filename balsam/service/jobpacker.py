@@ -28,7 +28,11 @@ def dummy_pack(jobs, queues):
     return qlaunch, jobs
 
 def box_pack(jobs, queues):
-    # gather serial jobs; group by serial_node_packing_count
-    # required nodes = num_nodes + coschedule_num_nodes
-    # schedule a fork_ensemble for each group
+    # query parents and states
+    # tag jobs that can be placed now (no parents or parents finished)
+    # tag jobs with pending dependencies
+    # first pass: first-fit decreasing: filter placeable jobs only
+    # stack jobs in first column only
+    # fix  nodes, determine max walltime
+    # if any jobs longer than maxwalltime; filter out, then re-run
     for q in queues:

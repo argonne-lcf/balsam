@@ -135,7 +135,13 @@ class ResourceManager:
                 self.revert_assign(rank)
             self.job_cache.remove(job)
 
-        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', 'submitted in MPI Ensemble')
+        if self.job_source.qLaunch is not None:
+            sched_id = self.job_source.qLaunch.scheduler_id
+            message = f'Batch Scheduler ID: {sched_id}'
+        else:
+            message = 'Not scheduled by service'
+
+        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', message)
         MPI.Request.waitall(send_requests)
         return len(send_requests) > 0
 

@@ -289,7 +289,12 @@ class MPILauncher:
                 self.mpi_runs.append(run)
             else:
                 for w in workers: w.idle = True
-        BalsamJob.batch_update_state(acquired_pks, 'RUNNING')
+        if self.jobsource.qLaunch is not None:
+            sched_id = self.jobsource.qLaunch.scheduler_id
+            message = f'Batch Scheduler ID: {sched_id}'
+        else:
+            message = 'Not scheduled by service'
+        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', message=message)
 
     def run(self):
         '''Main Launcher service loop'''
