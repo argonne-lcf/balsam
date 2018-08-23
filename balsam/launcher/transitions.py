@@ -112,7 +112,7 @@ def main(num_threads, wf_name):
     manager = BalsamJob.source
     manager.workflow = wf_name
     time.sleep(random.random())
-    #manager.start_tick()
+    manager.start_tick()
 
     try:
         _main(num_threads)

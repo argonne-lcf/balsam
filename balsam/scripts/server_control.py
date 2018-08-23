@@ -36,6 +36,7 @@ def kill_server(info):
         subprocess.run(f"ssh {server_host} {stop_cmd}", shell=True)
     info.update(dict(host='', port='', active_clients=[]))
 
+
 def test_connection(info, raises=False):
     from balsam.launcher import dag
     from django.conf import settings
@@ -105,3 +106,15 @@ def start_main(db_path):
     if client_id not in active_clients:
         active_clients.append(client_id)
         info.update({'active_clients' : active_clients})
+
+def list_connections(db_path):
+    info = serverinfo.ServerInfo(db_path)
+    host = info['host']
+    port = info['port']
+    subprocess.run(
+        f'''psql -d balsam -h {host} -p {port} -c \
+        "SELECT pid,application_name,usename,state,substr(query, 1, 60),backend_type \
+        FROM pg_stat_activity WHERE datname = 'balsam';"
+        ''',
+        shell=True
+    )

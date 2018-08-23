@@ -332,6 +332,7 @@ def make_parser():
     group.add_argument('--connect', action='store_true')
     group.add_argument('--disconnect', action='store_true')
     group.add_argument('--reset', action='store_true')
+    group.add_argument('--list-active-connections', action='store_true')
     group.set_defaults(func=server)
 
     return parser

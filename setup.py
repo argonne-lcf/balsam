@@ -52,7 +52,7 @@ setup(
 
     packages=find_packages(exclude=['docs','__pycache__','data','experiments','log',]),
 
-    install_requires=['django', 'django-concurrency', 'pyzmq', 'filelock', 'jinja2', 'psycopg2-binary'],
+    install_requires=['django', 'jinja2', 'psycopg2-binary'],
 
     include_package_data=True,
 

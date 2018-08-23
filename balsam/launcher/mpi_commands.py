@@ -156,7 +156,7 @@ else:
     try:
         p = subprocess.Popen(['mpirun', '-npernode'], 
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        stdout, _ = try_mpich.communicate()
+        stdout, _ = p.communicate()
     except:
         logger.warning("Warning: Balsam cannot popen mpirun..proceed at your own risk")
         MPIcmd = MPICHCommand

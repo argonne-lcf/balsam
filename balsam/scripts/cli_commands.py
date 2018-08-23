@@ -421,6 +421,8 @@ def server(args):
         server_control.disconnect_main(db_path)
     elif args.reset:
         server_control.reset_main(db_path)
+    elif args.list_active_connections:
+        server_control.list_connections(db_path)
 
 def make_dummies(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'

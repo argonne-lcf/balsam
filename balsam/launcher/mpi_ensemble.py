@@ -275,7 +275,7 @@ def master_main(host_names):
     args = parse_args()
     job_source = BalsamJob.source
     job_source.workflow = args.wf_name
-    #job_source.start_tick()
+    job_source.start_tick()
     job_source.clear_stale_locks()
     if job_source.workflow:
         logger.info(f'MPI Ensemble pulling jobs with WF {args.wf_name}')
