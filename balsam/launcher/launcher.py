@@ -98,7 +98,7 @@ class MPILauncher:
             logger.info('Consuming all jobs from DB')
 
         self.jobsource.clear_stale_locks()
-        self.jobsource.start_tick()
+        #self.jobsource.start_tick()
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
