@@ -16,7 +16,6 @@ from django.db.models import Value as V
 from django.db.models import Q
 from django.db.models.functions import Concat
 
-from balsam.service.schedulers import JobEnv
 
 logger = logging.getLogger('balsam.service.models')
 
@@ -181,13 +180,17 @@ class JobSource(models.Manager):
         self._lock_base = None
         self._pid = None
         self.qLaunch = None
+        self._checked_qLaunch = False
 
+    def check_qLaunch(self):
+        from balsam.service.schedulers import JobEnv
         sched_id = JobEnv.current_scheduler_id
         if sched_id is not None:
             try:
                 self.qLaunch = QueuedLaunch.objects.get(scheduler_id=sched_id)
             except ObjectDoesNotExist:
                 self.qLaunch = None
+        self._checked_qLaunch = True
 
     @property
     def lock_base(self):
@@ -208,6 +211,8 @@ class JobSource(models.Manager):
             return f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4()}"
 
     def get_queryset(self):
+        if not self._checked_qLaunch: self.check_qLaunch()
+
         queryset = super().get_queryset()
         queryset = queryset.filter(self.lockQuery)
         if self.qLaunch:
@@ -225,7 +230,7 @@ class JobSource(models.Manager):
 
     def get_runnable(self, *, max_nodes, remaining_minutes=0, mpi_only=False,
                      serial_only=False, order_by=None):
-        if mpi_only and serial_only: 
+        if mpi_only and serial_only:
             raise ValueError("arguments mpi_only and serial_only are mutually exclusive")
 
         if max_nodes < 1:

@@ -1,5 +1,4 @@
 from balsam.django_config import serverinfo
-from filelock import FileLock
 import sys
 import time
 import socket
@@ -63,49 +62,46 @@ def reset_main(db_path):
     BalsamJob.release_all_locks()
 
     lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
-    with FileLock(lockfile, timeout=5):
-        info = serverinfo.ServerInfo(db_path)
-        kill_server(info)
+    info = serverinfo.ServerInfo(db_path)
+    kill_server(info)
 
 
 def disconnect_main(db_path):
     lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
-    with FileLock(lockfile, timeout=5):
-        info = serverinfo.ServerInfo(db_path)
+    info = serverinfo.ServerInfo(db_path)
 
-        local_host = socket.gethostname()
-        local_ps_list = ps_list()
-        client_id = [local_host, os.getppid()]
+    local_host = socket.gethostname()
+    local_ps_list = ps_list()
+    client_id = [local_host, os.getppid()]
 
-        active_clients = info.get('active_clients', [])
-        disconnected_clients = [cid for cid in active_clients
-                                if (cid[0] == local_host) and (cid[1] not in local_ps_list)]
-        disconnected_clients.append(client_id)
+    active_clients = info.get('active_clients', [])
+    disconnected_clients = [cid for cid in active_clients
+                            if (cid[0] == local_host) and (cid[1] not in local_ps_list)]
+    disconnected_clients.append(client_id)
 
-        active_clients = [cid for cid in active_clients if cid not in disconnected_clients]
-        info.update({'active_clients' : active_clients})
-        if len(active_clients) == 0:
-            kill_server(info)
+    active_clients = [cid for cid in active_clients if cid not in disconnected_clients]
+    info.update({'active_clients' : active_clients})
+    if len(active_clients) == 0:
+        kill_server(info)
 
 
 def start_main(db_path):
     lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
-    with FileLock(lockfile, timeout=5):
-        info = serverinfo.ServerInfo(db_path)
+    info = serverinfo.ServerInfo(db_path)
 
-        if not (info['host'] or info['port']):
-            launch_server(info)
-            test_connection(info, raises=True)
-        elif test_connection(info):
-            print("Connected to already running Balsam DB server!")
-        else:
-            print(f"Server at {info['host']}:{info['port']} isn't responsive; will try to kill and restart")
-            kill_server(info)
-            launch_server(info)
-            test_connection(info, raises=True)
+    if not (info['host'] or info['port']):
+        launch_server(info)
+        test_connection(info, raises=True)
+    elif test_connection(info):
+        print("Connected to already running Balsam DB server!")
+    else:
+        print(f"Server at {info['host']}:{info['port']} isn't responsive; will try to kill and restart")
+        kill_server(info)
+        launch_server(info)
+        test_connection(info, raises=True)
 
-        client_id = [socket.gethostname(), os.getppid()]
-        active_clients = info.get('active_clients', [])
-        if client_id not in active_clients:
-            active_clients.append(client_id)
-            info.update({'active_clients' : active_clients})
+    client_id = [socket.gethostname(), os.getppid()]
+    active_clients = info.get('active_clients', [])
+    if client_id not in active_clients:
+        active_clients.append(client_id)
+        info.update({'active_clients' : active_clients})

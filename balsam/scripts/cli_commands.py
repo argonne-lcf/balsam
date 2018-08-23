@@ -373,9 +373,6 @@ def init(args):
 
 
 def which(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
     from balsam.django_config.db_index import refresh_db_index
     from balsam.django_config.serverinfo import ServerInfo
     import pprint
@@ -404,13 +401,13 @@ def which(args):
             print(matches[0])
             sys.exit(0)
     else:
-        print("Current Balsam DB:", os.environ['BALSAM_DB_PATH'])
-        fields = 'HOST NAME PASSWORD PORT USER active_clients'.split()
-        dat = {}
-        dat.update(settings.DATABASES['default'])
-        dat.update(ServerInfo(os.environ['BALSAM_DB_PATH']).data)
-        dat = { k:v for k,v in dat.items() if k in fields}
-        pprint.pprint(dat)
+        db_path = os.environ.get('BALSAM_DB_PATH')
+        if db_path:
+            print("Current Balsam DB:", db_path)
+            dat = ServerInfo(os.environ['BALSAM_DB_PATH']).data
+            pprint.pprint(dat)
+        else:
+            print("BALSAM_DB_PATH is not set")
 
 def server(args):
     from balsam.scripts import server_control
