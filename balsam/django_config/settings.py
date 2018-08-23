@@ -30,12 +30,13 @@ def bootstrap():
         time.sleep(1)
 
     user_settings_path = os.path.join(BALSAM_HOME, 'settings.json')
+    user_policy_path = os.path.join(BALSAM_HOME, 'theta.ini')
     if not os.path.exists(user_settings_path):
         here = os.path.dirname(os.path.abspath(__file__))
         default_settings_path = os.path.join(here, 'default_settings.json')
         shutil.copy(default_settings_path, user_settings_path)
         default_policy_path = os.path.join(here, 'theta.ini')
-        shutil.copy(default_policy_path, user_settings_path)
+        shutil.copy(default_policy_path, user_policy_path)
         print("Created Balsam JSON settings at", user_settings_path)
 
     thismodule = sys.modules[__name__]
@@ -64,15 +65,12 @@ def resolve_db_path():
 
 def configure_db_backend(db_path):
     ENGINES = {
-        'sqlite3' : 'django.db.backends.sqlite3',
         'postgres': 'django.db.backends.postgresql_psycopg2',
     }
     NAMES = {
-        'sqlite3' : os.path.join(db_path, 'db.sqlite3'),
         'postgres': 'balsam',
     }
     OPTIONS = {
-        'sqlite3' : {'timeout' : 5000},
         'postgres' : {'connect_timeout' : 5},
     }
 

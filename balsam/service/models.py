@@ -142,6 +142,34 @@ def history_line(state='CREATED', message=''):
     return f"\n[{get_time_string()} {state}] ".rjust(46) + message
 
 
+class QueuedLaunch(models.Model):
+
+    ADVISORY_LOCK_ID = 1
+    scheduler_id = models.IntegerField(primary_key=True)
+    queue = models.TextField()
+    nodes = models.IntegerField()
+    wall_minutes = models.IntegerField()
+    job_mode = models.TextField()
+    wf_filter = models.TextField()
+    serial_jobs_per_node = models.IntegerField(default=1)
+    state = models.TextField(default='pending-submission')
+
+    @classmethod
+    def acquire_advisory(self):
+        from django.db import connection
+        with connection.cursor() as cursor:
+            command = f"SELECT pg_try_advisory_lock({self.ADVISORY_LOCK_ID})"
+            cursor.execute(command)
+            row = cursor.fetchone()
+        row = ' '.join(map(str, row)).strip().lower()
+        if 'true' in row:
+            return True
+        else:
+            return False
+
+    def __repr__(self):
+        return f'''Qlaunch<queue {self.queue}, {self.nodes} nodes, {self.wall_minutes} minutes, job-mode:{self.job_mode}, schedulerID:{self.scheduler_id}, state:{self.state}>'''
+
 class JobSource(models.Manager):
 
     TICK_PERIOD = timedelta(minutes=1)
@@ -157,7 +185,7 @@ class JobSource(models.Manager):
         sched_id = JobEnv.current_scheduler_id
         if sched_id is not None:
             try:
-                self.qLaunch = QueuedLaunch.get(scheduler_id=sched_id)
+                self.qLaunch = QueuedLaunch.objects.get(scheduler_id=sched_id)
             except ObjectDoesNotExist:
                 self.qLaunch = None
 
@@ -364,7 +392,7 @@ class BalsamJob(models.Model):
         default=1)
     cpu_affinity = models.TextField(
         'Cray CPU Affinity ("depth" or "none")',
-        default="depth")
+        default="none")
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
         help_text='The number of OpenMP threads per MPI rank (if applicable)',
@@ -456,6 +484,12 @@ class BalsamJob(models.Model):
         assert type(job.job_id) == uuid.UUID
         return job
 
+    @property
+    def fields_dict(self):
+        if self._fields_dict is None:
+            for k, v in self.__dict__.items():
+                if isinstance(v, models.Field): self._fields_dict[k] = v
+        return self._fields_dict
     def __repr__(self):
         return f'''
 BalsamJob {self.pk}
@@ -487,6 +521,9 @@ post handles error:     {self.post_error_handler}
 post handles timeout:   {self.post_timeout_handler}
 auto timeout retry:     {self.auto_timeout_retry}
 '''.strip() + '\n'
+
+    def __str__(self):
+        return self.__repr__()
     
 
     def get_parents_by_id(self):
@@ -741,35 +778,11 @@ Executable:     {self.executable}
 Preprocess:     {self.preprocess}
 Postprocess:    {self.postprocess}
 '''.strip() + '\n'
+    
+    def __str__(self):
+        return self.__repr__()
 
     @property
     def cute_id(self):
         return f"[{self.name} | { str(self.pk)[:8] }]"
 
-class QueuedLaunch(models.Model):
-
-    ADVISORY_LOCK_ID = 1
-    scheduler_id = models.IntegerField(primary_key=True)
-    queue = models.TextField()
-    nodes = models.IntegerField()
-    wall_minutes = models.IntegerField()
-    job_mode = models.TextField()
-    wf_filter = models.TextField()
-    serial_jobs_per_node = models.IntegerField(default=1)
-    state = models.TextField(default='pending-submission')
-
-    @classmethod
-    def acquire_advisory(self):
-        from django.db import connection
-        with connection.cursor() as cursor:
-            command = f"SELECT pg_try_advisory_lock({self.ADVISORY_LOCK_ID})"
-            cursor.execute(command)
-            row = cursor.fetchone()
-        row = ' '.join(map(str, row)).strip().lower()
-        if 'true' in row:
-            return True
-        else:
-            return False
-
-    def __repr__(self):
-        return f'''Qlaunch<queue {self.queue}, {self.nodes} nodes, {self.wall_minutes} minutes, job-mode:{self.job_mode}, schedulerID:{self.scheduler_id}, state:{self.state}>'''

@@ -4,8 +4,9 @@ automatically used.  Otherwise, the DEFAULTMPICommand class is assigned at
 module-load time, testing for MPICH or OpenMPI'''
 
 import subprocess
+import sys
 import logging
-from balsam.service.schedulers import scheduler
+from balsam.service.schedulers import JobEnv
 logger = logging.getLogger(__name__)
 
 class MPICommand(object):
@@ -149,8 +150,8 @@ class COOLEYMPICommand(MPICommand):
         return f"--hosts {','.join(str(worker.id) for worker in workers)} "
 
 supported_types = ['COOLEY', 'THETA']
-if scheduler.host_type in supported_types:
-    MPIcmd = getattr(sys.modules[__name__], f"{scheduler.host_type}MPICommand")
+if JobEnv.host_type in supported_types:
+    MPIcmd = getattr(sys.modules[__name__], f"{JobEnv.host_type}MPICommand")
 else:
     try:
         p = subprocess.Popen(['mpirun', '-npernode'], 

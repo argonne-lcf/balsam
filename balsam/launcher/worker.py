@@ -10,7 +10,7 @@ workers available in the current launcher instance'''
 import logging
 logger = logging.getLogger(__name__)
 
-from balsam.service.schedulers import scheduler
+from balsam.service.schedulers import JobEnv
 from balsam.launcher import mpi_commands
 
 class Worker:
@@ -42,9 +42,9 @@ class WorkerGroup:
             - ``workers_file``: system-specific file identifying compute
               resources
         '''
-        self.host_type = scheduler.host_type
-        self.workers_str = scheduler.workers_str
-        self.workers_file = scheduler.workers_file
+        self.host_type = JobEnv.host_type
+        self.workers_str = JobEnv.workers_str
+        self.workers_file = JobEnv.workers_file
         self.workers = []
         self.setup = getattr(self, f"setup_{self.host_type}")
         self.setup()

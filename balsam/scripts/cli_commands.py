@@ -97,8 +97,8 @@ def newjob(args):
 
     job.application = args.application
     job.application_args = ' '.join(args.args)
-    job.preprocess = args.preprocessor
-    job.postprocess = args.postprocessor
+    #job.preprocess = args.preprocessor
+    #job.postprocess = args.postprocessor
     job.post_error_handler = args.post_handle_error
     job.post_timeout_handler = args.post_handle_timeout
     job.auto_timeout_retry = not args.disable_auto_timeout_retry
@@ -339,6 +339,7 @@ def launcher(args):
     command = [sys.executable] + [fname] + original_args
     p = subprocess.Popen(command)
     print(f"Started Balsam launcher [{p.pid}]")
+    p.wait()
 
 def service(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
