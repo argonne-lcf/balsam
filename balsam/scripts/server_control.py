@@ -113,7 +113,7 @@ def list_connections(db_path):
     port = info['port']
     subprocess.run(
         f'''psql -d balsam -h {host} -p {port} -c \
-        "SELECT pid,application_name,usename,state,substr(query, 1, 60),backend_type \
+        "SELECT pid,application_name,usename,state,substr(query, 1, 60)\
         FROM pg_stat_activity WHERE datname = 'balsam';"
         ''',
         shell=True

@@ -489,43 +489,40 @@ class BalsamJob(models.Model):
         assert type(job.job_id) == uuid.UUID
         return job
 
-    @property
-    def fields_dict(self):
-        if self._fields_dict is None:
-            for k, v in self.__dict__.items():
-                if isinstance(v, models.Field): self._fields_dict[k] = v
-        return self._fields_dict
+
     def __repr__(self):
-        return f'''
-BalsamJob {self.pk}
-----------
-name:                   {self.name} 
-workflow:               {self.workflow}
-state:                  {self.state}
-leased:                 {bool(self.lock)} {("last renewal " + str((timezone.now()-self.tick).total_seconds()) + " seconds ago") if self.lock else ''}
-description:            {self.description[:80]}
-working_directory:      {self.working_directory}
-parents:                {self.parents} (wait: {self.wait_for_parents})
-input_files:            {self.input_files}
-stage_in_url:           {self.stage_in_url}
-stage_out_url:          {self.stage_out_url}
-stage_out_files:        {self.stage_out_files}
-wall_time_minutes:      {self.wall_time_minutes}
-num_nodes:              {self.num_nodes}
-coschedule_nodes:       {self.coschedule_num_nodes}
-ranks_per_node:         {self.ranks_per_node}
-threads per rank:       {self.threads_per_rank}
-threads per core:       {self.threads_per_core}
-cpu affinity:           {self.cpu_affinity}
-application:            {self.application if self.application else 
-                            self.direct_command}
-args:                   {self.application_args}
-envs:                   {self.environ_vars}
-created with qsub:      {bool(self.direct_command)}
-post handles error:     {self.post_error_handler}
-post handles timeout:   {self.post_timeout_handler}
-auto timeout retry:     {self.auto_timeout_retry}
-'''.strip() + '\n'
+        result = f'BalsamJob {self.pk}\n'
+        result += '----------------------------\n'
+        result += '\n'.join( (k+':').ljust(32) + str(v) 
+                for k,v in self.__dict__.items() 
+                if k not in ['state_history', 'job_id'])
+        return result
+#name:                   {self.name} 
+#workflow:               {self.workflow}
+#state:                  {self.state}
+#description:            {self.description[:80]}
+#working_directory:      {self.working_directory}
+#parents:                {self.parents} (wait: {self.wait_for_parents})
+#input_files:            {self.input_files}
+#stage_in_url:           {self.stage_in_url}
+#stage_out_url:          {self.stage_out_url}
+#stage_out_files:        {self.stage_out_files}
+#wall_time_minutes:      {self.wall_time_minutes}
+#num_nodes:              {self.num_nodes}
+#coschedule_nodes:       {self.coschedule_num_nodes}
+#ranks_per_node:         {self.ranks_per_node}
+#threads per rank:       {self.threads_per_rank}
+#threads per core:       {self.threads_per_core}
+#cpu affinity:           {self.cpu_affinity}
+#application:            {self.application if self.application else 
+#                            self.direct_command}
+#args:                   {self.application_args}
+#envs:                   {self.environ_vars}
+#created with qsub:      {bool(self.direct_command)}
+#post handles error:     {self.post_error_handler}
+#post handles timeout:   {self.post_timeout_handler}
+#auto timeout retry:     {self.auto_timeout_retry}
+#'''.strip() + '\n'
 
     def __str__(self):
         return self.__repr__()
