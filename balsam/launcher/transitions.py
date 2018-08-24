@@ -246,7 +246,7 @@ def stage_in(job):
     if url_in:
         logger.info(f"{job.cute_id} transfer in from {url_in}")
         try:
-            transfer.stage_in(f"{url_in}/",  f"{work_dir}/")
+            transfer.stage_in(f"{url_in}",  f"{work_dir}")
         except Exception as e:
             message = 'Exception received during stage_in: ' + str(e)
             raise BalsamTransitionError(message) from e

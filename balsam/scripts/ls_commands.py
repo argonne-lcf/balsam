@@ -22,9 +22,9 @@ def print_jobs(jobs, verbose):
         for job in jobs: print(job)
         return
 
-    query = jobs.values_list('job_id', 'name', 'workflow', 'application', 'direct_command', 'state')
-    apps = [app_string(job[3], job[4]) for job in query]
-    jobs = [ (str(job[0]), job[1], job[2], app, job[5]) 
+    query = jobs.values_list('job_id', 'name', 'workflow', 'application', 'state')
+    apps = [app_string(job[3]) for job in query]
+    jobs = [ (str(job[0]), job[1], job[2], app, job[4]) 
               for job,app in zip(query, apps) ]
     fields = ("job_id", "name", "workflow", "application", "state")
 

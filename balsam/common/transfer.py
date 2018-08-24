@@ -1,16 +1,19 @@
 from django.conf import settings
 import subprocess
 import logging
+import glob
 import os,sys,traceback
 try:
     import urlparse
 except ImportError:
     import urllib.parse as urlparse
 
-# temporary 
-import shutil
-import tempfile
-
+def validate_path(path):
+    path = os.path.abspath(os.path.expanduser(path))
+    if glob.glob(path):
+        return path
+    else:
+        raise ValueError(f'Nothing matches {path} in filesystem')
 
 logger = logging.getLogger(__name__)
 
@@ -100,16 +103,22 @@ class LocalHandler:
       pass
 
    def stage_in(self, source_url, destination_directory):
-      parts = urlparse.urlparse( source_url )
-      command = 'cp -p -r /%s%s* %s' % (parts.netloc,parts.path,destination_directory)
+      if source_url.strip().startswith('local:'):
+          source = ''.join(source_url.split(':')[1:])
+      else:
+          source = source_url
+      source = validate_path(source)
+      dest = validate_path(destination_directory)
+      assert os.path.isdir(dest), f'{dest} is not a valid destination directory'
+
+      command = f'cp -p -r {source} {destination_directory}'
       logger.debug('transfer.stage_in: command=' + command )
-      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
-              shell=True)
+      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
       stdout,stderr = p.communicate()
       if p.returncode != 0:
           raise Exception(f"Stage in process returned {p.returncode}: {stdout}")
 
-   def stage_out( self, source_directory, destination_url ):
+   def stage_out(self, source_directory, destination_url):
       parts = urlparse.urlparse( destination_url )
       command = 'cp -r %s/* /%s/%s' % (source_directory,parts.netloc,parts.path)
       logger.debug( 'transfer.stage_out: command=' + command )
@@ -145,35 +154,32 @@ class SCPHandler:
 # - Generic interface
 
 def get_handler(url):
-   handlers = {
-     GRIDFTP_PROTOCOL:GridFTPHandler,
-     SCP_PROTOCOL    :SCPHandler,
-     LOCAL_PROTOCOL  :LocalHandler
-   }
-   proto = url.split(':')[0]
-   if proto in handlers.keys():
-      handler_class = handlers[proto]
-      handler = handler_class()
-   else:
-      raise Exception('Unknown transfer protocol: %s' % proto)
-   return handler
+    handlers = {
+        GRIDFTP_PROTOCOL:GridFTPHandler,
+        SCP_PROTOCOL    :SCPHandler,
+        LOCAL_PROTOCOL  :LocalHandler
+    }
+    proto = url.split(':')[0]
+    if proto in handlers.keys():
+        handler_class = handlers[proto]
+        handler = handler_class()
+    else:
+        url = validate_path(url)
+        handler = LocalHandler()
+    return handler
 
-# def pre_stage_hook(url):
-#     handler = get_handler(url)
-#     handler.pre_stage_hook()
+def stage_in(source_url, destination_directory):
+    try:
+        handler = get_handler(source_url)
+        logger.debug('pre-stage hook')
+        handler.pre_stage_hook()
+        logger.debug('stage-in')
+        handler.stage_in(source_url, destination_directory)
+    except Exception as e:
+        logger.exception('Exception: ' + str(e))
+        raise
 
-def stage_in( source_url, destination_directory ):
-   try:
-      handler = get_handler(source_url)
-      logger.debug('pre-stage hook')
-      handler.pre_stage_hook()
-      logger.debug('stage-in')
-      handler.stage_in( source_url, destination_directory )
-   except Exception as e:
-      logger.exception('Exception: ' + str(e))
-      raise
-
-def stage_out( source_directory, destination_url ):
-   handler = get_handler(destination_url)
-   handler.pre_stage_hook()
-   handler.stage_out( source_directory, destination_url )
+def stage_out(source_directory, destination_url):
+    handler = get_handler(destination_url)
+    handler.pre_stage_hook()
+    handler.stage_out(source_directory, destination_url)

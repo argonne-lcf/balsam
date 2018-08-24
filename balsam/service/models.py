@@ -410,7 +410,7 @@ class BalsamJob(models.Model):
         'For serial (non-MPI) jobs only. How many to run concurrently on a node.',
         help_text='Setting this field at 2 means two serial jobs will run at a '
         'time on a node. This field is ignored for MPI jobs.',
-        default=16)
+        default=1)
     environ_vars = models.TextField(
         'Environment variables specific to this job',
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
@@ -425,13 +425,6 @@ class BalsamJob(models.Model):
         help_text='Command line arguments used by the Balsam job runner',
         default='')
 
-    direct_command = models.TextField(
-        'Command line to execute (specified with balsam qsub <args> <command>)',
-        help_text="Instead of creating BalsamJobs that point to a pre-defined "
-        "application, users can directly add jobs consisting of a single command "
-        "line with `balsam qsub`.  This direct command is then invoked by the  "
-        "Balsam job launcher.",
-        default='')
 
     wait_for_parents = models.BooleanField(
             'If True, do not process this job until parents are FINISHED',
@@ -492,41 +485,16 @@ class BalsamJob(models.Model):
 
     def __repr__(self):
         result = f'BalsamJob {self.pk}\n'
-        result += '----------------------------\n'
+        result += '----------------------------------------------\n'
         result += '\n'.join( (k+':').ljust(32) + str(v) 
                 for k,v in self.__dict__.items() 
-                if k not in ['state_history', 'job_id'])
+                if k not in ['state_history', 'job_id', '_state', 'lock', 'tick'])
+        result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
+        result += '\n' + '  *** Working directory:'.ljust(32) + self.working_directory +'\n'
         return result
-#name:                   {self.name} 
-#workflow:               {self.workflow}
-#state:                  {self.state}
-#description:            {self.description[:80]}
-#working_directory:      {self.working_directory}
-#parents:                {self.parents} (wait: {self.wait_for_parents})
-#input_files:            {self.input_files}
-#stage_in_url:           {self.stage_in_url}
-#stage_out_url:          {self.stage_out_url}
-#stage_out_files:        {self.stage_out_files}
-#wall_time_minutes:      {self.wall_time_minutes}
-#num_nodes:              {self.num_nodes}
-#coschedule_nodes:       {self.coschedule_num_nodes}
-#ranks_per_node:         {self.ranks_per_node}
-#threads per rank:       {self.threads_per_rank}
-#threads per core:       {self.threads_per_core}
-#cpu affinity:           {self.cpu_affinity}
-#application:            {self.application if self.application else 
-#                            self.direct_command}
-#args:                   {self.application_args}
-#envs:                   {self.environ_vars}
-#created with qsub:      {bool(self.direct_command)}
-#post handles error:     {self.post_error_handler}
-#post handles timeout:   {self.post_timeout_handler}
-#auto timeout retry:     {self.auto_timeout_retry}
-#'''.strip() + '\n'
 
     def __str__(self):
         return self.__repr__()
-    
 
     def get_parents_by_id(self):
         return json.loads(self.parents)
@@ -548,11 +516,8 @@ class BalsamJob(models.Model):
     
     @property
     def app_cmd(self):
-        try:
-            app = self.get_application()
-            line = f"{app.executable} {self.application_args}"
-        except NoApplication:
-            line = f"{self.direct_command} {self.application_args}"
+        app = self.get_application()
+        line = f"{app.executable} {self.application_args}"
         return ' '.join(os.path.expanduser(w) for w in line.split())
 
     def get_children(self):
@@ -759,7 +724,7 @@ class ApplicationDefinition(models.Model):
         default='')
     executable = models.TextField(
         'Executable',
-        help_text='The executable and path need to run this application on the local system.',
+        help_text='The executable path to run this application on the local system.',
         default='')
     preprocess = models.TextField(
         'Preprocessing Script',
@@ -773,7 +738,7 @@ class ApplicationDefinition(models.Model):
     def __repr__(self):
         return f'''
 Application {self.pk}:
-----------------
+-----------------------------
 Name:           {self.name}
 Description:    {self.description}
 Executable:     {self.executable}
