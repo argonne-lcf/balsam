@@ -228,7 +228,7 @@ class JobSource(models.Manager):
             states = states.keys()
         return self.get_queryset().filter(state__in=states)
 
-    def get_runnable(self, *, max_nodes, remaining_minutes=0, mpi_only=False,
+    def get_runnable(self, *, max_nodes, remaining_minutes=None, mpi_only=False,
                      serial_only=False, order_by=None):
         if mpi_only and serial_only:
             raise ValueError("arguments mpi_only and serial_only are mutually exclusive")
@@ -239,14 +239,14 @@ class JobSource(models.Manager):
         if serial_only:
             assert max_nodes == 1
 
-        try:
-            remaining_minutes = int(remaining_minutes)
-        except:
-            remaining_minutes = 24 * 60
-
         runnable = self.by_states(RUNNABLE_STATES)
-        runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes,
-                                   num_nodes__lte=max_nodes)
+        runnable = runnable.filter(num_nodes__lte=max_nodes)
+
+        if remaining_minutes is not None:
+            try: remaining_minutes = int(remaining_minutes)
+            except: remaining_minutes = None
+            else: runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes)
+
         if serial_only:
             runnable = runnable.filter(num_nodes=1, ranks_per_node=1)
         elif mpi_only:
@@ -406,7 +406,7 @@ class BalsamJob(models.Model):
         'Number of hyperthreads per physical core (if applicable)',
         help_text='Number of hyperthreads per physical core.',
         default=1)
-    serial_node_packing_count = models.IntegerField(
+    node_packing_count = models.IntegerField(
         'For serial (non-MPI) jobs only. How many to run concurrently on a node.',
         help_text='Setting this field at 2 means two serial jobs will run at a '
         'time on a node. This field is ignored for MPI jobs.',
@@ -420,7 +420,7 @@ class BalsamJob(models.Model):
         'Application to Run',
         help_text='The application to run; located in Applications database',
         default='')
-    application_args = models.TextField(
+    args = models.TextField(
         'Command-line args to the application exe',
         help_text='Command line arguments used by the Balsam job runner',
         default='')
@@ -517,7 +517,7 @@ class BalsamJob(models.Model):
     @property
     def app_cmd(self):
         app = self.get_application()
-        line = f"{app.executable} {self.application_args}"
+        line = f"{app.executable} {self.args}"
         return ' '.join(os.path.expanduser(w) for w in line.split())
 
     def get_children(self):

@@ -30,7 +30,7 @@ by dynamically adding jobs to the database::
                     application="eval_point", wall_time_minutes=2,
                     num_nodes=1, ranks_per_node=1,
                     input_files=f"{jname}.dat", 
-                    application_args=f"{jname}.dat",
+                    args=f"{jname}.dat",
                     wait_for_parents=False
                    )
         return child.job_id
@@ -44,7 +44,7 @@ which is pre-registered as the worker application.
 
 The ``input_files`` argument is set to the name of the JSON file, which causes
 it to be transferred into the working directory of the child automatically.
-Also, ``application_args`` is set to this filename in order to pass it as an
+Also, ``args`` is set to this filename in order to pass it as an
 argument to the ``eval_point`` application.
 
 The driver itself makes calls to this ``create_job`` function in order to

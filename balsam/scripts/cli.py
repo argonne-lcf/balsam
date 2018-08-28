@@ -28,8 +28,6 @@ def config_launcher_subparser(subparser=None):
     group.add_argument('--wf-filter', help="Continuously run jobs of specified workflow")
     parser.add_argument('--job-mode', choices=['mpi', 'serial'],
             required=True, default='mpi')
-    parser.add_argument('--serial-jobs-per-node', type=int, default=None, 
-                        help="Single-node jobs: max-per-node")
     parser.add_argument('--time-limit-minutes', type=float, default=0, 
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--num-transition-threads', type=int, default=None)
@@ -82,6 +80,8 @@ def make_parser():
                             'num_nodes * ranks_per_node).')
     parser_job.add_argument('--coschedule-num-nodes',
                             type=int, required=False,default=0)
+    parser_job.add_argument('--node-packing-count',
+                            type=int, required=False,default=1)
                             
     parser_job.add_argument('--ranks-per-node',
                             type=int, required=False,default=1,

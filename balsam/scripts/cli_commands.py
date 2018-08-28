@@ -78,12 +78,14 @@ def newjob(args):
 
     job.wall_time_minutes = args.wall_time_minutes
     job.num_nodes = args.num_nodes
+    job.coschedule_num_nodes = args.coschedule_num_nodes
+    job.node_packing_count = args.node_packing_count
     job.ranks_per_node = args.ranks_per_node
     job.threads_per_rank = args.threads_per_rank
     job.threads_per_core = args.threads_per_core
 
     job.application = args.application
-    job.application_args = ' '.join(args.args)
+    job.args = ' '.join(args.args)
     job.post_error_handler = args.post_handle_error
     job.post_timeout_handler = args.post_handle_timeout
     job.auto_timeout_retry = not args.disable_auto_timeout_retry
@@ -384,10 +386,10 @@ def make_dummies(args):
     jobs = [Job(
                 name = f'dummy{i}',
                 description = 'Added by balsam make_dummies',
-                serial_node_packing_count = 64,
+                node_packing_count = 64,
                 workflow = 'dummy',
                 application = 'dummy',
-                application_args = 'hello'
+                args = 'hello'
                )
             for i in range(args.num)]
     Job.objects.bulk_create(jobs)

@@ -58,9 +58,8 @@ class ResourceManager:
         if len(self.job_cache) == 0 or (now-self.last_job_fetch) > self.FETCH_PERIOD:
             jobquery = self.job_source.get_runnable(
                 max_nodes=1,
-                remaining_minutes=time_limit_min, 
                 serial_only=True,
-                order_by='serial_node_packing_count' # ascending
+                order_by='node_packing_count' # ascending
             )
             self.job_cache = list(jobquery)
             self.last_job_fetch = now
@@ -77,7 +76,7 @@ class ResourceManager:
             self.last_killed_refresh = now
         
     def pre_assign(self, rank, job):
-        job_occ = 1.0 / job.serial_node_packing_count
+        job_occ = 1.0 / job.node_packing_count
         self.node_occupancy[rank] += job_occ
         self.job_occupancy[job.pk] = job_occ
         self.running_locations[job.pk] = rank
@@ -97,8 +96,8 @@ class ResourceManager:
         min_packing_count = 1
 
         for job in self.job_cache:
-            if job.serial_node_packing_count < min_packing_count: continue
-            job_occ = 1.0 / job.serial_node_packing_count
+            if job.node_packing_count < min_packing_count: continue
+            job_occ = 1.0 / job.node_packing_count
             
             free_ranks = (i for i in range(1, comm.size) 
                           if self.node_occupancy[i]+job_occ < 1.0001)
@@ -106,7 +105,7 @@ class ResourceManager:
 
             if rank is None:
                 logger.debug(f'no free ranks to assign {job.cute_id}')
-                min_packing_count = job.serial_node_packing_count + 1
+                min_packing_count = job.node_packing_count + 1
             else:
                 pre_assignments[rank].append(job)
                 self.pre_assign(rank, job)

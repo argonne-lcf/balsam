@@ -215,8 +215,7 @@ class MPILauncher:
             self.mpi_runs = by_states['RUNNING']
         
     def get_runnable(self):
-        '''queryset: jobs that can finish on currently idle workers within time limits'''
-        remaining_minutes = next(self.timer)
+        '''queryset: jobs that can finish on idle workers (disregarding time limits)'''
         manager = self.jobsource
         num_idle = len(self.worker_group.idle_workers())
         if num_idle == 0:
@@ -226,7 +225,6 @@ class MPILauncher:
             logger.info(f'{num_idle} idle worker nodes')
 
         return manager.get_runnable(max_nodes=num_idle,
-                                    remaining_minutes=remaining_minutes,
                                     order_by='-num_nodes')
 
     def report_constrained(self):
