@@ -35,7 +35,7 @@ def parse_real_time(stdout):
     time_str = real_line.split()[1]
     return float(time_str)
 
-def get_tail(fname, nlines=10, indent='    '):
+def get_tail(fname, nlines=16, indent='    '):
     '''grab last nlines of fname and format nicely'''
 
     # Easier to ask OS than implement a proper tail
