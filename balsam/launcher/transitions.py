@@ -246,7 +246,7 @@ def stage_in(job):
     if url_in:
         logger.info(f"{job.cute_id} transfer in from {url_in}")
         try:
-            transfer.stage_in(f"{url_in}/",  f"{work_dir}/")
+            transfer.stage_in(f"{url_in}",  f"{work_dir}")
         except Exception as e:
             message = 'Exception received during stage_in: ' + str(e)
             raise BalsamTransitionError(message) from e
@@ -309,7 +309,7 @@ def stage_out(job):
                     shutil.copyfile(src=f, dst=dst)
                     logger.info(f"staging {f} out for transfer")
                 logger.info(f"transferring to {url_out}")
-                transfer.stage_out(f"{stagingdir}/", f"{url_out}/")
+                transfer.stage_out(f"{stagingdir}/*", f"{url_out}/")
             except Exception as e:
                 message = f'Exception received during stage_out: {e}'
                 raise BalsamTransitionError(message) from e

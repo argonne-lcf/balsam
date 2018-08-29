@@ -4,7 +4,9 @@ automatically used.  Otherwise, the DEFAULTMPICommand class is assigned at
 module-load time, testing for MPICH or OpenMPI'''
 
 import subprocess
+import sys
 import logging
+from balsam.service.schedulers import JobEnv
 logger = logging.getLogger(__name__)
 
 class MPICommand(object):
@@ -92,7 +94,7 @@ class BGQMPICommand(MPICommand):
         shape, block, corner = worker.shape, worker.block, worker.corner
         return f"--shape {shape} --block {block} --corner {corner} "
 
-class CRAYMPICommand(MPICommand):
+class THETAMPICommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'aprun'
@@ -147,12 +149,21 @@ class COOLEYMPICommand(MPICommand):
             return ""
         return f"--hosts {','.join(str(worker.id) for worker in workers)} "
 
-try_mpich = subprocess.Popen(['mpirun', '-npernode'], stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
-stdout, _ = try_mpich.communicate()
-if 'unrecognized argument npernode' in stdout.decode():
-    logger.debug("Assuming MPICH")
-    DEFAULTMPICommand = MPICHCommand
+supported_types = ['COOLEY', 'THETA']
+if JobEnv.host_type in supported_types:
+    MPIcmd = getattr(sys.modules[__name__], f"{JobEnv.host_type}MPICommand")
 else:
-    logger.debug("Assuming OpenMPI")
-    DEFAULTMPICommand = OPENMPICommand
+    try:
+        p = subprocess.Popen(['mpirun', '-npernode'], 
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        stdout, _ = p.communicate()
+    except:
+        logger.warning("Warning: Balsam cannot popen mpirun..proceed at your own risk")
+        MPIcmd = MPICHCommand
+    else:
+        if 'unrecognized argument npernode' in stdout.decode():
+            logger.debug("Assuming MPICH")
+            MPIcmd = MPICHCommand
+        else:
+            logger.debug("Assuming OpenMPI")
+            MPIcmd = OPENMPICommand

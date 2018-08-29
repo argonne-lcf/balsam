@@ -16,6 +16,7 @@ from django.db.models import Value as V
 from django.db.models import Q
 from django.db.models.functions import Concat
 
+
 logger = logging.getLogger('balsam.service.models')
 
 class InvalidStateError(ValidationError): pass
@@ -140,6 +141,34 @@ def history_line(state='CREATED', message=''):
     return f"\n[{get_time_string()} {state}] ".rjust(46) + message
 
 
+class QueuedLaunch(models.Model):
+
+    ADVISORY_LOCK_ID = 1
+    scheduler_id = models.IntegerField(primary_key=True)
+    queue = models.TextField()
+    nodes = models.IntegerField()
+    wall_minutes = models.IntegerField()
+    job_mode = models.TextField()
+    wf_filter = models.TextField()
+    serial_jobs_per_node = models.IntegerField(default=1)
+    state = models.TextField(default='pending-submission')
+
+    @classmethod
+    def acquire_advisory(self):
+        from django.db import connection
+        with connection.cursor() as cursor:
+            command = f"SELECT pg_try_advisory_lock({self.ADVISORY_LOCK_ID})"
+            cursor.execute(command)
+            row = cursor.fetchone()
+        row = ' '.join(map(str, row)).strip().lower()
+        if 'true' in row:
+            return True
+        else:
+            return False
+
+    def __repr__(self):
+        return f'''Qlaunch<queue {self.queue}, {self.nodes} nodes, {self.wall_minutes} minutes, job-mode:{self.job_mode}, schedulerID:{self.scheduler_id}, state:{self.state}>'''
+
 class JobSource(models.Manager):
 
     TICK_PERIOD = timedelta(minutes=1)
@@ -150,6 +179,18 @@ class JobSource(models.Manager):
         self.workflow = workflow
         self._lock_base = None
         self._pid = None
+        self.qLaunch = None
+        self._checked_qLaunch = False
+
+    def check_qLaunch(self):
+        from balsam.service.schedulers import JobEnv
+        sched_id = JobEnv.current_scheduler_id
+        if sched_id is not None:
+            try:
+                self.qLaunch = QueuedLaunch.objects.get(scheduler_id=sched_id)
+            except ObjectDoesNotExist:
+                self.qLaunch = None
+        self._checked_qLaunch = True
 
     @property
     def lock_base(self):
@@ -170,9 +211,13 @@ class JobSource(models.Manager):
             return f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4()}"
 
     def get_queryset(self):
+        if not self._checked_qLaunch: self.check_qLaunch()
+
         queryset = super().get_queryset()
         queryset = queryset.filter(self.lockQuery)
-        if self.workflow:
+        if self.qLaunch:
+            queryset = queryset.filter(queued_launch=self.qLaunch)
+        elif self.workflow:
             queryset = queryset.filter(workflow=self.workflow)
         return queryset
 
@@ -183,9 +228,9 @@ class JobSource(models.Manager):
             states = states.keys()
         return self.get_queryset().filter(state__in=states)
 
-    def get_runnable(self, *, max_nodes, remaining_minutes=0, mpi_only=False,
+    def get_runnable(self, *, max_nodes, remaining_minutes=None, mpi_only=False,
                      serial_only=False, order_by=None):
-        if mpi_only and serial_only: 
+        if mpi_only and serial_only:
             raise ValueError("arguments mpi_only and serial_only are mutually exclusive")
 
         if max_nodes < 1:
@@ -194,14 +239,14 @@ class JobSource(models.Manager):
         if serial_only:
             assert max_nodes == 1
 
-        try:
-            remaining_minutes = int(remaining_minutes)
-        except:
-            remaining_minutes = 24 * 60
-
         runnable = self.by_states(RUNNABLE_STATES)
-        runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes,
-                                   num_nodes__lte=max_nodes)
+        runnable = runnable.filter(num_nodes__lte=max_nodes)
+
+        if remaining_minutes is not None:
+            try: remaining_minutes = int(remaining_minutes)
+            except: remaining_minutes = None
+            else: runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes)
+
         if serial_only:
             runnable = runnable.filter(num_nodes=1, ranks_per_node=1)
         elif mpi_only:
@@ -352,7 +397,7 @@ class BalsamJob(models.Model):
         default=1)
     cpu_affinity = models.TextField(
         'Cray CPU Affinity ("depth" or "none")',
-        default="depth")
+        default="none")
     threads_per_rank = models.IntegerField(
         'Number of threads per MPI rank',
         help_text='The number of OpenMP threads per MPI rank (if applicable)',
@@ -361,11 +406,11 @@ class BalsamJob(models.Model):
         'Number of hyperthreads per physical core (if applicable)',
         help_text='Number of hyperthreads per physical core.',
         default=1)
-    serial_node_packing_count = models.IntegerField(
+    node_packing_count = models.IntegerField(
         'For serial (non-MPI) jobs only. How many to run concurrently on a node.',
         help_text='Setting this field at 2 means two serial jobs will run at a '
         'time on a node. This field is ignored for MPI jobs.',
-        default=16)
+        default=1)
     environ_vars = models.TextField(
         'Environment variables specific to this job',
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
@@ -375,18 +420,11 @@ class BalsamJob(models.Model):
         'Application to Run',
         help_text='The application to run; located in Applications database',
         default='')
-    application_args = models.TextField(
+    args = models.TextField(
         'Command-line args to the application exe',
         help_text='Command line arguments used by the Balsam job runner',
         default='')
 
-    direct_command = models.TextField(
-        'Command line to execute (specified with balsam qsub <args> <command>)',
-        help_text="Instead of creating BalsamJobs that point to a pre-defined "
-        "application, users can directly add jobs consisting of a single command "
-        "line with `balsam qsub`.  This direct command is then invoked by the  "
-        "Balsam job launcher.",
-        default='')
 
     wait_for_parents = models.BooleanField(
             'If True, do not process this job until parents are FINISHED',
@@ -417,6 +455,14 @@ class BalsamJob(models.Model):
         help_text="Chronological record of the job's states",
         default=history_line)
 
+    queued_launch = models.ForeignKey(
+        'QueuedLaunch',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
+
     @staticmethod
     def from_dict(d):
         job = BalsamJob()
@@ -437,36 +483,18 @@ class BalsamJob(models.Model):
         return job
 
 
+    def __repr__(self):
+        result = f'BalsamJob {self.pk}\n'
+        result += '----------------------------------------------\n'
+        result += '\n'.join( (k+':').ljust(32) + str(v) 
+                for k,v in self.__dict__.items() 
+                if k not in ['state_history', 'job_id', '_state', 'tick'])
+        result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
+        result += '\n' + '  *** Working directory:'.ljust(32) + self.working_directory +'\n'
+        return result
+
     def __str__(self):
-        return f'''
-Balsam Job
-----------
-ID:                     {self.pk}
-name:                   {self.name} 
-workflow:               {self.workflow}
-latest state:           {self.get_recent_state_str()}
-description:            {self.description[:80]}
-working_directory:      {self.working_directory}
-parents:                {self.parents}
-input_files:            {self.input_files}
-stage_in_url:           {self.stage_in_url}
-stage_out_url:          {self.stage_out_url}
-stage_out_files:        {self.stage_out_files}
-wall_time_minutes:      {self.wall_time_minutes}
-num_nodes:              {self.num_nodes}
-threads per rank:       {self.threads_per_rank}
-threads per core:       {self.threads_per_core}
-ranks_per_node:         {self.ranks_per_node}
-application:            {self.application if self.application else 
-                            self.direct_command}
-args:                   {self.application_args}
-envs:                   {self.environ_vars}
-created with qsub:      {bool(self.direct_command)}
-post handles error:     {self.post_error_handler}
-post handles timeout:   {self.post_timeout_handler}
-auto timeout retry:     {self.auto_timeout_retry}
-'''.strip() + '\n'
-    
+        return self.__repr__()
 
     def get_parents_by_id(self):
         return json.loads(self.parents)
@@ -488,11 +516,8 @@ auto timeout retry:     {self.auto_timeout_retry}
     
     @property
     def app_cmd(self):
-        try:
-            app = self.get_application()
-            line = f"{app.executable} {self.application_args}"
-        except NoApplication:
-            line = f"{self.direct_command} {self.application_args}"
+        app = self.get_application()
+        line = f"{app.executable} {self.args}"
         return ' '.join(os.path.expanduser(w) for w in line.split())
 
     def get_children(self):
@@ -699,7 +724,7 @@ class ApplicationDefinition(models.Model):
         default='')
     executable = models.TextField(
         'Executable',
-        help_text='The executable and path need to run this application on the local system.',
+        help_text='The executable path to run this application on the local system.',
         default='')
     preprocess = models.TextField(
         'Preprocessing Script',
@@ -710,18 +735,21 @@ class ApplicationDefinition(models.Model):
         help_text='A script that is run in a job working directory after the job has completed.',
         default='')
 
-    def __str__(self):
+    def __repr__(self):
         return f'''
-Application:
-------------
-PK:             {self.pk}
+Application {self.pk}:
+-----------------------------
 Name:           {self.name}
 Description:    {self.description}
 Executable:     {self.executable}
 Preprocess:     {self.preprocess}
 Postprocess:    {self.postprocess}
 '''.strip() + '\n'
+    
+    def __str__(self):
+        return self.__repr__()
 
     @property
     def cute_id(self):
         return f"[{self.name} | { str(self.pk)[:8] }]"
+

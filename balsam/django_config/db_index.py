@@ -12,9 +12,10 @@ def refresh_db_index():
     else:
         db_list = []
 
-    cur_db = os.environ['BALSAM_DB_PATH']
-    cur_db = os.path.abspath(os.path.expanduser(cur_db))
-    if cur_db not in db_list: db_list.append(cur_db)
+    cur_db = os.environ.get('BALSAM_DB_PATH')
+    if cur_db:
+        cur_db = os.path.abspath(os.path.expanduser(cur_db))
+        if cur_db not in db_list: db_list.append(cur_db)
 
     for i, db in reversed(list(enumerate(db_list[:]))):
         if not os.path.exists(db): del db_list[i]

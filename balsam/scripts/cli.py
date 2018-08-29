@@ -2,7 +2,7 @@
 # --------------
 import argparse
 import sys
-from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm,qsub
+from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
 from balsam.scripts.cli_commands import init, which, server
 
@@ -28,8 +28,6 @@ def config_launcher_subparser(subparser=None):
     group.add_argument('--wf-filter', help="Continuously run jobs of specified workflow")
     parser.add_argument('--job-mode', choices=['mpi', 'serial'],
             required=True, default='mpi')
-    parser.add_argument('--serial-jobs-per-node', type=int, default=None, 
-                        help="Single-node jobs: max-per-node")
     parser.add_argument('--time-limit-minutes', type=float, default=0, 
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--num-transition-threads', type=int, default=None)
@@ -49,19 +47,13 @@ def make_parser():
                                        )
     parser_app.set_defaults(func=newapp)
     parser_app.add_argument('--name', required=True)
-    parser_app.add_argument('--description', nargs='+', required=True)
     parser_app.add_argument('--executable', help='full path to executable', 
                             required=True)
     parser_app.add_argument('--preprocess', default='', 
                             help='preprocessing script with full path')
     parser_app.add_argument('--postprocess', default='',
                             help='postprocessing script with full path')
-    parser_app.add_argument('--env', action='append', default=[], 
-                            help="Environment variables specific " 
-                            "to this app; specify multiple envs like " 
-                            "'--env VAR1=VAL1 --env VAR2=VAL2'.  ")
-    parser_app.add_argument('--no-check-path', action='store_true',
-    help="Create app even if the specified paths do not exist")
+    parser_app.add_argument('--description', nargs='+')
     # -------------------------------------------------------------------
 
 
@@ -80,21 +72,25 @@ def make_parser():
                             'application to use; must exist in '
                             'ApplicationDefinition DB', required=True)
     
-    parser_job.add_argument('--wall-minutes', type=int, required=True)
+    parser_job.add_argument('--wall-time-minutes', type=int, required=False, default=1)
     parser_job.add_argument('--num-nodes',
-                            type=int, required=True,
+                            type=int, required=False,default=1,
                             help='Number of compute nodes on which to run MPI '
                             'job. (Total number of MPI ranks determined as '
                             'num_nodes * ranks_per_node).')
+    parser_job.add_argument('--coschedule-num-nodes',
+                            type=int, required=False,default=0)
+    parser_job.add_argument('--node-packing-count',
+                            type=int, required=False,default=1)
+                            
     parser_job.add_argument('--ranks-per-node',
-                            type=int, required=True,
+                            type=int, required=False,default=1,
                             help='Number of MPI ranks per compute node. '
                             '(Total MPI ranks calculated from num_nodes * '
                             'ranks_per_node. If only 1 total ranks, treated as serial '
                             'job).')
     
-    parser_job.add_argument('--description', required=False, nargs='*',
-                            default=[])
+    parser_job.add_argument('--description', required=False, nargs='*', default=[])
 
     parser_job.add_argument('--threads-per-rank',type=int, default=1,
                             help="Equivalent to -d option in aprun")
@@ -103,10 +99,6 @@ def make_parser():
 
     parser_job.add_argument('--args', nargs='*', required=False, default=[],
                             help="Command-line args to the application")
-    parser_job.add_argument('--preprocessor', required=False, default='',
-                            help="Override application-defined preprocess")
-    parser_job.add_argument('--postprocessor', required=False, default='',
-                            help="Override application-defined postprocess")
     parser_job.add_argument('--post_handle_error', action='store_true',
                             help="Flag enables job runtime error handling by "
                             "postprocess script")
@@ -176,12 +168,10 @@ def make_parser():
     # ------
     parser_modify = subparsers.add_parser('modify', help="alter job or application")
     parser_modify.set_defaults(func=modify)
-    parser_modify.add_argument('obj_type', choices=['jobs', 'apps'])
     parser_modify.add_argument('id', help="substring of job or app ID to match")
-    parser_modify.add_argument('--attr', help="attribute of job or app to modify",
-                               required=True)
-    parser_modify.add_argument('--value', help="modify attr to this value",
-                               required=True)
+    parser_modify.add_argument('attr', help="attribute of job or app to modify")
+    parser_modify.add_argument('value', help="modify attr to this value")
+    parser_modify.add_argument('--type', choices=['jobs', 'apps'], default='jobs', help="modify a job or AppDef")
     # -----------------------------------------------------------------------
 
     
@@ -195,21 +185,6 @@ def make_parser():
     group.add_argument('--name', help="match any substring of job name")
     group.add_argument('--id', help="match any substring of job id")
     group.add_argument('--all', action='store_true', help="delete all objects in the DB")
-    # --------------------------------------------------------------------------------------------------
-
-
-    # QSUB
-    # ----
-    parser_qsub = subparsers.add_parser('qsub', help="add a one-line bash command or script job")
-    parser_qsub.set_defaults(func=qsub)
-    parser_qsub.add_argument('command', nargs='+')
-    parser_qsub.add_argument('-n', '--nodes', type=int, default=1, help="Number of compute nodes on which to run job")
-    parser_qsub.add_argument('-N', '--ranks-per-node', type=int, default=1, help="Number of MPI ranks per compute node")
-    parser_qsub.add_argument('--name', default='job')
-    parser_qsub.add_argument('-t', '--wall-minutes', type=int, required=True)
-    parser_qsub.add_argument('-d', '--threads-per-rank',type=int, default=1)
-    parser_qsub.add_argument('-j', '--threads-per-core',type=int, default=1)
-    parser_qsub.add_argument('--env', action='append', required=False, default=[])
     # --------------------------------------------------------------------------------------------------
 
 
@@ -332,6 +307,7 @@ def make_parser():
     group.add_argument('--connect', action='store_true')
     group.add_argument('--disconnect', action='store_true')
     group.add_argument('--reset', action='store_true')
+    group.add_argument('--list-active-connections', action='store_true')
     group.set_defaults(func=server)
 
     return parser

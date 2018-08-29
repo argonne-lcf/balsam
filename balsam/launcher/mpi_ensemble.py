@@ -1,7 +1,7 @@
 '''mpi4py wrapper that allows an ensemble of serial applications to run in
 parallel across ranks on the computing resource'''
 import argparse
-from collections import namedtuple
+from collections import defaultdict
 import os
 import sys
 import logging
@@ -10,12 +10,12 @@ import random
 import shlex
 import signal
 import time
-from socket import gethostname
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
 django.setup()
 logger = logging.getLogger('balsam.launcher.mpi_ensemble')
 
+from django.db import transaction
 from subprocess import Popen, STDOUT, TimeoutExpired
 
 from mpi4py import MPI
@@ -28,54 +28,44 @@ comm = MPI.COMM_WORLD
 RANK = comm.Get_rank()
 django.db.connections.close_all()
 
-
-class Tags:
-    EXIT = 0  # master --> worker: exit now
-    NEW = 1 # master --> worker: new job spec
-    KILL = 2 # master --> worker: stop current job
-    CONTINUE = 3 # master --> worker: keep running current job
-    ASK = 4  # worker --> master: ask keep going?
-    DONE = 5 # worker --> master: job success
-    ERROR = 6 # worker --> master: job error
-
-
 class ResourceManager:
 
     FETCH_PERIOD = 2.0
     KILLED_REFRESH_PERIOD = 3.0
 
-    def __init__(self, host_names, job_source):
-        self.host_names = host_names
+    def __init__(self, job_source):
         self.job_source = job_source
-        self.node_occupancy = {name : 0.0 for name in set(host_names)}
-        self.job_assignments = [None for i in range(comm.size)]
-        self.job_assignments[0] = ('master', 1.0)
+        self.node_occupancy = [0.0 for i in range(comm.size)]
+        self.node_occupancy[0] = 1.0
+        self.running_locations = {}
+        self.job_occupancy = {}
 
         self.last_job_fetch = -10.0
         self.last_killed_refresh = -10.0
         self.job_cache = []
         self.killed_pks = []
 
-        self.host_rank_map = {}
-        for name in set(host_names):
-            self.host_rank_map[name] = [i for i,hostname in enumerate(host_names) if hostname == name]
-            logger.debug(f"Hostname {name}: Ranks {self.host_rank_map[name]}")
+        self.recv_requests = {i:comm.irecv(source=i) for i in range(1,comm.size)}
 
-        self.recv_requests = {}
+        if self.job_source.qLaunch is not None:
+            sched_id = self.job_source.qLaunch.scheduler_id
+            self.RUN_MESSAGE = f'Scheduled by Balsam Service (Scheduler ID: {sched_id})'
+        else:
+            self.RUN_MESSAGE = 'Not scheduled by Balsam service'
+        logger.info(self.RUN_MESSAGE)
+        logger.info(f'Assigning jobs to {comm.size-1} worker ranks')
 
-    def refresh_job_cache(self, time_limit_min):
+    def refresh_job_cache(self):
         now = time.time()
         if len(self.job_cache) == 0 or (now-self.last_job_fetch) > self.FETCH_PERIOD:
             jobquery = self.job_source.get_runnable(
                 max_nodes=1,
-                remaining_minutes=time_limit_min, 
                 serial_only=True,
-                order_by='-serial_node_packing_count' # descending
+                order_by='node_packing_count' # ascending
             )
             self.job_cache = list(jobquery)
             self.last_job_fetch = now
-            job_str = '  '.join(j.cute_id for j in self.job_cache)
-            logger.debug(f"Refreshed job cache: {len(self.job_cache)} runnable\n{job_str}")
+            logger.debug(f"Refreshed job cache: {len(self.job_cache)} runnable")
 
     def refresh_killed_jobs(self):
         now = time.time()
@@ -87,71 +77,83 @@ class ResourceManager:
             self.killed_pks = killed_pks
             self.last_killed_refresh = now
         
-    def pre_assign(self, rank, free_node, job):
-        job_occ = 1.0 / job.serial_node_packing_count
-        self.node_occupancy[free_node] += job_occ
-        self.job_assignments[rank] = (job.pk, job_occ)
+    def pre_assign(self, rank, job):
+        job_occ = 1.0 / job.node_packing_count
+        self.node_occupancy[rank] += job_occ
+        self.job_occupancy[job.pk] = job_occ
+        self.running_locations[job.pk] = rank
 
-    def revert_assign(self, rank):
-        pk, occ = self.job_assignments[rank]
-        self.job_assignments[rank] = None
-        hostname = self.host_names[rank]
-        self.node_occupancy[hostname] -= occ
+    def revert_assign(self, rank, job_pk):
+        job_occ = self.job_occupancy[job_pk]
+        self.node_occupancy[rank] -= job_occ
+        del self.job_occupancy[job_pk]
+        del self.running_locations[job_pk]
 
-    def allocate_next_jobs(self, time_limit_min):
+    @transaction.atomic
+    def allocate_next_jobs(self):
         '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
-        self.refresh_job_cache(time_limit_min)
+        self.refresh_job_cache()
         send_requests = []
-        pre_assignments = []
+        pre_assignments = defaultdict(list)
+        min_packing_count = 1
 
         for job in self.job_cache:
-            job_occ = 1.0 / job.serial_node_packing_count
+            if job.node_packing_count < min_packing_count: continue
+            job_occ = 1.0 / job.node_packing_count
             
-            free_nodes = (name for name,occ in self.node_occupancy.items() if job_occ+occ < 1.001)
-            free_nodes = sorted(free_nodes, key = lambda n: self.node_occupancy[n])
-            free_ranks = ([i,node] for node in free_nodes for i in self.host_rank_map[node] if self.job_assignments[i] is None)
-            assignment = next(free_ranks, None)
+            free_ranks = (i for i in range(1, comm.size) 
+                          if self.node_occupancy[i]+job_occ < 1.0001)
+            rank = next(free_ranks, None)
 
-            if assignment is None:
+            if rank is None:
                 logger.debug(f'no free ranks to assign {job.cute_id}')
-                break
-
-            rank, free_node = assignment
-            pre_assignments.append((rank, free_node, job))
-            self.pre_assign(rank, free_node, job)
+                min_packing_count = job.node_packing_count + 1
+            else:
+                pre_assignments[rank].append(job)
+                self.pre_assign(rank, job)
 
         if len(pre_assignments) == 0: return False
 
-        to_acquire = [job.pk for (rank, free_node, job) in pre_assignments]
+        to_acquire = [job.pk for rank in pre_assignments 
+                      for job in pre_assignments[rank]]
         acquired_pks = self.job_source.acquire(to_acquire).values_list('job_id', flat=True)
-        logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
+        acquired_pks = list(acquired_pks)
+        logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(to_acquire)} jobs marked for running')
 
         # Make actual assignment:
-        for (rank, free_node, job) in pre_assignments:
-            if job.pk in acquired_pks:
-                mpiReq = self._send_job(job, rank)
-                logger.debug(f"Sent {job.cute_id} to rank {rank} on {free_node}: occupancy is now {self.node_occupancy[free_node]}")
+        for (rank, pre_jobs) in pre_assignments.items():
+            runjobs = []
+            for j in pre_jobs:
+                if j.pk in acquired_pks: 
+                    runjobs.append(j)
+                    self.job_cache.remove(j)
+                else:
+                    self.revert_assign(rank, j.pk)
+
+            if runjobs:
+                mpiReq = self._send_jobs(runjobs, rank)
+                logger.debug(f"Sent {len(runjobs)} jobs to rank {rank}: occupancy is now {self.node_occupancy[rank]}")
                 send_requests.append(mpiReq)
-            else:
-                self.revert_assign(rank)
-            self.job_cache.remove(job)
 
-        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', 'submitted in MPI Ensemble')
+        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', self.RUN_MESSAGE)
         MPI.Request.waitall(send_requests)
-        return len(send_requests) > 0
+        return len(acquired_pks) > 0
 
-    def _send_job(self, job, rank):
+    def _send_jobs(self, jobs, rank):
         '''Send message to compute rank'''
-        job_spec = {}
+        message = {}
+        message['tag'] = 'NEW'
+        for job in jobs:
+            job_spec = dict(
+                workdir=job.working_directory,
+                name=job.name,
+                cuteid=job.cute_id,
+                cmd=job.app_cmd,
+                envs=job.get_envs()
+            )
+            message[job.pk] = job_spec
 
-        job_spec['workdir'] = job.working_directory
-        job_spec['name'] = job.name
-        job_spec['cuteid'] = job.cute_id
-        job_spec['cmd'] = job.app_cmd
-        job_spec['envs'] = job.get_envs()
-
-        req = comm.isend(job_spec, dest=rank, tag=Tags.NEW)
-        self.recv_requests[rank] = comm.irecv(source=rank)
+        req = comm.isend(message, dest=rank)
         return req
 
     def _get_requests(self):
@@ -161,315 +163,360 @@ class ResourceManager:
             req = self.recv_requests[rank]
             done, msg = req.test(status = stat)
             if done: 
-                completed_requests.append((msg, stat.source, stat.tag))
+                completed_requests.append((stat.source, msg))
                 assert stat.source == rank
 
-        for msg,rank,tag in completed_requests:
-            del self.recv_requests[rank]
+        for rank,msg in completed_requests:
+            self.recv_requests[rank] = comm.irecv(source=rank)
         return completed_requests
 
+    @transaction.atomic
     def serve_requests(self):
         requests = self._get_requests()
-        ask_reqs =   [rank for (msg,rank,tag) in requests if tag==Tags.ASK]
-        done_reqs =  [rank for (msg,rank,tag) in requests if tag==Tags.DONE]
-        error_reqs = [(msg, rank) for (msg,rank,tag) in requests if tag==Tags.ERROR]
-        assert len(ask_reqs)+len(done_reqs)+len(error_reqs) == len(requests)
+        done_jobs = []
+        error_jobs = []
+        killed_pks = []
+        send_reqs = []
+        for rank, msg in requests:
+            kill_pks, req = self._handle_ask(rank, msg['ask'])
+            killed_pks.extend(kill_pks)
+            send_reqs.append(req)
+            done_jobs.extend(msg['done'])
+            error_jobs.extend(msg['error'])
 
-        if ask_reqs:   self._handle_asks(ask_reqs)
-        if done_reqs:  self._handle_dones(done_reqs)
-        if error_reqs: self._handle_errors(error_reqs)
+        if done_jobs:  self._handle_dones(done_jobs)
+        if error_jobs: self._handle_errors(error_jobs)
+        if killed_pks: self.job_source.release(killed_pks)
+        MPI.Request.waitall(send_reqs)
         return len(requests)
         
-    def _handle_asks(self, ask_ranks):
+    def _handle_ask(self, rank, ask_pks):
         self.refresh_killed_jobs()
-        send_reqs = []
-        kill_pks = []
+        response = {'tag': 'CONTINUE', 'kill_pks': []}
 
-        for rank in ask_ranks:
-            pk, occ = self.job_assignments[rank]
-
+        for pk in ask_pks:
             if pk in self.killed_pks:
-                kill_pks.append(pk)
-                req = comm.isend("kill", dest=rank, tag=Tags.KILL)
-                self.job_assignments[rank] = None
-                hostname = self.host_names[rank]
-                self.node_occupancy[hostname] -= occ
-                logger.debug(f"Sent KILL to rank {rank} on {hostname}: occupancy is now {self.node_occupancy[hostname]}")
-            else:
-                req = comm.isend("continue", dest=rank, tag=Tags.CONTINUE)
-                self.recv_requests[rank] = comm.irecv(source=rank)
-            send_reqs.append(req)
+                response['tag'] = 'KILL'
+                response['kill_pks'].append(pk)
+        req = comm.isend(response, dest=rank)
 
-        if kill_pks: self.job_source.release(kill_pks)
-        MPI.Request.waitall(send_reqs)
+        for pk in response['kill_pks']:
+            self.revert_assign(rank, pk)
+
+        if response['tag'] == 'KILL':
+            logger.debug(f"Sent KILL to rank {rank} for {response['kill_pks']}\n"
+                         f"occupancy is now {self.node_occupancy[rank]}")
+
+        return response['kill_pks'], req
     
-    def _handle_dones(self, done_ranks):
-        TIMEstart = time.time()
-
-        done_pks = []
-        for rank in done_ranks:
-            pk, occ = self.job_assignments[rank]
-            done_pks.append(pk)
-            
-            self.job_assignments[rank] = None
-            hostname = self.host_names[rank]
-            self.node_occupancy[hostname] -= occ
+    def _handle_dones(self, done_pks):
+        for pk in done_pks:
+            rank = self.running_locations[pk]
+            self.revert_assign(rank, pk)
 
         BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
         self.job_source.release(done_pks)
-        
-        done_msg = ' '.join(str((pk,rank)) for pk,rank in zip(done_pks, done_ranks))
-        logger.debug(f"RUN_DONE: {done_msg}")
-        logger.debug(f"_handle_dones: {len(done_ranks)} handled in {time.time()-TIMEstart:.3f} seconds")
+        logger.debug(f"RUN_DONE: {len(done_pks)} jobs")
     
-    def _handle_errors(self, error_reqs):
-        TIMEstart = time.time()
-        error_pks = []
-        for msg,rank in error_reqs:
-            pk, occ = self.job_assignments[rank]
+    def _handle_errors(self, error_jobs):
+        for pk,retcode,tail in error_jobs:
+            rank = self.running_locations[pk]
+            self.revert_assign(rank, pk)
             job = BalsamJob.objects.get(pk=pk)
-            error_pks.append(pk)
-
-            retcode, tail = msg['retcode'], msg['tail']
             state_msg = f"nonzero return {retcode}: {tail}"
             job.update_state('RUN_ERROR', state_msg)
             logger.error(f"{job.cute_id} RUN_ERROR from rank {rank}")
             logger.error(state_msg)
 
-            self.job_assignments[rank] = None
-            hostname = self.host_names[rank]
-            self.node_occupancy[hostname] -= occ
+        error_pks = [j[0] for j in error_jobs]
         self.job_source.release(error_pks)
-        logger.debug(f"_handle_errors: {len(error_reqs)} handled in {time.time()-TIMEstart:.3f} seconds")
     
     def send_exit(self):
         logger.info(f"send_exit: waiting on all pending recvs")
-        requests = list(self.recv_requests.values())
+        active_ranks = list(set(self.running_locations.values()))
+        requests = [self.recv_requests[i] for i in active_ranks]
         MPI.Request.waitall(requests)
         reqs = []
         logger.info(f"send_exit: send EXIT tag to all ranks")
         for i in range(1, comm.size):
-            req = comm.isend('exit', dest=i, tag=Tags.EXIT)
+            req = comm.isend({'tag': 'EXIT'}, dest=i)
             reqs.append(req)
         MPI.Request.waitall(reqs)
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--wf-name')
-    parser.add_argument('--time-limit-min', type=float, default=72.*60)
-    parser.add_argument('--gpus-per-node', type=int, default=0)
-    return parser.parse_args()
+class Master:
+    def __init__(self):
+        self.MAX_IDLE_TIME = 10.0
+        self.DELAY_PERIOD = 1.0
+        self.idle_time = 0.0
+        self.EXIT_FLAG = False
 
-def master_main(host_names):
-    MAX_IDLE_TIME = 10.0
-    DELAY_PERIOD = 1.0
-    RUN_NEW_JOBS = True
-    idle_time = 0.0
-    EXIT_FLAG = False
-    
-    args = parse_args()
-    job_source = BalsamJob.source
-    job_source.workflow = args.wf_name
-    job_source.start_tick()
-    job_source.clear_stale_locks()
-    if job_source.workflow:
-        logger.info(f'MPI Ensemble pulling jobs with WF {args.wf_name}')
-    else:
-        logger.info('MPI Ensemble consuming jobs matching any WF name')
+        args = self.parse_args()
+        comm.bcast(args.gpus_per_node, root=0)
+        self.remaining_timer = remaining_time_minutes(args.time_limit_min)
+        next(self.remaining_timer)
+        
+        job_source = BalsamJob.source
+        job_source.workflow = args.wf_name
+        job_source.start_tick()
+        job_source.clear_stale_locks()
+        self.manager = ResourceManager(job_source)
 
-    gpus_per_node = args.gpus_per_node
-    time_limit_min = args.time_limit_min
+        if job_source.workflow:
+            logger.info(f'MPI Ensemble pulling jobs with WF {args.wf_name}')
+        else:
+            logger.info('MPI Ensemble consuming jobs matching any WF name')
 
-    manager = ResourceManager(host_names, job_source)
-    gpus_per_node = comm.bcast(gpus_per_node, root=0)
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--wf-name')
+        parser.add_argument('--time-limit-min', type=float, default=72.*60)
+        parser.add_argument('--gpus-per-node', type=int, default=0)
+        return parser.parse_args()
 
-    transaction_context = django.db.transaction.atomic
-    logger.info(f"Using real transactions: {transaction_context}")
-
-    def handle_sigusr1(signum, stack):
-        nonlocal RUN_NEW_JOBS
-        RUN_NEW_JOBS = False
-
-    def master_exit():
-        manager.send_exit()
-        logger.debug("Send_exit: master done")
-        outstanding_job_pks = [j[0] for j in manager.job_assignments[1:] if j is not None]
+    def exit(self):
+        outstanding_job_pks = list(self.manager.running_locations.keys())
         num_timeout = len(outstanding_job_pks)
         logger.info(f"Shutting down with {num_timeout} jobs still running..timing out")
         BalsamJob.batch_update_state(outstanding_job_pks, 'RUN_TIMEOUT', 'timed out in MPI Ensemble')
-
-        manager.job_source.release_all_owned()
+        self.manager.job_source.release_all_owned()
+        self.manager.send_exit()
+        logger.debug("Send_exit: master done")
         logger.debug(f"master calling MPI Finalize")
         MPI.Finalize()
         logger.info(f"ensemble master exit gracefully")
         sys.exit(0)
 
-    def handle_term(signum, stack):
-        nonlocal EXIT_FLAG
-        EXIT_FLAG = True
-        logger.info(f"ensemble master got signal {signum}: switching on EXIT_FLAG")
-        
-    signal.signal(signal.SIGUSR1, handle_sigusr1)
-    signal.signal(signal.SIGINT, handle_term)
-    signal.signal(signal.SIGTERM, handle_term)
+    def main(self):
+        for remaining_minutes in self.remaining_timer:
+            self._main()
+            if self.EXIT_FLAG:
+                logger.info("EXIT_FLAG on; master breaking main loop")
+                break
+            if self.idle_time > self.MAX_IDLE_TIME and not self.manager.running_locations:
+                logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
+                break
+        self.exit()
 
-    remaining_timer = remaining_time_minutes(time_limit_min)
-    next(remaining_timer)
-
-    for remaining_minutes in remaining_timer:
+    def _main(self):
         ran_anything = False
         got_requests = 0
 
-        if RUN_NEW_JOBS:
-            with transaction_context():
-                ran_anything = manager.allocate_next_jobs(remaining_minutes)
+        ran_anything = self.manager.allocate_next_jobs()
         start = time.time()
-        with transaction_context():
-            got_requests = manager.serve_requests()
+        got_requests = self.manager.serve_requests()
         elapsed = time.time() - start
-        if got_requests:
-            logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
+        if got_requests: logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
 
         if not (ran_anything or got_requests):
-            time.sleep(DELAY_PERIOD)
-            idle_time += DELAY_PERIOD
+            time.sleep(self.DELAY_PERIOD)
+            self.idle_time += self.DELAY_PERIOD
         else:
-            idle_time = 0.0
+            self.idle_time = 0.0
 
-        if idle_time > MAX_IDLE_TIME:
-            if all(job == None for job in manager.job_assignments[1:]):
-                logger.info(f"Nothing to do for {MAX_IDLE_TIME} seconds: quitting")
-                break
-        if EXIT_FLAG:
-            break
-    master_exit()
-
+class FailedToStartProcess:
+    returncode = 12345
+    def wait(self, timeout=0): return 12345
+    def poll(self, timeout=0): return 12345
+    def communicate(self, timeout=0): pass
+    def terminate(self): pass
+    def kill(self): pass
 
 class Worker:
     CHECK_PERIOD=10
+    RETRY_WINDOW = 20
+    RETRY_CODES = [-11, 12345]
+    MAX_RETRY = 3
 
     def __init__(self):
-        self.process = None
-        self.outfile = None
-        self.cuteid = None
+        self.processes = {}
+        self.outfiles = {}
+        self.cuteids = {}
+        self.start_times = {}
+        self.retry_counts = {}
+        self.job_specs = {}
     
-    def wait_for_retcode(self):
-        try: retcode = self.process.wait(timeout=self.CHECK_PERIOD)
+    def _cleanup_proc(self, pk, timeout=0):
+        self._kill(pk, timeout=timeout)
+        self.processes[pk].communicate()
+        self.outfiles[pk].close()
+        for d in (self.processes, self.outfiles, self.cuteids, self.start_times,
+                  self.retry_counts, self.job_specs):
+            del d[pk]
+    
+    def _check_retcode(self, proc, timeout):
+        try: 
+            retcode = proc.wait(timeout=timeout)
         except TimeoutExpired:
-            return None
-        else: 
-            self.process.communicate()
-            self.process = None
-            self.cuteid = None
-            self.outfile.close()
-            return retcode
+            retcode = None
+        return retcode
 
-    def kill(self):
-        if self.process is None: return
-        self.process.terminate()
-        logger.debug(f"rank {RANK} sent TERM to {self.cuteid}...waiting on shutdown")
-        try: self.process.wait(timeout=self.CHECK_PERIOD)
-        except TimeoutExpired: self.process.kill()
-        #logger.debug(f"Term done; closing out")
-        self.process = None
-        self.cuteid = None
-        self.outfile.close()
+    def _check_retcodes(self):
+        start = time.time()
+        pk_retcodes = []
+        for pk, proc in self.processes.items():
+            elapsed = time.time() - start
+            timeout = max(0, self.CHECK_PERIOD - elapsed)
+            retcode = self._check_retcode(proc, timeout)
+            pk_retcodes.append((pk, retcode))
+        return pk_retcodes
 
-    def worker_exit(self):
-        #logger.debug(f"worker_exit")
-        self.kill()
-        #logger.debug(f"worker calling MPI Finalize")
-        MPI.Finalize()
-        #logger.debug(f"rank {RANK} worker_exit graceful")
-        sys.exit(0)
+    def _log_error_tail(self, pk, retcode):
+        fname = self.outfiles[pk].name
+        if os.path.exists(fname):
+            tail = get_tail(self.outfiles[pk].name)
+        else:
+            tail = ''
+        logmsg = self.log_prefix(pk) + f'nonzero return {retcode}:\n {tail}'
+        logger.error(logmsg)
+        return tail
+           
+    def _can_retry(self, pk, retcode):
+        if retcode in self.RETRY_CODES:
+            elapsed = time.time() - self.start_times[pk]
+            retry_count = self.retry_counts[pk]
+            if elapsed < self.RETRY_WINDOW and retry_count <= self.MAX_RETRY:
+                logmsg = self.log_prefix(pk) 
+                logmsg += (f'can retry task (err occured after {elapsed:.2f} sec; '
+                          f'attempt {self.retry_counts[pk]}/{self.MAX_RETRY})')
+                logger.error(logmsg)
+                return True
+        return False
 
-    def start_job(self, job_dict):
+    def _kill(self, pk, timeout=0):
+        p = self.processes[pk]
+        if p.poll() is None:
+            p.terminate()
+            logger.debug(f"rank {RANK} sent TERM to {self.cuteids[pk]}...waiting on shutdown")
+            try: p.wait(timeout=timeout)
+            except TimeoutExpired: p.kill()
 
-        workdir = job_dict['workdir']
-        name = job_dict['name']
-        self.cuteid = job_dict['cuteid']
-        cmd = job_dict['cmd']
-        envs = job_dict['envs']
+    def _launch_proc(self, pk):
+        job_spec = self.job_specs[pk]
+        workdir = job_spec['workdir']
+        name = job_spec['name']
+        cmd = job_spec['cmd']
+        envs = job_spec['envs']
 
         if type(cmd) is str: cmd = shlex.split(cmd)
 
-        # GPU: COOLEY SPECIFIC RIGHT NOW
         if self.gpus_per_node > 0:
-            gpu_device = RANK % self.gpus_per_node  # TODO: generalize to multi-GPU system
+            idx = list(self.job_specs.keys()).index(pk) 
+            gpu_device = idx % self.gpus_per_node
             envs['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
             envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
 
         out_name = f'{name}.out'
-        logger.debug(f"rank {RANK} {self.cuteid}\nPopen: {cmd}")
+        logger.debug(self.log_prefix(pk) + f"\nPopen: {cmd}")
 
         if not os.path.exists(workdir): os.makedirs(workdir)
-        os.chdir(workdir)
-        self.outfile = open(out_name, 'wb')
-        counter = 0
-        while counter < 4:
-            counter += 1
-            try:
-                self.process = Popen(cmd, stdout=self.outfile, stderr=STDOUT,
-                                     cwd=workdir, env=envs, shell=False, bufsize=1,)
-            except Exception as e:
-                self.process = None
-                logger.warning(f"rank {RANK} Popen error:\n{str(e)}\nRetrying Popen...")
-                sleeptime = 0.5 + 3.5*random.random()
-                time.sleep(sleeptime)
-            else:
-                return True
+        outfile = open(os.path.join(workdir, out_name), 'wb')
+        self.outfiles[pk] = outfile
+        try:
+            proc = Popen(cmd, stdout=outfile, stderr=STDOUT,
+                         cwd=workdir, env=envs, shell=False, bufsize=1,)
+        except Exception as e:
+            proc = FailedToStartProcess()
+            logger.error(self.log_prefix(pk) + f"Popen error:\n{str(e)}\n")
+            sleeptime = 0.5 + 3.5*random.random()
+            time.sleep(sleeptime)
+        self.processes[pk] = proc
+    
+    def _handle_error(self, pk, retcode):
+        tail = self._log_error_tail(pk, retcode)
 
-        if self.process is None:
-            logger.error(f"Failed to Popen after 10 attempts; marking job as failed")
-            return False
+        if not self._can_retry(pk, retcode):
+            self._cleanup_proc(pk)
+            return (retcode, tail)
+        else:
+            self.outfiles[pk].close()
+            self.start_times[pk] = time.time()
+            self.retry_counts[pk] += 1
+            self._launch_proc(pk)
+            return 'running'
+
+    def log_prefix(self, pk=None):
+        prefix = f'rank {RANK} '
+        if pk: prefix += f'{self.cuteids[pk]} '
+        return prefix
+
+    def write_message(self, job_statuses):
+        msg = {'ask' : [], 'done' : [], 'error': []}
+        for pk, status in job_statuses.items():
+            if status == 'running':
+                msg['ask'].append(pk)
+            elif status == 'done':
+                msg['done'].append(pk)
+            else:
+                retcode, tail = status
+                msg['error'].append((pk, status[0], status[1]))
+        return msg
+
+    def update_processes(self):
+        statuses = {}
+        for pk, retcode in self._check_retcodes():
+            if retcode is None:
+                statuses[pk] = 'running'
+            elif retcode == 0:
+                statuses[pk] = 'done'
+                self._cleanup_proc(pk)
+            else:
+                statuses[pk] = self._handle_error(pk, retcode)
+        return statuses
+    
+    def exit(self):
+        all_pks = list(self.processes.keys())
+        for pk in all_pks:
+            self._cleanup_proc(pk, timeout=self.CHECK_PERIOD)
+        MPI.Finalize()
+        sys.exit(0)
+
+    def start_jobs(self, msg):
+        assert msg['tag'] == 'NEW'
+        for pk in msg:
+            if pk == 'tag': continue
+            job_spec = msg[pk]
+            self.job_specs[pk] = job_spec
+            self.cuteids[pk] = job_spec['cuteid']
+            self.start_times[pk] = time.time()
+            self.retry_counts[pk] = 1
+            self._launch_proc(pk)
+
+    def kill_jobs(self, kill_pks):
+        for pk in kill_pks: self._cleanup_proc(pk, timeout=0)
 
     def main(self):
         tag = None
-        stat = MPI.Status()
-
         gpus_per_node = None
         self.gpus_per_node = comm.bcast(gpus_per_node, root=0)
-        signal.signal(signal.SIGUSR1, signal.SIG_IGN)
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        while tag != 'EXIT':
+            msg = comm.recv(source=0)
+            tag = msg['tag']
 
-        while tag != Tags.EXIT:
-            msg = comm.recv(source=0, status=stat)
-            tag = stat.tag
-
-            if tag == Tags.NEW:
-                success = self.start_job(msg)
-                if not success:
-                    errMsg = {'retcode' : 123 , 'tail' : 'Could not Popen from mpi_ensemble'}
-                    comm.send(errMsg, dest=0, tag=Tags.ERROR)
-            elif tag == Tags.KILL:
-                #logger.debug(f"rank {RANK} received KILL")
-                self.kill()
-            elif tag == Tags.EXIT:
+            if tag == 'NEW':
+                self.start_jobs(msg)
+            elif tag == 'KILL':
+                self.kill_jobs(msg['kill_pks'])
+            elif tag == 'EXIT':
                 logger.debug(f"rank {RANK} received EXIT")
-                self.kill()
                 break
 
-            if self.process:
-                retcode = self.wait_for_retcode()
-                if retcode is None:
-                    message, requestTag = 'ask', Tags.ASK
-                elif retcode == 0:
-                    message, requestTag = 'done', Tags.DONE
-                else:
-                    tail = get_tail(self.outfile.name, nlines=10)
-                    errMsg = {'retcode' : retcode, 'tail' : tail}
-                    message, requestTag = errMsg, Tags.ERROR
-                comm.send(message, dest=0, tag=requestTag)
-
-        self.worker_exit()
-
+            statuses = self.update_processes()
+            cuteids = ' '.join(self.cuteids.values())
+            logger.debug(f"rank {RANK} jobs: {cuteids}")
+            if len(statuses) > 0:
+                msg = self.write_message(statuses)
+                comm.send(msg, dest=0)
+        self.exit()
 
 if __name__ == "__main__":
-    myname = MPI.Get_processor_name()
-    host_names = comm.gather(myname, root=0)
     if RANK == 0:
-        master_main(host_names)
+        master = Master()
+        def handle_term(signum, stack): master.EXIT_FLAG = True
+        signal.signal(signal.SIGINT, handle_term)
+        signal.signal(signal.SIGTERM, handle_term)
+        master.main()
     else:
         worker = Worker()
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
         worker.main()

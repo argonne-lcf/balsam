@@ -33,40 +33,29 @@ def cmd_confirmation(message=''):
 def newapp(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
-    from django.conf import settings
-    from balsam.service import models
-    from balsam.launcher import dag
-    Job = models.BalsamJob
-    AppDef = models.ApplicationDefinition
+    from balsam.service.models import ApplicationDefinition as AppDef
 
     def py_app_path(path):
-        if not path: return path
+        if not path: 
+            return ''
         args = path.split()
         app = args[0]
-        if not app.endswith('.py'): return path
-        
-        args = args[1:]
-        exe = sys.executable + ' '
-        fullpath = os.path.abspath(app) + ' '
-        args = ' '.join(args)
-        return exe + fullpath + args
+        if app.endswith('.py'):
+            exe = sys.executable
+            script_path = os.path.abspath(app)
+            args = ' '.join(args[1:])
+            path = ' '.join((exe, script_path, args))
+        return path
 
     if AppDef.objects.filter(name=args.name).exists():
-        raise RuntimeError(f"An application named {args.name} exists")
+        raise RuntimeError(f"An application named {args.name} already exists")
     
-    if not args.no_check_path:
-        for arg in (args.executable,args.preprocess,args.postprocess):
-            paths = arg.split()
-            if arg and not all(os.path.exists(p) for p in paths):
-                raise RuntimeError(f"{paths} not found")
-
     app = AppDef()
     app.name = args.name
-    app.description = ' '.join(args.description)
+    app.description = ' '.join(args.description) if args.description else ''
     app.executable = py_app_path(args.executable)
     app.preprocess = py_app_path(args.preprocess)
     app.postprocess = py_app_path(args.postprocess)
-    app.environ_vars = ":".join(args.env)
     app.save()
     print(app)
     print("Added app to database")
@@ -75,9 +64,7 @@ def newapp(args):
 def newjob(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
-    from django.conf import settings
     from balsam.service import models
-    from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
 
@@ -89,14 +76,16 @@ def newjob(args):
     job.description = ' '.join(args.description)
     job.workflow = args.workflow
 
-    job.wall_time_minutes = args.wall_minutes
+    job.wall_time_minutes = args.wall_time_minutes
     job.num_nodes = args.num_nodes
+    job.coschedule_num_nodes = args.coschedule_num_nodes
+    job.node_packing_count = args.node_packing_count
     job.ranks_per_node = args.ranks_per_node
     job.threads_per_rank = args.threads_per_rank
     job.threads_per_core = args.threads_per_core
 
     job.application = args.application
-    job.application_args = ' '.join(args.args)
+    job.args = ' '.join(args.args)
     job.post_error_handler = args.post_handle_error
     job.post_timeout_handler = args.post_handle_timeout
     job.auto_timeout_retry = not args.disable_auto_timeout_retry
@@ -179,20 +168,18 @@ def ls(args):
 def modify(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
-    from django.conf import settings
     from balsam.service import models
-    from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
 
-    if args.obj_type == 'jobs': cls = Job
-    elif args.obj_type == 'apps': cls = AppDef
+    if args.type == 'jobs': cls = Job
+    elif args.type == 'apps': cls = AppDef
 
     item = cls.objects.filter(pk__contains=args.id)
     if item.count() == 0:
-        raise RuntimeError(f"no matching {args.obj_type}")
+        raise RuntimeError(f"no matching {args.type}")
     elif item.count() > 1:
-        raise RuntimeError(f"more than one matching {args.obj_type}")
+        raise RuntimeError(f"more than one matching {args.type}")
     item = item.first()
 
     target_type = type(getattr(item, args.attr))
@@ -205,7 +192,7 @@ def modify(args):
     else:
         setattr(item, args.attr, new_value)
         item.save()
-    print(f'{args.obj_type[:-1]} {args.attr} changed to:  {new_value}')
+    print(f'{args.type[:-1]} {args.attr} changed to:  {new_value}')
 
 
 def rm(args):
@@ -257,45 +244,6 @@ def rm(args):
     deletion_objs.delete()
     print("Deleted.")
 
-
-def qsub(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
-    from balsam.service import models
-    from balsam.launcher import dag
-    Job = models.BalsamJob
-    AppDef = models.ApplicationDefinition
-
-    job = Job()
-    job.name = args.name if args.name else "default"
-    job.description = 'Added by balsam qsub'
-    job.workflow = 'qsub'
-
-    job.wall_time_minutes = args.wall_minutes
-    job.num_nodes = args.nodes
-    job.ranks_per_node = args.ranks_per_node
-    job.threads_per_rank = args.threads_per_rank
-    job.threads_per_core = args.threads_per_core
-    job.environ_vars = ":".join(args.env)
-
-    job.application = ''
-    job.application_args = ''
-    job.preprocess = ''
-    job.postprocess = ''
-    job.post_error_handler = False
-    job.post_timeout_handler = False
-    job.auto_timeout_retry = False
-    job.input_files = ''
-    job.stage_in_url = ''
-    job.stage_out_url = ''
-    job.stage_out_files = ''
-    job.direct_command = ' '.join(args.command)
-
-    print(job)
-    job.save()
-    print("Added to database")
-
 def kill(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
@@ -335,8 +283,8 @@ def launcher(args):
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
     command = [sys.executable] + [fname] + original_args
-    print("Starting Balsam launcher")
     p = subprocess.Popen(command)
+    print(f"Started Balsam launcher [{p.pid}]")
     p.wait()
 
 def service(args):
@@ -371,9 +319,6 @@ def init(args):
 
 
 def which(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
     from balsam.django_config.db_index import refresh_db_index
     from balsam.django_config.serverinfo import ServerInfo
     import pprint
@@ -402,13 +347,15 @@ def which(args):
             print(matches[0])
             sys.exit(0)
     else:
-        print("Current Balsam DB:", os.environ['BALSAM_DB_PATH'])
-        fields = 'HOST NAME PASSWORD PORT USER active_clients'.split()
-        dat = {}
-        dat.update(settings.DATABASES['default'])
-        dat.update(ServerInfo(os.environ['BALSAM_DB_PATH']).data)
-        dat = { k:v for k,v in dat.items() if k in fields}
-        pprint.pprint(dat)
+        db_path = os.environ.get('BALSAM_DB_PATH')
+        if db_path:
+            print("Current Balsam DB:", db_path)
+            dat = ServerInfo(os.environ['BALSAM_DB_PATH']).data
+            pprint.pprint(dat)
+        else:
+            print("BALSAM_DB_PATH is not set")
+            print('Use "source balsamactivate" to activate one of these existing databases:')
+            pprint.pprint(refresh_db_index())
 
 def server(args):
     from balsam.scripts import server_control
@@ -422,6 +369,8 @@ def server(args):
         server_control.disconnect_main(db_path)
     elif args.reset:
         server_control.reset_main(db_path)
+    elif args.list_active_connections:
+        server_control.list_connections(db_path)
 
 def make_dummies(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -429,31 +378,19 @@ def make_dummies(args):
     from django.conf import settings
     from balsam.service import models
     Job = models.BalsamJob
+    App = models.ApplicationDefinition
+    if not App.objects.filter(name='dummy').exists():
+        dummy_app = App(name="dummy", executable="echo")
+        dummy_app.save()
 
-    for i in range(args.num):
-        job = Job()
-        job.name = f'dummy{i}'
-        job.description = 'Added by balsam make_dummies'
-        job.serial_node_packing_count = 64
-        job.workflow = 'dummy'
-
-        job.wall_time_minutes = 0
-        job.num_nodes = 1
-        job.ranks_per_node = 1
-        job.threads_per_rank = 1
-        job.threads_per_core = 1
-        job.environ_vars = ""
-
-        job.application = ''
-        job.application_args = ''
-        job.post_error_handler = False
-        job.post_timeout_handler = False
-        job.auto_timeout_retry = False
-        job.input_files = ''
-        job.stage_in_url = ''
-        job.stage_out_url = ''
-        job.stage_out_files = ''
-        job.direct_command = 'echo hello'
-
-        job.save()
+    jobs = [Job(
+                name = f'dummy{i}',
+                description = 'Added by balsam make_dummies',
+                node_packing_count = 64,
+                workflow = 'dummy',
+                application = 'dummy',
+                args = 'hello'
+               )
+            for i in range(args.num)]
+    Job.objects.bulk_create(jobs)
     print(f"Added {args.num} dummy jobs to the DB")

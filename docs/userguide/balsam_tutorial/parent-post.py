@@ -8,6 +8,6 @@ out_files = glob.glob("output*.npy")
 
 for i, fname in enumerate(out_files):
     eig_job = dag.spawn_child(name = f"eigen{i}", application = "eigen",
-                              input_files = fname, application_args = fname)
+                              input_files = fname, args = fname)
 
     dag.add_dependency(parent=eig_job, child=reduce_job)

@@ -52,7 +52,7 @@ There are several optional fields that can be set for each BalsamJob. These
 fields can be set at run-time, during the dynamic creation of jobs, which
 gives a lot of flexibility in the way an application is run. 
 
-application_args
+args
     Command-line arguments passed to the application
 
 environ_vars

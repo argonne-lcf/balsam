@@ -13,8 +13,10 @@ except:
 def postgres_init(serverInfo):
     db_path = serverInfo['balsamdb_path']
     db_path = os.path.join(db_path, 'balsamdb')
+    print('Running PG initdb...',flush=True)
     p = subprocess.Popen(f'initdb -D {db_path} -U $USER', shell=True)
     retcode = p.wait()
+    print('Done',flush=True)
     if retcode != 0: raise RuntimeError("initdb failed")
     
     with open(os.path.join(db_path, 'postgresql.conf'), 'a') as fp:

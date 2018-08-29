@@ -85,6 +85,7 @@ _envs = {k:v for k,v in os.environ.items() if k.find('BALSAM')>=0}
 JOB_ID = _envs.get('BALSAM_JOB_ID', '')
 TIMEOUT = _envs.get('BALSAM_JOB_TIMEOUT', False) == "TRUE"
 ERROR = _envs.get('BALSAM_JOB_ERROR', False) == "TRUE"
+LAUNCHER_NODES = int(_envs.get('BALSAM_LAUNCHER_NODES', 1))
 
 if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)
@@ -221,6 +222,7 @@ def spawn_child(clone=False, **kwargs):
         else:
             raise ValueError(f"Invalid field {k}")
 
+    child.queued_launch = current_job.queued_launch
     #child.working_directory = '' # working directory is computed property instead
 
     newparents = json.loads(current_job.parents)

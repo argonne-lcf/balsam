@@ -2,10 +2,8 @@
  "SCHEDULER_CLASS": "CobaltScheduler",
  "SCHEDULER_SUBMIT_EXE": "/usr/bin/qsub",
  "SCHEDULER_STATUS_EXE": "/usr/bin/qstat",
- "DEFAULT_QUEUE": "debug-cache-quad",
  "DEFAULT_PROJECT": "datascience",
  "SERVICE_PERIOD": 1,
- "MAX_QUEUED": 20,
  "SUBMIT_JOBS": true,
 
  "NUM_TRANSITION_THREADS": 5,
@@ -16,5 +14,7 @@
  "LOG_HANDLER_LEVEL": "DEBUG",
  "LOG_FILENAME": "balsam.log",
  "LOG_BACKUP_COUNT": 5,
- "LOG_FILE_SIZE_LIMIT": 104857600
+ "LOG_FILE_SIZE_LIMIT": 104857600,
+
+ "QUEUE_POLICY:": "theta.ini"
 }
