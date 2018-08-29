@@ -488,7 +488,7 @@ class BalsamJob(models.Model):
         result += '----------------------------------------------\n'
         result += '\n'.join( (k+':').ljust(32) + str(v) 
                 for k,v in self.__dict__.items() 
-                if k not in ['state_history', 'job_id', '_state', 'lock', 'tick'])
+                if k not in ['state_history', 'job_id', '_state', 'tick'])
         result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
         result += '\n' + '  *** Working directory:'.ljust(32) + self.working_directory +'\n'
         return result

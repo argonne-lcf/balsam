@@ -89,7 +89,7 @@ class MPIRun:
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
-    def __init__(self, wf_name, fork_rpn, time_limit_minutes, gpus_per_node):
+    def __init__(self, wf_name, time_limit_minutes, gpus_per_node):
         self.jobsource = BalsamJob.source
         self.jobsource.workflow = wf_name
         if wf_name:
@@ -102,7 +102,6 @@ class MPILauncher:
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
-        os.environ['BALSAM_SERIAL_RPN'] = "0"
 
         self.timer = remaining_time_minutes(time_limit_minutes)
         self.delayer = delay_generator()
@@ -321,9 +320,8 @@ class MPILauncher:
 class SerialLauncher:
     MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
 
-    def __init__(self, wf_name=None, fork_rpn=1, time_limit_minutes=60, gpus_per_node=None):
+    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None):
         self.wf_name = wf_name
-        self.fork_rpn = fork_rpn
         self.gpus_per_node = gpus_per_node
 
         timer = remaining_time_minutes(time_limit_minutes)
@@ -331,7 +329,6 @@ class SerialLauncher:
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
-        os.environ['BALSAM_SERIAL_RPN'] = str(self.fork_rpn)
 
         self.app_cmd = f"{sys.executable} {self.MPI_ENSEMBLE_EXE}"
         self.app_cmd += f" --time-limit-min={minutes_left}"
@@ -341,9 +338,10 @@ class SerialLauncher:
     def run(self):
         global EXIT_FLAG
         workers = self.worker_group
-        num_ranks = self.total_nodes * self.fork_rpn
+        num_ranks = 2 if self.total_nodes==1 else 1
+        rpn = 2 if self.total_nodes==1 else 1
         mpi_str = workers.mpi_cmd(workers, app_cmd=self.app_cmd,
-                               num_ranks=num_ranks, ranks_per_node=self.fork_rpn,
+                               num_ranks=num_ranks, ranks_per_node=rpn,
                                cpu_affinity='none', envs={})
         logger.info(f'Starting MPI Fork ensemble process:\n{mpi_str}')
 
@@ -380,15 +378,13 @@ def main(args):
     timelimit_min = args.time_limit_minutes
     nthread = (args.num_transition_threads if args.num_transition_threads
               else settings.NUM_TRANSITION_THREADS)
-    fork_rpn = (args.serial_jobs_per_node if args.serial_jobs_per_node
-              else settings.SERIAL_JOBS_PER_NODE)
     gpus_per_node = args.gpus_per_node
     
     Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
     
     try:
         transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
-        launcher = Launcher(wf_filter, fork_rpn, timelimit_min, gpus_per_node)
+        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node)
         launcher.run()
     except:
         raise

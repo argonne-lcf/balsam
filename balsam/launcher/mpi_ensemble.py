@@ -53,7 +53,7 @@ class ResourceManager:
             self.RUN_MESSAGE = 'Not scheduled by Balsam service'
         logger.info(self.RUN_MESSAGE)
 
-    def refresh_job_cache(self, time_limit_min):
+    def refresh_job_cache(self):
         now = time.time()
         if len(self.job_cache) == 0 or (now-self.last_job_fetch) > self.FETCH_PERIOD:
             jobquery = self.job_source.get_runnable(
@@ -88,9 +88,9 @@ class ResourceManager:
         del self.running_locations[job_pk]
 
     @transaction.atomic
-    def allocate_next_jobs(self, time_limit_min):
+    def allocate_next_jobs(self):
         '''Generator: yield (job,rank) pairs and mark the nodes/ranks as busy'''
-        self.refresh_job_cache(time_limit_min)
+        self.refresh_job_cache()
         send_requests = []
         pre_assignments = defaultdict(list)
         min_packing_count = 1
@@ -116,7 +116,7 @@ class ResourceManager:
                       for job in pre_assignments[rank]]
         acquired_pks = self.job_source.acquire(to_acquire).values_list('job_id', flat=True)
         acquired_pks = list(acquired_pks)
-        logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
+        logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(to_acquire)} jobs marked for running')
 
         # Make actual assignment:
         for (rank, pre_jobs) in pre_assignments.items():
@@ -151,7 +151,7 @@ class ResourceManager:
             )
             message[job.pk] = job_spec
 
-        req = comm.isend(job_spec, dest=rank)
+        req = comm.isend(message, dest=rank)
         return req
 
     def _get_requests(self):
@@ -272,14 +272,13 @@ class Master:
         return parser.parse_args()
 
     def exit(self):
-        self.manager.send_exit()
-        logger.debug("Send_exit: master done")
         outstanding_job_pks = list(self.manager.running_locations.keys())
         num_timeout = len(outstanding_job_pks)
         logger.info(f"Shutting down with {num_timeout} jobs still running..timing out")
         BalsamJob.batch_update_state(outstanding_job_pks, 'RUN_TIMEOUT', 'timed out in MPI Ensemble')
-
         self.manager.job_source.release_all_owned()
+        self.manager.send_exit()
+        logger.debug("Send_exit: master done")
         logger.debug(f"master calling MPI Finalize")
         MPI.Finalize()
         logger.info(f"ensemble master exit gracefully")
@@ -300,7 +299,7 @@ class Master:
         ran_anything = False
         got_requests = 0
 
-        ran_anything = self.manager.allocate_next_jobs(remaining_minutes)
+        ran_anything = self.manager.allocate_next_jobs()
         start = time.time()
         got_requests = self.manager.serve_requests()
         elapsed = time.time() - start
@@ -334,7 +333,7 @@ class Worker:
         self.retry_counts = {}
         self.job_specs = {}
     
-    def _cleanup_proc(pk, timeout=0):
+    def _cleanup_proc(self, pk, timeout=0):
         self._kill(pk, timeout=timeout)
         self.processes[pk].communicate()
         self.outfiles[pk].close()
@@ -342,7 +341,7 @@ class Worker:
                   self.retry_counts, self.job_specs):
             del d[pk]
     
-    def _check_retcode(proc, timeout):
+    def _check_retcode(self, proc, timeout):
         try: 
             retcode = proc.wait(timeout=timeout)
         except TimeoutExpired:
@@ -383,11 +382,11 @@ class Worker:
 
     def _kill(self, pk, timeout=0):
         p = self.processes[pk]
-        if p.poll() is not None:
-            self.processes[pk].terminate()
+        if p.poll() is None:
+            p.terminate()
             logger.debug(f"rank {RANK} sent TERM to {self.cuteids[pk]}...waiting on shutdown")
-            try: self.process.wait(timeout=timeout)
-            except TimeoutExpired: self.process.kill()
+            try: p.wait(timeout=timeout)
+            except TimeoutExpired: p.kill()
 
     def _launch_proc(self, pk):
         job_spec = self.job_specs[pk]
@@ -435,7 +434,7 @@ class Worker:
 
     def log_prefix(self, pk=None):
         prefix = f'rank {RANK} '
-        if pk: prefix += f'{self.cute_ids[pk]} '
+        if pk: prefix += f'{self.cuteids[pk]} '
         return prefix
 
     def write_message(self, job_statuses):
@@ -459,7 +458,7 @@ class Worker:
                 statuses[pk] = 'done'
                 self._cleanup_proc(pk)
             else:
-                statuses[pk] = self._handle_error(pk)
+                statuses[pk] = self._handle_error(pk, retcode)
         return statuses
     
     def exit(self):
@@ -472,12 +471,14 @@ class Worker:
     def start_jobs(self, msg):
         assert msg['tag'] == 'NEW'
         for pk in msg:
-            if pk == 'tag': pass
-            self.job_specs[pk] = msg[pk]
-            self.cuteids[pk] = msg['cuteid']
+            if pk == 'tag': continue
+            job_spec = msg[pk]
+            self.job_specs[pk] = job_spec
+            self.cuteids[pk] = job_spec['cuteid']
             self.start_times[pk] = time.time()
             self.retry_counts[pk] = 1
             self._launch_proc(pk)
+        logger.debug(f"rank {RANK} jobs: {self.processes.keys()}")
 
     def kill_jobs(self, kill_pks):
         for pk in kill_pks: self._cleanup_proc(pk, timeout=0)
