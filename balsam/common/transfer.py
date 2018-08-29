@@ -119,9 +119,16 @@ class LocalHandler:
           raise Exception(f"Stage in process returned {p.returncode}: {stdout}")
 
    def stage_out(self, source_directory, destination_url):
-      parts = urlparse.urlparse( destination_url )
-      command = 'cp -r %s/* /%s/%s' % (source_directory,parts.netloc,parts.path)
-      logger.debug( 'transfer.stage_out: command=' + command )
+      if destination_url.strip().startswith('local:'):
+          dest = ''.join(destination_url.split(':')[1:])
+      else:
+          dest = destination_url
+      source = validate_path(source_directory)
+      dest = validate_path(dest)
+      assert os.path.isdir(dest), f'{dest} is not a valid destination directory'
+
+      command = f'cp -r {source} {dest}'
+      logger.debug('transfer.stage_out: command=' + command )
       p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT, 
               shell=True)
       stdout,stderr = p.communicate()
