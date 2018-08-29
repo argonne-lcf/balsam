@@ -34,7 +34,7 @@ logger.info("Loading Balsam Launcher")
 
 from balsam.launcher import transitions
 from balsam.launcher import worker
-from balsam.launcher.util import remaining_time_minutes, delay_generator
+from balsam.launcher.util import remaining_time_minutes, delay_generator, get_tail
 from balsam.launcher.exceptions import *
 from balsam.scripts.cli import config_launcher_subparser
 from balsam.service import models
@@ -162,7 +162,7 @@ class MPILauncher:
             tail = get_tail(run.outfile.name)
             run.current_state = 'RUN_ERROR'
             run.err_msg = tail
-            logger.info("MPIRun {run.job.cute_id} error code {retcode}:\n{tail}")
+            logger.info(f"MPIRun {run.job.cute_id} error code {retcode}:\n{tail}")
             run.free_workers()
         return run.current_state
 
@@ -338,7 +338,7 @@ class SerialLauncher:
     def run(self):
         global EXIT_FLAG
         workers = self.worker_group
-        num_ranks = 4 if self.total_nodes==1 else 1
+        num_ranks = 4 if self.total_nodes==1 else self.total_nodes
         rpn = 4 if self.total_nodes==1 else 1
         mpi_str = workers.mpi_cmd(workers, app_cmd=self.app_cmd,
                                num_ranks=num_ranks, ranks_per_node=rpn,

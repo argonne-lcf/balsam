@@ -52,6 +52,7 @@ class ResourceManager:
         else:
             self.RUN_MESSAGE = 'Not scheduled by Balsam service'
         logger.info(self.RUN_MESSAGE)
+        logger.info(f'Assigning jobs to {comm.size-1} worker ranks')
 
     def refresh_job_cache(self):
         now = time.time()
@@ -130,7 +131,7 @@ class ResourceManager:
 
             if runjobs:
                 mpiReq = self._send_jobs(runjobs, rank)
-                logger.debug(f"Sent {[j.cute_id for j in runjobs]} to rank {rank}: occupancy is now {self.node_occupancy[rank]}")
+                logger.debug(f"Sent {len(runjobs)} jobs to rank {rank}: occupancy is now {self.node_occupancy[rank]}")
                 send_requests.append(mpiReq)
 
         BalsamJob.batch_update_state(acquired_pks, 'RUNNING', self.RUN_MESSAGE)
@@ -214,7 +215,7 @@ class ResourceManager:
 
         BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
         self.job_source.release(done_pks)
-        logger.debug(f"RUN_DONE: {done_pks}")
+        logger.debug(f"RUN_DONE: {len(done_pks)} jobs")
     
     def _handle_errors(self, error_jobs):
         for pk,retcode,tail in error_jobs:
@@ -478,7 +479,6 @@ class Worker:
             self.start_times[pk] = time.time()
             self.retry_counts[pk] = 1
             self._launch_proc(pk)
-        logger.debug(f"rank {RANK} jobs: {self.processes.keys()}")
 
     def kill_jobs(self, kill_pks):
         for pk in kill_pks: self._cleanup_proc(pk, timeout=0)
@@ -500,6 +500,8 @@ class Worker:
                 break
 
             statuses = self.update_processes()
+            cuteids = ' '.join(self.cuteids.values())
+            logger.debug(f"rank {RANK} jobs: {cuteids}")
             if len(statuses) > 0:
                 msg = self.write_message(statuses)
                 comm.send(msg, dest=0)
