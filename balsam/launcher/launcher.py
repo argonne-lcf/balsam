@@ -20,6 +20,7 @@ import os
 import sys
 import signal
 import subprocess
+import shlex
 import time
 
 import django
@@ -71,7 +72,7 @@ class MPIRun:
         logger.info(f"{job.cute_id} running:\n{mpi_str} on workers {workers}")
         self.outfile = open(outname, 'w+b')
         self.process = subprocess.Popen(
-                args=mpi_str.split(),
+                args=shlex.split(mpi_cmd),
                 cwd=job.working_directory,
                 stdout=self.outfile,
                 stderr=subprocess.STDOUT,
@@ -347,7 +348,7 @@ class SerialLauncher:
 
         self.outfile = open(os.path.join(settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
         self.process = subprocess.Popen(
-            args=mpi_str.split(),
+            args=shlex.split(mpi_str),
             bufsize=1,
             stdout=self.outfile,
             stderr=subprocess.STDOUT,
