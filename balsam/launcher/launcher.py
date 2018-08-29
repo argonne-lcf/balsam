@@ -338,8 +338,8 @@ class SerialLauncher:
     def run(self):
         global EXIT_FLAG
         workers = self.worker_group
-        num_ranks = 2 if self.total_nodes==1 else 1
-        rpn = 2 if self.total_nodes==1 else 1
+        num_ranks = 4 if self.total_nodes==1 else 1
+        rpn = 4 if self.total_nodes==1 else 1
         mpi_str = workers.mpi_cmd(workers, app_cmd=self.app_cmd,
                                num_ranks=num_ranks, ranks_per_node=rpn,
                                cpu_affinity='none', envs={})
