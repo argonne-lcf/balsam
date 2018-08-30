@@ -1,4 +1,3 @@
-from getpass import getuser
 import os
 import sys
 from pprint import pprint
@@ -26,11 +25,14 @@ def postgres_init(serverInfo):
         fp.write('shared_buffers=2GB # appended from balsam init\n')
         fp.write('synchronous_commit=off # appended from balsam init\n')
         fp.write('wal_writer_delay=400ms # appended from balsam init\n')
+        fp.write('logging_collector=on # appended from balsam init\n')
+        fp.write('log_min_duration_statement=0 # appended from balsam init\n')
+        fp.write('log_connections=on # appended from balsam init\n')
+        fp.write('log_duration=on # appended from balsam init\n')
     
     with open(os.path.join(db_path, 'pg_hba.conf'), 'a') as fp:
         fp.write(f"host all all 0.0.0.0/0 trust\n")
 
-    serverInfo.update({'user' : getuser()})
     serverInfo.reset_server_address()
     port = serverInfo['port']
 

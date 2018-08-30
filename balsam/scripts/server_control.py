@@ -17,7 +17,8 @@ def ps_list():
 
 def launch_server(info):
     info.reset_server_address()
-    start_cmd = f"pg_ctl -w start -D {info['pg_db_path']}"
+    log_path = os.path.join(os.path.expanduser('~'), '.balsam', 'postgres.log')
+    start_cmd = f"pg_ctl -w start -D {info['pg_db_path']} -l {log_path} --mode=smart --wait"
     print("Launching Balsam DB server")
     proc = subprocess.run(start_cmd, shell=True, check=True)
     time.sleep(1)
@@ -25,7 +26,7 @@ def launch_server(info):
 def kill_server(info):
     local_host = socket.gethostname()
     server_host = info['host']
-    stop_cmd = f"pg_ctl -w stop -D {info['pg_db_path']}"
+    stop_cmd = f"pg_ctl -w stop -D {info['pg_db_path']} --mode=smart --wait"
 
     if server_host == local_host:
         print("Stopping local Balsam DB server")
@@ -115,6 +116,43 @@ def list_connections(db_path):
         f'''psql -d balsam -h {host} -p {port} -c \
         "SELECT pid,application_name,usename,state,substr(query, 1, 60)\
         FROM pg_stat_activity WHERE datname = 'balsam';"
+        ''',
+        shell=True
+    )
+
+def add_user(db_path, uname):
+    info = serverinfo.ServerInfo(db_path)
+    host = info['host']
+    port = info['port']
+    subprocess.run(
+        f'''psql -d balsam -h {host} -p {port} -c \
+        "CREATE user {uname}; \
+        GRANT ALL on service_balsamjob TO {uname}; \
+        GRANT ALL on service_applicationdefinition TO {uname}; \
+        GRANT ALL on service_queuedlaunch TO {uname}; "
+        ''',
+        shell=True
+    )
+
+def drop_user(db_path, uname):
+    info = serverinfo.ServerInfo(db_path)
+    host = info['host']
+    port = info['port']
+    subprocess.run(
+        f'psql -d balsam -h {host} -p {port} -c "REVOKE ALL on service_balsamjob FROM {uname};\
+        REVOKE ALL on service_applicationdefinition FROM {uname};\
+        REVOKE ALL on service_queuedlaunch FROM {uname};\
+        DROP ROLE {uname};"',
+        shell=True
+    )
+
+def list_users(db_path):
+    info = serverinfo.ServerInfo(db_path)
+    host = info['host']
+    port = info['port']
+    subprocess.run(
+        f'''psql -d balsam -h {host} -p {port} -c \
+        "SELECT rolname FROM pg_roles;"
         ''',
         shell=True
     )

@@ -8,6 +8,7 @@ import threading
 from datetime import datetime, timedelta
 from django.utils import timezone
 import uuid
+from getpass import getuser
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
@@ -143,8 +144,8 @@ def history_line(state='CREATED', message=''):
 
 class QueuedLaunch(models.Model):
 
-    ADVISORY_LOCK_ID = 1
-    scheduler_id = models.IntegerField(primary_key=True)
+    ADVISORY_LOCK_ID = hash(getuser())
+    scheduler_id = models.IntegerField(unique=True)
     queue = models.TextField()
     nodes = models.IntegerField()
     wall_minutes = models.IntegerField()

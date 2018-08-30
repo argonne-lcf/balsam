@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.9/ref/settings/
 """
 
+from getpass import getuser
 import json
 import os
 import sys
@@ -76,7 +77,7 @@ def configure_db_backend(db_path):
 
     info = serverinfo.ServerInfo(db_path)
     db_type = info['db_type']
-    user = info.get('user', '')
+    user = getuser()
     password = info.get('password', '')
     host = info.get('host', '')
     port = info.get('port', '')

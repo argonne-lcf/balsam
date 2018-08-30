@@ -371,6 +371,16 @@ def server(args):
         server_control.reset_main(db_path)
     elif args.list_active_connections:
         server_control.list_connections(db_path)
+    elif args.add_user:
+        uname = args.add_user
+        if len(uname) == 0: raise RuntimeError("Please provide user name")
+        server_control.add_user(db_path, uname)
+    elif args.drop_user:
+        uname = args.drop_user
+        if len(uname) == 0: raise RuntimeError("Please provide user name")
+        server_control.drop_user(db_path, uname)
+    elif args.list_users:
+        server_control.list_users(db_path)
 
 def make_dummies(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
