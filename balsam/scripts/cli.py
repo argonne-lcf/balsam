@@ -34,6 +34,13 @@ def config_launcher_subparser(subparser=None):
     parser.add_argument('--gpus-per-node', type=int, default=None)
     return parser
 
+def service_subparser(subparser=None):
+    if subparser is None:
+        parser = argparse.ArgumentParser(description="Start Balsam Job Launcher.")
+    else:
+        parser = subparser
+    return parser
+
 def make_parser():
     parser = argparse.ArgumentParser(prog='balsam', description="Balsam command line interface")
     subparsers = parser.add_subparsers(title="Subcommands")

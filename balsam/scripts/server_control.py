@@ -18,7 +18,7 @@ def ps_list():
 def launch_server(info):
     info.reset_server_address()
     log_path = os.path.join(os.path.expanduser('~'), '.balsam', 'postgres.log')
-    start_cmd = f"pg_ctl -w start -D {info['pg_db_path']} -l {log_path} --mode=smart --wait"
+    start_cmd = f"pg_ctl -w start -D {info['pg_db_path']} -l {log_path} --mode=smart"
     print("Launching Balsam DB server")
     proc = subprocess.run(start_cmd, shell=True, check=True)
     time.sleep(1)
@@ -26,7 +26,7 @@ def launch_server(info):
 def kill_server(info):
     local_host = socket.gethostname()
     server_host = info['host']
-    stop_cmd = f"pg_ctl -w stop -D {info['pg_db_path']} --mode=smart --wait"
+    stop_cmd = f"pg_ctl -w stop -D {info['pg_db_path']} --mode=smart"
 
     if server_host == local_host:
         print("Stopping local Balsam DB server")

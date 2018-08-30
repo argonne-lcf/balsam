@@ -13,6 +13,7 @@ logger = logging.getLogger('balsam.service')
 logger.info("Loading Balsam Service")
 
 from balsam.service import models
+from balsam.service.schedulers import script_template, scheduler
 from balsam.scripts.cli import service_subparser
 
 EXIT_FLAG = False
@@ -28,7 +29,7 @@ def submit_qlaunch(qlaunch, verbose=False):
     with open(script_path, 'w') as fp:
         fp.write(script)
     st = os.stat(script_path)
-    os.chmod(path, st.st_mode | stat.S_IEXEC)
+    os.chmod(script_path, st.st_mode | stat.S_IEXEC)
     try:
         sched_id = scheduler.submit(script_path)
     except Exception as e:

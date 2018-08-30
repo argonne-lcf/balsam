@@ -290,7 +290,8 @@ def launcher(args):
 def submitlaunch(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
-    from balsam.service import service, QueuedLaunch
+    from balsam.service import service, models
+    QueuedLaunch = models.QueuedLaunch
     qlaunch = QueuedLaunch(
             project = args.project,
             queue = args.queue,
@@ -300,7 +301,8 @@ def submitlaunch(args):
             wf_filter = args.wf_filter,
             prescheduled_only=False)
     qlaunch.save()
-    service.submit_qlaunch(qlaunch)
+    print("Generated qlaunch:",  qlaunch)
+    service.submit_qlaunch(qlaunch, verbose=True)
 
 def service(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'

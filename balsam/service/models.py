@@ -145,7 +145,7 @@ def history_line(state='CREATED', message=''):
 class QueuedLaunch(models.Model):
 
     ADVISORY_LOCK_ID = hash(getuser())
-    scheduler_id = models.IntegerField(unique=True)
+    scheduler_id = models.IntegerField(default=0, db_index=True)
     project = models.TextField()
     queue = models.TextField()
     nodes = models.IntegerField()
@@ -169,7 +169,11 @@ class QueuedLaunch(models.Model):
             return False
 
     def __repr__(self):
-        return f'''Qlaunch<queue {self.queue}, {self.nodes} nodes, {self.wall_minutes} minutes, job-mode:{self.job_mode}, schedulerID:{self.scheduler_id}, state:{self.state}>'''
+        dat = {k:v for k,v in self.__dict__.items() if k not in '_state'}
+        return f'''Qlaunch {dat}'''
+
+    def __str__(self):
+        return repr(self)
 
 class JobSource(models.Manager):
 
