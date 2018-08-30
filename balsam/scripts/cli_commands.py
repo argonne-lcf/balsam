@@ -165,7 +165,7 @@ def ls(args):
     elif objects.startswith('work') or objects.startswith('wf'):
         lscmd.ls_wf(name, verbose, tree, wf)
     elif objects.startswith('queues'):
-        lscmd.ls_queues()
+        lscmd.ls_queues(verbose)
 
 def modify(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'

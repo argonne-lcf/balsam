@@ -74,8 +74,11 @@ def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
     elif tree: print_jobs_tree(results)
     else: print_jobs(results, verbose)
 
-def ls_queues():
+def ls_queues(verbose):
     allq = QueuedLaunch.objects.all()
+    if verbose:
+        for q in allq: print(q)
+        return
 
     fields = ['pk', 'scheduler_id', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode']
     num_fields = len(fields)
