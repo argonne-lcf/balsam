@@ -1,4 +1,5 @@
 import shlex
+import subprocess
 from balsam.service.schedulers.exceptions import *
 import logging
 logger = logging.getLogger(__name__)
@@ -12,21 +13,24 @@ class Scheduler:
 
     def submit(self, script_path):
         submit_cmd = self._make_submit_cmd(script_path)
-        p = subprocess.run(shlex.split(submit_cmd), stdout=subprocess.PIPE,
+        p = subprocess.run(submit_cmd, stdout=subprocess.PIPE,shell=True,
                              stderr=subprocess.STDOUT, encoding='utf-8')
-        if p.returncode != 0: raise SubmitNonZeroReturnCode
+        if p.returncode != 0: 
+            raise SubmitNonZeroReturnCode(p.stdout)
         scheduler_id = self._parse_submit_output(p.stdout)
         return scheduler_id
 
     def _status(self):
         stat_cmd = self._make_status_cmd()
-        p = subprocess.run(shlex.split(stat_cmd), stdout=subprocess.PIPE,
+        p = subprocess.run(stat_cmd, stdout=subprocess.PIPE, shell=True,
                            stderr=subprocess.STDOUT, encoding='utf-8')
-        if p.returncode != 0: raise StatusNonZeroReturnCode
+        if p.returncode != 0: 
+            raise StatusNonZeroReturnCode(p.stdout)
         statinfo = self._parse_status_output(p.stdout)
         return statinfo
 
     def get_status(self, scheduler_id):
+        scheduler_id = int(scheduler_id)
         statuses = self._status()
         try:
             stat = statuses[scheduler_id]

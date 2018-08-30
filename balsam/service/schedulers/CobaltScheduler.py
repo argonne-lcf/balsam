@@ -32,8 +32,8 @@ class CobaltScheduler(Scheduler.Scheduler):
         return f"{exe} --cwd {cwd} {script_path}"
 
     def _parse_submit_output(self, submit_output):
-        try: scheduler_id = int(output)
-        except ValueError: scheduler_id = int(output.split()[-1])
+        try: scheduler_id = int(submit_output)
+        except ValueError: scheduler_id = int(submit_output.split()[-1])
         return scheduler_id
 
     def _make_status_cmd(self):
@@ -48,18 +48,25 @@ class CobaltScheduler(Scheduler.Scheduler):
         job_lines = raw_output.split('\n')[2:]
         for line in job_lines:
             job_stat = self._parse_job_line(line)
-            id = int(job_stat['id'])
-            status_dict[id] = job_stat
+            if job_stat:
+                id = int(job_stat['id'])
+                status_dict[id] = job_stat
         return status_dict
 
     def _parse_job_line(self, line):
         fields = line.split()
+        num_expected = len(self.JOBSTATUS_VARIABLES)
+        if len(fields) != num_expected: return {}
         stat = {}
         for i, field_name in enumerate(self.JOBSTATUS_VARIABLES.keys()):
             stat[field_name] = fields[i]
             if 'time' in field_name:
-                t = datetime.strptime(fields[i], '%H:%M:%S')
-                t = t.hour*3600 + t.minute*60 + t.second
-                stat[field_name+"_sec"] = t
+                try:
+                    t = datetime.strptime(fields[i], '%H:%M:%S')
+                except:
+                    pass
+                else:
+                    t = t.hour*3600 + t.minute*60 + t.second
+                    stat[field_name+"_sec"] = t
         logger.debug(str(stat))
         return stat

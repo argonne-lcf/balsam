@@ -42,6 +42,7 @@ class JobEnvironment:
             setattr(self, generic_name, value)
 
         if self.current_scheduler_id:
+            self.current_scheduler_id = int(self.current_scheduler_id)
             logger.debug(f"Detected scheduler ID {self.current_scheduler_id}")
         else:
             logger.debug(f"Did not detect a {self.scheduler} ID")
