@@ -109,6 +109,11 @@ class MPILauncher:
         self.last_report = 0
         self.exit_counter = 0
         self.mpi_runs = []
+        if self.jobsource.qLaunch is not None:
+            sched_id = self.jobsource.qLaunch.scheduler_id
+            self.RUN_MESSAGE = f'Batch Scheduler ID: {sched_id}'
+        else:
+            self.RUN_MESSAGE = 'Not scheduled by service'
 
     def time_step(self):
         '''Pretty log of remaining time'''
@@ -267,13 +272,18 @@ class MPILauncher:
         # pre-assign jobs to nodes (descending order of node count)
         cache = list(runnable)
         pre_assignments = []
-        for job in cache:
+        idx = 0
+        while idx < len(cache):
+            job = cache[idx]
             workers = self.worker_group.request(job.num_nodes)
             if workers:
                 pre_assignments.append((job, workers))
+                idx += 1
             else:
-                assert job.num_nodes > sum(w.num_nodes for w in self.worker_group.idle_workers())
-                break
+                num_idle = sum(w.num_nodes for w in self.worker_group.idle_workers())
+                assert job.num_nodes > num_idle
+                idx = next(i for i,job in enumerate(cache[idx:], idx) if
+                           job.num_nodes <= num_idle, len(cache))
 
         # acquire lock on jobs
         to_acquire = [job.pk for (job,workers) in pre_assignments]
@@ -287,12 +297,7 @@ class MPILauncher:
                 self.mpi_runs.append(run)
             else:
                 for w in workers: w.idle = True
-        if self.jobsource.qLaunch is not None:
-            sched_id = self.jobsource.qLaunch.scheduler_id
-            message = f'Batch Scheduler ID: {sched_id}'
-        else:
-            message = 'Not scheduled by service'
-        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', message=message)
+        BalsamJob.batch_update_state(acquired_pks, 'RUNNING', self.RUN_MESSAGE)
 
     def run(self):
         '''Main Launcher service loop'''

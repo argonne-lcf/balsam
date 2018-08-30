@@ -124,6 +124,8 @@ def add_job(save=True, **kwargs):
             raise ValueError(f"Invalid field {k}")
         else:
             setattr(job, k, v)
+    if current_job:
+        job.queued_launch = current_job.queued_launch
     if save:
         job.save()
     return job
