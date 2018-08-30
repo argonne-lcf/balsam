@@ -169,7 +169,7 @@ class QueuedLaunch(models.Model):
             return False
 
     def __repr__(self):
-        dat = {k:v for k,v in self.__dict__.items() if k not in '_state'}
+        dat = {k:v for k,v in self.__dict__.items() if k not in ['_state']}
         return f'''Qlaunch {dat}'''
 
     def __str__(self):

@@ -3,6 +3,7 @@ from os.path import basename
 import uuid
 Job = models.BalsamJob
 AppDef = models.ApplicationDefinition
+QueuedLaunch = models.QueuedLaunch
 
 def app_string(app, cmd=''):
     if not app:
@@ -72,6 +73,29 @@ def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
     if show_history: print_history(results)
     elif tree: print_jobs_tree(results)
     else: print_jobs(results, verbose)
+
+def ls_queues():
+    allq = QueuedLaunch.objects.all()
+
+    fields = ['pk', 'scheduler_id', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode']
+    num_fields = len(fields)
+
+    _records = list(allq.values_list(*fields))
+    fields[0] = 'filename'
+    records = []
+    for row in _records: 
+        row = list(map(str, row))
+        row[0] = 'qlaunch' + row[0]
+        records.append(row)
+
+    widths = [max((len(row[field]) for row in records)) for field in range(num_fields)]
+    widths = [max(w,len(f)) for w,f in zip(widths, fields)] 
+    format = ' | '.join(f'%{width}s' for width in widths)
+    header = format % tuple(fields)
+    print('\n',header)
+    print('-'*len(header))
+    for row in records:
+        print(format % tuple(f.ljust(w) for f,w in zip(row, widths)))
 
 def ls_apps(namestr, appid, verbose):
     if namestr:

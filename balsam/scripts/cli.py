@@ -159,7 +159,7 @@ def make_parser():
     # ----
     parser_ls = subparsers.add_parser('ls', help="list jobs, applications, or jobs-by-workflow")
     parser_ls.set_defaults(func=ls)
-    parser_ls.add_argument('objects', choices=['jobs', 'apps', 'wf'], default='jobs',
+    parser_ls.add_argument('objects', choices=['jobs', 'apps', 'wf', 'queues'], default='jobs',
                            nargs='?', help="list all jobs, all apps, or jobs by workflow")
     parser_ls.add_argument('--name', help="match any substring of job name")
     parser_ls.add_argument('--history', help="show state history", action='store_true')
