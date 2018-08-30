@@ -6,9 +6,9 @@
 #COBALT --attrs ssds=required:ssd_size=128 
 
 {% if conda_path %}
-    source {{ activate_path }} {{ conda_path }}
+source {{ activate_path }} {{ conda_path }}
 {% else %}
-    export PATH={{ python_path }}:$PATH
+export PATH={{ python_path }}:$PATH
 {% endif %}
 
 export PATH=$PATH:{{ balsam_bin }}
@@ -17,13 +17,13 @@ export PYTHONPATH=$PYTHONPATH:{{ site_top }}:{{ balsam_lib }}
 module unload trackdeps
 module unload darshan
 module unload xalt
-export MPICH_GNI_FORK_MODE=FULLCOPY # otherwise, fork() causes segfaults above 1024 nodes
+# export MPICH_GNI_FORK_MODE=FULLCOPY # otherwise, fork() causes segfaults above 1024 nodes
 export PMI_NO_FORK=1 # otherwise, mpi4py-enabled Python apps with custom signal handlers do not respond to sigterm
 export KMP_AFFINITY=disabled # this can affect on-node scaling (test this)
 
 source balsamactivate {{ balsam_db_path }}
 sleep 2
 
-balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }} --serial-jobs-per-node={{ serial_jobs_per_node }}
+balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }}
 
 source balsamdeactivate

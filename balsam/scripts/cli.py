@@ -4,7 +4,7 @@ import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from balsam.scripts.cli_commands import init, which, server
+from balsam.scripts.cli_commands import init, which, server, submitlaunch
 
 def main():
     if not sys.version_info >= (3,6):
@@ -267,10 +267,21 @@ def make_parser():
 
     # LAUNCHER
     # --------
-    parser_launcher = subparsers.add_parser('launcher', help="Start an instance of the balsam launcher")
+    parser_launcher = subparsers.add_parser('launcher', help="Start a local instance of the balsam launcher")
     parser_launcher = config_launcher_subparser(parser_launcher)
     parser_launcher.set_defaults(func=launcher)
     # -----------------
+
+    # SUBMIT-LAUNCH
+    # -------------
+    parser_submitlaunch = subparsers.add_parser('submit-launch', help="Submit a launcher job to the batch queue")
+    parser_submitlaunch.add_argument('-n', '--nodes', type=int, required=True)
+    parser_submitlaunch.add_argument('-t', '--time-minutes', type=int, required=True)
+    parser_submitlaunch.add_argument('-q', '--queue', type=str, required=True)
+    parser_submitlaunch.add_argument('-A', '--project', type=str, required=True)
+    parser_submitlaunch.add_argument('--job-mode', type=str, choices=['serial', 'mpi'], required=True)
+    parser_submitlaunch.add_argument('--wf-filter', type=str, default='')
+    parser_submitlaunch.set_defaults(func=submitlaunch)
     
     # INIT
     # --------

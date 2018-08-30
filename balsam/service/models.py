@@ -146,13 +146,14 @@ class QueuedLaunch(models.Model):
 
     ADVISORY_LOCK_ID = hash(getuser())
     scheduler_id = models.IntegerField(unique=True)
+    project = models.TextField()
     queue = models.TextField()
     nodes = models.IntegerField()
     wall_minutes = models.IntegerField()
     job_mode = models.TextField()
     wf_filter = models.TextField()
-    serial_jobs_per_node = models.IntegerField(default=1)
     state = models.TextField(default='pending-submission')
+    prescheduled_only = models.BooleanField(default=True) # if disabled, all BalsamJobs eligible to run
 
     @classmethod
     def acquire_advisory(self):
@@ -190,6 +191,9 @@ class JobSource(models.Manager):
             try:
                 self.qLaunch = QueuedLaunch.objects.get(scheduler_id=sched_id)
             except ObjectDoesNotExist:
+                self.qLaunch = None
+        if self.qLaunch is not None:
+            if not self.qLaunch.prescheduled_only:
                 self.qLaunch = None
         self._checked_qLaunch = True
 

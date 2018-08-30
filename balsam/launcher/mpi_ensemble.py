@@ -47,6 +47,7 @@ class ResourceManager:
 
         self.recv_requests = {i:comm.irecv(source=i) for i in range(1,comm.size)}
 
+        self.job_source.check_qLaunch()
         if self.job_source.qLaunch is not None:
             sched_id = self.job_source.qLaunch.scheduler_id
             self.RUN_MESSAGE = f'Scheduled by Balsam Service (Scheduler ID: {sched_id})'

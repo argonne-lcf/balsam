@@ -1,5 +1,7 @@
+import os
 import sys
 import signal
+import stat
 
 import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -14,6 +16,32 @@ from balsam.service import models
 from balsam.scripts.cli import service_subparser
 
 EXIT_FLAG = False
+
+def submit_qlaunch(qlaunch, verbose=False):
+    top = settings.SERVICE_PATH
+    pk = qlaunch.pk
+    script_path = os.path.join(top, f'qlaunch{pk}.sh')
+    if os.path.exists(script_path):
+        raise ValueError("Job script already rendered for {qlaunch}")
+    script = script_template.render(qlaunch)
+
+    with open(script_path, 'w') as fp:
+        fp.write(script)
+    st = os.stat(script_path)
+    os.chmod(path, st.st_mode | stat.S_IEXEC)
+    try:
+        sched_id = scheduler.submit(script_path)
+    except Exception as e:
+        logger.error(f'Failed to submit job for {qlaunch}:\n{e}')
+        qlaunch.delete()
+        raise
+    else:
+        qlaunch.scheduler_id = sched_id
+        qlaunch.status = "submitted"
+        qlaunch.save()
+        msg = f'Submit OK: {qlaunch}'
+        logger.info(msg)
+        if verbose: print(msg)
 
 def sig_handler(signum, stack):
     global EXIT_FLAG

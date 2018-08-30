@@ -109,6 +109,7 @@ class MPILauncher:
         self.last_report = 0
         self.exit_counter = 0
         self.mpi_runs = []
+        self.jobsource.check_qLaunch()
         if self.jobsource.qLaunch is not None:
             sched_id = self.jobsource.qLaunch.scheduler_id
             self.RUN_MESSAGE = f'Batch Scheduler ID: {sched_id}'

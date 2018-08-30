@@ -29,7 +29,9 @@ class CobaltScheduler(Scheduler.Scheduler):
     def _make_submit_cmd(self, script_path):
         exe = settings.SCHEDULER_SUBMIT_EXE # qsub
         cwd = settings.SERVICE_PATH
-        return f"{exe} --cwd {cwd} {script_path}"
+        basename = os.path.basename(script_path)
+        basename = os.path.splitext(basename)[0]
+        return f"{exe} --cwd {cwd} -O {basename} {script_path}"
 
     def _parse_submit_output(self, submit_output):
         try: scheduler_id = int(submit_output)

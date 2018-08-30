@@ -287,6 +287,21 @@ def launcher(args):
     print(f"Started Balsam launcher [{p.pid}]")
     p.wait()
 
+def submitlaunch(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from balsam.service import service, QueuedLaunch
+    qlaunch = QueuedLaunch(
+            project = args.project,
+            queue = args.queue,
+            nodes = args.nodes,
+            wall_minutes = args.time_minutes,
+            job_mode = args.job_mode,
+            wf_filter = args.wf_filter,
+            prescheduled_only=False)
+    qlaunch.save()
+    service.submit_qlaunch(qlaunch)
+
 def service(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()

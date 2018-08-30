@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 from socket import gethostname
+from importlib.util import find_spec
 
 import logging
 logger = logging.getLogger(__name__)
@@ -67,26 +68,27 @@ class JobEnvironment:
         self.last_check_seconds = now
         return self.remaining_seconds
 
-def get_balsam_env():
-    conda_env = os.environ.get('CONDA_PREFIX')
-    if conda_env:
-        activate_path = os.path.join(conda_env, 'bin', 'activate')
-        conda_path = conda_env
-        python_path = None
-    else:
-        activate_path = None
-        conda_path = None
-        python_path = os.path.dirname(sys.executable)
+    @staticmethod
+    def get_balsam_env():
+        conda_env = os.environ.get('CONDA_PREFIX')
+        if conda_env:
+            activate_path = os.path.join(conda_env, 'bin', 'activate')
+            conda_path = conda_env
+            python_path = None
+        else:
+            activate_path = None
+            conda_path = None
+            python_path = os.path.dirname(sys.executable)
 
-    balsam_lib = os.path.dirname(find_spec('balsam').origin)
-    p = subprocess.run('which balsam', shell=True, stdout=subprocess.PIPE, encoding='utf-8')
-    balsam_bin = os.path.dirname(p.stdout)
-    site_top = os.path.dirname(os.path.dirname(find_spec('django').origin))
-    balsam_db_path = os.environ['BALSAM_DB_PATH']
-    return dict(conda_path=conda_path,
-                activate_path=activate_path,
-                python_path=python_path,
-                balsam_lib=balsam_lib,
-                balsam_bin=balsam_bin,
-                site_top=site_top,
-                balsam_db_path=balsam_db_path)
+        balsam_lib = os.path.dirname(find_spec('balsam').origin)
+        p = subprocess.run('which balsam', shell=True, stdout=subprocess.PIPE, encoding='utf-8')
+        balsam_bin = os.path.dirname(p.stdout)
+        site_top = os.path.dirname(os.path.dirname(find_spec('django').origin))
+        balsam_db_path = os.environ['BALSAM_DB_PATH']
+        return dict(conda_path=conda_path,
+                    activate_path=activate_path,
+                    python_path=python_path,
+                    balsam_lib=balsam_lib,
+                    balsam_bin=balsam_bin,
+                    site_top=site_top,
+                    balsam_db_path=balsam_db_path)
