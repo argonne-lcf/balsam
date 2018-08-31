@@ -72,7 +72,7 @@ class MPIRun:
         logger.info(f"{job.cute_id} running:\n{mpi_str} on workers {workers}")
         self.outfile = open(outname, 'w+b')
         self.process = subprocess.Popen(
-                args=shlex.split(mpi_cmd),
+                args=shlex.split(mpi_str),
                 cwd=job.working_directory,
                 stdout=self.outfile,
                 stderr=subprocess.STDOUT,
@@ -143,7 +143,7 @@ class MPILauncher:
         if self.is_active: 
             return
         manager = self.jobsource
-        processable_count = manager.by_states(models.PROCESSABLE_STATES).count()
+        processable_count = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES).count()
         if processable_count > 0: 
             return
         if self.get_runnable().count() > 0:
@@ -283,8 +283,8 @@ class MPILauncher:
             else:
                 num_idle = sum(w.num_nodes for w in self.worker_group.idle_workers())
                 assert job.num_nodes > num_idle
-                idx = next(i for i,job in enumerate(cache[idx:], idx) if
-                           job.num_nodes <= num_idle, len(cache))
+                idx = next( (i for i,job in enumerate(cache[idx:], idx) if
+                           job.num_nodes <= num_idle), len(cache))
 
         # acquire lock on jobs
         to_acquire = [job.pk for (job,workers) in pre_assignments]
