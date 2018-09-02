@@ -270,24 +270,11 @@ class JobSource(models.Manager):
         '''input can be actual list of PKs or a queryset'''
         new_lock = self.get_lock_str()
         to_lock = self.get_queryset().filter(pk__in=pk_list)
-        to_lock = to_lock.select_for_update().filter(lock='')
-        to_lock.update(lock=new_lock,
-                       tick=timezone.now())
-        acquired = self.get_queryset().filter(lock=new_lock)
-        return acquired
-
-    @transaction.atomic
-    def acquire_transitionable(self, max_jobs):
-        acquired_jobs = []
-        while len(acquired_jobs) < max_jobs:
-            processable = self.by_states(PROCESSABLE_STATES).filter(lock='')
-            if not processable.exists(): 
-                logger.info(f"acquire_transitions: could not acquire {max_jobs}; only got {len(acquired_jobs)}")
-                break
-            num_needed = max_jobs - len(acquired_jobs)
-            batch = self.acquire(processable[:num_needed])
-            acquired_jobs.extend(job for job in batch)
-        return acquired_jobs
+        to_lock = to_lock.select_for_update(skip_locked=True).filter(lock='')
+        acquired_pks = list(to_lock.values_list('job_id', flat=True))
+        BalsamJob.objects.filter(pk__in=acquired_pks).update(lock=new_lock,
+                tick=timezone.now())
+        return acquired_pks
 
     def start_tick(self):
         t = threading.Timer(self.TICK_PERIOD.total_seconds(), self.start_tick)

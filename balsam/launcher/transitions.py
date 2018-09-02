@@ -55,7 +55,7 @@ class TransitionProcessPool:
         self.procs = [
             multiprocessing.Process(
                 target=main,
-                args=(num_threads, wf_name)
+                args=(i, num_threads, wf_name)
             )
             for i in range(num_threads)
         ]
@@ -87,15 +87,26 @@ def update_states_from_cache(job_cache):
         for newstate, joblist in update_jobs.items():
             BalsamJob.batch_update_state(joblist, newstate)
 
-def refresh_cache(job_cache, num_threads):
+def refresh_cache(job_cache, num_threads, thread_idx):
     manager = BalsamJob.source
-    num_transitionable = BalsamJob.objects.filter(state__in=PROCESSABLE_STATES).count()
-    target_count = round(num_transitionable / num_threads + 0.5)
-    num_to_acquire = max(0, target_count-len(job_cache))
-    acquired = manager.acquire_transitionable(num_to_acquire)
+    processable = manager.by_states(PROCESSABLE_STATES)
+    processable = list(processable.values_list('pk', flat=True)[:10000])
+    
+    chunk, rem = divmod(len(processable), num_threads)
+    start, end = thread_idx*chunk, (thread_idx+1)*chunk
+    if thread_idx == num_threads-1: 
+        end += rem
+    to_acquire = processable[start:end]
+
+    acquired = manager.acquire(to_acquire)
+    if len(acquired) <  len(to_acquire):
+        st = random.random()
+        time.sleep(st)
+        logger.debug(f"failed to acquire {len(to_acquire)}; only got {len(acquired)}")
     if acquired:
-        logger.debug(f'Acquired {len(acquired)} new jobs: {[j.cute_id for j in acquired]}')
-    job_cache.extend(acquired)
+        logger.debug(f'Acquired {len(acquired)} new jobs')
+        acquired = BalsamJob.objects.filter(pk__in=acquired)
+        job_cache.extend(acquired)
     for job in job_cache: job.__old_state = job.state
 
 def release_jobs(job_cache):
@@ -104,18 +115,19 @@ def release_jobs(job_cache):
     manager.release(release_jobs)
     return [j for j in job_cache if j.pk not in release_jobs]
 
-def main(num_threads, wf_name):
+def main(thread_idx, num_threads, wf_name):
     global EXIT_FLAG
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
     
     manager = BalsamJob.source
     manager.workflow = wf_name
+    random.seed(multiprocessing.current_process().pid)
     time.sleep(random.random())
     manager.start_tick()
 
     try:
-        _main(num_threads)
+        _main(thread_idx, num_threads)
     except:
         buf = StringIO()
         print_exc(file=buf)
@@ -124,7 +136,7 @@ def main(num_threads, wf_name):
         manager.release_all_owned()
         logger.debug('Transition process finished: released all jobs')
 
-def _main(num_threads):
+def _main(thread_idx, num_threads):
     global EXIT_FLAG
     manager = BalsamJob.source
     job_cache = []
@@ -135,7 +147,7 @@ def _main(num_threads):
         # Update in-memory cache of locked BalsamJobs
         elapsed = time.time() - last_refresh
         if not job_cache or elapsed > refresh_period:
-            refresh_cache(job_cache, num_threads)
+            refresh_cache(job_cache, num_threads, thread_idx)
             last_refresh = time.time()
             if elapsed < 1: time.sleep(1 - elapsed)
 

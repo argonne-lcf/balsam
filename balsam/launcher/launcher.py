@@ -288,7 +288,7 @@ class MPILauncher:
 
         # acquire lock on jobs
         to_acquire = [job.pk for (job,workers) in pre_assignments]
-        acquired_pks = self.jobsource.acquire(to_acquire).values_list('job_id', flat=True)
+        acquired_pks = self.jobsource.acquire(to_acquire)
         logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
 
         # dispatch runners; release workers that did not acquire job

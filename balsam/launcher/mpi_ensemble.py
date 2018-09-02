@@ -117,8 +117,7 @@ class ResourceManager:
 
         to_acquire = [job.pk for rank in pre_assignments 
                       for job in pre_assignments[rank]]
-        acquired_pks = self.job_source.acquire(to_acquire).values_list('job_id', flat=True)
-        acquired_pks = list(acquired_pks)
+        acquired_pks = self.job_source.acquire(to_acquire)
         logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(to_acquire)} jobs marked for running')
 
         # Make actual assignment:
