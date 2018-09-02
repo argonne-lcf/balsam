@@ -51,7 +51,7 @@ def print_jobs(jobs, verbose):
 
     fields = ['job_id', 'name', 'workflow', 'application', 'state']
     add = environ.get('BALSAM_LS_FIELDS')
-    if add: fields.extend([s.strip() for s in add.split(':')])
+    if add: fields.extend([s.strip() for s in add.split(':') if s])
     transforms = {'application' : app_string}
     try:
         print_table(jobs, fields, transforms=transforms)
