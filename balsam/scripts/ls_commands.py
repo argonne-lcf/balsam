@@ -1,15 +1,41 @@
 from balsam.service import models
+from os import environ
 from os.path import basename
 import uuid
+from django.core.exceptions import FieldError
 Job = models.BalsamJob
 AppDef = models.ApplicationDefinition
 QueuedLaunch = models.QueuedLaunch
 
-def app_string(app, cmd=''):
-    if not app:
-        return " ".join(basename(p) for p in cmd.split())
-    else:
-        return " ".join(basename(p) for p in app.split())
+def app_string(app):
+    return " ".join(basename(p) for p in app.split())
+
+def print_table(queryset, fields, field_header={}, transforms={}):
+    fields = list(fields)
+    num_fields = len(fields)
+    records = list(queryset.values_list(*fields))
+
+    # rename columns in field_header dict to the desired values
+    for field_name, header_name in field_header.items():
+        i = fields.index(field_name)
+        fields[i] = header_name
+
+    # apply transforms on each column
+    transforms = {fields.index(field_name) : fxn for field_name,fxn in transforms.items()}
+    for irow, row in enumerate(records):
+        row = list(map(str, row))
+        for i, fxn in transforms.items():
+            row[i] = fxn(row[i])
+        records[irow] = row
+
+    widths = [max((len(row[field]) for row in records)) for field in range(num_fields)]
+    widths = [max(w,len(f)) for w,f in zip(widths, fields)] 
+    format = ' | '.join(f'%{width}s' for width in widths)
+    header = format % tuple(fields)
+    print('\n'+header)
+    print('-'*len(header))
+    for row in records:
+        print(format % tuple(f.ljust(w) for f,w in zip(row, widths)))
 
 def print_history(jobs):
     query = jobs.values_list('name', 'job_id', 'state_history')
@@ -23,21 +49,16 @@ def print_jobs(jobs, verbose):
         for job in jobs: print(job)
         return
 
-    query = jobs.values_list('job_id', 'name', 'workflow', 'application', 'state')
-    apps = [app_string(job[3]) for job in query]
-    jobs = [ (str(job[0]), job[1], job[2], app, job[4]) 
-              for job,app in zip(query, apps) ]
-    fields = ("job_id", "name", "workflow", "application", "state")
-
-    widths = [max((len(job[field]) for job in jobs)) for field in range(5)]
-    widths = [max(w,len(f)) for w,f in zip(widths, fields)]
-    format = ' | '.join(f'%{width}s' for width in widths)
-    header = format % fields
-
-    print(header)
-    print('-'*len(header))
-    for job in jobs:
-        print(format % tuple(f.ljust(w) for f,w in zip(job, widths)))
+    fields = ['job_id', 'name', 'workflow', 'application', 'state']
+    add = environ.get('BALSAM_LS_FIELDS')
+    if add: fields.extend([s.strip() for s in add.split(':')])
+    transforms = {'application' : app_string}
+    try:
+        print_table(jobs, fields, transforms=transforms)
+    except FieldError as e:
+        print("***  You specified a nonexistant field in BALSAM_LS_FIELDS; please unset this ***")
+        print(e)
+        return
 
 def print_subtree(job, indent=1):
     def job_str(job): return f"{job.name:10} {job.cute_id}"
@@ -79,26 +100,14 @@ def ls_queues(verbose):
     if verbose:
         for q in allq: print(q)
         return
+    if not allq.exists():
+        print("No queued jobs detected")
+        return
 
     fields = ['pk', 'scheduler_id', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode']
-    num_fields = len(fields)
-
-    _records = list(allq.values_list(*fields))
-    fields[0] = 'filename'
-    records = []
-    for row in _records: 
-        row = list(map(str, row))
-        row[0] = 'qlaunch' + row[0]
-        records.append(row)
-
-    widths = [max((len(row[field]) for row in records)) for field in range(num_fields)]
-    widths = [max(w,len(f)) for w,f in zip(widths, fields)] 
-    format = ' | '.join(f'%{width}s' for width in widths)
-    header = format % tuple(fields)
-    print('\n',header)
-    print('-'*len(header))
-    for row in records:
-        print(format % tuple(f.ljust(w) for f,w in zip(row, widths)))
+    header = {'pk' : 'filename'}
+    transforms = {'filename' : lambda x: 'qlaunch'+x}
+    print_table(allq, fields, header, transforms)
 
 def ls_apps(namestr, appid, verbose):
     if namestr:
@@ -115,19 +124,8 @@ def ls_apps(namestr, appid, verbose):
         return
 
     fields = ('pk', 'name', 'executable', 'description')
-    query = results.values_list(*fields)
-    exes = [app_string(app[2]) for app in query]
-    apps = [ (str(q[0]), q[1], exe, q[3]) for q,exe in zip(query, exes) ]
-
-    widths = [max((len(app[field]) for app in apps)) for field in range(4)]
-    widths = [max(w,len(f)) for w,f in zip(widths, fields)] 
-    format = ' | '.join(f'%{width}s' for width in widths)
-    header = format % fields
-
-    print(header)
-    print('-'*len(header))
-    for app in apps:
-        print(format % tuple(f.ljust(w) for f,w in zip(app, widths)))
+    transforms = {'executable' : app_string}
+    print_table(results, fields, transforms=transforms)
 
 
 def ls_wf(name, verbose, tree, wf):
