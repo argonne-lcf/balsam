@@ -131,8 +131,9 @@ for d in [
 # ----------------
 # LOGGING SETUP
 # ----------------
-HANDLER_FILE = os.path.join(LOGGING_DIRECTORY, LOG_FILENAME)
+HANDLER_FILE = os.path.join(LOGGING_DIRECTORY, "balsam.log")
 BALSAM_DB_CONFIG_LOG = os.path.join(LOGGING_DIRECTORY, "db.log")
+BALSAM_SERVICE_LOG = os.path.join(LOGGING_DIRECTORY, "service.log")
 LOGGING = {
    'version': 1,
    'disable_existing_loggers': False,
@@ -164,6 +165,14 @@ LOGGING = {
          'backupCount': LOG_BACKUP_COUNT,
          'formatter': 'standard',
       },
+      'balsam-service': {
+         'level':LOG_HANDLER_LEVEL,
+         'class':'logging.handlers.RotatingFileHandler',
+         'filename': BALSAM_SERVICE_LOG,
+         'maxBytes': LOG_FILE_SIZE_LIMIT,
+         'backupCount': LOG_BACKUP_COUNT,
+         'formatter': 'standard',
+      },
       #'django': {
       #   'level': LOG_HANDLER_LEVEL,
       #   'class':'logging.handlers.RotatingFileHandler',
@@ -191,6 +200,11 @@ LOGGING = {
       },
       'balsam.service.models': {
          'handlers': ['balsam-db-config'],
+         'level': 'DEBUG',
+          'propagate': False,
+      },
+      'balsam.service': {
+         'handlers': ['balsam-service'],
          'level': 'DEBUG',
           'propagate': False,
       },

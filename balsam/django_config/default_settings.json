@@ -12,9 +12,8 @@
  "DEFAULT_NUM_WORKERS": 4,
 
  "LOG_HANDLER_LEVEL": "DEBUG",
- "LOG_FILENAME": "balsam.log",
  "LOG_BACKUP_COUNT": 5,
  "LOG_FILE_SIZE_LIMIT": 104857600,
 
- "QUEUE_POLICY:": "theta.ini"
+ "QUEUE_POLICY": "theta.ini"
 }
