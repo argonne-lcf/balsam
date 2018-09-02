@@ -96,6 +96,7 @@ def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
     else: print_jobs(results, verbose)
 
 def ls_queues(verbose):
+    QueuedLaunch.refresh_from_scheduler()
     allq = QueuedLaunch.objects.all()
     if verbose:
         for q in allq: print(q)
@@ -104,7 +105,7 @@ def ls_queues(verbose):
         print("No queued jobs detected")
         return
 
-    fields = ['pk', 'scheduler_id', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode']
+    fields = ['pk', 'scheduler_id', 'project', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode']
     header = {'pk' : 'filename'}
     transforms = {'filename' : lambda x: 'qlaunch'+x}
     print_table(allq, fields, header, transforms)

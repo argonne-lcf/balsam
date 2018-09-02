@@ -24,6 +24,8 @@ class CobaltScheduler(Scheduler.Scheduler):
         'time_remaining' : 'TimeRemaining',
         'state' : 'State',
         'queue' : 'Queue',
+        'nodes' : 'Nodes',
+        'project' : 'Project',
     }
     QSTAT_EXE = settings.SCHEDULER_STATUS_EXE
 

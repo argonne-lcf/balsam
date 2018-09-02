@@ -146,12 +146,12 @@ class QueuedLaunch(models.Model):
 
     ADVISORY_LOCK_ID = hash(getuser())
     scheduler_id = models.IntegerField(default=0, db_index=True)
-    project = models.TextField()
-    queue = models.TextField()
-    nodes = models.IntegerField()
-    wall_minutes = models.IntegerField()
-    job_mode = models.TextField()
-    wf_filter = models.TextField()
+    project = models.TextField(default='')
+    queue = models.TextField(default='')
+    nodes = models.IntegerField(default=0)
+    wall_minutes = models.IntegerField(default=0)
+    job_mode = models.TextField(default='')
+    wf_filter = models.TextField(default='')
     state = models.TextField(default='pending-submission')
     prescheduled_only = models.BooleanField(default=True) # if disabled, all BalsamJobs eligible to run
 
@@ -174,6 +174,32 @@ class QueuedLaunch(models.Model):
 
     def __str__(self):
         return repr(self)
+
+    @classmethod
+    @transaction.atomic
+    def refresh_from_scheduler(cls):
+        from balsam.service.schedulers import scheduler
+        saved_jobs = list(cls.objects.all())
+        saved_job_ids = [j.scheduler_id for j in saved_jobs]
+        stats = scheduler.status_dict()
+        for job_id, job in stats.items():
+            if job_id not in saved_job_ids:
+                j = cls(scheduler_id=job_id,
+                    project=job['project'],
+                    queue=job['queue'],
+                    nodes=job['nodes'],
+                    state=job['state'])
+                j.save()
+                logger.info(f'Detected new job: {j}')
+            else:
+                saved_job = saved_jobs[saved_job_ids.index(job_id)]
+                if job['state'] != saved_job.state:
+                    saved_job.state = job['state']
+                    saved_job.save()
+                    logger.info(f'Updated job {job_id} to state {job["state"]}')
+        delete_ids = [id for id in saved_job_ids if id not in stats.keys()]
+        cls.objects.filter(scheduler_id__in=delete_ids).delete()
+        logger.info(f'Deleting Jobs {delete_ids} no longer in scheduler')
 
 class JobSource(models.Manager):
 
