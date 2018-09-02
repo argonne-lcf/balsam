@@ -1,94 +1,68 @@
 from django.conf import settings
 import configparser
 import json
+import os
 from collections import namedtuple
+import logging
+import pprint
+logger = logging.getLogger('balsam.service')
 
-class LaunchNotQueued(Exception): pass
+Queue = namedtuple('Queue', ['name', 'min_time', 'max_time'])
 
-class JobQueue:
-
-    def __init__(self, queue_name, submit_jobs, max_queued):
-        self.name = queue_name
-        self.submit_jobs = submit_jobs
-        self.max_queued = max_queued
-        self.rules = {}
-        self.jobs = []
-
-    def __repr__(self):
-        return f'{self.name} submit:{self.submit_jobs} maxQueued:{self.max_queued}'
-
-    @property
-    def num_queueable(self):
-        return self.max_queued - len(self.jobs)
-
-    def addRule(self, min_nodes, max_nodes, min_time, max_time):
-        key = (min_nodes, max_nodes)
-        val = (min_time, max_time)
-        self.rules[key] = val
-
-    def status_update(self):
-        pass
-
-    def submit(self, slaunch):
-        pass
-
-class QueueManager:
-
+class _QueuePolicy:
     def __init__(self):
+        self.queues = {}
+        self.max_nodes = 0
+        
         top = settings.BALSAM_HOME
         policy_fname = settings.QUEUE_POLICY
         policypath = os.path.join(top, policy_fname)
         config = configparser.ConfigParser()
         config.read(policypath)
-
-        self.queues = {}
-        
-        for queue_name in config.sections():
+        for queue_name in config.sections(): 
             qconf = config[queue_name]
             self.add_from_config(queue_name, qconf)
-
-    def __getitem__(self, key):
-        return self.queues[key]
-
-    def __iter__(self):
-        return self.queues.values()
-
-    @property
-    def names(self):
-        return list(self.queues.keys())
-
-    @property
-    def jobqueues(self):
-        return list(self.queues.values())
-
-    @property
-    def num_queued(self):
-        return sum(len(q) for q in self.jobqueues)
+        msg = pprint.pformat(self.queues, indent=4)
+        logger.info('Loaded Queue Policy\n'+msg)
 
     def add_from_config(self, queue_name, qconf):
+        global_max_nodes = self.max_nodes
         try:
-            submit_jobs = qconf.getBoolean('submit-jobs')
-            max_queued = qconf.getInt('max-queued')
+            submit_jobs = qconf.getboolean('submit-jobs')
+            max_queued = qconf.getint('max-queued')
             qpolicy = json.loads(qconf['policy'])
         except Exception as e:
             logger.error(f'Failed to parse {queue_name}: {e}')
             return
+        if not submit_jobs or max_queued==0: return
         try:
-            q = JobQueue(queue_name, submit_jobs, max_queued)
+            q = {'max_queued' : max_queued}
             for rule in qpolicy:
-                min_nodes = rule['min-nodes']
-                max_nodes = rule['max-nodes']
-                min_time = rule['min-time']
-                max_time = rule['max-time']
-                q.addRule(min_nodes, max_nodes, min_time, max_time)
+                min_nodes = int(rule['min-nodes'])
+                max_nodes = int(rule['max-nodes'])
+                assert min_nodes <= max_nodes
+                assert (min_nodes, max_nodes) not in q
+                global_max_nodes = max(global_max_nodes, max_nodes)
+                min_time = float(rule['min-time'])
+                max_time = float(rule['max-time'])
+                assert min_time <= max_time
+                q[(min_nodes, max_nodes)] = (min_time, max_time)
         except Exception as e:
             logger.error(f'Failed to parse policy for {queue_name}: {e}')
         else:
             self.queues[queue_name] = q
+            self.max_nodes = global_max_nodes
 
-    def refresh(self):
-        queuedict = scheduler.jobs_byqueue()
-        for qname in queuedict:
-            if qname in self.names: 
-                jobs = queuedict[qname]
-                self.queues[queue].jobs = jobs
+    def find_queue(self, open_queues, num_nodes):
+        for qname in open_queues:
+            queue = self.queues[qname]
+            for node_range, time_range in queue.items():
+                if node_range == 'max_queued': continue
+                low, high = node_range
+                if low <= num_nodes <= high:
+                    min_time, max_time = time_range
+                    return Queue(name, min_time, max_time)
+
+_queue_policy = _QueuePolicy()
+max_nodes = _queue_policy.max_nodes
+find_queue = _queue_policy.find_queue
