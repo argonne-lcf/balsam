@@ -4,7 +4,7 @@ import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
-from balsam.scripts.cli_commands import init, which, server, submitlaunch
+from balsam.scripts.cli_commands import init, which, server, submitlaunch, log
 
 def main():
     if not sys.version_info >= (3,6):
@@ -317,6 +317,13 @@ def make_parser():
     parser_which.add_argument('--list', action='store_true')
     parser_which.add_argument('--name')
     parser_which.set_defaults(func=which)
+    
+    # LOG
+    # ---------
+    parser_log = subparsers.add_parser('log')
+    parser_log.add_argument('name', choices=['launcher', 'service', 'db'])
+    parser_log.add_argument('--follow', action='store_true')
+    parser_log.set_defaults(func=log)
     
     # SERVER
     # ---------

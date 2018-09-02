@@ -376,6 +376,26 @@ def which(args):
             print('Use "source balsamactivate" to activate one of these existing databases:')
             pprint.pprint(refresh_db_index())
 
+def log(args):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+    django.setup()
+    from django.conf import settings
+
+    name = args.name
+    follow = args.follow
+    if name == 'launcher':
+        path = settings.HANDLER_FILE
+    elif name == 'service':
+        path = settings.BALSAM_SERVICE_LOG
+    elif name == 'db':
+        path = settings.BALSAM_DB_CONFIG_LOG
+    if follow:
+        try: subprocess.run(f"tail -f {path}", shell=True)
+        except KeyboardInterrupt: pass
+    else:
+        subprocess.run(f"cat {path}", shell=True)
+
+
 def server(args):
     from balsam.scripts import server_control
     db_path = os.environ.get('BALSAM_DB_PATH', None)
