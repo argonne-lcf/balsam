@@ -96,7 +96,12 @@ def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
     else: print_jobs(results, verbose)
 
 def ls_queues(verbose):
-    QueuedLaunch.refresh_from_scheduler()
+    from balsam.service.schedulers.exceptions import StatusNonZeroReturnCode
+    try:
+        QueuedLaunch.refresh_from_scheduler()
+    except StatusNonZeroReturnCode as e:
+        print(f"Scheduler is not reachable: {e}")
+        return
     allq = QueuedLaunch.objects.all()
     if verbose:
         for q in allq: print(q)

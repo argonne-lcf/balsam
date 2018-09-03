@@ -226,10 +226,10 @@ def log_uncaught_exceptions(exctype, value, tb):
             print("Please use `source balsamactivate` to activate a Balsam DB")
             print("Use `balsam which --list` for a listing of known DB names")
         else:
-            print("Failed to reach the Balsam DB server at", db_path, f"(detailed traceback in {db_path}/log/db.log)")
+            print("Failed to reach the Balsam DB server at", db_path, f"(use 'balsam log db' for detailed traceback)")
     else:
         logger = logging.getLogger('console')
-        logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+        logger.error(f"Uncaught Exception",exc_info=(exctype,value,tb))
         [h.flush() for h in logger.handlers]
 
 sys.excepthook = log_uncaught_exceptions
