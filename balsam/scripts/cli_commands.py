@@ -303,7 +303,6 @@ def submitlaunch(args):
             wf_filter = args.wf_filter,
             prescheduled_only=False)
     qlaunch.save()
-    print("Generated qlaunch:",  qlaunch)
     service.submit_qlaunch(qlaunch, verbose=True)
 
 def service(args):
