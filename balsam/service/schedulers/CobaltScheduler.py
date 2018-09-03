@@ -22,6 +22,7 @@ class CobaltScheduler(Scheduler.Scheduler):
     JOBSTATUS_VARIABLES = {
         'id' : 'JobID',
         'time_remaining' : 'TimeRemaining',
+        'wall_time' : 'WallTime',
         'state' : 'State',
         'queue' : 'Queue',
         'nodes' : 'Nodes',
@@ -71,7 +72,9 @@ class CobaltScheduler(Scheduler.Scheduler):
                 except:
                     pass
                 else:
-                    t = t.hour*3600 + t.minute*60 + t.second
-                    stat[field_name+"_sec"] = t
+                    tsec = t.hour*3600 + t.minute*60 + t.second
+                    stat[field_name+"_sec"] = tsec
+                    tmin = t.hour*60 + t.minute
+                    stat[field_name+"_min"] = tmin
         logger.debug(str(stat))
         return stat

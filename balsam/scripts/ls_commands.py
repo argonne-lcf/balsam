@@ -105,8 +105,8 @@ def ls_queues(verbose):
         print("No queued jobs detected")
         return
 
-    fields = ['pk', 'scheduler_id', 'project', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode']
-    header = {'pk' : 'filename'}
+    fields = ['pk', 'scheduler_id', 'project', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode', 'from_balsam']
+    header = {'pk' : 'Filename', 'from_balsam' : 'Submitted from Balsam?'}
     transforms = {'filename' : lambda x: 'qlaunch'+x}
     print_table(allq, fields, header, transforms)
 

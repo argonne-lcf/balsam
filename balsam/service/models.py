@@ -154,6 +154,7 @@ class QueuedLaunch(models.Model):
     wf_filter = models.TextField(default='')
     state = models.TextField(default='pending-submission')
     prescheduled_only = models.BooleanField(default=True) # if disabled, all BalsamJobs eligible to run
+    from_balsam = models.BooleanField(default=True) # if disabled, all BalsamJobs eligible to run
 
     @classmethod
     def acquire_advisory(self):
@@ -188,7 +189,9 @@ class QueuedLaunch(models.Model):
                     project=job['project'],
                     queue=job['queue'],
                     nodes=job['nodes'],
-                    state=job['state'])
+                    wall_minutes=job['wall_time_min'],
+                    state=job['state'],
+                    from_balsam=False)
                 j.save()
                 logger.info(f'Detected new job: {j}')
             else:
