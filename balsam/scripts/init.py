@@ -1,3 +1,4 @@
+import glob
 import os
 import sys
 from pprint import pprint
@@ -12,6 +13,9 @@ except:
 def postgres_init(serverInfo):
     db_path = serverInfo['balsamdb_path']
     db_path = os.path.join(db_path, 'balsamdb')
+    if os.path.exists(db_path): 
+        print(db_path, "already exists; skipping DB creation")
+        return
     print('Running PG initdb...',flush=True)
     p = subprocess.Popen(f'initdb -D {db_path} -U $USER', shell=True)
     retcode = p.wait()
@@ -53,6 +57,13 @@ def run_migrations():
     import django
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
+    from balsam.service import migrations
+    path = migrations.__path__
+    try: path = path[0]
+    except: path = str(path)
+    for fname in glob.glob(os.path.join(path, '????_*.py')):
+        os.remove(fname)
+        print("Remove migration file:", fname)
     
     from django import db
     from django.core.management import call_command
@@ -64,8 +75,8 @@ def run_migrations():
     db_info = db.connection.settings_dict['NAME']
     print(f"Setting up new balsam database:")
     pprint(db_info, width=60)
-    call_command('makemigrations', interactive=False, verbosity=2)
-    call_command('migrate', interactive=False, verbosity=2)
+    call_command('makemigrations', interactive=True, verbosity=2)
+    call_command('migrate', interactive=True, verbosity=2)
     refresh_db_index()
 
     try:

@@ -21,7 +21,6 @@ def launch_server(info):
     start_cmd = f"pg_ctl -w start -D {info['pg_db_path']} -l {log_path} --mode=smart"
     print("Launching Balsam DB server")
     proc = subprocess.run(start_cmd, shell=True, check=True)
-    time.sleep(1)
 
 def kill_server(info):
     local_host = socket.gethostname()
