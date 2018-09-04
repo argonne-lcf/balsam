@@ -453,6 +453,10 @@ class BalsamJob(models.Model):
         'Command-line args to the application exe',
         help_text='Command line arguments used by the Balsam job runner',
         default='')
+    user_workdir = models.TextField(
+        'Override the Balsam-generated workdir, point to existing location'
+        default=''
+    )
 
 
     wait_for_parents = models.BooleanField(
@@ -707,6 +711,8 @@ class BalsamJob(models.Model):
 
     @property
     def working_directory(self):
+        if self.user_workdir and os.path.isdir(self.user_workdir):
+            return self.user_workdir
         top = settings.BALSAM_WORK_DIRECTORY
         if self.workflow:
             top = os.path.join(top, self.workflow)
