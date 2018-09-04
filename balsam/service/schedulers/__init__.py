@@ -6,6 +6,9 @@ _schedClass = settings.SCHEDULER_CLASS.strip()
 _temp = import_module('balsam.service.schedulers.'+_schedClass)
 scheduler = _temp.new_scheduler()
 JobEnv = JobEnvironment.JobEnvironment(scheduler)
-script_template = Template.ScriptTemplate(scheduler, JobEnv)
+
+template_path = settings.BALSAM_HOME
+template_name = settings.JOB_TEMPLATE
+script_template = Template.ScriptTemplate(template_path, template_name)
 
 __all__ = ['scheduler', 'JobEnv', 'script_template']

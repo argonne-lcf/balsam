@@ -31,14 +31,19 @@ def bootstrap():
         time.sleep(1)
 
     user_settings_path = os.path.join(BALSAM_HOME, 'settings.json')
-    user_policy_path = os.path.join(BALSAM_HOME, 'theta.ini')
+    user_policy_path = os.path.join(BALSAM_HOME, 'theta_policy.ini')
+    user_templates_path = os.path.join(BALSAM_HOME, 'templates')
+    here = os.path.dirname(os.path.abspath(__file__))
     if not os.path.exists(user_settings_path):
-        here = os.path.dirname(os.path.abspath(__file__))
         default_settings_path = os.path.join(here, 'default_settings.json')
         shutil.copy(default_settings_path, user_settings_path)
-        default_policy_path = os.path.join(here, 'theta.ini')
+        print("Set up your Balsam config directory at", BALSAM_HOME)
+    if not os.path.exists(user_policy_path):
+        default_policy_path = os.path.join(here, 'theta_policy.ini')
         shutil.copy(default_policy_path, user_policy_path)
-        print("Created Balsam JSON settings at", user_settings_path)
+    if not os.path.exists(user_templates_path):
+        default_templates_path = os.path.join(here, 'templates')
+        shutil.copytree(default_templates_path, user_templates_path)
 
     thismodule = sys.modules[__name__]
     user_settings = json.load(open(user_settings_path))
