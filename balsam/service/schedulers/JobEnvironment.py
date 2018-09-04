@@ -1,9 +1,7 @@
 import os
-import subprocess
 import sys
 import time
 from socket import gethostname
-from importlib.util import find_spec
 from balsam.service.schedulers.exceptions import *
 
 import logging

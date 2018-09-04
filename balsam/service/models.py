@@ -454,7 +454,7 @@ class BalsamJob(models.Model):
         help_text='Command line arguments used by the Balsam job runner',
         default='')
     user_workdir = models.TextField(
-        'Override the Balsam-generated workdir, point to existing location'
+        'Override the Balsam-generated workdir, point to existing location',
         default=''
     )
 
