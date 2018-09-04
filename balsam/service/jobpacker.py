@@ -1,5 +1,10 @@
 from balsam.service import models
 from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+logger.info("Balsam Service starting on {gethostname()}")
+
 BalsamJob = models.BalsamJob
 QueuedLaunch = models.QueuedLaunch
 
@@ -20,7 +25,7 @@ def dummy_pack(jobs, queues):
     jobs); Return: a qlaunch object (from which launcher qsub can be generated),
     and list/queryset of jobs scheduled for that launch'''
     if not queues: return None
-    qname = queues.keys()[0]
+    qname = list(queues.keys())[0]
     qlaunch = QueuedLaunch(queue=qname,
                            nodes=4,
                            job_mode='mpi',

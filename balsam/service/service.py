@@ -2,6 +2,7 @@ import os
 import sys
 import signal
 import stat
+import time
 from socket import gethostname
 
 import django
@@ -12,12 +13,15 @@ from django.db.models import Count
 
 import logging
 logger = logging.getLogger('balsam.service')
-logger.info("Balsam Service starting on {gethostname()}")
+logger.info(f"Balsam Service starting on {gethostname()}")
 
 from balsam.service import models, queues, jobpacker
 from balsam.service.schedulers import script_template, scheduler
 from balsam.scripts.cli import service_subparser
 from balsam.launcher import transitions
+
+QueuedLaunch = models.QueuedLaunch
+BalsamJob = models.BalsamJob
 
 EXIT_FLAG = False
 
@@ -64,7 +68,7 @@ def get_open_queues():
     query = QueuedLaunch.objects.values('queue').annotate(num_queued=Count('queue'))
     num_queued = {d['queue'] : d['num_queued'] for d in query}
     open_queues = {qname:queue for qname,queue in queues.queues.items()
-                   if num_queued.get(qname,0) < queue[max_queued]}
+                   if num_queued.get(qname,0) < queue['max_queued']}
     return open_queues
 
 def main(args):
@@ -72,7 +76,6 @@ def main(args):
     signal.signal(signal.SIGTERM, sig_handler)
     signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
-    QueuedLaunch = models.QueuedLaunch
     if not QueuedLaunch.acquire_advisory():
         print("Another service is currently running on this Balsam DB")
         sys.exit(1)
