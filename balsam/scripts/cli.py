@@ -300,8 +300,7 @@ def make_parser():
 
     # SERVICE
     # -------
-    parser_service = subparsers.add_parser('service', 
-                                           help="Start an instance of the balsam metascheduler service")
+    parser_service = subparsers.add_parser('service', help="Start Balsam auto-scheduling service")
     parser_service.set_defaults(func=service)
     # -------------------------
 
@@ -313,29 +312,29 @@ def make_parser():
     
     # WHICH
     # ---------
-    parser_which = subparsers.add_parser('which')
-    parser_which.add_argument('--list', action='store_true')
-    parser_which.add_argument('--name')
+    parser_which = subparsers.add_parser('which', help="Get info on current/available DBs")
+    parser_which.add_argument('--list', action='store_true', help="list cached DB paths")
+    parser_which.add_argument('--name', help='Look up DB path from a partial name')
     parser_which.set_defaults(func=which)
     
     # LOG
     # ---------
-    parser_log = subparsers.add_parser('log')
-    parser_log.add_argument('name', choices=['launcher', 'service', 'db'])
-    parser_log.add_argument('--follow', action='store_true')
+    parser_log = subparsers.add_parser('log', help="Quick view of Balsam log files")
+    parser_log.add_argument('name', choices=['launcher', 'service', 'db'], help="log file selection")
+    parser_log.add_argument('--follow', action='store_true', help="Use tail --follow mode")
     parser_log.set_defaults(func=log)
     
     # SERVER
     # ---------
-    parser_server = subparsers.add_parser('server')
-    group = parser_server.add_mutually_exclusive_group()
-    group.add_argument('--connect', action='store_true')
-    group.add_argument('--disconnect', action='store_true')
-    group.add_argument('--reset', action='store_true')
-    group.add_argument('--list-active-connections', action='store_true')
-    group.add_argument('--list-users', action='store_true')
-    group.add_argument('--add-user', type=str)
-    group.add_argument('--drop-user', type=str)
+    parser_server = subparsers.add_parser('server', help="Control Balsam server at BALSAM_DB_PATH")
+    group = parser_server.add_mutually_exclusive_group(required=True)
+    group.add_argument('--connect', action='store_true', help="connect to existing or start new server")
+    group.add_argument('--disconnect', action='store_true', help="kill server")
+    group.add_argument('--reset', action='store_true', help="stop and start server")
+    group.add_argument('--list-active-connections', action='store_true', help="see how many clients have active connection")
+    group.add_argument('--list-users', action='store_true', help="list authorized Balsam users")
+    group.add_argument('--add-user', type=str, help="add an authorized Balsam user")
+    group.add_argument('--drop-user', type=str, help="drop a user from the DB")
     group.set_defaults(func=server)
 
     return parser
