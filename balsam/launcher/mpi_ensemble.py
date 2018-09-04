@@ -74,7 +74,7 @@ class ResourceManager:
             killed_pks = self.job_source.filter(state='USER_KILLED').values_list('job_id', flat=True)
 
             if len(killed_pks) > len(self.killed_pks): 
-                logger.debug(f"Killed jobs: {self.killed_pks}")
+                logger.info(f"Killed jobs: {self.killed_pks}")
             self.killed_pks = killed_pks
             self.last_killed_refresh = now
         
@@ -132,7 +132,7 @@ class ResourceManager:
 
             if runjobs:
                 mpiReq = self._send_jobs(runjobs, rank)
-                logger.debug(f"Sent {len(runjobs)} jobs to rank {rank}: occupancy is now {self.node_occupancy[rank]}")
+                logger.info(f"Sent {len(runjobs)} jobs to rank {rank}: occupancy is now {self.node_occupancy[rank]}")
                 send_requests.append(mpiReq)
 
         BalsamJob.batch_update_state(acquired_pks, 'RUNNING', self.RUN_MESSAGE)
@@ -204,7 +204,7 @@ class ResourceManager:
             self.revert_assign(rank, pk)
 
         if response['tag'] == 'KILL':
-            logger.debug(f"Sent KILL to rank {rank} for {response['kill_pks']}\n"
+            logger.info(f"Sent KILL to rank {rank} for {response['kill_pks']}\n"
                          f"occupancy is now {self.node_occupancy[rank]}")
 
         return response['kill_pks'], req
@@ -216,7 +216,7 @@ class ResourceManager:
 
         BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
         self.job_source.release(done_pks)
-        logger.debug(f"RUN_DONE: {len(done_pks)} jobs")
+        logger.info(f"RUN_DONE: {len(done_pks)} jobs")
     
     def _handle_errors(self, error_jobs):
         for pk,retcode,tail in error_jobs:
@@ -232,12 +232,12 @@ class ResourceManager:
         self.job_source.release(error_pks)
     
     def send_exit(self):
-        logger.info(f"send_exit: waiting on all pending recvs")
+        logger.debug(f"send_exit: waiting on all pending recvs")
         active_ranks = list(set(self.running_locations.values()))
         requests = [self.recv_requests[i] for i in active_ranks]
         MPI.Request.waitall(requests)
         reqs = []
-        logger.info(f"send_exit: send EXIT tag to all ranks")
+        logger.debug(f"send_exit: send EXIT tag to all ranks")
         for i in range(1, comm.size):
             req = comm.isend({'tag': 'EXIT'}, dest=i)
             reqs.append(req)
@@ -281,7 +281,7 @@ class Master:
         self.manager.job_source.release_all_owned()
         self.manager.send_exit()
         logger.debug("Send_exit: master done")
-        logger.debug(f"master calling MPI Finalize")
+        logger.info(f"master calling MPI Finalize")
         MPI.Finalize()
         logger.info(f"ensemble master exit gracefully")
         sys.exit(0)
@@ -406,7 +406,7 @@ class Worker:
             envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
 
         out_name = f'{name}.out'
-        logger.debug(self.log_prefix(pk) + f"\nPopen: {cmd}")
+        logger.info(self.log_prefix(pk) + f"\nPopen: {cmd}")
 
         if not os.path.exists(workdir): os.makedirs(workdir)
         outfile = open(os.path.join(workdir, out_name), 'wb')

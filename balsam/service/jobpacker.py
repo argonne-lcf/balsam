@@ -3,7 +3,6 @@ from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
-logger.info("Balsam Service starting on {gethostname()}")
 
 BalsamJob = models.BalsamJob
 QueuedLaunch = models.QueuedLaunch
@@ -27,9 +26,9 @@ def dummy_pack(jobs, queues):
     if not queues: return None
     qname = list(queues.keys())[0]
     qlaunch = QueuedLaunch(queue=qname,
-                           nodes=4,
-                           job_mode='mpi',
-                           wall_minutes=10)
+                           nodes=3,
+                           job_mode='serial',
+                           wall_minutes=12)
     jobs = jobs.all()
     return qlaunch, jobs
 

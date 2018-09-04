@@ -15,7 +15,7 @@ class ScriptTemplate:
         template_name = os.path.basename(templ_path)
         env = Environment(loader=FileSystemLoader(template_dir))
         self._template = env.get_template(template_name)
-        logger.info(f"Loaded job template at {templ_path}")
+        logger.debug(f"Loaded job template at {templ_path}")
 
     def render(self, qlaunch):
         conf = self.qlaunch_to_dict(qlaunch)

@@ -13,7 +13,6 @@ from django.db.models import Count
 
 import logging
 logger = logging.getLogger('balsam.service')
-logger.info(f"Balsam Service starting on {gethostname()}")
 
 from balsam.service import models, queues, jobpacker
 from balsam.service.schedulers import script_template, scheduler
@@ -59,7 +58,7 @@ def sig_handler(signum, stack):
 def get_ready_jobs():
     jobs = BalsamJob.objects.filter(
         lock='',
-        queued_launch=None,
+        queued_launch__isnull=True,
         state__in=['PREPROCESSED', 'RESTART_READY']
     )
     return jobs
@@ -84,18 +83,31 @@ def main(args):
         QueuedLaunch.refresh_from_scheduler()
         jobs = get_ready_jobs()
         open_queues = get_open_queues()
-        if jobs.exists() and open_queues:
+        if open_queues and jobs.exists():
+            acquired_pks = BalsamJob.source.acquire(jobs)
+            jobs = BalsamJob.objects.filter(pk__in=acquired_pks)
+            logger.info(f"Acquired {len(acquired_pks)} scheduleable BalsamJobs; open queues: {open_queues.keys()}")
             qlaunch = jobpacker.create_qlaunch(jobs, open_queues)
+            BalsamJob.source.release(acquired_pks)
             if qlaunch: submit_qlaunch(qlaunch)
         if not QueuedLaunch.acquire_advisory():
             logger.error('Failed to refresh advisory lock; aborting')
             break
         elif not EXIT_FLAG:
+            BalsamJob.source.clear_stale_locks()
             time.sleep(10)
 
 if __name__ == "__main__":
+    logger.info(f"Balsam Service starting on {gethostname()}")
     parser = service_subparser()
     transition_pool = transitions.TransitionProcessPool(1, '')
-    try: main(parser.parse_args())
-    except: raise
-    finally: transition_pool.terminate()
+    source = BalsamJob.source
+    source.start_tick()
+    try:
+        main(parser.parse_args())
+    except: 
+        raise
+    finally: 
+        transition_pool.terminate()
+        source.release_all_owned()
+        logger.info(f"Balsam Service shutdown: released all locks OK")

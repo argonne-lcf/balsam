@@ -69,7 +69,7 @@ class MPIRun:
                                cpu_affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
-        logger.info(f"{job.cute_id} running:\n{mpi_str} on workers {workers}")
+        logger.info(f"{job.cute_id} running:\n{mpi_str}\n on workers: {workers}")
         self.outfile = open(outname, 'w+b')
         self.process = subprocess.Popen(
                 args=shlex.split(mpi_str),
@@ -96,7 +96,7 @@ class MPILauncher:
         if wf_name:
             logger.info(f'Filtering jobs with workflow matching {wf_name}')
         else:
-            logger.info('Consuming all jobs from DB')
+            logger.info('No workflow filter')
 
         self.jobsource.clear_stale_locks()
         self.jobsource.start_tick()
@@ -225,10 +225,10 @@ class MPILauncher:
         manager = self.jobsource
         num_idle = len(self.worker_group.idle_workers())
         if num_idle == 0:
-            logger.info(f'No idle worker nodes to run jobs')
+            logger.debug(f'No idle worker nodes to run jobs')
             return manager.none()
         else:
-            logger.info(f'{num_idle} idle worker nodes')
+            logger.debug(f'{num_idle} idle worker nodes')
 
         return manager.get_runnable(max_nodes=num_idle,
                                     order_by='-num_nodes')
@@ -241,15 +241,16 @@ class MPILauncher:
         else:
             self.last_report = now
 
+        num_idle = len(self.worker_group.idle_workers())
         all_runnable = BalsamJob.objects.filter(state__in=models.RUNNABLE_STATES)
         unlocked = all_runnable.filter(lock='')
+        logger.info('No runnable jobs')
         logger.info(f'{all_runnable.count()} runnable jobs across entire Balsam DB')
         logger.info(f'{unlocked.count()} of these are unlocked')
+        logger.info(f'{num_idle} idle worker nodes')
         if self.jobsource.workflow:
             wf_match = unlocked.filter(workflow=self.jobsource.workflow)
             logger.info(f'{wf_match.count()} of these match the current workflow filter')
-        logger.info(f'If nothing is running; the job node requirements or walltime '
-                    'requirements may exceed the available nodes or remaining time')
 
     def launch(self):
         num_idle = len(self.worker_group.idle_workers())
@@ -266,7 +267,6 @@ class MPILauncher:
         if num_runnable > 0:
             logger.debug(f"{num_runnable} runnable jobs")
         else:
-            logger.info('No runnable jobs')
             self.report_constrained()
             return
 
@@ -289,7 +289,7 @@ class MPILauncher:
         # acquire lock on jobs
         to_acquire = [job.pk for (job,workers) in pre_assignments]
         acquired_pks = self.jobsource.acquire(to_acquire)
-        logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
+        logger.debug(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
 
         # dispatch runners; release workers that did not acquire job
         for (job, workers) in pre_assignments:
@@ -312,12 +312,12 @@ class MPILauncher:
         except:
             raise
         finally:
-            logger.info('EXIT: breaking launcher service loop')
+            logger.debug('EXIT: breaking launcher service loop')
             self.update(timeout=True)
             assert not self.is_active
-            logger.info('All MPI runs terminated')
+            logger.info('Exit: All MPI runs terminated')
             self.jobsource.release_all_owned()
-            logger.info('Released all BalsamJob locks')
+            logger.info('Exit: Launcher Released all BalsamJob locks')
 
     @property
     def is_active(self):
@@ -397,7 +397,7 @@ def main(args):
         raise
     finally:
         transition_pool.terminate()
-        logger.debug("Launcher exit graceful\n\n")
+        logger.info("Exit: Launcher exit graceful\n\n")
 
 def get_args(inputcmd=None):
     '''Parse command line arguments'''

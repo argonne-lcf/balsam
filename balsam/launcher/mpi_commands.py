@@ -162,8 +162,8 @@ else:
         MPIcmd = MPICHCommand
     else:
         if 'unrecognized argument npernode' in stdout.decode():
-            logger.debug("Assuming MPICH")
+            logger.info("Assuming MPICH")
             MPIcmd = MPICHCommand
         else:
-            logger.debug("Assuming OpenMPI")
+            logger.info("Assuming OpenMPI")
             MPIcmd = OPENMPICommand

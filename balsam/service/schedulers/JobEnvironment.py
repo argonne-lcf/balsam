@@ -36,7 +36,7 @@ class JobEnvironment:
         for host_type, known_names in self.RECOGNIZED_HOSTS.items():
             if any(self.hostname.find(name) >= 0 for name in known_names):
                 self.host_type = host_type
-        logger.debug(f"Recognized host_type: {self.host_type}")
+        logger.info(f"Recognized host_type: {self.host_type}")
 
     def get_env(self):
         '''Check for environment variables (e.g. COBALT_JOBID) indicating 
@@ -48,7 +48,7 @@ class JobEnvironment:
 
         if self.current_scheduler_id:
             self.current_scheduler_id = int(self.current_scheduler_id)
-            logger.debug(f"Detected scheduler ID {self.current_scheduler_id}")
+            logger.info(f"Detected scheduler ID {self.current_scheduler_id}")
 
     def remaining_time_seconds(self):
         now = time.time()

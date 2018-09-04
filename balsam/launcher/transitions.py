@@ -59,7 +59,7 @@ class TransitionProcessPool:
             )
             for i in range(num_threads)
         ]
-        logger.debug(f"Starting {len(self.procs)} transition processes")
+        logger.info(f"Starting {len(self.procs)} transition processes")
         db.connections.close_all()
         for proc in self.procs:
             proc.daemon = True
@@ -72,7 +72,7 @@ class TransitionProcessPool:
             proc.terminate()
         for proc in self.procs: 
             proc.join()
-        logger.debug("All Transition processes joined: done.")
+        logger.info("All Transition processes joined: done.")
 
 
 def update_states_from_cache(job_cache):
@@ -189,7 +189,7 @@ def check_parents(job):
         logger.debug(f'{job.cute_id} ready')
     elif job.state != 'AWAITING_PARENTS':
         job.state = 'AWAITING_PARENTS'
-        logger.debug(f'{job.cute_id} waiting for {num_parents} parents')
+        logger.info(f'{job.cute_id} waiting for {num_parents} parents')
 
 def fast_forward(job_cache):
     '''Make several passes over the job list; advancing states in order'''
@@ -203,7 +203,7 @@ def fast_forward(job_cache):
         workdir = job.working_directory
         if not os.path.exists(workdir):
             os.makedirs(workdir)
-            logger.debug(f"{job.cute_id} working directory {workdir}")
+            logger.info(f"{job.cute_id} created working directory {workdir}")
         hasParents = bool(job.get_parents_by_id())
         hasInput = bool(job.input_files)
         hasRemote = bool(job.stage_in_url)
@@ -290,7 +290,7 @@ def stage_in(job):
                 f"Exception received during symlink: {e}") from e
 
     job.state = 'STAGED_IN'
-    logger.info(f"{job.cute_id} stage_in done")
+    logger.debug(f"{job.cute_id} stage_in done")
 
 
 def stage_out(job):
@@ -300,7 +300,7 @@ def stage_out(job):
     url_out = job.stage_out_url
     if not url_out:
         job.state = 'JOB_FINISHED'
-        logger.info(f'{job.cute_id} no stage_out_url: done')
+        logger.debug(f'{job.cute_id} no stage_out_url: done')
         return
 
     stage_out_patterns = job.stage_out_files.split()
@@ -326,7 +326,7 @@ def stage_out(job):
                 message = f'Exception received during stage_out: {e}'
                 raise BalsamTransitionError(message) from e
     job.state = 'JOB_FINISHED'
-    logger.info(f'{job.cute_id} stage_out done')
+    logger.debug(f'{job.cute_id} stage_out done')
 
 
 def preprocess(job):
@@ -371,7 +371,7 @@ def preprocess(job):
         raise BalsamTransitionError(message)
 
     job.state = 'PREPROCESSED'
-    logger.info(f"{job.cute_id} preprocess done")
+    logger.debug(f"{job.cute_id} preprocess done")
 
 def postprocess(job, *, error_handling=False, timeout_handling=False):
     logger.debug(f'{job.cute_id} in postprocess')
@@ -394,7 +394,7 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
             return
         else:
             job.state = 'POSTPROCESSED',
-            logger.info(f'{job.cute_id} no postprocess: skipped')
+            logger.debug(f'{job.cute_id} no postprocess: skipped')
             return
 
     if not os.path.exists(postproc_app.split()[0]):
@@ -445,7 +445,7 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
 
     if not (error_handling or timeout_handling):
         job.state = 'POSTPROCESSED'
-    logger.info(f"{job.cute_id} postprocess done")
+    logger.debug(f"{job.cute_id} postprocess done")
 
 
 def handle_timeout(job):
@@ -471,14 +471,3 @@ TRANSITIONS = {
     'RUN_ERROR':        handle_run_error,
     'POSTPROCESSED':    stage_out,
 }
-
-
-if __name__ == "__main__":
-    count = BalsamJob.objects.all().count()
-    assert isinstance(count, int)
-    BalsamJob.objects.all().delete()
-    BalsamJob.source.clear_stale_locks()
-    [BalsamJob(name=f'job{i}').save() for i in range(10)]
-    pool = TransitionProcessPool(1)
-    time.sleep(500)
-    pool.terminate()

@@ -199,10 +199,15 @@ class QueuedLaunch(models.Model):
                 logger.info(f'Detected new job: {j}')
             else:
                 saved_job = saved_jobs[saved_job_ids.index(job_id)]
-                if job['state'] != saved_job.state:
-                    saved_job.state = job['state']
-                    saved_job.save()
-                    logger.info(f'Updated job {job_id} to state {job["state"]}')
+                if job['state'] != saved_job.state: 
+                    logger.info(f'Updating batch job {job_id}: state {job["state"]}')
+                saved_job.state = job['state']
+                saved_job.project = job['project']
+                saved_job.queue = job['queue']
+                saved_job.nodes = job['nodes']
+                saved_job.wall_minutes = job['wall_time_min']
+                saved_job.command = job['command']
+                saved_job.save()
         delete_ids = [id for id in saved_job_ids if id not in stats.keys()]
         cls.objects.filter(scheduler_id__in=delete_ids).delete()
         if delete_ids:
@@ -230,8 +235,12 @@ class JobSource(models.Manager):
             except ObjectDoesNotExist:
                 self.qLaunch = None
         if self.qLaunch is not None:
-            if not self.qLaunch.prescheduled_only:
+            if not (self.qLaunch.prescheduled_only and self.qLaunch.from_balsam):
                 self.qLaunch = None
+        if self.qLaunch is not None:
+            logger.info(f'Filtering BalsamJobs scheduled for QueuedLaunch {self.qLaunch.pk} (Batch Job: {self.qlaunch.scheduler_id})')
+        else:
+            logger.info(f'No QueuedLaunch detected for this job; filtering for un-scheduled BalsamJobs')
         self._checked_qLaunch = True
 
     @property
@@ -259,7 +268,9 @@ class JobSource(models.Manager):
         queryset = queryset.filter(self.lockQuery)
         if self.qLaunch:
             queryset = queryset.filter(queued_launch=self.qLaunch)
-        elif self.workflow:
+        else:
+            queryset = queryset.filter(queued_launch__isnull=True)
+        if self.workflow:
             queryset = queryset.filter(workflow=self.workflow)
         return queryset
 
@@ -338,7 +349,7 @@ class JobSource(models.Manager):
         objects = self.model.objects
         total_count = objects.count()
         locked_count = objects.exclude(lock='').count()
-        logger.info(f'{locked_count} out of {total_count} jobs are locked')
+        logger.debug(f'{locked_count} out of {total_count} jobs are locked')
 
         all_jobs = objects.all().select_for_update()
         expired_time = timezone.now() - self.EXPIRATION_PERIOD
@@ -482,7 +493,8 @@ class BalsamJob(models.Model):
         'Job State',
         help_text='The current state of the job.',
         default='CREATED',
-        validators=[validate_state])
+        validators=[validate_state],
+        db_index=True)
     state_history = models.TextField(
         'Job State History',
         help_text="Chronological record of the job's states",
