@@ -27,6 +27,7 @@ class CobaltScheduler(Scheduler.Scheduler):
         'queue' : 'Queue',
         'nodes' : 'Nodes',
         'project' : 'Project',
+        'command' : 'Command',
     }
     QSTAT_EXE = settings.SCHEDULER_STATUS_EXE
 
@@ -50,7 +51,6 @@ class CobaltScheduler(Scheduler.Scheduler):
 
     def _parse_status_output(self, raw_output):
         status_dict = {}
-        logger.debug('parsing qstat ouput: \n' + raw_output)
         job_lines = raw_output.split('\n')[2:]
         for line in job_lines:
             job_stat = self._parse_job_line(line)

@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 import uuid
 from getpass import getuser
+from pprint import pformat
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.conf import settings
@@ -152,6 +153,7 @@ class QueuedLaunch(models.Model):
     wall_minutes = models.IntegerField(default=0)
     job_mode = models.TextField(default='')
     wf_filter = models.TextField(default='')
+    command = models.TextField(default='')
     state = models.TextField(default='pending-submission')
     prescheduled_only = models.BooleanField(default=True) # if disabled, all BalsamJobs eligible to run
     from_balsam = models.BooleanField(default=True) # if disabled, all BalsamJobs eligible to run
@@ -171,7 +173,7 @@ class QueuedLaunch(models.Model):
 
     def __repr__(self):
         dat = {k:v for k,v in self.__dict__.items() if k not in ['_state']}
-        return f'''Qlaunch {dat}'''
+        return f'''Qlaunch {pformat(dat, indent=4)}'''
 
     def __str__(self):
         return repr(self)
@@ -191,6 +193,7 @@ class QueuedLaunch(models.Model):
                     nodes=job['nodes'],
                     wall_minutes=job['wall_time_min'],
                     state=job['state'],
+                    command=job['command'],
                     from_balsam=False)
                 j.save()
                 logger.info(f'Detected new job: {j}')
@@ -202,7 +205,8 @@ class QueuedLaunch(models.Model):
                     logger.info(f'Updated job {job_id} to state {job["state"]}')
         delete_ids = [id for id in saved_job_ids if id not in stats.keys()]
         cls.objects.filter(scheduler_id__in=delete_ids).delete()
-        logger.info(f'Deleting Jobs {delete_ids} no longer in scheduler')
+        if delete_ids:
+            logger.info(f'Deleting Jobs {delete_ids} no longer in scheduler')
 
 class JobSource(models.Manager):
 

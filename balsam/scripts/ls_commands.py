@@ -110,9 +110,9 @@ def ls_queues(verbose):
         print("No queued jobs detected")
         return
 
-    fields = ['pk', 'scheduler_id', 'project', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode', 'from_balsam']
-    header = {'pk' : 'Filename', 'from_balsam' : 'Submitted from Balsam?'}
-    transforms = {'Filename' : lambda x: 'qlaunch'+x}
+    fields = ['scheduler_id', 'project', 'queue', 'nodes', 'wall_minutes', 'state', 'job_mode', 'command', 'from_balsam']
+    header = {'command' : 'Command', 'from_balsam' : 'Submitted from Balsam?'}
+    transforms = {'Command' : lambda x: basename(x)}
     print_table(allq, fields, header, transforms)
 
 def ls_apps(namestr, appid, verbose):

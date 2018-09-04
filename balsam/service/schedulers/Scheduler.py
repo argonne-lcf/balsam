@@ -31,10 +31,13 @@ class Scheduler:
 
     def get_status(self, scheduler_id):
         scheduler_id = int(scheduler_id)
-        statuses = self._status()
+        try:
+            statuses = self._status()
+        except StatusNonZeroReturnCode as e:
+            raise NoQStatInformation("QStat failed: {e}")
         try:
             stat = statuses[scheduler_id]
-        except:
+        except KeyError:
             raise NoQStatInformation(f"No status for {scheduler_id}: this might signal the job is over")
         else:
             return stat

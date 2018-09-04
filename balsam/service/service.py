@@ -39,6 +39,7 @@ def submit_qlaunch(qlaunch, verbose=False):
     else:
         qlaunch.scheduler_id = sched_id
         qlaunch.state = "submitted"
+        qlaunch.command = script_path
         qlaunch.save()
         msg = f'Submit OK: {qlaunch}'
         logger.info(msg)

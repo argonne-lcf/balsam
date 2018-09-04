@@ -4,6 +4,7 @@ import sys
 import time
 from socket import gethostname
 from importlib.util import find_spec
+from balsam.service.schedulers.exceptions import *
 
 import logging
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class JobEnvironment:
             return float("inf")
         try:
             info = self.scheduler.get_status(self.current_scheduler_id)
-        except JobStatusFailed:
+        except NoQStatInformation:
             return float("inf")
         else:
             return info['time_remaining_sec']
