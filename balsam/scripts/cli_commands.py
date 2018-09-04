@@ -129,7 +129,7 @@ def newdep(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
     django.setup()
     from django.conf import settings
-    from balsam.service import models
+    from balsam.service import models 
     from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
@@ -306,12 +306,11 @@ def submitlaunch(args):
     service.submit_qlaunch(qlaunch, verbose=True)
 
 def service(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
-
-    print("dummy -- invoking balsam metascheduler service")
-
+    fname = find_spec("balsam.service.service").origin
+    original_args = sys.argv[2:]
+    command = [sys.executable] + [fname] + original_args
+    p = subprocess.Popen(command)
+    print(f"Starting Balsam service [{p.pid}]")
 
 def init(args):
     from balsam.django_config.serverinfo import ServerInfo

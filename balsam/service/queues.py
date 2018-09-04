@@ -13,6 +13,7 @@ class _QueuePolicy:
     def __init__(self):
         self.queues = {}
         self.max_nodes = 0
+        self.min_nodes = 0
         
         top = settings.BALSAM_HOME
         policy_fname = settings.QUEUE_POLICY
@@ -27,6 +28,7 @@ class _QueuePolicy:
 
     def add_from_config(self, queue_name, qconf):
         global_max_nodes = self.max_nodes
+        global_min_nodes = self.min_nodes
         try:
             submit_jobs = qconf.getboolean('submit-jobs')
             max_queued = qconf.getint('max-queued')
@@ -43,6 +45,7 @@ class _QueuePolicy:
                 assert min_nodes <= max_nodes
                 assert (min_nodes, max_nodes) not in q
                 global_max_nodes = max(global_max_nodes, max_nodes)
+                global_min_nodes = min(global_min_nodes, min_nodes)
                 min_time = float(rule['min-time'])
                 max_time = float(rule['max-time'])
                 assert min_time <= max_time
@@ -52,6 +55,7 @@ class _QueuePolicy:
         else:
             self.queues[queue_name] = q
             self.max_nodes = global_max_nodes
+            self.min_nodes = global_min_nodes
 
     def find_queue(self, open_queues, num_nodes):
         for qname in open_queues:
@@ -65,4 +69,6 @@ class _QueuePolicy:
 
 _queue_policy = _QueuePolicy()
 max_nodes = _queue_policy.max_nodes
+min_nodes = _queue_policy.min_nodes
+queues = _queue_policy.queues
 find_queue = _queue_policy.find_queue
