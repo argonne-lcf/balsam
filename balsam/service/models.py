@@ -221,7 +221,7 @@ class JobSource(models.Manager):
     def __init__(self, workflow=None):
         super().__init__()
         self.workflow = workflow
-        self._lock_base = None
+        self._lock_str = None
         self._pid = None
         self.qLaunch = None
         self._checked_qLaunch = False
@@ -244,22 +244,16 @@ class JobSource(models.Manager):
         self._checked_qLaunch = True
 
     @property
-    def lock_base(self):
+    def lock_str(self):
         pid = os.getpid()
         if pid != self._pid:
-            self._lock_base = self.get_lock_str(base_only=True)
+            self._lock_str = f"{socket.gethostname()}:{pid}"
             self._pid = pid
-        return self._lock_base
+        return self._lock_str
 
     @property
     def lockQuery(self):
-        return Q(lock='') | Q(lock__startswith=self.lock_base)
-
-    def get_lock_str(self, base_only=False):
-        if base_only:
-            return f"{socket.gethostname()}:{os.getpid()}"
-        else:
-            return f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4()}"
+        return Q(lock='') | Q(lock=self.lock_str)
 
     def get_queryset(self):
         if not self._checked_qLaunch: self.check_qLaunch()
@@ -312,7 +306,7 @@ class JobSource(models.Manager):
     @transaction.atomic
     def acquire(self, pk_list):
         '''input can be actual list of PKs or a queryset'''
-        new_lock = self.get_lock_str()
+        new_lock = self.lock_str
         to_lock = BalsamJob.objects.filter(pk__in=pk_list)
         to_lock = to_lock.select_for_update(skip_locked=True).filter(lock='')
         acquired_pks = list(to_lock.values_list('job_id', flat=True))
@@ -328,9 +322,9 @@ class JobSource(models.Manager):
 
     def _tick(self):
         now = timezone.now()
-        my_locked = BalsamJob.objects.filter(lock__startswith=self.lock_base)
+        my_locked = BalsamJob.objects.filter(lock=self.lock_str)
         num_updated = my_locked.update(tick=now)
-        logger.debug(f'Refreshed lock on {num_updated} of my BalsamJobs')
+        logger.debug(f'Ticked lock on {num_updated} of my BalsamJobs')
         connection.close()
 
     def release(self, pk_list):
@@ -339,7 +333,7 @@ class JobSource(models.Manager):
         logger.debug(f'Released lock on {num_unlocked} of my BalsamJobs')
 
     def release_all_owned(self):
-        BalsamJob.objects.filter(lock__startswith=self.lock_base).update(lock='')
+        BalsamJob.objects.filter(lock=self.lock_str).update(lock='')
     
     @transaction.atomic
     def clear_stale_locks(self):
