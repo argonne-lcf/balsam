@@ -91,7 +91,7 @@ def configure_db_backend(db_path):
 
     db = dict(ENGINE=ENGINES[db_type], NAME=db_name,
               OPTIONS=OPTIONS[db_type], USER=user, PASSWORD=password,
-              HOST=host, PORT=port, CONN_MAX_AGE=None)
+              HOST=host, PORT=port, CONN_MAX_AGE=60)
 
     DATABASES = {'default':db}
     return DATABASES
