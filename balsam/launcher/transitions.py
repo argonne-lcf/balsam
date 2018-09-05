@@ -112,7 +112,7 @@ def refresh_cache(job_cache, num_threads, thread_idx):
 def release_jobs(job_cache):
     manager = BalsamJob.source
     release_jobs = [j.pk for j in job_cache if j.state not in PROCESSABLE_STATES]
-    manager.release(release_jobs)
+    if release_jobs: manager.release(release_jobs)
     return [j for j in job_cache if j.pk not in release_jobs]
 
 def main(thread_idx, num_threads, wf_name):
@@ -146,10 +146,11 @@ def _main(thread_idx, num_threads):
     while not EXIT_FLAG:
         # Update in-memory cache of locked BalsamJobs
         elapsed = time.time() - last_refresh
-        if not job_cache or elapsed > refresh_period:
+        if elapsed > refresh_period:
             refresh_cache(job_cache, num_threads, thread_idx)
             last_refresh = time.time()
-            if elapsed < 1: time.sleep(1 - elapsed)
+        else:
+            time.sleep(1)
 
         # Fast-forward transitions & release locks
         fast_forward(job_cache)
