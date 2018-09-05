@@ -70,7 +70,7 @@ def get_open_queues():
                    if num_queued.get(qname,0) < queue['max_queued']}
     return open_queues
 
-def main(args):
+def main(source, args):
     signal.signal(signal.SIGINT,  sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
     signal.signal(signal.SIGHUP, signal.SIG_IGN)
@@ -84,11 +84,11 @@ def main(args):
         jobs = get_ready_jobs()
         open_queues = get_open_queues()
         if open_queues and jobs.exists():
-            acquired_pks = BalsamJob.source.acquire(jobs)
+            acquired_pks = source.acquire(jobs)
             jobs = BalsamJob.objects.filter(pk__in=acquired_pks)
-            logger.info(f"Acquired {len(acquired_pks)} scheduleable BalsamJobs; open queues: {open_queues.keys()}")
+            logger.info(f"Acquired {len(acquired_pks)} scheduleable BalsamJobs; open queues: {list(open_queues.keys())}")
             qlaunch = jobpacker.create_qlaunch(jobs, open_queues)
-            BalsamJob.source.release(acquired_pks)
+            source.release(acquired_pks)
             if qlaunch: submit_qlaunch(qlaunch)
         if not QueuedLaunch.acquire_advisory():
             logger.error('Failed to refresh advisory lock; aborting')
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     source = BalsamJob.source
     source.start_tick()
     try:
-        main(parser.parse_args())
+        main(source, parser.parse_args())
     except: 
         raise
     finally: 

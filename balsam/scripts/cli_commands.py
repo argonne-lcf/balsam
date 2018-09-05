@@ -158,14 +158,17 @@ def ls(args):
     tree = args.tree
     wf = args.wf
 
-    if objects.startswith('job'):
-        lscmd.ls_jobs(name, history, id, verbose, tree, wf, state)
-    elif objects.startswith('app'):
-        lscmd.ls_apps(name, id, verbose)
-    elif objects.startswith('work') or objects.startswith('wf'):
-        lscmd.ls_wf(name, verbose, tree, wf)
-    elif objects.startswith('queues'):
-        lscmd.ls_queues(verbose)
+    try:
+        if objects.startswith('job'):
+            lscmd.ls_jobs(name, history, id, verbose, tree, wf, state)
+        elif objects.startswith('app'):
+            lscmd.ls_apps(name, id, verbose)
+        elif objects.startswith('work') or objects.startswith('wf'):
+            lscmd.ls_wf(name, verbose, tree, wf)
+        elif objects.startswith('queues'):
+            lscmd.ls_queues(verbose)
+    except KeyboardInterrupt:
+        pass
 
 def modify(args):
     os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -391,7 +394,8 @@ def log(args):
         try: subprocess.run(f"tail -f {path}", shell=True)
         except KeyboardInterrupt: pass
     else:
-        subprocess.run(f"cat {path}", shell=True)
+        try: subprocess.run(f"cat {path}", shell=True)
+        except KeyboardInterrupt: pass
 
 
 def server(args):
