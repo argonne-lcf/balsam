@@ -23,3 +23,7 @@ command line.  For example, to consume all jobs from the database, use:
 
 >>> $ balsam launcher --consume-all 
 '''
+
+import logging
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.DEBUG)

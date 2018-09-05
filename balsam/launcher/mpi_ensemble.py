@@ -5,24 +5,22 @@ from collections import defaultdict
 import os
 import sys
 import logging
-import django
 import random
+from subprocess import Popen, STDOUT, TimeoutExpired
 import shlex
 import signal
 import time
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-django.setup()
-logger = logging.getLogger('balsam.launcher.mpi_ensemble')
-
-from django.db import transaction
-from subprocess import Popen, STDOUT, TimeoutExpired
-
 from mpi4py import MPI
+from django.db import transaction
 
+from balsam import config_logging, settings
 from balsam.launcher.util import cd, get_tail, remaining_time_minutes
 from balsam.launcher.exceptions import *
 from balsam.service.models import BalsamJob
+
+logger = logging.getLogger('balsam.launcher.mpi_ensemble')
+config_logging('serial-launcher')
 
 comm = MPI.COMM_WORLD
 RANK = comm.Get_rank()

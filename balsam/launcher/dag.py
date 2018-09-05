@@ -59,27 +59,21 @@ follows::
              walltime_minutes=dag.current_job.walltime_minutes + 10, 
              input_files = 'input_rescue.dat')
 '''
-    
-import django
 import json
 import os
 import uuid 
+
+from balsam import settings
+from balsam.service.models import BalsamJob, history_line
 
 __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR', 
            'current_job', 'parents', 'children',
            'add_job', 'add_dependency', 'spawn_child',
            'kill']
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-django.setup()
-
-from balsam.service.models import BalsamJob, history_line
-from django.conf import settings
-
 current_job = None
 parents = None
 children = None
-
 _envs = {k:v for k,v in os.environ.items() if k.find('BALSAM')>=0}
 
 JOB_ID = _envs.get('BALSAM_JOB_ID', '')

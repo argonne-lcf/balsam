@@ -1,4 +1,4 @@
-from django.conf import settings
+from balsam import settings
 import subprocess
 import logging
 import glob
@@ -16,6 +16,7 @@ def validate_path(path):
         raise ValueError(f'Nothing matches {path} in filesystem')
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # - GridFTP implementation
 GRIDFTP_PROTOCOL='gsiftp'

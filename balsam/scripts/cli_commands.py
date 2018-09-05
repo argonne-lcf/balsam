@@ -31,8 +31,7 @@ def cmd_confirmation(message=''):
     return confirm.lower() == 'y'
 
 def newapp(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
+    from balsam import settings
     from balsam.service.models import ApplicationDefinition as AppDef
 
     def py_app_path(path):
@@ -62,8 +61,7 @@ def newapp(args):
 
 
 def newjob(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
+    from balsam import settings
     from balsam.service import models
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
@@ -107,8 +105,7 @@ def newjob(args):
 
 
 def match_uniq_job(s):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
+    from balsam import settings
     from balsam.service import models
     Job = models.BalsamJob
 
@@ -126,9 +123,7 @@ def match_uniq_job(s):
     raise ValueError(f"No job in local DB matched {s}")
 
 def newdep(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
+    from balsam import settings
     from balsam.service import models 
     from balsam.launcher import dag
     Job = models.BalsamJob
@@ -140,9 +135,7 @@ def newdep(args):
     print(f"Created link {parent.first().cute_id} --> {child.first().cute_id}")
 
 def ls(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
+    from balsam import settings
     from balsam.service import models
     from balsam.launcher import dag
     import balsam.scripts.ls_commands as lscmd
@@ -167,12 +160,11 @@ def ls(args):
             lscmd.ls_wf(name, verbose, tree, wf)
         elif objects.startswith('queues'):
             lscmd.ls_queues(verbose)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt,BrokenPipeError):
         pass
 
 def modify(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
+    from balsam import settings
     from balsam.service import models
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
@@ -201,9 +193,7 @@ def modify(args):
 
 
 def rm(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
+    from balsam import settings
     from balsam.service import models
     from balsam.launcher import dag
     Job = models.BalsamJob
@@ -250,9 +240,7 @@ def rm(args):
     print("Deleted.")
 
 def kill(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
+    from balsam import settings
     from balsam.service import models
     from balsam.launcher import dag
     Job = models.BalsamJob
@@ -273,9 +261,7 @@ def kill(args):
 
 
 def mkchild(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
+    from balsam import settings
     from balsam.launcher import dag
 
     if not dag.current_job:
@@ -293,8 +279,7 @@ def launcher(args):
     p.wait()
 
 def submitlaunch(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
+    from balsam import settings
     from balsam.service import service, models
     QueuedLaunch = models.QueuedLaunch
     qlaunch = QueuedLaunch(
@@ -378,24 +363,10 @@ def which(args):
             pprint.pprint(refresh_db_index())
 
 def log(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
-
-    name = args.name
-    follow = args.follow
-    if name == 'launcher':
-        path = settings.HANDLER_FILE
-    elif name == 'service':
-        path = settings.BALSAM_SERVICE_LOG
-    elif name == 'db':
-        path = settings.BALSAM_DB_CONFIG_LOG
-    if follow:
-        try: subprocess.run(f"tail -f {path}", shell=True)
-        except KeyboardInterrupt: pass
-    else:
-        try: subprocess.run(f"cat {path}", shell=True)
-        except KeyboardInterrupt: pass
+    from balsam import settings
+    path = os.path.join(settings.LOGGING_DIRECTORY, '*.log')
+    try: subprocess.run(f"tail -f {path}", shell=True)
+    except (KeyboardInterrupt,BrokenPipeError): pass
 
 
 def server(args):
@@ -424,9 +395,7 @@ def server(args):
         server_control.list_users(db_path)
 
 def make_dummies(args):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-    from django.conf import settings
+    from balsam import settings
     from balsam.service import models
     Job = models.BalsamJob
     App = models.ApplicationDefinition

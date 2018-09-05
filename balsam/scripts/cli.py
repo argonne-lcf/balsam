@@ -320,8 +320,6 @@ def make_parser():
     # LOG
     # ---------
     parser_log = subparsers.add_parser('log', help="Quick view of Balsam log files")
-    parser_log.add_argument('name', choices=['launcher', 'service', 'db'], help="log file selection")
-    parser_log.add_argument('--follow', action='store_true', help="Use tail --follow mode")
     parser_log.set_defaults(func=log)
     
     # SERVER

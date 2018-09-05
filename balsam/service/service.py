@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import signal
@@ -5,23 +6,16 @@ import stat
 import time
 from socket import gethostname
 
-import django
-os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-django.setup()
-from django.conf import settings
 from django.db.models import Count
-
-import logging
-logger = logging.getLogger('balsam.service')
-
+from balsam import config_logging, settings
 from balsam.service import models, queues, jobpacker
 from balsam.service.schedulers import script_template, scheduler
 from balsam.scripts.cli import service_subparser
 from balsam.launcher import transitions
 
+logger = logging.getLogger('balsam.service.service')
 QueuedLaunch = models.QueuedLaunch
 BalsamJob = models.BalsamJob
-
 EXIT_FLAG = False
 
 def submit_qlaunch(qlaunch, verbose=False):
@@ -98,6 +92,7 @@ def main(source, args):
             time.sleep(10)
 
 if __name__ == "__main__":
+    config_logging('service')
     logger.info(f"Balsam Service starting on {gethostname()}")
     parser = service_subparser()
     transition_pool = transitions.TransitionProcessPool(1, '')

@@ -54,9 +54,7 @@ def postgres_post(serverInfo):
     serverInfo.update({'host':None, 'port':None})
 
 def run_migrations():
-    import django
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
+    from balsam import settings
     from balsam.service import migrations
     path = migrations.__path__
     try: path = path[0]
@@ -67,7 +65,6 @@ def run_migrations():
     
     from django import db
     from django.core.management import call_command
-    from django.conf import settings
     from balsam.django_config.db_index import refresh_db_index
 
     print(f"DB settings:", settings.DATABASES['default'])

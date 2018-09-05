@@ -15,6 +15,7 @@ flag.
 import argparse
 from collections import defaultdict
 from importlib.util import find_spec
+import logging
 from math import floor
 import os
 import sys
@@ -23,24 +24,16 @@ import subprocess
 import shlex
 import time
 
-import django
-os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-django.setup()
-from django.conf import settings
 from django import db
-
-import logging
-logger = logging.getLogger('balsam.launcher')
-logger.info("Loading Balsam Launcher")
-
-from balsam.launcher import transitions
-from balsam.launcher import worker
+from balsam import config_logging, settings
+from balsam.launcher import transitions, worker
 from balsam.launcher.util import remaining_time_minutes, delay_generator, get_tail
 from balsam.launcher.exceptions import *
 from balsam.scripts.cli import config_launcher_subparser
 from balsam.service import models
-BalsamJob = models.BalsamJob
 
+logger = logging.getLogger('balsam.launcher.launcher')
+BalsamJob = models.BalsamJob
 EXIT_FLAG = False
 
 def sig_handler(signum, stack):
@@ -409,4 +402,6 @@ def get_args(inputcmd=None):
 
 if __name__ == "__main__":
     args = get_args()
+    config_logging('launcher')
+    logger.info("Loading Balsam Launcher")
     main(args)
