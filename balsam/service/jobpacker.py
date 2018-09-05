@@ -10,10 +10,9 @@ QueuedLaunch = models.QueuedLaunch
 def create_qlaunch(jobs, queues):
     qlaunch, to_launch = _pack_jobs(jobs, queues)
     if qlaunch:
-        project = settings.DEFAULT_PROJECT
-        wf_filter = 'consume-all'
         qlaunch.save()
-        num = BalsamJob.objects.filter(pk__in=to_launch).update(queued_launch=qlaunch)
+        qlaunch.refresh_from_db()
+        num = to_launch.update(queued_launch=qlaunch)
         logger.info(f'Scheduled {num} jobs in {qlaunch}')
         return qlaunch
     else:
