@@ -12,7 +12,7 @@ import signal
 import time
 
 from mpi4py import MPI
-from django.db import transaction
+from django.db import transaction, connections
 
 from balsam import config_logging, settings
 from balsam.launcher.util import cd, get_tail, remaining_time_minutes
@@ -24,7 +24,7 @@ config_logging('serial-launcher')
 
 comm = MPI.COMM_WORLD
 RANK = comm.Get_rank()
-django.db.connections.close_all()
+connections.close_all()
 
 class ResourceManager:
 
