@@ -67,6 +67,8 @@ class ResourceManager:
             self.job_cache = list(jobquery)
             self.last_job_fetch = now
             logger.debug(f"Refreshed job cache: {len(self.job_cache)} runnable")
+            if len(self.job_cache) == 0:
+                logger.debug(f'Job cache query\n{jobquery.query}\n')
 
     def refresh_killed_jobs(self):
         now = time.time()
