@@ -16,6 +16,7 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Value as V
 from django.db.models import Q
+from django.db import connection
 from django.db.models.functions import Concat
 
 
@@ -147,7 +148,7 @@ class QueuedLaunch(models.Model):
 
     ADVISORY_LOCK_ID = hash(getuser())
     scheduler_id = models.IntegerField(default=0, db_index=True)
-    project = models.TextField(default='')
+    project = models.TextField(default=settings.DEFAULT_PROJECT)
     queue = models.TextField(default='')
     nodes = models.IntegerField(default=0)
     wall_minutes = models.IntegerField(default=0)
@@ -160,7 +161,6 @@ class QueuedLaunch(models.Model):
 
     @classmethod
     def acquire_advisory(self):
-        from django.db import connection
         with connection.cursor() as cursor:
             command = f"SELECT pg_try_advisory_lock({self.ADVISORY_LOCK_ID})"
             cursor.execute(command)
@@ -238,9 +238,9 @@ class JobSource(models.Manager):
             if not (self.qLaunch.prescheduled_only and self.qLaunch.from_balsam):
                 self.qLaunch = None
         if self.qLaunch is not None:
-            logger.info(f'Filtering BalsamJobs scheduled for QueuedLaunch {self.qLaunch.pk} (Batch Job: {self.qlaunch.scheduler_id})')
+            logger.info(f'Filtering BalsamJobs scheduled for QueuedLaunch {self.qLaunch.pk} (Batch Job: {self.qLaunch.scheduler_id})')
         else:
-            logger.info(f'No QueuedLaunch detected for this job; filtering for un-scheduled BalsamJobs')
+            logger.info(f'Job source filtering for un-scheduled BalsamJobs')
         self._checked_qLaunch = True
 
     @property
@@ -266,8 +266,8 @@ class JobSource(models.Manager):
 
         queryset = super().get_queryset()
         queryset = queryset.filter(self.lockQuery)
-        if self.qLaunch:
-            queryset = queryset.filter(queued_launch=self.qLaunch)
+        if self.qLaunch is not None:
+            queryset = queryset.filter(queued_launch_id=self.qLaunch.pk)
         else:
             queryset = queryset.filter(queued_launch__isnull=True)
         if self.workflow:
@@ -313,7 +313,7 @@ class JobSource(models.Manager):
     def acquire(self, pk_list):
         '''input can be actual list of PKs or a queryset'''
         new_lock = self.get_lock_str()
-        to_lock = self.get_queryset().filter(pk__in=pk_list)
+        to_lock = BalsamJob.objects.filter(pk__in=pk_list)
         to_lock = to_lock.select_for_update(skip_locked=True).filter(lock='')
         acquired_pks = list(to_lock.values_list('job_id', flat=True))
         BalsamJob.objects.filter(pk__in=acquired_pks).update(lock=new_lock,
@@ -326,23 +326,20 @@ class JobSource(models.Manager):
         t.start()
         self._tick()
 
-    @transaction.atomic
     def _tick(self):
         now = timezone.now()
-        queryset = self.get_queryset()
-        my_locked = queryset.filter(lock__startswith=self.lock_base)
-        my_locked.update(tick=now)
+        my_locked = BalsamJob.objects.filter(lock__startswith=self.lock_base)
+        num_updated = my_locked.update(tick=now)
+        logger.debug(f'Refreshed lock on {num_updated} of my BalsamJobs')
+        connection.close()
 
-    @transaction.atomic
     def release(self, pk_list):
-        to_unlock = self.get_queryset().filter(pk__in=pk_list)
-        to_unlock = to_unlock.select_for_update()
-        to_unlock.update(lock='')
+        to_unlock = BalsamJob.objects.filter(pk__in=pk_list)
+        num_unlocked = to_unlock.update(lock='')
+        logger.debug(f'Released lock on {num_unlocked} of my BalsamJobs')
 
-    @transaction.atomic
     def release_all_owned(self):
-        to_unlock = self.get_queryset()
-        to_unlock.filter(lock__startswith=self.lock_base).update(lock='')
+        BalsamJob.objects.filter(lock__startswith=self.lock_base).update(lock='')
     
     @transaction.atomic
     def clear_stale_locks(self):
@@ -351,7 +348,7 @@ class JobSource(models.Manager):
         locked_count = objects.exclude(lock='').count()
         logger.debug(f'{locked_count} out of {total_count} jobs are locked')
 
-        all_jobs = objects.all().select_for_update()
+        all_jobs = objects.all()
         expired_time = timezone.now() - self.EXPIRATION_PERIOD
         expired_jobs = all_jobs.exclude(lock='').filter(tick__lte=expired_time)
         revert_count = expired_jobs.filter(state='RUNNING').update(state='RESTART_READY')
@@ -360,7 +357,7 @@ class JobSource(models.Manager):
             logger.info(f'Cleared stale lock on {expired_count} jobs')
             if revert_count: logger.info(f'Reverted {revert_count} RUNNING jobs to RESTART_READY')
         elif locked_count:
-            logger.info(f'No stale locks (older than {self.EXPIRATION_PERIOD.total_seconds()} seconds)')
+            logger.debug(f'No stale locks (older than {self.EXPIRATION_PERIOD.total_seconds()} seconds)')
 
 
 class BalsamJob(models.Model):
