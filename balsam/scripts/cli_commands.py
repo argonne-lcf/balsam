@@ -366,7 +366,7 @@ def log(args):
     from balsam import settings
     path = os.path.join(settings.LOGGING_DIRECTORY, '*.log')
     try: subprocess.run(f"tail -f {path}", shell=True)
-    except (KeyboardInterrupt,BrokenPipeError): pass
+    except (KeyboardInterrupt,BrokenPipeError,ProcessLookupError): pass
 
 
 def server(args):
