@@ -192,6 +192,7 @@ class MPILauncher:
         error_pks = [r.job.pk for r in by_states['RUN_ERROR']]
         with db.transaction.atomic():
             for run in by_states['RUN_ERROR']:
+                run.job.refresh_from_db()
                 run.job.update_state('RUN_ERROR', run.err_msg)
         self.jobsource.release(error_pks)
         
@@ -264,7 +265,7 @@ class MPILauncher:
             return
 
         # pre-assign jobs to nodes (descending order of node count)
-        cache = list(runnable)
+        cache = list(runnable[:max_acquire])
         pre_assignments = []
         idx = 0
         while idx < len(cache):
