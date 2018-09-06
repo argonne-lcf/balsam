@@ -34,21 +34,13 @@ def config_logging(basename):
     _logger.addHandler(handler)
 
 def log_uncaught_exceptions(exctype, value, tb):
-    _logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
-    for handler in _logger.handlers: handler.flush()
-
-    if isinstance(value, OperationalError):
-        db_path = os.environ.get('BALSAM_DB_PATH')
-        if not settings.DATABASES['default']['PORT']:
-            print("Balsam OperationalError: No DB is currently active")
-            print("Please use `source balsamactivate` to activate a Balsam DB")
-            print("Use `balsam which --list` for a listing of known DB names")
-        else:
-            print("Failed to reach the Balsam DB server at", db_path, f"(use 'balsam log' for detailed traceback)")
+    if isinstance(value, OperationalError) and not settings.DATABASES['default']['PORT']:
+        _logger.error("Balsam OperationalError: No DB is currently active")
+        _logger.error("Please use `source balsamactivate` to activate a Balsam DB")
+        _logger.error("Use `balsam which --list` for a listing of known DB names")
     else:
-        console = logging.getLogger('console')
-        console.error(f"Uncaught Exception",exc_info=(exctype,value,tb))
-        [h.flush() for h in console.handlers]
+        _logger.error(f"Uncaught Exception {exctype}: {value}",exc_info=(exctype,value,tb))
+        for handler in _logger.handlers: handler.flush()
 
 sys.excepthook = log_uncaught_exceptions
 __all__ = ['config_logging', 'settings']
