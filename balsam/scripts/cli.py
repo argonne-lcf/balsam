@@ -162,11 +162,12 @@ def make_parser():
     parser_ls.add_argument('objects', choices=['jobs', 'apps', 'wf', 'queues'], default='jobs',
                            nargs='?', help="list all jobs, all apps, or jobs by workflow")
     parser_ls.add_argument('--name', help="match any substring of job name")
-    parser_ls.add_argument('--history', help="show state history", action='store_true')
+    parser_ls.add_argument('--history', help="show state history / logs", action='store_true')
     parser_ls.add_argument('--id', help="match any substring of job id")
     parser_ls.add_argument('--state', help="list jobs matching a state")
+    parser_ls.add_argument('--by-states', action='store_true', help="group job listing by states")
     parser_ls.add_argument('--wf', help="Filter jobs matching a workflow")
-    parser_ls.add_argument('--verbose', action='store_true')
+    parser_ls.add_argument('--verbose', help="Detailed BalsamJob info", action='store_true')
     parser_ls.add_argument('--tree', action='store_true', help="show DAG in tree format")
     # -----------------------------------------------------------
 

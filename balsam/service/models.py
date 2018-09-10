@@ -380,7 +380,8 @@ class BalsamJob(models.Model):
     lock = models.TextField(
         'Process Lock',
         help_text='{hostname}:{PID} set by process that currently owns the job',
-        default=''
+        default='',
+        db_index=True
     )
     tick = models.DateTimeField(auto_now_add=True)
 
@@ -414,7 +415,8 @@ class BalsamJob(models.Model):
     num_nodes = models.IntegerField(
         'Number of Compute Nodes',
         help_text='The number of compute nodes requested for this job.',
-        default=1)
+        default=1,
+        db_index=True)
     coschedule_num_nodes = models.IntegerField(
         'Number of additional compute nodes to reserve alongside this job',
         help_text='''Used by Balsam service only.  If a pilot job runs on one or a

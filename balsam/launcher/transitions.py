@@ -40,6 +40,7 @@ from balsam.launcher.util import get_tail
 import logging
 logger = logging.getLogger('balsam.launcher.transitions')
 
+JOBCACHE_LIMIT = 10000
 PREPROCESS_TIMEOUT_SECONDS = 300
 POSTPROCESS_TIMEOUT_SECONDS = 300
 EXIT_FLAG = False
@@ -90,7 +91,7 @@ def update_states_from_cache(job_cache):
 def refresh_cache(job_cache, num_threads, thread_idx):
     manager = BalsamJob.source
     processable = manager.by_states(PROCESSABLE_STATES)
-    processable = list(processable.values_list('pk', flat=True)[:10000])
+    processable = list(processable.values_list('pk', flat=True)[:num_threads*JOBCACHE_LIMIT])
     
     chunk, rem = divmod(len(processable), num_threads)
     start, end = thread_idx*chunk, (thread_idx+1)*chunk
@@ -147,7 +148,8 @@ def _main(thread_idx, num_threads):
         # Update in-memory cache of locked BalsamJobs
         elapsed = time.time() - last_refresh
         if elapsed > refresh_period:
-            refresh_cache(job_cache, num_threads, thread_idx)
+            if len(job_cache) < JOBCACHE_LIMIT:
+                refresh_cache(job_cache, num_threads, thread_idx)
             last_refresh = time.time()
         else:
             time.sleep(1)

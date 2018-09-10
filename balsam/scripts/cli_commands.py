@@ -150,10 +150,11 @@ def ls(args):
     id = args.id
     tree = args.tree
     wf = args.wf
+    by_states = args.by_states
 
     try:
         if objects.startswith('job'):
-            lscmd.ls_jobs(name, history, id, verbose, tree, wf, state)
+            lscmd.ls_jobs(name, history, id, verbose, tree, wf, state, by_states)
         elif objects.startswith('app'):
             lscmd.ls_apps(name, id, verbose)
         elif objects.startswith('work') or objects.startswith('wf'):

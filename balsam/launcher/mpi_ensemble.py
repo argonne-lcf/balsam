@@ -62,7 +62,7 @@ class ResourceManager:
                 serial_only=True,
                 order_by='node_packing_count' # ascending
             )
-            self.job_cache = list(jobquery)
+            self.job_cache = list(jobquery[:10000])
             self.last_job_fetch = now
             logger.debug(f"Refreshed job cache: {len(self.job_cache)} runnable")
             if len(self.job_cache) == 0:
@@ -87,6 +87,7 @@ class ResourceManager:
     def revert_assign(self, rank, job_pk):
         job_occ = self.job_occupancy[job_pk]
         self.node_occupancy[rank] -= job_occ
+        if self.node_occupancy[rank] < 0.0001: self.node_occupancy[rank] = 0.0
         del self.job_occupancy[job_pk]
         del self.running_locations[job_pk]
 

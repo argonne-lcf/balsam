@@ -7,6 +7,9 @@ Job = models.BalsamJob
 AppDef = models.ApplicationDefinition
 QueuedLaunch = models.QueuedLaunch
 
+try: LIMIT = int(environ.get('BALSAM_LS_LIMIT', 5000))
+except ValueError: LIMIT = 5000
+
 def app_string(app):
     return " ".join(basename(p) for p in app.split())
 
@@ -32,21 +35,26 @@ def print_table(queryset, fields, field_header={}, transforms={}):
     widths = [max(w,len(f)) for w,f in zip(widths, fields)] 
     format = ' | '.join(f'%{width}s' for width in widths)
     header = format % tuple(fields)
-    print('\n'+header)
+    print(header)
     print('-'*len(header))
     for row in records:
         print(format % tuple(f.ljust(w) for f,w in zip(row, widths)))
 
 def print_history(jobs):
-    query = jobs.values_list('name', 'job_id', 'state_history')
+    count = jobs.count()
+    query = jobs[:LIMIT].values_list('name', 'job_id', 'state_history')
     for (name,job_id,state_history) in query:
         print(f'Job {name} [{job_id}]')
         print(f'------------------------------------------------')
         print(f'{state_history}\n')
+    if count > LIMIT: print(f"({count-LIMIT} more BalsamJobs not shown...)")
 
 def print_jobs(jobs, verbose):
+    count = jobs.count()
+    jobs = jobs[:LIMIT]
     if verbose:
         for job in jobs: print(job)
+        if count > LIMIT: print(f"({count-LIMIT} more BalsamJobs not shown...)")
         return
 
     fields = ['job_id', 'name', 'workflow', 'application', 'state']
@@ -55,10 +63,20 @@ def print_jobs(jobs, verbose):
     transforms = {'application' : app_string}
     try:
         print_table(jobs, fields, transforms=transforms)
+        if count > LIMIT: print(f"({count-LIMIT} more BalsamJobs not shown...)")
     except FieldError as e:
         print("***  You specified a nonexistant field in BALSAM_LS_FIELDS; please unset this ***")
         print(e)
         return
+
+def print_by_states(jobs):
+    from django.db.models import Count
+    states = jobs.values('state').annotate(s_count=Count('state'))
+    for result in states:
+        state, count = result['state'], result['s_count']
+        print(f"{state}  ({count} BalsamJobs)")
+        print_jobs(jobs.filter(state=state), verbose=False)
+        print('')
 
 def print_subtree(job, indent=1):
     def job_str(job): return f"{job.name:10} {job.cute_id}"
@@ -68,10 +86,13 @@ def print_subtree(job, indent=1):
         print_subtree(job, indent+1)
 
 def print_jobs_tree(jobs):
-    roots = [j for j in jobs if j.parents=='[]']
+    count = jobs.count()
+    roots = jobs.filter(parents='[]')[:LIMIT]
     for job in roots: print_subtree(job)
+    if count > LIMIT:
+        print(f"(Omitted {count-LIMIT} jobs from display...)")
 
-def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
+def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state, by_states):
     results = Job.objects.all()
     if namestr: results = results.filter(name__icontains=namestr)
 
@@ -93,6 +114,7 @@ def ls_jobs(namestr, show_history, jobid, verbose, tree, wf, state):
 
     if show_history: print_history(results)
     elif tree: print_jobs_tree(results)
+    elif by_states: print_by_states(results)
     else: print_jobs(results, verbose)
 
 def ls_queues(verbose):
