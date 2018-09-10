@@ -1,10 +1,10 @@
 '''A setuptools based setup module.
 
-https://packaging.python.org/en/latest/distributing.html
-'''
+https://packaging.python.org/en/latest/distributing.html '''
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 from setuptools.command.develop import develop
+from setuptools.extension import Extension
 from codecs import open
 from os import path
 import os
@@ -20,6 +20,12 @@ class PostInstallCommand(install):
     def run(self):
         auto_setup_db()
         install.run(self)
+        from Cython.Build import cythonize
+        extensions = [
+            Extension("balsam.service._packer", 
+                      ["balsam/service/_packer.pyx"])
+        ]
+        setup(ext_modules=cythonize(extensions))
 
 
 class PostDevelopCommand(develop):
@@ -27,6 +33,12 @@ class PostDevelopCommand(develop):
     def run(self):
         auto_setup_db()
         develop.run(self)
+        from Cython.Build import cythonize
+        extensions = [
+            Extension("balsam.service._packer", 
+                      ["balsam/service/_packer.pyx"])
+        ]
+        setup(ext_modules=cythonize(extensions))
 
 
 here = path.abspath(path.dirname(__file__))
@@ -52,7 +64,7 @@ setup(
 
     packages=find_packages(exclude=['docs','__pycache__','data','experiments','log',]),
 
-    install_requires=['django', 'jinja2', 'psycopg2-binary'],
+    install_requires=['cython', 'django', 'jinja2', 'psycopg2-binary'],
 
     include_package_data=True,
 

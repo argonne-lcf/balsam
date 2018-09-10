@@ -1,8 +1,6 @@
 import random
 import numpy as np
-import time
 import cython
-import bisect
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -26,28 +24,12 @@ cdef int bisect_left(double [:] a, int n,  double x):
     return lo
 
 class Rect:
-
-    CURRENT_ID = 0
-
-    def __init__(self, xdim, ydim, id=None):
+    def __init__(self, xdim, ydim, id):
         self.xdim = xdim
         self.ydim = ydim
-        if id is not None: 
-            self.id = id
-        else:
-            self.id = Rect.CURRENT_ID
-            Rect.CURRENT_ID += 1
-
+        self.id = id
     def __repr__(self):
         return f'<Rect{self.id}: ({self.xdim}, {self.ydim})>'
-
-    @classmethod
-    def rand_rect(cls, width_range, height_range):
-        w = random.randint(*width_range)
-        h = random.randint(*height_range)
-        rect = cls(w, h, cls.CURRENT_ID)
-        cls.CURRENT_ID += 1
-        return rect
 
 class BinPacker:
     def __init__(self, max_x, max_y):
@@ -149,58 +131,12 @@ class BinPacker:
 
 def main_draw(*, num_rect=500, xmax=2048, ymax=1440, rect_xrange=(16,128), rect_yrange=(30,100), draw_interval=100):
     packer = BinPacker(xmax, ymax)
-    rects = [Rect.rand_rect(rect_xrange, rect_yrange) for i in range(num_rect)]
+    rects = [Rect(random.randint(*rect_xrange), 
+                  random.randint(*rect_yrange), 
+                  i) 
+             for i in range(num_rect)]
 
     for tot, r in enumerate(sorted(rects, key = lambda r: r.xdim, reverse=True), 1): 
         packer.try_place(r)
         if tot % draw_interval == 0: 
             packer.report(draw=True)
-
-def main_prof():
-    NUM_RECT = 500
-    XMAX, YMAX = 1024, 600
-    RECT_XRANGE = (2, 64)
-    RECT_YRANGE = (30, 100)
-    packer = BinPacker(XMAX, YMAX)
-    rects = [Rect.rand_rect(RECT_XRANGE, RECT_YRANGE) for i in range(NUM_RECT)]
-    for r in sorted(rects, key = lambda r: r.xdim, reverse=True): 
-        packer.try_place(r)
-
-def pack():
-    packer = BinPacker(10, 10)
-    rects = [Rect(2+random.randint(-1,3), 2+random.randint(-2,4)) for i in range(4)]
-    for r in sorted(rects, key = lambda r: r.xdim, reverse=True):
-        packer.try_place(r, first_col=True)
-    packer.report(draw=True)
-    packer.shrink_x_to_fit()
-    packer.report(draw=True)
-    packer.shrink_y_to_fit()
-    packer.report(draw=True)
-
-def test1():
-    packer = BinPacker(6,6)
-    rects = [Rect(3, 6), Rect(3,6)]
-    r1, r2 = rects
-    packer.try_place(r1)
-    packer.try_place(r2)
-    packer.report()
-
-def test2():
-    start = time.time()
-    NUM_RECT = 12000
-    XMAX, YMAX = 4096, 1440
-    RECT_XRANGE = (16, 256)
-    RECT_YRANGE = (30, 600)
-    packer = BinPacker(XMAX, YMAX)
-    rects = [Rect.rand_rect(RECT_XRANGE, RECT_YRANGE) for i in range(NUM_RECT)]
-    rects = sorted(rects, key = lambda r: r.xdim, reverse=True)
-
-    start = time.time()
-    for i, r in enumerate(rects):
-        packer.try_place(r)
-        if i % 50 == 0:
-            print('tried', i, 'rects in', time.time()-start, 'sec')
-    packer.report(draw=True)
-
-#cProfile.run('main_prof()', sort='cumtime')
-#pack()
