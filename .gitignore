@@ -2,7 +2,7 @@
 !.gitignore
 *.pyc
 
-*_packer.cpython-36m-darwin.so
+*_packer.cpython*
 balsam/service/pack/_packer.c
 balsam/argo/migrations/*.py
 !balsam/argo/migrations/__init__.py

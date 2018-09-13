@@ -290,7 +290,8 @@ def launcher(args):
 def submitlaunch(args):
     from balsam import setup
     setup()
-    from balsam.service import service, models
+    from balsam.service import service
+    from balsam.core import models
     QueuedLaunch = models.QueuedLaunch
     qlaunch = QueuedLaunch(
             project = args.project,

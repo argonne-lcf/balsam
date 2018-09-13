@@ -15,8 +15,9 @@ from mpi4py import MPI
 from django.db import transaction, connections
 
 from balsam import config_logging, settings, setup
-from balsam.launcher.util import cd, get_tail, remaining_time_minutes
+setup()
 from balsam.launcher.exceptions import *
+from balsam.launcher.util import cd, get_tail, remaining_time_minutes
 from balsam.core.models import BalsamJob
 
 logger = logging.getLogger('balsam.launcher.mpi_ensemble')
@@ -511,7 +512,6 @@ class Worker:
 
 if __name__ == "__main__":
     if RANK == 0:
-        setup()
         master = Master()
         def handle_term(signum, stack): master.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)
