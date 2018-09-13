@@ -9,10 +9,11 @@ JOB_PAD_MINUTES = 5
 BalsamJob = models.BalsamJob
 QueuedLaunch = models.QueuedLaunch
 
-def create_qlaunch(jobs, queues):
+def create_qlaunch(queues):
+    jobs = ready_query()
     qlaunch, to_launch = _pack_jobs(jobs, queues)
-    if qlaunch:
-        qlaunch.wall_minuntes += JOB_PAD_MINUTES
+    if qlaunch and to_launch.exists():
+        #qlaunch.wall_minuntes += JOB_PAD_MINUTES
         qlaunch.save()
         qlaunch.refresh_from_db()
         num = to_launch.update(queued_launch=qlaunch)
@@ -60,5 +61,6 @@ def dummy_pack(jobs, queues):
                            nodes=3,
                            job_mode='serial',
                            wall_minutes=12)
+    return qlaunch, jobs.all()
 
 _pack_jobs = dummy_pack
