@@ -6,7 +6,6 @@ import signal
 import sys
 
 import django
-DB_TYPE = 'postgres'
 
 def ls_procs(keywords):
     if type(keywords) == str: keywords = [keywords]
@@ -31,8 +30,9 @@ def cmd_confirmation(message=''):
     return confirm.lower() == 'y'
 
 def newapp(args):
-    from balsam import settings
-    from balsam.service.models import ApplicationDefinition as AppDef
+    from balsam import setup
+    setup()
+    from balsam.core.models import ApplicationDefinition as AppDef
 
     def py_app_path(path):
         if not path: 
@@ -61,8 +61,9 @@ def newapp(args):
 
 
 def newjob(args):
-    from balsam import settings
-    from balsam.service import models
+    from balsam import setup
+    setup()
+    from balsam.core import models
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
 
@@ -105,8 +106,9 @@ def newjob(args):
 
 
 def match_uniq_job(s):
-    from balsam import settings
-    from balsam.service import models
+    from balsam import setup
+    setup()
+    from balsam.core import models
     Job = models.BalsamJob
 
     job = Job.objects.filter(job_id__icontains=s)
@@ -123,8 +125,9 @@ def match_uniq_job(s):
     raise ValueError(f"No job in local DB matched {s}")
 
 def newdep(args):
-    from balsam import settings
-    from balsam.service import models 
+    from balsam import setup
+    setup()
+    from balsam.core import models
     from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
@@ -135,8 +138,9 @@ def newdep(args):
     print(f"Created link {parent.first().cute_id} --> {child.first().cute_id}")
 
 def ls(args):
-    from balsam import settings
-    from balsam.service import models
+    from balsam import setup
+    setup()
+    from balsam.core import models
     from balsam.launcher import dag
     import balsam.scripts.ls_commands as lscmd
     Job = models.BalsamJob
@@ -165,8 +169,9 @@ def ls(args):
         pass
 
 def modify(args):
-    from balsam import settings
-    from balsam.service import models
+    from balsam import setup
+    setup()
+    from balsam.core import models
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
 
@@ -194,8 +199,9 @@ def modify(args):
 
 
 def rm(args):
-    from balsam import settings
-    from balsam.service import models
+    from balsam import setup
+    setup()
+    from balsam.core import models
     from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
@@ -241,8 +247,9 @@ def rm(args):
     print("Deleted.")
 
 def kill(args):
-    from balsam import settings
-    from balsam.service import models
+    from balsam import setup
+    setup()
+    from balsam.core import models
     from balsam.launcher import dag
     Job = models.BalsamJob
 
@@ -262,7 +269,8 @@ def kill(args):
 
 
 def mkchild(args):
-    from balsam import settings
+    from balsam import setup
+    setup()
     from balsam.launcher import dag
 
     if not dag.current_job:
@@ -280,7 +288,8 @@ def launcher(args):
     p.wait()
 
 def submitlaunch(args):
-    from balsam import settings
+    from balsam import setup
+    setup()
     from balsam.service import service, models
     QueuedLaunch = models.QueuedLaunch
     qlaunch = QueuedLaunch(
@@ -302,27 +311,21 @@ def service(args):
     print(f"Starting Balsam service [{p.pid}]")
 
 def init(args):
-    from balsam.django_config.serverinfo import ServerInfo
     path = os.path.expanduser(args.path)
     if os.path.exists(path):
         if not os.path.isdir(path):
             print(f"{path} is not a directory")
             sys.exit(1)
     else:
-        try: 
+        try:
             os.mkdir(path, mode=0o755)
         except:
             print(f"Failed to create directory {path}")
             sys.exit(1)
         
-    serverinfo = ServerInfo(path)
-    serverinfo.update({'db_type': DB_TYPE})
-
     fname = find_spec("balsam.scripts.init").origin
-    p = subprocess.Popen(f'BALSAM_DB_PATH={path} {sys.executable} {fname} {path}',
-                     shell=True)
+    p = subprocess.Popen(f'{sys.executable} {fname} {path}', shell=True)
     p.wait()
-
 
 def which(args):
     from balsam.django_config.db_index import refresh_db_index
@@ -364,7 +367,8 @@ def which(args):
             pprint.pprint(refresh_db_index())
 
 def log(args):
-    from balsam import settings
+    from balsam import settings, setup
+    setup()
     path = os.path.join(settings.LOGGING_DIRECTORY, '*.log')
     try: subprocess.run(f"tail -f {path}", shell=True)
     except (KeyboardInterrupt,BrokenPipeError,ProcessLookupError): pass
@@ -396,8 +400,9 @@ def server(args):
         server_control.list_users(db_path)
 
 def make_dummies(args):
-    from balsam import settings
-    from balsam.service import models
+    from balsam import setup
+    setup()
+    from balsam.core import models
     Job = models.BalsamJob
     App = models.ApplicationDefinition
     if not App.objects.filter(name='dummy').exists():

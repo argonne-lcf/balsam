@@ -11,7 +11,7 @@ fi
 known_list=$(balsam which --list 2> /dev/null)
 if [ $? -ne 0 ]
 then
-    echo "Balsam is not configured properly; please check installation"
+    echo "Balsam is not configured properly; please check output of 'balsam which --list'"
     return 1
 fi
 
@@ -35,7 +35,7 @@ then
         return 1
     fi
 else
-    if [ ! -f $1/dbwriter_address ]
+    if [ ! -f $1/server-info ]
     then
         echo "No Balsam DB found in dir $1"
         return 1

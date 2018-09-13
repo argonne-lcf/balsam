@@ -62,13 +62,11 @@ def reset_main(db_path):
     from balsam.launcher.dag import BalsamJob
     BalsamJob.release_all_locks()
 
-    lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
     info = serverinfo.ServerInfo(db_path)
     kill_server(info)
 
 
 def disconnect_main(db_path):
-    lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
     info = serverinfo.ServerInfo(db_path)
 
     local_host = socket.gethostname()
@@ -87,7 +85,6 @@ def disconnect_main(db_path):
 
 
 def start_main(db_path):
-    lockfile = os.path.join(db_path, serverinfo.ADDRESS_FNAME+'.lock')
     info = serverinfo.ServerInfo(db_path)
 
     if not (info['host'] or info['port']):

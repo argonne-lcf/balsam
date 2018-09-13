@@ -3,11 +3,11 @@
 *.pyc
 
 *_packer.cpython-36m-darwin.so
-balsam/service/_packer.c
+balsam/service/pack/_packer.c
 balsam/argo/migrations/*.py
 !balsam/argo/migrations/__init__.py
-balsam/service/migrations/*.py
-!balsam/service/migrations/__init__.py
+balsam/core/migrations/*.py
+!balsam/core/migrations/__init__.py
 build/
 
 experiments

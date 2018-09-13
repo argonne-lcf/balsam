@@ -51,6 +51,7 @@ class JobEnvironment:
             logger.debug(f"Detected scheduler ID {self.current_scheduler_id}")
 
     def remaining_time_seconds(self):
+        '''Either counts down from RemainingTime obtained from scheduler, or infinity'''
         now = time.time()
         elapsed_time = now - self._last_check_seconds
         self.remaining_seconds -= elapsed_time

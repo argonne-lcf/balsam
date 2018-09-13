@@ -7,9 +7,10 @@ import django
 from django.db import OperationalError
 from django.conf import settings
 
-if not settings.configured:
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
+def setup():
+    if not settings.configured:
+        os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
+        django.setup()
 
 _logger = logging.getLogger()
 _logger.setLevel(logging.DEBUG)
@@ -43,4 +44,4 @@ def log_uncaught_exceptions(exctype, value, tb):
         for handler in _logger.handlers: handler.flush()
 
 sys.excepthook = log_uncaught_exceptions
-__all__ = ['config_logging', 'settings']
+__all__ = ['config_logging', 'settings', 'setup']

@@ -63,8 +63,9 @@ import json
 import os
 import uuid 
 
-from balsam import settings
-from balsam.service.models import BalsamJob, history_line
+from balsam import setup
+setup()
+from balsam.core.models import BalsamJob, history_line
 
 __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR', 
            'current_job', 'parents', 'children',

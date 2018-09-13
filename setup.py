@@ -10,20 +10,14 @@ from os import path
 import os
 import time
 
-def auto_setup_db():
-    import django
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-
 class PostInstallCommand(install):
     '''Post-installation for installation mode'''
     def run(self):
-        auto_setup_db()
         install.run(self)
         from Cython.Build import cythonize
         extensions = [
-            Extension("balsam.service._packer", 
-                      ["balsam/service/_packer.pyx"])
+            Extension("balsam.service.pack._packer", 
+                      ["balsam/service/pack/_packer.pyx"])
         ]
         setup(ext_modules=cythonize(extensions))
 
@@ -31,12 +25,11 @@ class PostInstallCommand(install):
 class PostDevelopCommand(develop):
     '''Post-installation for installation mode'''
     def run(self):
-        auto_setup_db()
         develop.run(self)
         from Cython.Build import cythonize
         extensions = [
-            Extension("balsam.service._packer", 
-                      ["balsam/service/_packer.pyx"])
+            Extension("balsam.service.pack._packer", 
+                      ["balsam/service/pack/_packer.pyx"])
         ]
         setup(ext_modules=cythonize(extensions))
 

@@ -1,15 +1,15 @@
 import json
 import os
 import socket
+from getpass import getuser
 
-ADDRESS_FNAME = 'dbwriter_address'
+ADDRESS_FNAME = 'server-info'
 
 class ServerInfo:
     def __init__(self, balsam_db_path):
         balsam_db_path = os.path.abspath(os.path.expanduser(balsam_db_path))
         self.path = os.path.join(balsam_db_path, ADDRESS_FNAME)
-        self.data = {'db_type' : 'postgres',
-                     'balsamdb_path' : balsam_db_path}
+        self.data = {'balsamdb_path' : balsam_db_path}
 
         if not os.path.exists(self.path):
             self.update(self.data)
@@ -53,12 +53,10 @@ class ServerInfo:
                     fp.write(line + "\n")
         os.rename(f"{conf_path}.new", conf_path)
 
-
     def reset_server_address(self):
-        db = self['db_type']
-        info = getattr(self, f'get_{db}_info')()
+        info = self.get_postgres_info()
         self.update(info)
-        getattr(self, f'update_{db}_config')()
+        self.update_postgres_config()
     
     def update(self, update_dict):
         if os.path.exists(self.path): self.refresh()
@@ -82,3 +80,21 @@ class ServerInfo:
 
     def __setitem__(self, key, value):
         self.update({key:value})
+
+    def django_db_config(self):
+        ENGINE = 'django.db.backends.postgresql_psycopg2'
+        NAME = 'balsam'
+        OPTIONS = {'connect_timeout' : 5}
+
+        user = getuser()
+        password = self.get('password', '')
+        host = self.get('host', '')
+        port = self.get('port', '')
+
+
+        db = dict(ENGINE=ENGINE, NAME=NAME,
+                  OPTIONS=OPTIONS, USER=user, PASSWORD=password,
+                  HOST=host, PORT=port, CONN_MAX_AGE=60)
+
+        DATABASES = {'default':db}
+        return DATABASES

@@ -1,15 +1,18 @@
-from balsam.service import models
+from balsam.core import models
 from django.conf import settings
+from django.db.models import F, Sum, FloatField
+from django.db.models.functions import Cast
 import logging
-
 logger = logging.getLogger(__name__)
 
+JOB_PAD_MINUTES = 5
 BalsamJob = models.BalsamJob
 QueuedLaunch = models.QueuedLaunch
 
 def create_qlaunch(jobs, queues):
     qlaunch, to_launch = _pack_jobs(jobs, queues)
     if qlaunch:
+        qlaunch.wall_minuntes += JOB_PAD_MINUTES
         qlaunch.save()
         qlaunch.refresh_from_db()
         num = to_launch.update(queued_launch=qlaunch)
@@ -17,6 +20,35 @@ def create_qlaunch(jobs, queues):
         return qlaunch
     else:
         return None
+
+    jobs = jobs.all()
+    return qlaunch, jobs
+
+def ready_query():
+    return BalsamJob.objects.filter(
+        lock='',
+        queued_launch__isnull=True,
+        state__in=['PREPROCESSED', 'RESTART_READY']
+    )
+
+def serial_node_count():
+    jobs = ready_query()
+    serial_jobs = jobs.filter(num_nodes=1, ranks_per_node=1)
+    serial_jobs = serial_jobs.annotate(
+        nodes=1.0/Cast('node_packing_count', FloatField())
+        +Cast('coschedule_num_nodes', FloatField())
+    )
+    return serial_jobs.aggregate(total=Sum('nodes'))['total']
+
+def box_pack(jobs, queues):
+    import _packer
+    Rect = _packer.Rect
+    if serial_node_count() > SERIAL_PACK_THRESHOLD:
+        jobs = ready_query.all()
+    job_rects = [Rect(*job) for job in jobs.values_list(
+                 ['num_nodes', ''])]
+    for q in queues:
+        pass
 
 def dummy_pack(jobs, queues):
     '''Input: jobs (queryset of scheduleable jobs), queues(states of all queued
@@ -28,18 +60,5 @@ def dummy_pack(jobs, queues):
                            nodes=3,
                            job_mode='serial',
                            wall_minutes=12)
-    jobs = jobs.all()
-    return qlaunch, jobs
-
-def box_pack(jobs, queues):
-    # query parents and states
-    # tag jobs that can be placed now (no parents or parents finished)
-    # tag jobs with pending dependencies
-    # first pass: first-fit decreasing: filter placeable jobs only
-    # stack jobs in first column only
-    # fix  nodes, determine max walltime
-    # if any jobs longer than maxwalltime; filter out, then re-run
-    for q in queues:
-        pass
 
 _pack_jobs = dummy_pack

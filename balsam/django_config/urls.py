@@ -15,7 +15,10 @@ Including another URLconf
 """
 from django.conf.urls import url,include
 from django.contrib import admin
+from balsam.core import views
 
 urlpatterns = [
    url(r'^admin/', admin.site.urls),
+   url(r'^tasks/', views.list_tasks, name="tasks"),
+   url(r'^apps/', views.list_apps, name="apps"),
 ]

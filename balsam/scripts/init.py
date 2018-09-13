@@ -2,8 +2,8 @@ import glob
 import os
 import sys
 from pprint import pprint
-import time
 import subprocess
+from balsam import setup, settings
 try:
     from balsam.django_config.serverinfo import ServerInfo
 except:
@@ -16,11 +16,9 @@ def postgres_init(serverInfo):
     if os.path.exists(db_path): 
         print(db_path, "already exists; skipping DB creation")
         return
-    print('Running PG initdb...',flush=True)
-    p = subprocess.Popen(f'initdb -D {db_path} -U $USER', shell=True)
-    retcode = p.wait()
-    print('Done',flush=True)
-    if retcode != 0: raise RuntimeError("initdb failed")
+
+    retcode = subprocess.Popen(f'initdb -D {db_path} -U $USER', shell=True).wait()
+    if retcode != 0: raise RuntimeError("initdb process failed")
     
     with open(os.path.join(db_path, 'postgresql.conf'), 'a') as fp:
         fp.write("listen_addresses = '*' # appended from balsam init\n")
@@ -40,63 +38,63 @@ def postgres_init(serverInfo):
     serverInfo.reset_server_address()
     port = serverInfo['port']
 
-    serv_proc = subprocess.Popen(f'pg_ctl -D {db_path} -w start', shell=True)
-    time.sleep(2)
+    retcode = subprocess.Popen(f'pg_ctl -D {db_path} -w start', shell=True).wait()
+    if retcode == 0: print("started PG server")
+    else: raise RuntimeError("pg_ctl server startup process failed")
+
     create_proc = subprocess.Popen(f'createdb balsam -p {port}', shell=True)
     retcode = create_proc.wait()
     if retcode != 0: raise RuntimeError("createdb failed")
+    else: print("Created `balsam` DB")
 
 def postgres_post(serverInfo):
     db_path = serverInfo['balsamdb_path']
     db_path = os.path.join(db_path, 'balsamdb')
-    serv_proc = subprocess.Popen(f'pg_ctl -D {db_path} -w stop', shell=True)
-    time.sleep(1)
+    serv_proc = subprocess.Popen(f'pg_ctl -D {db_path} -w stop', shell=True).wait()
     serverInfo.update({'host':None, 'port':None})
 
 def run_migrations():
-    from balsam import settings
-    from balsam.service import migrations
+    from django import db
+    from django.core.management import call_command
+    from balsam.django_config.db_index import refresh_db_index
+    from balsam.core import migrations
+    setup()
     path = migrations.__path__
     try: path = path[0]
     except: path = str(path)
     for fname in glob.glob(os.path.join(path, '????_*.py')):
         os.remove(fname)
         print("Remove migration file:", fname)
-    
-    from django import db
-    from django.core.management import call_command
-    from balsam.django_config.db_index import refresh_db_index
 
     print(f"DB settings:", settings.DATABASES['default'])
-
-    db_info = db.connection.settings_dict['NAME']
-    print(f"Setting up new balsam database:")
-    pprint(db_info, width=60)
+    print("Setting up BalsamJob table")
     call_command('makemigrations', interactive=True, verbosity=2)
     call_command('migrate', interactive=True, verbosity=2)
     refresh_db_index()
-
     try:
-        from balsam.service.models import BalsamJob
+        from balsam.core.models import BalsamJob
         j = BalsamJob()
         j.save()
         j.delete()
     except:
-        raise RuntimeError("BalsamJob table not properly created")
+        print("BalsamJob table not properly created")
+        raise
     else:
         print("BalsamJob table created successfully")
 
 if __name__ == "__main__":
-    serverInfo = ServerInfo(sys.argv[1])
-    db_type = serverInfo['db_type']
+    dbpath = sys.argv[1]
+    os.environ['BALSAM_DB_PATH'] = dbpath
+    serverInfo = ServerInfo(dbpath)
 
-    if db_type == 'postgres':
-        postgres_init(serverInfo)
-    else:
-        raise RuntimeError(f'init doesnt support DB type {db_type}')
-
+    postgres_init(serverInfo)
     run_migrations()
-    if db_type == 'postgres':
-        postgres_post(serverInfo)
-        basename = os.path.basename(sys.argv[1])
-        print(f"Balsam init OK: use 'source balsamactivate {basename}' to begin working")
+    postgres_post(serverInfo)
+
+    base = dbpath[:-1] if dbpath[-1]=='/' else dbpath
+    basename = os.path.basename(base)
+    msg = f"  Successfully created Balsam DB at: {os.environ['BALSAM_DB_PATH']}  "
+    print('\n' + '*'*len(msg))
+    print(msg)
+    print(f"  Use `source balsamactivate {basename}` to begin working.")
+    print('*'*len(msg)+'\n')

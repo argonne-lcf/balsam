@@ -25,12 +25,13 @@ import shlex
 import time
 
 from django import db
-from balsam import config_logging, settings
-from balsam.launcher import transitions, worker
+from balsam import config_logging, settings, setup
+from balsam.core import transitions
+from balsam.launcher import worker
 from balsam.launcher.util import remaining_time_minutes, delay_generator, get_tail
 from balsam.launcher.exceptions import *
 from balsam.scripts.cli import config_launcher_subparser
-from balsam.service import models
+from balsam.core import models
 
 logger = logging.getLogger('balsam.launcher.launcher')
 BalsamJob = models.BalsamJob
@@ -402,6 +403,7 @@ def get_args(inputcmd=None):
         return parser.parse_args()
 
 if __name__ == "__main__":
+    setup()
     args = get_args()
     config_logging('launcher')
     logger.info("Loading Balsam Launcher")

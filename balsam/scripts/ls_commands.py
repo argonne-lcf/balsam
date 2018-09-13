@@ -1,4 +1,4 @@
-from balsam.service import models
+from balsam.core import models
 from os import environ
 from os.path import basename
 import uuid
