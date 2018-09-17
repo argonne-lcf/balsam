@@ -8,7 +8,7 @@
     <title>Balsam</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/v/bs4/dt-1.10.18/datatables.min.css"/>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.19/css/dataTables.bootstrap4.min.css"/>
     <link rel="stylesheet" href="{% static 'base.css' %}"></script>
 </head>
 
@@ -16,16 +16,16 @@
 <nav class="navbar navbar-light fixed-top navbar-expand-sm bg-light">
     <a class="navbar-brand" data-toggle="tooltip" data-placement="bottom" title="{{ db_info }}" data-html="true" href="#">Balsam</a>
     <ul class="navbar-nav">
-        <li class="nav-item mx-5 {% if request.resolver_match.url_name == "tasks" %}active{% endif %}"> 
+        <li class="nav-item mx-3 {% if request.resolver_match.url_name == "tasks" %}active{% endif %}"> 
             <a class="nav-link" href="{% url 'tasks' %}"> <span data-feather="database"></span> Tasks </a> 
         </li>
-        <li class="nav-item mx-5 {% if request.resolver_match.url_name == "apps" %}active{% endif %}"> 
+        <li class="nav-item mx-3 {% if request.resolver_match.url_name == "apps" %}active{% endif %}"> 
             <a class="nav-link" href="{% url 'apps' %}"> <span data-feather="file-text"></span> Applications </a> 
         </li>
-        <li class="nav-item mx-5 {% if request.resolver_match.url_name == "queues" %}active{% endif %}"> 
+        <li class="nav-item mx-3 {% if request.resolver_match.url_name == "queues" %}active{% endif %}"> 
             <a class="nav-link" href="#"> <span data-feather="play-circle"></span> Job Queues </a>
         </li>
-        <li class="nav-item mx-5 {% if request.resolver_match.url_name == "dash" %}active{% endif %}"> 
+        <li class="nav-item mx-3 {% if request.resolver_match.url_name == "dash" %}active{% endif %}"> 
             <a class="nav-link" href="#"> <span data-feather="activity"></span> Dashboard </a> 
         </li>
     </ul>
@@ -41,7 +41,7 @@
     </ul>
 </nav>
 
-<main role="main" class="container" style="padding-top:100px; width:100%">
+<main role="main" class="container-fluid" style="margin-top:100px; width:100%">
     {% block content %}{% endblock %}
 </main>
 
@@ -52,11 +52,12 @@
 <script src="https://code.jquery.com/jquery-3.3.1.js"> </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
-<script src="https://cdn.datatables.net/v/bs4/dt-1.10.18/datatables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.19/js/dataTables.bootstrap4.min.js"></script>
 <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
 <script src="{% static request.resolver_match.url_name %}.js"></script>
 <script> 
-    feather.replace();
+    feather.replace({'stroke-width': 1, 'width': 19, 'height': 19});
     $(function ()
       {
           $('[data-toggle="tooltip"]').tooltip()
