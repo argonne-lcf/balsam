@@ -529,7 +529,10 @@ class BalsamJob(models.Model):
         result += '\n'.join( (k+':').ljust(32) + str(v) 
                 for k,v in self.__dict__.items() 
                 if k not in ['state_history', 'job_id', '_state', 'tick'])
-        result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
+
+        try: result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
+        except NoApplication: result += '\n' + '  *** Executed command:'.ljust(32) + f'NO APPLICATION MATCHING {self.application}'
+
         result += '\n' + '  *** Working directory:'.ljust(32) + self.working_directory +'\n'
         return result
 

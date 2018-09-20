@@ -66,6 +66,7 @@ import uuid
 from balsam import setup
 setup()
 from balsam.core.models import BalsamJob, history_line
+from balsam.service.schedulers import JobEnv
 
 __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR', 
            'current_job', 'parents', 'children',
@@ -80,7 +81,7 @@ _envs = {k:v for k,v in os.environ.items() if k.find('BALSAM')>=0}
 JOB_ID = _envs.get('BALSAM_JOB_ID', '')
 TIMEOUT = _envs.get('BALSAM_JOB_TIMEOUT', False) == "TRUE"
 ERROR = _envs.get('BALSAM_JOB_ERROR', False) == "TRUE"
-LAUNCHER_NODES = int(_envs.get('BALSAM_LAUNCHER_NODES', 1))
+LAUNCHER_NODES = JobEnv.num_workers
 
 if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)
