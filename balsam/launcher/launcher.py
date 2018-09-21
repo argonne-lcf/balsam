@@ -130,7 +130,11 @@ class MPILauncher:
 
     def check_exit(self):
         global EXIT_FLAG
-        remaining_minutes = next(self.timer)
+        try: 
+            remaining_minutes = next(self.timer)
+        except StopIteration:
+            EXIT_FLAG = True
+            return
         if remaining_minutes <= 0:
             EXIT_FLAG = True
             return
