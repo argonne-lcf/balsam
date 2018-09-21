@@ -112,17 +112,13 @@ def match_uniq_job(s):
     Job = models.BalsamJob
 
     job = Job.objects.filter(job_id__icontains=s)
-    if job.count() > 1:
+    count = job.count()
+    if count > 1:
         raise ValueError(f"More than one ID matched {s}")
-    elif job.count() == 1: return job
-    
-    job = Job.objects.filter(name__contains=s)
-    if job.count() > 1: job = Job.objects.filter(name=s)
-    if job.count() > 1: 
-        raise ValueError(f"More than one Job name matches {s}")
-    elif job.count() == 1: return job
-
-    raise ValueError(f"No job in local DB matched {s}")
+    elif count == 1:
+        return job.first()
+    else:
+        raise ValueError(f"No job in local DB matched {s}")
 
 def newdep(args):
     from balsam import setup
@@ -135,7 +131,7 @@ def newdep(args):
     parent = match_uniq_job(args.parent)
     child = match_uniq_job(args.child)
     dag.add_dependency(parent, child)
-    print(f"Created link {parent.first().cute_id} --> {child.first().cute_id}")
+    print(f"Created link {parent.cute_id} --> {child.cute_id}")
 
 def ls(args):
     from balsam import setup

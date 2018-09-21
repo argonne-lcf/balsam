@@ -155,18 +155,27 @@ def add_dependency(parent,child):
           dependency in the BalsamJob DAG.
     '''
     from django.db.models.query import QuerySet
-    if isinstance(parent, str): parent = uuid.UUID(parent)
-    if isinstance(child, str): child = uuid.UUID(child)
-    if isinstance(parent, QuerySet): 
+    if isinstance(parent, str):
+        parent = uuid.UUID(parent)
+        parent = BalsamJob.objects.get(pk=parent)
+    elif isinstance(parent, uuid.UUID):
+        parent = BalsamJob.objects.get(pk=parent)
+    elif isinstance(parent, QuerySet): 
         assert parent.count() == 1
         parent = parent.first()
-    if isinstance(child, QuerySet): 
+    else:
+        assert isinstance(parent, BalsamJob)
+
+    if isinstance(child, str): 
+        child = uuid.UUID(child)
+        child = BalsamJob.objects.get(pk=child)
+    elif isinstance(child, uuid.UUID):
+        child = BalsamJob.objects.get(pk=child)
+    elif isinstance(child, QuerySet): 
         assert child.count() == 1
         child = child.first()
-    if not isinstance(parent, BalsamJob): 
-        parent = BalsamJob.objects.get(pk=parent)
-    if not isinstance(child, BalsamJob): 
-        child = BalsamJob.objects.get(pk=child)
+    else:
+        assert isinstance(child, BalsamJob)
 
     existing_parents = child.get_parents_by_id()
     new_parents = existing_parents.copy()
