@@ -154,9 +154,15 @@ def add_dependency(parent,child):
         - ``RuntimeError``: if the attempted edge would create a circular
           dependency in the BalsamJob DAG.
     '''
+    from django.db.models.query import QuerySet
     if isinstance(parent, str): parent = uuid.UUID(parent)
     if isinstance(child, str): child = uuid.UUID(child)
-
+    if isinstance(parent, QuerySet): 
+        assert parent.count() == 1
+        parent = parent.first()
+    if isinstance(child, QuerySet): 
+        assert child.count() == 1
+        child = child.first()
     if not isinstance(parent, BalsamJob): 
         parent = BalsamJob.objects.get(pk=parent)
     if not isinstance(child, BalsamJob): 
