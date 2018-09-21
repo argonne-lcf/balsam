@@ -62,10 +62,12 @@ follows::
 import json
 import os
 import uuid 
+from collections import deque
 
 from balsam import setup
 setup()
 from balsam.core.models import BalsamJob, history_line
+from balsam.service.schedulers import JobEnv
 
 __all__ = ['JOB_ID', 'TIMEOUT', 'ERROR', 
            'current_job', 'parents', 'children',
@@ -80,7 +82,7 @@ _envs = {k:v for k,v in os.environ.items() if k.find('BALSAM')>=0}
 JOB_ID = _envs.get('BALSAM_JOB_ID', '')
 TIMEOUT = _envs.get('BALSAM_JOB_TIMEOUT', False) == "TRUE"
 ERROR = _envs.get('BALSAM_JOB_ERROR', False) == "TRUE"
-LAUNCHER_NODES = int(_envs.get('BALSAM_LAUNCHER_NODES', 1))
+LAUNCHER_NODES = JobEnv.num_workers
 
 if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)
@@ -89,7 +91,8 @@ if JOB_ID:
     except:
         raise RuntimeError(f"The environment specified current job: "
                            f"BALSAM_JOB_ID {JOB_ID}\n but this does not "
-                           f"exist in DB! Was it deleted accidentally?")
+                           f"exist in DB! Was it deleted accidentally?"
+                           "You may need to `unset BALSAM_JOB_ID`")
     else:
         parents = current_job.get_parents()
         children = current_job.get_children()
@@ -140,6 +143,50 @@ def detect_circular(job, path=[]):
         if detect_circular(parent, path): return True
     return False
 
+def breadth_first_iterator(roots, max_depth=None):
+    try: 
+        roots = iter(roots)
+    except TypeError:
+        assert isinstance(roots, BalsamJob)
+        roots = [roots]
+
+    queue = deque(roots)
+    visited = []
+    while queue:
+        pass
+
+def wf_from_template(source_wf, new_wf, **kwargs):
+    source_jobs = BalsamJob.objects.filter(workflow=source_wf)
+    if not source_jobs.exists():
+        raise ValueError(f"No jobs exist matching workflow {source_wf}; \
+                please provide an existing name for source_wf")
+    if BalsamJob.objects.filter(workflow=new_wf).exists():
+        raise ValueError(f"At least one job with workflow {new_wf} already exists;\
+                please provide a unique name for new_wf")
+
+    source_jobs = list(source_jobs)
+    new_jobs = {}
+
+    for job in source_jobs:
+        kw = kwargs.get(job.name, {})
+        kw.update(name=job.name, workflow=new_wf, queued_launch=None, parents="[]")
+        new_job = clone(job, **kw)
+        assert new_job.name not in new_jobs
+        new_jobs[new_job.name] = new_job
+
+    for j in new_jobs.values():
+        j.state_history = history_line("CREATED", f"Copied from template workflow {source_wf}")
+        j.save()
+
+    for old_job in source_jobs:
+        new_job = new_jobs[old_job.name]
+        parent_names = old_job.get_parents().values_list('name', flat=True)
+        for parent_name in parent_names:
+            new_parent = new_jobs[parent_name]
+            add_dependency(parent=new_parent, child=new_job)
+
+    return BalsamJob.objects.filter(workflow=new_wf)
+
 def add_dependency(parent,child):
     '''Create a dependency between two existing jobs
     
@@ -153,13 +200,28 @@ def add_dependency(parent,child):
         - ``RuntimeError``: if the attempted edge would create a circular
           dependency in the BalsamJob DAG.
     '''
-    if isinstance(parent, str): parent = uuid.UUID(parent)
-    if isinstance(child, str): child = uuid.UUID(child)
-
-    if not isinstance(parent, BalsamJob): 
+    from django.db.models.query import QuerySet
+    if isinstance(parent, str):
+        parent = uuid.UUID(parent)
         parent = BalsamJob.objects.get(pk=parent)
-    if not isinstance(child, BalsamJob): 
+    elif isinstance(parent, uuid.UUID):
+        parent = BalsamJob.objects.get(pk=parent)
+    elif isinstance(parent, QuerySet): 
+        assert parent.count() == 1
+        parent = parent.first()
+    else:
+        assert isinstance(parent, BalsamJob)
+
+    if isinstance(child, str): 
+        child = uuid.UUID(child)
         child = BalsamJob.objects.get(pk=child)
+    elif isinstance(child, uuid.UUID):
+        child = BalsamJob.objects.get(pk=child)
+    elif isinstance(child, QuerySet): 
+        assert child.count() == 1
+        child = child.first()
+    else:
+        assert isinstance(child, BalsamJob)
 
     existing_parents = child.get_parents_by_id()
     new_parents = existing_parents.copy()
@@ -173,7 +235,25 @@ def add_dependency(parent,child):
         child.set_parents(existing_parents)
         raise RuntimeError("Detected circular dependency; not creating link")
 
-def spawn_child(clone=False, **kwargs):
+def clone(job, **kwargs):
+    assert isinstance(job, BalsamJob)
+    new_job = BalsamJob()
+    
+    exclude_fields = '''_state objects source state tick user_workdir
+    lock state_history job_id'''.split()
+    fields = [f for f in job.__dict__ if f not in exclude_fields]
+
+    for f in fields: 
+        new_job.__dict__[f] = job.__dict__[f]
+    assert new_job.pk != job.pk
+    
+    for k,v in kwargs.items():
+        try: field = job._meta.get_field(k)
+        except: raise ValueError(f"Invalid field name: {k}")
+        else: new_job.__dict__[k] = v
+    return new_job
+
+def spawn_child(**kwargs):
     '''Add a new job that is dependent on the current job
     
     This function creates a new child job that will not start until the current
@@ -201,26 +281,8 @@ def spawn_child(clone=False, **kwargs):
     if 'workflow' not in kwargs:
         kwargs['workflow'] = current_job.workflow
     
-
-    child = BalsamJob()
-    new_pk = child.pk
-
-    exclude_fields = '_state version state_history job_id working_directory'.split()
-    fields = [f for f in current_job.__dict__ if f not in exclude_fields]
-
-    if clone:
-        for f in fields: 
-            child.__dict__[f] = current_job.__dict__[f]
-        assert child.pk == new_pk
-
-    for k,v in kwargs.items():
-        if k in fields:
-            child.__dict__[k] = v
-        else:
-            raise ValueError(f"Invalid field {k}")
-
+    child = clone(current_job, **kwargs)
     child.queued_launch = current_job.queued_launch
-    #child.working_directory = '' # working directory is computed property instead
 
     newparents = json.loads(current_job.parents)
     newparents.append(str(current_job.job_id))
