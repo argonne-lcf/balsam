@@ -12,6 +12,7 @@ from getpass import getuser
 from pprint import pformat
 
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
+from django.db.utils import OperationalError
 from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Value as V
@@ -144,6 +145,17 @@ def from_time_string(s):
 
 def history_line(state='CREATED', message=''):
     return f"\n[{get_time_string()} {state}] ".rjust(46) + message
+
+def safe_select(queryset):
+    qs = queryset.order_by('job_id').select_for_update()
+    pks = None
+    while pks is None:
+        try:
+            pks = list(qs.values_list('job_id', flat=True))
+        except OperationalError as e:
+            logger.error(f'select for update error: {e}\nRetrying...')
+            time.sleep(0.2)
+    return BalsamJob.objects.filter(pk__in=pks)
 
 
 class QueuedLaunch(models.Model):
@@ -324,20 +336,23 @@ class JobSource(models.Manager):
 
     def _tick(self):
         now = timezone.now()
-        my_locked = BalsamJob.objects.filter(lock=self.lock_str)
-        num_updated = my_locked.update(tick=now)
+        with transaction.atomic():
+            my_locked = safe_select(BalsamJob.objects.filter(lock=self.lock_str))
+            num_updated = my_locked.update(tick=now)
         logger.debug(f'Ticked lock on {num_updated} of my BalsamJobs')
         connection.close()
 
     def release(self, pk_list):
-        to_unlock = BalsamJob.objects.filter(pk__in=pk_list)
-        num_unlocked = to_unlock.update(lock='')
+        with transaction.atomic():
+            to_unlock = safe_select(BalsamJob.objects.filter(pk__in=pk_list))
+            num_unlocked = to_unlock.update(lock='')
         logger.debug(f'Released lock on {num_unlocked} of my BalsamJobs')
 
-    def release_all_owned(self):
-        BalsamJob.objects.filter(lock=self.lock_str).update(lock='')
-    
     @transaction.atomic
+    def release_all_owned(self):
+        alljobs = safe_select(BalsamJob.objects.filter(lock=self.lock_str))
+        alljobs.update(lock='')
+    
     def clear_stale_locks(self):
         objects = self.model.objects
         total_count = objects.count()
@@ -346,15 +361,15 @@ class JobSource(models.Manager):
 
         all_jobs = objects.all()
         expired_time = timezone.now() - self.EXPIRATION_PERIOD
-        expired_jobs = all_jobs.exclude(lock='').filter(tick__lte=expired_time)
-        revert_count = expired_jobs.filter(state='RUNNING').update(state='RESTART_READY')
-        expired_count = expired_jobs.update(lock='')
+        with transaction.atomic():
+            expired_jobs = safe_select(all_jobs.exclude(lock='').filter(tick__lte=expired_time))
+            revert_count = expired_jobs.filter(state='RUNNING').update(state='RESTART_READY')
+            expired_count = expired_jobs.update(lock='')
         if expired_count:
             logger.info(f'Cleared stale lock on {expired_count} jobs')
             if revert_count: logger.info(f'Reverted {revert_count} RUNNING jobs to RESTART_READY')
         elif locked_count:
             logger.debug(f'No stale locks (older than {self.EXPIRATION_PERIOD.total_seconds()} seconds)')
-
 
 class BalsamJob(models.Model):
     ''' A DB representation of a Balsam Job '''
@@ -648,7 +663,6 @@ class BalsamJob(models.Model):
         return envs
 
     @classmethod
-    @transaction.atomic
     def batch_update_state(cls, pk_list, new_state, message=''):
         try:
             exists = pk_list.exists()
@@ -658,20 +672,15 @@ class BalsamJob(models.Model):
 
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
-
-        update_jobs = cls.objects.filter(job_id__in=pk_list).select_for_update()
-        update_jobs = update_jobs.exclude(state='USER_KILLED')
-
-        #states = cls.objects.filter(job_id__in=pk_list).values_list('job_id', 'state')
-        #assert len(states) == len(pk_list)
-        #update_ids = [jid for (jid,state) in states if state != 'USER_KILLED']
-
-        #update_jobs = cls.objects.filter(job_id__in=update_ids)
+        
         msg = history_line(new_state, message)
 
-        update_jobs.update(state=new_state,
-                           state_history=Concat('state_history', V(msg))
-                          )
+        with transaction.atomic():
+            update_jobs = cls.objects.filter(job_id__in=pk_list).exclude(state='USER_KILLED')
+            update_jobs = safe_select(update_jobs)
+            update_jobs.update(state=new_state,
+                               state_history=Concat('state_history', V(msg))
+                              )
 
     def update_state(self, new_state, message=''):
         if new_state not in STATES:
@@ -680,17 +689,6 @@ class BalsamJob(models.Model):
         self.state = new_state
         self.state_history += msg
         self.save(update_fields=['state', 'state_history'])
-
-    @classmethod
-    @transaction.atomic
-    def release_all_locks(cls):
-        running_jobs = cls.objects.all().select_for_update().filter(state='RUNNING')
-        msg = history_line('RUN_TIMEOUT', 'reverted')
-        running_jobs.update(state='RUN_TIMEOUT',
-                            state_history=Concat('state_history', V(msg)))
-        cls.objects.all().select_for_update().update(lock='')
-
-
 
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()

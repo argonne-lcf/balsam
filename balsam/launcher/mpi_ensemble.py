@@ -172,7 +172,6 @@ class ResourceManager:
             self.recv_requests[rank] = comm.irecv(source=rank)
         return completed_requests
 
-    @transaction.atomic
     def serve_requests(self):
         requests = self._get_requests()
         done_jobs = []
@@ -220,17 +219,16 @@ class ResourceManager:
         self.job_source.release(done_pks)
         logger.info(f"RUN_DONE: {len(done_pks)} jobs")
     
+    @transaction.atomic
     def _handle_errors(self, error_jobs):
+        error_pks = [j[0] for j in error_jobs]
+        models.safe_select(BalsamJob.objects.filter(pk__in=error_pks))
         for pk,retcode,tail in error_jobs:
             rank = self.running_locations[pk]
             self.revert_assign(rank, pk)
             job = BalsamJob.objects.get(pk=pk)
             state_msg = f"nonzero return {retcode}: {tail}"
             job.update_state('RUN_ERROR', state_msg)
-            logger.error(f"{job.cute_id} RUN_ERROR from rank {rank}")
-            logger.error(state_msg)
-
-        error_pks = [j[0] for j in error_jobs]
         self.job_source.release(error_pks)
     
     def send_exit(self):
