@@ -18,6 +18,7 @@ from django.db.models import Value as V
 from django.db.models import Q
 from django.db import connection
 from django.db.models.functions import Concat
+from django.contrib.postgres.fields import JSONField
 
 from balsam import setup
 
@@ -501,7 +502,7 @@ class BalsamJob(models.Model):
         blank=True,
         null=True,
     )
-
+    data = JSONField('User Data', help_text="JSON encoded data store for user-defined data", default=dict)
 
     @staticmethod
     def from_dict(d):
