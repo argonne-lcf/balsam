@@ -18,7 +18,7 @@ from balsam import config_logging, settings, setup
 setup()
 from balsam.launcher.exceptions import *
 from balsam.launcher.util import cd, get_tail, remaining_time_minutes
-from balsam.core.models import BalsamJob
+from balsam.core.models import BalsamJob, safe_select
 
 logger = logging.getLogger('balsam.launcher.mpi_ensemble')
 config_logging('serial-launcher')
@@ -222,7 +222,7 @@ class ResourceManager:
     @transaction.atomic
     def _handle_errors(self, error_jobs):
         error_pks = [j[0] for j in error_jobs]
-        models.safe_select(BalsamJob.objects.filter(pk__in=error_pks))
+        safe_select(BalsamJob.objects.filter(pk__in=error_pks))
         for pk,retcode,tail in error_jobs:
             rank = self.running_locations[pk]
             self.revert_assign(rank, pk)
