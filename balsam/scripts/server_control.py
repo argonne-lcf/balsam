@@ -58,9 +58,6 @@ def test_connection(info, raises=False):
 
 def reset_main(db_path):
     start_main(db_path)
-    
-    from balsam.launcher.dag import BalsamJob
-    BalsamJob.release_all_locks()
 
     info = serverinfo.ServerInfo(db_path)
     kill_server(info)

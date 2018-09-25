@@ -196,6 +196,7 @@ class MPILauncher:
         
         error_pks = [r.job.pk for r in by_states['RUN_ERROR']]
         with db.transaction.atomic():
+            models.safe_select(BalsamJob.objects.filter(pk__in=error_pks))
             for run in by_states['RUN_ERROR']:
                 run.job.refresh_from_db()
                 run.job.update_state('RUN_ERROR', run.err_msg)
