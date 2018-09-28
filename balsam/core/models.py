@@ -11,6 +11,9 @@ import uuid
 from getpass import getuser
 from pprint import pformat
 
+from balsam import setup
+setup()
+
 from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.db.utils import OperationalError
 from django.conf import settings
@@ -21,9 +24,6 @@ from django.db import connection
 from django.db.models.functions import Concat
 from django.contrib.postgres.fields import JSONField
 
-from balsam import setup
-
-setup()
 logger = logging.getLogger(__name__)
 
 class InvalidStateError(ValidationError): pass

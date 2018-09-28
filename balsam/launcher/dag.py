@@ -83,6 +83,8 @@ JOB_ID = _envs.get('BALSAM_JOB_ID', '')
 TIMEOUT = _envs.get('BALSAM_JOB_TIMEOUT', False) == "TRUE"
 ERROR = _envs.get('BALSAM_JOB_ERROR', False) == "TRUE"
 LAUNCHER_NODES = JobEnv.num_workers
+if LAUNCHER_NODES is None: 
+    LAUNCHER_NODES = 1
 
 if JOB_ID:
     JOB_ID = uuid.UUID(JOB_ID)
