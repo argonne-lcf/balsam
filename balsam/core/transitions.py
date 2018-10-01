@@ -467,6 +467,7 @@ def handle_run_error(job):
         raise BalsamTransitionError("No error handler: run failed")
 
 TRANSITIONS = {
+    'AWAITING_PARENTS': check_parents,
     'READY':            stage_in,
     'STAGED_IN':        preprocess,
     'RUN_DONE':         postprocess,
