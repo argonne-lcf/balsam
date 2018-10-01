@@ -42,7 +42,7 @@ def sig_handler(signum, stack):
     EXIT_FLAG = True
 
 class MPIRun:
-    RUN_DELAY = 0.01 # 1000 jobs / 10 sec
+    RUN_DELAY = 0.10 # 1000 jobs / 100 sec
 
     def __init__(self, job, workers):
         self.job = job
