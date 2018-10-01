@@ -21,7 +21,7 @@ class JobEnvironment:
         self.host_type = 'DEFAULT'
         
         self.current_scheduler_id = None
-        self.num_workers = None
+        self.num_workers = 1
         self.workers_str = None
         self.workers_file = None
         self.remaining_seconds = float("inf")
