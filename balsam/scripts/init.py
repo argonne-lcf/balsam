@@ -63,7 +63,8 @@ def run_migrations():
     try: path = path[0]
     except: path = str(path)
     for fname in glob.glob(os.path.join(path, '????_*.py')):
-        os.remove(fname)
+        try: os.remove(fname)
+        except: pass
         print("Remove migration file:", fname)
 
     print(f"DB settings:", settings.DATABASES['default'])
