@@ -288,6 +288,8 @@ def stage_in(job):
         logger.info(f"{job.cute_id}   {new_path}  -->  {inp_file}")
         try:
             os.symlink(src=inp_file, dst=new_path)
+        except FileExistsError:
+            logger.warning(f"Symlink at {new_path} already exists; skipping creation")
         except Exception as e:
             raise BalsamTransitionError(
                 f"Exception received during symlink: {e}") from e
