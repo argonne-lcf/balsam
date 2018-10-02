@@ -57,7 +57,7 @@ setup(
 
     packages=find_packages(exclude=['docs','__pycache__','data','experiments','log',]),
 
-    install_requires=['cython', 'django', 'jinja2', 'psycopg2-binary'],
+    install_requires=['cython', 'django==2.1.1', 'jinja2', 'psycopg2-binary'],
 
     include_package_data=True,
 
