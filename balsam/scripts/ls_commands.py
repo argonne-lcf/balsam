@@ -74,9 +74,7 @@ def print_by_states(jobs):
     states = jobs.values('state').annotate(s_count=Count('state'))
     for result in states:
         state, count = result['state'], result['s_count']
-        print(f"{state}  ({count} BalsamJobs)")
-        print_jobs(jobs.filter(state=state), verbose=False)
-        print('')
+        print(f"{state.rjust(16)}  {count}")
 
 def print_subtree(job, indent=1):
     def job_str(job): return f"{job.name:10} {job.cute_id}"
