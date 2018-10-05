@@ -177,15 +177,9 @@ def get_handler(url):
     return handler
 
 def stage_in(source_url, destination_directory):
-    try:
-        handler = get_handler(source_url)
-        logger.debug('pre-stage hook')
-        handler.pre_stage_hook()
-        logger.debug('stage-in')
-        handler.stage_in(source_url, destination_directory)
-    except Exception as e:
-        logger.exception('Exception: ' + str(e))
-        raise
+    handler = get_handler(source_url)
+    handler.pre_stage_hook()
+    handler.stage_in(source_url, destination_directory)
 
 def stage_out(source_directory, destination_url):
     handler = get_handler(destination_url)

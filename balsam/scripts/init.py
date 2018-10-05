@@ -65,7 +65,6 @@ def run_migrations():
     for fname in glob.glob(os.path.join(path, '????_*.py')):
         try: os.remove(fname)
         except: pass
-        print("Remove migration file:", fname)
 
     print(f"DB settings:", settings.DATABASES['default'])
     print("Setting up BalsamJob table")

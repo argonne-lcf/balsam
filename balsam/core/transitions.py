@@ -40,7 +40,7 @@ from balsam.launcher.util import get_tail
 import logging
 logger = logging.getLogger(__name__)
 
-JOBCACHE_LIMIT = 10000
+JOBCACHE_LIMIT = 1000
 PREPROCESS_TIMEOUT_SECONDS = 300
 POSTPROCESS_TIMEOUT_SECONDS = 300
 EXIT_FLAG = False
@@ -75,18 +75,27 @@ class TransitionProcessPool:
             proc.join()
         logger.info("All Transition processes joined: done.")
 
+@db.transaction.atomic
+def fail_update(failed_jobs):
+    for job in failed_jobs:
+        try: failmsg = job.__fail_msg
+        except AttributeError: failmsg = ''
+        job.refresh_from_db()
+        job.update_state('FAILED', failmsg)
 
 def update_states_from_cache(job_cache):
     # Update states of fast-forwarded jobs
     update_jobs = defaultdict(list)
+    failed_jobs = []
     for job in job_cache:
         if job.state != job.__old_state:
-            update_jobs[job.state].append(job.pk)
             job.__old_state = job.state
-    if not update_jobs: return
-    with db.transaction.atomic():
-        for newstate, joblist in update_jobs.items():
-            BalsamJob.batch_update_state(joblist, newstate)
+            if job.state != 'FAILED': update_jobs[job.state].append(job.pk)
+            else: failed_jobs.append(job)
+
+    if failed_jobs: fail_update(failed_jobs)
+    for newstate, joblist in update_jobs.items():
+        BalsamJob.batch_update_state(joblist, newstate)
 
 def refresh_cache(job_cache, num_threads, thread_idx):
     manager = BalsamJob.source
@@ -164,10 +173,10 @@ def _main(thread_idx, num_threads):
             try:
                 transition_function(job)
             except BalsamTransitionError as e:
-                job.state = 'FAILED' 
+                job.state = 'FAILED'
                 buf = StringIO()
                 print_exc(file=buf)
-                logger.exception(f"{job.cute_id} BalsamTransitionError:\n%s\n", buf.getvalue())
+                job.__fail_msg = buf.getvalue()
                 logger.exception(f"Marking {job.cute_id} as FAILED")
             if EXIT_FLAG:
                 break
