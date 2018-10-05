@@ -53,7 +53,7 @@ class ScriptTemplate:
             conda_path = None
             python_path = os.path.dirname(sys.executable)
 
-        balsam_lib = os.path.dirname(find_spec('balsam').origin)
+        balsam_lib = os.path.dirname(os.path.dirname(find_spec('balsam').origin))
         p = subprocess.run('which balsam', shell=True, stdout=subprocess.PIPE, encoding='utf-8')
         balsam_bin = os.path.dirname(p.stdout)
         site_top = os.path.dirname(os.path.dirname(find_spec('django').origin))
