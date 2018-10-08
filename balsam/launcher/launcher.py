@@ -345,8 +345,17 @@ class SerialLauncher:
     def run(self):
         global EXIT_FLAG
         workers = self.worker_group
-        num_ranks = 4 if self.total_nodes==1 else self.total_nodes
-        rpn = 4 if self.total_nodes==1 else 1
+        if self.total_nodes == 1:
+            logger.warning("Running Serial job mode with only one node. Typically, "
+            "there is only one rank per node, and Balsam master occupies the first node.\n"
+            "Assuming you are testing; will run 4 ranks (1 master; 3 workers) on the node.\n"
+            "This will cause heavy oversubscription with production workloads."
+            )
+            num_ranks = 4
+            rpn = 4
+        else:
+            num_ranks = self.total_nodes
+            rpn = 1
         mpi_str = workers.mpi_cmd(workers, app_cmd=self.app_cmd,
                                num_ranks=num_ranks, ranks_per_node=rpn,
                                cpu_affinity='none', envs={})
