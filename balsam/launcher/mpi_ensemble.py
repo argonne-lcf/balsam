@@ -324,7 +324,7 @@ class FailedToStartProcess:
 class Worker:
     CHECK_PERIOD=10
     RETRY_WINDOW = 20
-    RETRY_CODES = [-11, 12345]
+    RETRY_CODES = [-11, 1, 255, 12345]
     MAX_RETRY = 3
 
     def __init__(self):
