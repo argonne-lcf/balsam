@@ -25,6 +25,8 @@ import time
 import tempfile
 
 from django import db
+from django.db.models.functions import Cast, Substr
+from django.db.models import CharField
 
 from balsam.core import transfer 
 from balsam.launcher.exceptions import *
@@ -97,18 +99,32 @@ def update_states_from_cache(job_cache):
     for newstate, joblist in update_jobs.items():
         BalsamJob.batch_update_state(joblist, newstate)
 
+def select_range(num_threads, thread_idx):
+    HEX_DIGITS = '0123456789abcdef'
+    chunk, rem = divmod(len(HEX_DIGITS), num_threads)
+    start, end = thread_idx*chunk, (thread_idx+1)*chunk
+    my_digits = HEX_DIGITS[start:end]
+    if thread_idx < rem:
+        my_digits += HEX_DIGITS[thread_idx-rem]
+
+    manager = BalsamJob.source
+    processable = manager.by_states(PROCESSABLE_STATES).filter(lock='')
+    logger.debug(f"There are {len(processable)} processable jobs")
+    if num_threads == 1:
+        qs = processable
+    else:
+        qs = processable.annotate(first_pk_char=Substr(Cast('pk', CharField(max_length=36)) , 1, 1))
+        qs = qs.filter(first_pk_char__in=my_digits)
+    qs = qs.values_list('pk', flat=True)[:JOBCACHE_LIMIT]
+    logger.debug(f"TransitionThread{thread_idx} select:\n{qs.query}")
+    return list(qs)
+
 def refresh_cache(job_cache, num_threads, thread_idx):
     manager = BalsamJob.source
-    processable = manager.by_states(PROCESSABLE_STATES)
-    processable = list(processable.values_list('pk', flat=True)[:num_threads*JOBCACHE_LIMIT])
-    
-    chunk, rem = divmod(len(processable), num_threads)
-    start, end = thread_idx*chunk, (thread_idx+1)*chunk
-    if thread_idx == num_threads-1: 
-        end += rem
-    to_acquire = processable[start:end]
-
+    to_acquire = select_range(num_threads, thread_idx)
+    logger.debug(f"TransitionThread{thread_idx} will try to acquire: {[str(id)[:8] for id in to_acquire]}")
     acquired = manager.acquire(to_acquire)
+
     if len(acquired) <  len(to_acquire):
         st = random.random()
         time.sleep(st)
