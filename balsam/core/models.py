@@ -639,7 +639,7 @@ class BalsamJob(models.Model):
         result = {}
         entries = s.split(':')
         entries = [e.split('=') for e in entries]
-        return {variable:'='.join(value) for (variable,*value) in entries}
+        return {variable:'='.join(values) for (variable,*values) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
         keywords = 'BALSAM DJANGO PYTHON'.split()
