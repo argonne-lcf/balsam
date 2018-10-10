@@ -1,7 +1,10 @@
+from collections import defaultdict, Counter
+from itertools import combinations
 import os
 import json
 import logging
 import re
+import numpy as np
 import socket
 import sys
 import threading
@@ -94,41 +97,71 @@ STATE_TIME_PATTERN = re.compile(r'''
 
 _app_cache = {}
 
-def process_job_times(time0=None, state0=None):
+def process_job_times(qs=None):
     '''Returns {state : [elapsed_seconds_for_each_job_to_reach_state]}
     Useful for tracking job performance/throughput'''
-    from collections import defaultdict
 
-    if state0 is None: state0 = 'READY'
-    data = BalsamJob.objects.values_list('state_history', flat=True)
+    if qs is None: qs = BalsamJob.objects
+    data = qs.values_list('state_history', flat=True)
     data = '\n'.join(data)
     matches = STATE_TIME_PATTERN.finditer(data)
     result = ( m.groups() for m in matches )
     result = ( (state, datetime.strptime(time_str, TIME_FMT))
               for (time_str, state) in result )
-    
     time_data = defaultdict(list)
     for state, time in result:
         time_data[state].append(time)
-
-    if time0 is None: 
-        if state0 not in time_data:
-            raise ValueError(f"Requested time-zero at first instance of {state0}, "
-                "but there are no jobs in the DB with this state!")
-        time0 = min(time_data[state0])
-
-    for state in time_data.keys():
-        time_data[state] = [(t - time0).total_seconds() for t in sorted(time_data[state])]
-
     return time_data
 
+def utilization_report(time_data=None):
+    if time_data is None:
+        qs = BalsamJob.objects
+        time_data = process_job_times(qs=qs)
+    start_times = time_data.get('RUNNING', [])
+    end_times = []
+    for state in ['RUN_DONE', 'RUN_ERROR', 'RUN_TIMEOUT']:
+        end_times.extend(time_data.get(state, []))
+
+    startCounts = Counter(start_times)
+    endCounts = Counter(end_times)
+    for t in endCounts: endCounts[t] *= -1
+    merged = sorted(list(startCounts.items()) + list(endCounts.items()),
+                    key = lambda x: x[0])
+    counts = np.fromiter((x[1] for x in merged), dtype=np.int)
+
+    times = [x[0] for x in merged]
+    running = np.cumsum(counts)
+    return (times, running)
+
+def throughput_report(time_data=None):
+    if time_data is None:
+        qs = BalsamJob.objects
+        time_data = process_job_times(qs=qs)
+    done_times = time_data.get('RUN_DONE', [])
+    doneCounts = sorted(list(Counter(done_times).items()),key=lambda x:x[0])
+    times = [x[0] for x in doneCounts]
+    counts = np.cumsum(np.fromiter((x[1] for x in doneCounts), dtype=np.int))
+    return (times, counts)
+
+def error_report(time_data=None):
+    if time_data is None:
+        qs = BalsamJob.objects
+        time_data = process_job_times(qs=qs)
+    err_times = time_data.get('RUN_ERROR', [])
+    time0 = min(err_times)
+    err_seconds = np.array([(t-time0).total_seconds() for t in err_times])
+    hmin, hmax = 0, max(err_seconds)
+    bins = np.arange(hmin, hmax+60, 60)
+    times = [time0 + timedelta(seconds=s) for s in bins]
+    hist, _ = np.histogram(err_seconds, bins=bins, density=False)
+    assert len(times) == len(hist) + 1
+    return times, hist
 
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
     joined = [state for g in groups for state in g]
     assert len(joined) == len(set(joined)) == len(STATES)
     assert set(joined) == set(STATES) 
-    from itertools import combinations
     for g1,g2 in combinations(groups, 2):
         s1,s2 = set(g1), set(g2)
         assert s1.intersection(s2) == set()
