@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import shutil
 from importlib.util import find_spec
 
 from jinja2 import Template, Environment, FileSystemLoader
@@ -45,7 +46,7 @@ class ScriptTemplate:
     def get_balsam_env():
         conda_env = os.environ.get('CONDA_PREFIX')
         if conda_env:
-            activate_path = os.path.join(conda_env, 'bin', 'activate')
+            activate_path = shutil.which("activate")
             conda_path = conda_env
             python_path = None
         else:
