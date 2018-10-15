@@ -46,7 +46,7 @@ class ScriptTemplate:
     def get_balsam_env():
         conda_env = os.environ.get('CONDA_PREFIX')
         if conda_env:
-            activate_path = shutil.which("activate")
+            activate_path = shutil.which("activate", mode=os.F_OK)
             conda_path = conda_env
             python_path = None
         else:
