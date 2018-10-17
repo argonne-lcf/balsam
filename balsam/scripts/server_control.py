@@ -120,9 +120,9 @@ def add_user(db_path, uname):
     subprocess.run(
         f'''psql -d balsam -h {host} -p {port} -c \
         "CREATE user {uname}; \
-        GRANT ALL on service_balsamjob TO {uname}; \
-        GRANT ALL on service_applicationdefinition TO {uname}; \
-        GRANT ALL on service_queuedlaunch TO {uname}; "
+        GRANT ALL on core_balsamjob TO {uname}; \
+        GRANT ALL on core_applicationdefinition TO {uname}; \
+        GRANT ALL on core_queuedlaunch TO {uname}; "
         ''',
         shell=True
     )
@@ -132,9 +132,9 @@ def drop_user(db_path, uname):
     host = info['host']
     port = info['port']
     subprocess.run(
-        f'psql -d balsam -h {host} -p {port} -c "REVOKE ALL on service_balsamjob FROM {uname};\
-        REVOKE ALL on service_applicationdefinition FROM {uname};\
-        REVOKE ALL on service_queuedlaunch FROM {uname};\
+        f'psql -d balsam -h {host} -p {port} -c "REVOKE ALL on core_balsamjob FROM {uname};\
+        REVOKE ALL on core_applicationdefinition FROM {uname};\
+        REVOKE ALL on core_queuedlaunch FROM {uname};\
         DROP ROLE {uname};"',
         shell=True
     )
