@@ -122,6 +122,7 @@ def add_user(db_path, uname):
         "CREATE user {uname}; \
         GRANT ALL on core_balsamjob TO {uname}; \
         GRANT ALL on core_applicationdefinition TO {uname}; \
+        GRANT ALL on core_applicationdefinition_id_seq TO {uname}; \
         GRANT ALL on core_queuedlaunch TO {uname}; "
         ''',
         shell=True
