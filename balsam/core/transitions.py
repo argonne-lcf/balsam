@@ -109,7 +109,7 @@ def select_range(num_threads, thread_idx):
 
     manager = BalsamJob.source
     processable = manager.by_states(PROCESSABLE_STATES).filter(lock='')
-    logger.debug(f"There are {len(processable)} processable jobs")
+    logger.debug(f"There are {processable.count()} processable jobs")
     if num_threads == 1:
         qs = processable
     else:

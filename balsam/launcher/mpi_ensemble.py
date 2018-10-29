@@ -245,7 +245,7 @@ class ResourceManager:
 
 class Master:
     def __init__(self):
-        self.MAX_IDLE_TIME = 10.0
+        self.MAX_IDLE_TIME = 20.0
         self.DELAY_PERIOD = 1.0
         self.idle_time = 0.0
         self.EXIT_FLAG = False

@@ -148,6 +148,7 @@ def error_report(time_data=None):
         qs = BalsamJob.objects
         time_data = process_job_times(qs=qs)
     err_times = time_data.get('RUN_ERROR', [])
+    if not err_times: return
     time0 = min(err_times)
     err_seconds = np.array([(t-time0).total_seconds() for t in err_times])
     hmin, hmax = 0, max(err_seconds)

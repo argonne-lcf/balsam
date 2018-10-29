@@ -134,21 +134,27 @@ class MPILauncher:
             remaining_minutes = next(self.timer)
         except StopIteration:
             EXIT_FLAG = True
+            logger.info("Out of time; preparing to exit")
             return
         if remaining_minutes <= 0:
             EXIT_FLAG = True
+            logger.info("Out of time; preparing to exit")
             return
         if self.is_active: 
+            logger.debug("Some runs are still active; will not quit")
             return
-        manager = self.jobsource
-        processable_count = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES).count()
-        if processable_count > 0: 
+        processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
+        if self.jobsource.workflow:
+            processable = processable.filter(workflow=self.jobsource.workflow)
+        if processable.count() > 0:
+            logger.debug("Some BalsamJobs are still transitionable; will not quit")
             return
         if self.get_runnable().count() > 0:
             self.exit_counter = 0
             return
-        else: 
+        else:
             self.exit_counter += 1
+            logger.info(f"Nothing to do (exit counter {self.exit_counter}/10)")
         if self.exit_counter == 10:
             EXIT_FLAG = True
 
@@ -240,17 +246,19 @@ class MPILauncher:
             return
         else:
             self.last_report = now
-
         num_idle = len(self.worker_group.idle_workers())
+        logger.info(f'{num_idle} idle worker nodes')
         all_runnable = BalsamJob.objects.filter(state__in=models.RUNNABLE_STATES)
         unlocked = all_runnable.filter(lock='')
         logger.info('No runnable jobs')
         logger.info(f'{all_runnable.count()} runnable jobs across entire Balsam DB')
         logger.info(f'{unlocked.count()} of these are unlocked')
-        logger.info(f'{num_idle} idle worker nodes')
         if self.jobsource.workflow:
-            wf_match = unlocked.filter(workflow=self.jobsource.workflow)
-            logger.info(f'{wf_match.count()} of these match the current workflow filter')
+            unlocked = unlocked.filter(workflow=self.jobsource.workflow)
+            logger.info(f'{unlocked.count()} of these match the current workflow filter')
+        too_large = unlocked.filter(num_nodes__gt=num_idle).count()
+        if too_large > 0:
+            logger.info(f'{too_large} of these could run now; but require more than {num_idle} nodes.')
 
     def launch(self):
         num_idle = len(self.worker_group.idle_workers())
