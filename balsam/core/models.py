@@ -676,9 +676,7 @@ class BalsamJob(models.Model):
         return {variable:'='.join(values) for (variable,*values) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
-        keywords = 'BALSAM DJANGO PYTHON'.split()
-        envs = {var:value for var,value in os.environ.items() 
-                if any(keyword in var for keyword in keywords)}
+        envs = os.environ.copy()
         
         if self.environ_vars:
             job_vars = self.parse_envstring(self.environ_vars)

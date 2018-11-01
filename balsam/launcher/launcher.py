@@ -58,7 +58,7 @@ class MPIRun:
         tpc = job.threads_per_core
 
         mpi_cmd = workers[0].mpi_cmd
-        mpi_str = mpi_cmd(workers, app_cmd=app_cmd, envs=envs,
+        mpi_str = mpi_cmd(workers, app_cmd=app_cmd, envs={},
                                num_ranks=nranks, ranks_per_node=rpn,
                                cpu_affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         basename = job.name
@@ -71,6 +71,7 @@ class MPIRun:
                 stdout=self.outfile,
                 stderr=subprocess.STDOUT,
                 shell=False,
+                env=envs,
                 bufsize=1
                 )
         self.current_state = 'RUNNING'
