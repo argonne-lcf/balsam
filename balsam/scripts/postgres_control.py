@@ -5,27 +5,22 @@ import socket
 import subprocess
 import os
 
-def ps_list():
-    def tryint(s):
-        try: return int(s)
-        except ValueError: pass
-    ps = subprocess.run("ps aux | awk '{print $2}'", shell=True, stdout=subprocess.PIPE)
-    pids = ps.stdout.decode('utf-8').split('\n')
-    pids = [tryint(pid) for pid in pids]
-    pids = [pid for pid in pids if type(pid) is int]
-    return pids
 
 def launch_server(info):
+    if not info._is_owner:
+        raise PermissionError("Please ask the owner of this DB to launch it")
     info.reset_server_address()
     log_path = os.path.join(os.path.expanduser('~'), '.balsam', 'postgres.log')
-    start_cmd = f"pg_ctl -w start -D {info['pg_db_path']} -l {log_path} --mode=smart"
+    start_cmd = f"pg_ctl -w start -D {info.pg_db_path} -l {log_path} --mode=smart"
     print("Launching Balsam DB server")
     proc = subprocess.run(start_cmd, shell=True, check=True)
 
 def kill_server(info):
+    if not info._is_owner:
+        raise PermissionError("Only the owner of the server-info can kill this Balsam DB")
     local_host = socket.gethostname()
     server_host = info['host']
-    stop_cmd = f"pg_ctl -w stop -D {info['pg_db_path']} --mode=smart"
+    stop_cmd = f"pg_ctl -w stop -D {info.pg_db_path} --mode=smart"
 
     if server_host == local_host:
         print("Stopping local Balsam DB server")
@@ -58,48 +53,36 @@ def test_connection(info, raises=False):
 
 def reset_main(db_path):
     start_main(db_path)
-
     info = serverinfo.ServerInfo(db_path)
     kill_server(info)
 
 
 def disconnect_main(db_path):
     info = serverinfo.ServerInfo(db_path)
-
-    local_host = socket.gethostname()
-    local_ps_list = ps_list()
-    client_id = [local_host, os.getppid()]
-
+    info.remove_client()
     active_clients = info.get('active_clients', [])
-    disconnected_clients = [cid for cid in active_clients
-                            if (cid[0] == local_host) and (cid[1] not in local_ps_list)]
-    disconnected_clients.append(client_id)
-
-    active_clients = [cid for cid in active_clients if cid not in disconnected_clients]
-    info.update({'active_clients' : active_clients})
-    if len(active_clients) == 0:
+    if len(active_clients) == 0 and info._is_owner:
         kill_server(info)
 
 
 def start_main(db_path):
     info = serverinfo.ServerInfo(db_path)
 
-    if not (info['host'] or info['port']):
+    if not (info.get('host') or info.get('port')):
         launch_server(info)
         test_connection(info, raises=True)
+        info.add_client()
     elif test_connection(info):
         print("Connected to already running Balsam DB server!")
-    else:
+        info.add_client()
+    elif info._is_owner:
         print(f"Server at {info['host']}:{info['port']} isn't responsive; will try to kill and restart")
         kill_server(info)
         launch_server(info)
         test_connection(info, raises=True)
-
-    client_id = [socket.gethostname(), os.getppid()]
-    active_clients = info.get('active_clients', [])
-    if client_id not in active_clients:
-        active_clients.append(client_id)
-        info.update({'active_clients' : active_clients})
+        info.add_client()
+    else:
+        print(f"Server at {info['host']}:{info['port']} isn't responsive; please ask the owner to restart it")
 
 def list_connections(db_path):
     info = serverinfo.ServerInfo(db_path)
@@ -108,7 +91,7 @@ def list_connections(db_path):
     subprocess.run(
         f'''psql -d balsam -h {host} -p {port} -c \
         "SELECT pid,application_name,usename,state,substr(query, 1, 60)\
-        FROM pg_stat_activity WHERE datname = 'balsam';"
+        FROM pg_stat_activity WHERE datname = 'balsam';" \
         ''',
         shell=True
     )
@@ -120,11 +103,9 @@ def add_user(db_path, uname):
     subprocess.run(
         f'''psql -d balsam -h {host} -p {port} -c \
         "CREATE user {uname}; \
-        GRANT ALL on core_balsamjob TO {uname}; \
-        GRANT ALL on core_applicationdefinition TO {uname}; \
-        GRANT ALL on core_applicationdefinition_id_seq TO {uname}; \
-        GRANT ALL on core_queuedlaunch_id_seq TO {uname}; \
-        GRANT ALL on core_queuedlaunch TO {uname}; "
+        grant all privileges on database balsam to {uname}; \
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO {uname}; \
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO {uname}; "\
         ''',
         shell=True
     )
@@ -134,9 +115,10 @@ def drop_user(db_path, uname):
     host = info['host']
     port = info['port']
     subprocess.run(
-        f'psql -d balsam -h {host} -p {port} -c "REVOKE ALL on core_balsamjob FROM {uname};\
-        REVOKE ALL on core_applicationdefinition FROM {uname};\
-        REVOKE ALL on core_queuedlaunch FROM {uname};\
+        f'psql -d balsam -h {host} -p {port} -c \
+        "REVOKE ALL privileges on all tables in schema public FROM {uname};\
+        REVOKE ALL privileges on all sequences in schema public FROM {uname};\
+        REVOKE ALL privileges on database balsam FROM {uname};\
         DROP ROLE {uname};"',
         shell=True
     )
@@ -151,3 +133,28 @@ def list_users(db_path):
         ''',
         shell=True
     )
+
+def create_db(serverInfo):
+    db_path = serverInfo.pg_db_path
+    retcode = subprocess.Popen(f'initdb -D {db_path} -U $USER', shell=True).wait()
+    if retcode != 0: raise RuntimeError("initdb process failed")
+    with open(os.path.join(db_path, 'postgresql.conf'), 'a') as fp:
+        fp.write("listen_addresses = '*' # appended from balsam init\n")
+        fp.write('port=0 # appended from balsam init\n')
+        fp.write('max_connections=128 # appended from balsam init\n')
+        fp.write('shared_buffers=2GB # appended from balsam init\n')
+        fp.write('synchronous_commit=off # appended from balsam init\n')
+        fp.write('wal_writer_delay=400ms # appended from balsam init\n')
+        fp.write('logging_collector=on # appended from balsam init\n')
+        fp.write('log_min_duration_statement=0 # appended from balsam init\n')
+        fp.write('log_connections=on # appended from balsam init\n')
+        fp.write('log_duration=on # appended from balsam init\n')
+    with open(os.path.join(db_path, 'pg_hba.conf'), 'a') as fp:
+        fp.write(f"host all all 0.0.0.0/0 trust\n")
+    launch_server(serverInfo)
+    serverInfo.refresh()
+    port = serverInfo['port']
+    create_proc = subprocess.Popen(f'createdb balsam -p {port}', shell=True)
+    retcode = create_proc.wait()
+    if retcode != 0: raise RuntimeError("createdb failed")
+    else: print("Created `balsam` DB")
