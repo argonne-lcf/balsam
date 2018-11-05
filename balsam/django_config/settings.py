@@ -11,13 +11,18 @@ def bootstrap():
     if not os.path.exists(BALSAM_HOME):
         os.makedirs(BALSAM_HOME, mode=0o755)
 
+    sys.path.append(BALSAM_HOME)
+
+    migrations_path = os.path.join(BALSAM_HOME, 'balsamdb_migrations')
     user_settings_path = os.path.join(BALSAM_HOME, 'settings.json')
     user_policy_path = os.path.join(BALSAM_HOME, 'theta_policy.ini')
     user_templates_path = os.path.join(BALSAM_HOME, 'job-templates')
     here = os.path.dirname(os.path.abspath(__file__))
 
+    default_settings_path = os.path.join(here, 'default_settings.json')
+    default_settings = json.load(open(default_settings_path))
+
     if not os.path.exists(user_settings_path):
-        default_settings_path = os.path.join(here, 'default_settings.json')
         shutil.copy(default_settings_path, user_settings_path)
         print("Set up your Balsam config directory at", BALSAM_HOME)
     if not os.path.exists(user_policy_path):
@@ -26,9 +31,19 @@ def bootstrap():
     if not os.path.exists(user_templates_path):
         default_templates_path = os.path.join(here, 'job-templates')
         shutil.copytree(default_templates_path, user_templates_path)
+    if not os.path.exists(migrations_path):
+        os.makedirs(migrations_path, mode=0o755)
+        with open(os.path.join(migrations_path, '__init__.py'), 'w') as fp:
+            fp.write('\n')
+    try:
+        user_settings = json.load(open(user_settings_path))
+        for key in default_settings: assert key in user_settings
+    except (AssertionError, json.decoder.JSONDecodeError):
+        print(f"Detected invalid settings in {user_settings_path}; replacing with defaults!")
+        shutil.copy(default_settings_path, user_settings_path)
+        user_settings = json.load(open(user_settings_path))
 
     thismodule = sys.modules[__name__]
-    user_settings = json.load(open(user_settings_path))
     for k, v in user_settings.items():
         setattr(thismodule, k, v)
 
@@ -83,6 +98,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 ]
+
+MIGRATION_MODULES = {'core': 'balsamdb_migrations'}
 
 MIDDLEWARE_CLASSES = [
     'django.middleware.security.SecurityMiddleware',
