@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import shutil
+import tempfile
 from balsam.django_config.serverinfo import ServerInfo
 
 home_dir = os.path.expanduser('~')
@@ -58,8 +59,14 @@ def resolve_db_path():
     os.environ['BALSAM_DB_PATH'] = path
     return path
 
+if os.environ.get('BALSAM_SPHINX_DOC_BUILD_ONLY', False):
+    tempdir = tempfile.TemporaryDirectory()
+    BALSAM_PATH = tempdir.name
+    print("detected env BALSAM_SPHINX_DOC_BUILD_ONLY: will not connect to a real DB")
+else:
+    BALSAM_PATH = resolve_db_path()
+
 bootstrap()
-BALSAM_PATH = resolve_db_path()
 DATABASES = ServerInfo(BALSAM_PATH).django_db_config()
 
 # SUBDIRECTORY SETUP

@@ -11,9 +11,18 @@ import shlex
 import signal
 import time
 
-from mpi4py import MPI
-from django.db import transaction, connections
+try:
+    from mpi4py import MPI
+except ImportError as e:
+    print(e, "MPI4Py import FAILED", sep='\n')
+    MPI = None
+    comm = None
+    RANK = None
+else:
+    comm = MPI.COMM_WORLD
+    RANK = comm.Get_rank()
 
+from django.db import transaction, connections
 from balsam import config_logging, settings, setup
 setup()
 from balsam.launcher.exceptions import *
@@ -22,9 +31,6 @@ from balsam.core.models import BalsamJob, safe_select
 
 logger = logging.getLogger('balsam.launcher.mpi_ensemble')
 config_logging('serial-launcher')
-
-comm = MPI.COMM_WORLD
-RANK = comm.Get_rank()
 connections.close_all()
 
 class ResourceManager:
@@ -509,7 +515,9 @@ class Worker:
         self.exit()
 
 if __name__ == "__main__":
-    if RANK == 0:
+    if RANK is None:
+        print("MPI4Py import/init failed; cannot start")
+    elif RANK == 0:
         master = Master()
         def handle_term(signum, stack): master.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)
