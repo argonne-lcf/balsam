@@ -11,6 +11,8 @@ def refresh_db_index():
         with open(index_path) as fp: db_list = json.load(fp)
     else:
         db_list = []
+        if not os.path.exists(BALSAM_HOME):
+            os.makedirs(BALSAM_HOME)
 
     cur_db = os.environ.get('BALSAM_DB_PATH')
     if cur_db:

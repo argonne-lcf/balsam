@@ -11,6 +11,9 @@ def launch_server(info):
         raise PermissionError("Please ask the owner of this DB to launch it")
     info.reset_server_address()
     log_path = os.path.join(os.path.expanduser('~'), '.balsam', 'postgres.log')
+    if not os.path.exists(os.path.dirname(log_path)):
+        print("Creating ~/.balsam directory")
+        os.makedirs(os.path.dirname(log_path))
     start_cmd = f"pg_ctl -w start -D {info.pg_db_path} -l {log_path} --mode=smart"
     print("Launching Balsam DB server")
     proc = subprocess.run(start_cmd, shell=True, check=True)
