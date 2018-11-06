@@ -186,30 +186,6 @@ class FormatTable:
             table += "\n"
         return table+"\n"
 
-def process_job_times(time0=None):
-    '''Return a dict of {state : [list_of_seconds_for_each_job_to_reach_state]}
-    Useful for building CDF of completion times and profiling job processing throughput'''
-    from balsam.service.models import TIME_FMT, BalsamJob, STATE_TIME_PATTERN
-    from collections import defaultdict
-    from datetime import datetime
-
-    data = BalsamJob.objects.values_list('state_history', flat=True)
-    data = '\n'.join(data)
-    matches = STATE_TIME_PATTERN.finditer(data)
-    result = ( m.groups() for m in matches )
-    result = ( (state, datetime.strptime(time_str, TIME_FMT))
-              for (time_str, state) in result )
-    
-    time_data = defaultdict(list)
-    for state, time in result:
-        time_data[state].append(time)
-
-    if time0 is None: time0 = min(time_data['READY'])
-
-    for state in time_data.keys():
-        time_data[state] = [(t - time0).total_seconds() for t in sorted(time_data[state])]
-
-    return time_data
 
 def print_jobtimes_cdf(job_times):
     import numpy as np

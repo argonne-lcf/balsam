@@ -19,6 +19,7 @@
 #
 import os
 import sys
+os.environ['BALSAM_SPHINX_DOC_BUILD_ONLY'] = 'True'
 import balsam.launcher.dag
 sys.path.insert(0, os.path.abspath('../'))
 

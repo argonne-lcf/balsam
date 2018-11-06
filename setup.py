@@ -1,32 +1,37 @@
 '''A setuptools based setup module.
 
-https://packaging.python.org/en/latest/distributing.html
-'''
+https://packaging.python.org/en/latest/distributing.html '''
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 from setuptools.command.develop import develop
+from setuptools.extension import Extension
 from codecs import open
 from os import path
 import os
 import time
 
-def auto_setup_db():
-    import django
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
-    django.setup()
-
 class PostInstallCommand(install):
     '''Post-installation for installation mode'''
     def run(self):
-        auto_setup_db()
         install.run(self)
+        from Cython.Build import cythonize
+        extensions = [
+            Extension("balsam.service.pack._packer", 
+                      ["balsam/service/pack/_packer.pyx"])
+        ]
+        setup(ext_modules=cythonize(extensions))
 
 
 class PostDevelopCommand(develop):
     '''Post-installation for installation mode'''
     def run(self):
-        auto_setup_db()
         develop.run(self)
+        from Cython.Build import cythonize
+        extensions = [
+            Extension("balsam.service.pack._packer", 
+                      ["balsam/service/pack/_packer.pyx"])
+        ]
+        setup(ext_modules=cythonize(extensions))
 
 
 here = path.abspath(path.dirname(__file__))
@@ -52,7 +57,10 @@ setup(
 
     packages=find_packages(exclude=['docs','__pycache__','data','experiments','log',]),
 
-    install_requires=['django', 'django-concurrency', 'pyzmq'],
+    python_requires='>=3.6',
+
+    install_requires=['mpi4py', 'cython', 'django==2.1.1', 'jinja2',
+        'psycopg2-binary', 'sphinx', 'sphinx_rtd_theme', 'numpy'],
 
     include_package_data=True,
 

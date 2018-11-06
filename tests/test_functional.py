@@ -337,7 +337,7 @@ class TestDAG(BalsamTestCase):
             jobB = BalsamJob.objects.get(pk=child_types[childB].pk)
             jobP.pk, jobA.pk, jobB.pk = None,None,None
             for job in (jobP,jobA,jobB):
-                job.working_directory = ''
+                #job.working_directory = ''  # no working path in this branch (computed on the fly)
                 job.save()
             
             # Parent has two children (sides); either 1 rank (serial) or 2 ranks (mpi)
@@ -364,8 +364,8 @@ class TestDAG(BalsamTestCase):
         del parent_types, child_types
         self.assertEqual(BalsamJob.objects.all().count(), 81)
         
-        for job in BalsamJob.objects.all():
-            self.assertEqual(job.working_directory, '')
+        #for job in BalsamJob.objects.all():
+            #self.assertEqual(job.working_directory, '')
 
         # Run the entire DAG until finished, with two interruptions
 

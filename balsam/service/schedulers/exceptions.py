@@ -6,4 +6,5 @@ class SubmitSubprocessFailed(SchedulerException): pass
 class JobSubmitFailed(SchedulerException): pass
 class JobSubmissionDisabled(SchedulerException): pass
 class JobStatusFailed(SchedulerException): pass
+class StatusNonZeroReturnCode(SchedulerException): pass
 class NoQStatInformation(SchedulerException): pass
