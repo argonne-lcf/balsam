@@ -59,7 +59,7 @@ setup(
 
     python_requires='>=3.6',
 
-    install_requires=['mpi4py', 'cython', 'django==2.1.1', 'jinja2',
+    install_requires=['cython', 'django==2.1.1', 'jinja2',
         'psycopg2-binary', 'sphinx', 'sphinx_rtd_theme', 'numpy'],
 
     include_package_data=True,
