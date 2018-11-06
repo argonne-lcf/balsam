@@ -64,7 +64,12 @@ setup(
     install_requires=['cython', 'django==2.1.1', 'jinja2',
         'psycopg2-binary', 'sphinx', 'sphinx_rtd_theme', 'numpy'],
 
-    include_package_data=True,
+    package_data = {
+        'balsam' : ['django_config/*.json',
+                    'django_config/*.ini',
+                    'django_config/job-templates/*.tmpl',
+                   ],
+    },
 
     # Command-line bash scripts (to be used as "source balsamactivate")
     scripts = [activate_script, deactivate_script],
