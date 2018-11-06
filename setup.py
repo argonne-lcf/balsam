@@ -35,8 +35,10 @@ class PostDevelopCommand(develop):
 
 
 here = path.abspath(path.dirname(__file__))
-activate_script = path.join(here, 'balsam', 'scripts', 'balsamactivate')
-deactivate_script = path.join(here, 'balsam', 'scripts', 'balsamdeactivate')
+#activate_script = path.join(here, 'balsam', 'scripts', 'balsamactivate')
+#deactivate_script = path.join(here, 'balsam', 'scripts', 'balsamdeactivate')
+activate_script = path.join('balsam', 'scripts', 'balsamactivate')
+deactivate_script = path.join('balsam', 'scripts', 'balsamdeactivate')
 
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
