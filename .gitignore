@@ -1,5 +1,6 @@
 .*
 !.gitignore
+!.readthedocs.yml
 *.pyc
 
 *_packer.cpython*
