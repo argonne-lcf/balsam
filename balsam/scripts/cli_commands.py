@@ -372,29 +372,29 @@ def log(args):
 
 
 def server(args):
-    from balsam.scripts import server_control
+    from balsam.scripts import postgres_control
     db_path = os.environ.get('BALSAM_DB_PATH', None)
     if not db_path:
         raise RuntimeError('BALSAM_DB_PATH needs to be set before server can be started\n')
 
     if args.connect:
-        server_control.start_main(db_path)
+        postgres_control.start_main(db_path)
     elif args.disconnect:
-        server_control.disconnect_main(db_path)
+        postgres_control.disconnect_main(db_path)
     elif args.reset:
-        server_control.reset_main(db_path)
+        postgres_control.reset_main(db_path)
     elif args.list_active_connections:
-        server_control.list_connections(db_path)
+        postgres_control.list_connections(db_path)
     elif args.add_user:
         uname = args.add_user
         if len(uname) == 0: raise RuntimeError("Please provide user name")
-        server_control.add_user(db_path, uname)
+        postgres_control.add_user(db_path, uname)
     elif args.drop_user:
         uname = args.drop_user
         if len(uname) == 0: raise RuntimeError("Please provide user name")
-        server_control.drop_user(db_path, uname)
+        postgres_control.drop_user(db_path, uname)
     elif args.list_users:
-        server_control.list_users(db_path)
+        postgres_control.list_users(db_path)
 
 def make_dummies(args):
     from balsam import setup
