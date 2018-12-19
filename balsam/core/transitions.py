@@ -392,7 +392,8 @@ def preprocess(job):
             proc.communicate()
         except Exception as e:
             message = f"Preprocess failed: {e}"
-            proc.kill()
+            try: proc.kill()
+            except: pass
             raise BalsamTransitionError(message) from e
 
     if retcode != 0:
@@ -454,7 +455,8 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
             proc.communicate()
         except Exception as e:
             message = f"Postprocess failed: {e}"
-            proc.kill()
+            try: proc.kill()
+            except: pass
             raise BalsamTransitionError(message) from e
     
     if retcode != 0:
