@@ -109,6 +109,7 @@ def select_range(num_threads, thread_idx):
 
     manager = BalsamJob.source
     processable = manager.by_states(PROCESSABLE_STATES).filter(lock='')
+    processable = processable.order_by('-state') # put AWAITING_PARENTS last to avoid starvation
     logger.debug(f"There are {processable.count()} processable jobs")
     if num_threads == 1:
         qs = processable
@@ -137,7 +138,11 @@ def refresh_cache(job_cache, num_threads, thread_idx):
 
 def release_jobs(job_cache):
     manager = BalsamJob.source
-    release_jobs = [j.pk for j in job_cache if j.state not in PROCESSABLE_STATES]
+    release_jobs = [
+        j.pk for j in job_cache if
+        (j.state not in PROCESSABLE_STATES)
+        or (j.state == 'AWAITING_PARENTS')
+    ]
     if release_jobs: manager.release(release_jobs)
     return [j for j in job_cache if j.pk not in release_jobs]
 

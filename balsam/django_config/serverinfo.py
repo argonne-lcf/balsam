@@ -62,7 +62,7 @@ class ServerInfo:
     def django_db_config(self):
         ENGINE = 'django.db.backends.postgresql_psycopg2'
         NAME = 'balsam'
-        OPTIONS = {'connect_timeout' : 5}
+        OPTIONS = {'connect_timeout' : 30}
 
         user = getuser()
         password = self.get('password', '')
