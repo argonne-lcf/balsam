@@ -72,7 +72,6 @@ class MPIRun:
                 stderr=subprocess.STDOUT,
                 shell=False,
                 env=envs,
-                bufsize=1
                 )
         self.current_state = 'RUNNING'
         self.err_msg = None

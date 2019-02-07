@@ -413,7 +413,7 @@ class Worker:
         self.outfiles[pk] = outfile
         try:
             proc = Popen(cmd, stdout=outfile, stderr=STDOUT,
-                         cwd=workdir, env=envs, shell=False, bufsize=1,)
+                         cwd=workdir, env=envs, shell=False,)
         except Exception as e:
             proc = FailedToStartProcess()
             logger.error(self.log_prefix(pk) + f"Popen error:\n{str(e)}\n")
