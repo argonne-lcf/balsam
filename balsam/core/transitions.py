@@ -480,7 +480,10 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
         message = f"{job.cute_id} Timeout handling didn't change job state: marking FAILED"
         raise BalsamTransitionError(message)
 
-    if not (error_handling or timeout_handling):
+    # Only move the state along to POSTPROCESSED if the job is still in RUN_DONE
+    # and the post.py returned normally.  Otherwise, post.py might mark a job
+    # FAILED, and you override it with POSTPROCESSED, breaking the workflow.
+    if job.state == 'RUN_DONE':
         job.state = 'POSTPROCESSED'
     logger.debug(f"{job.cute_id} postprocess done")
 
