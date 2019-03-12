@@ -36,7 +36,7 @@ except:
     from balsam.launcher import dag
     BalsamJob = dag.BalsamJob
 
-from balsam.core.models import PROCESSABLE_STATES
+from balsam.core.models import PROCESSABLE_STATES, END_STATES
 from balsam.launcher.util import get_tail
 
 import logging
@@ -223,6 +223,9 @@ def check_parents(job):
     elif job.state != 'AWAITING_PARENTS':
         job.state = 'AWAITING_PARENTS'
         logger.info(f'{job.cute_id} waiting for {num_parents} parents')
+    elif parents.filter(state__in=['FAILED', 'USER_KILLED']).exists():
+        job.state = 'FAILED'
+        job.__fail_msg = 'One or more parent jobs failed'
 
 def fast_forward(job_cache):
     '''Make several passes over the job list; advancing states in order'''

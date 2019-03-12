@@ -145,7 +145,7 @@ class MPILauncher:
             return
         processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
         if self.jobsource.workflow:
-            processable = processable.filter(workflow=self.jobsource.workflow)
+            processable = processable.filter(workflow__contains=self.jobsource.workflow)
         if processable.count() > 0:
             logger.debug("Some BalsamJobs are still transitionable; will not quit")
             return
@@ -254,7 +254,7 @@ class MPILauncher:
         logger.info(f'{all_runnable.count()} runnable jobs across entire Balsam DB')
         logger.info(f'{unlocked.count()} of these are unlocked')
         if self.jobsource.workflow:
-            unlocked = unlocked.filter(workflow=self.jobsource.workflow)
+            unlocked = unlocked.filter(workflow__contains=self.jobsource.workflow)
             logger.info(f'{unlocked.count()} of these match the current workflow filter')
         too_large = unlocked.filter(num_nodes__gt=num_idle).count()
         if too_large > 0:

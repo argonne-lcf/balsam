@@ -314,7 +314,7 @@ class JobSource(models.Manager):
         else:
             queryset = queryset.filter(queued_launch__isnull=True)
         if self.workflow:
-            queryset = queryset.filter(workflow=self.workflow)
+            queryset = queryset.filter(workflow__contains=self.workflow)
         return queryset
 
     def by_states(self, states):
