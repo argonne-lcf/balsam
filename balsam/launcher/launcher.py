@@ -97,6 +97,7 @@ class MPILauncher:
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
+        os.environ['BALSAM_JOB_MODE'] = "mpi"
 
         self.timer = remaining_time_minutes(time_limit_minutes)
         self.delayer = delay_generator()
@@ -344,6 +345,7 @@ class SerialLauncher:
         self.worker_group = worker.WorkerGroup()
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
+        os.environ['BALSAM_JOB_MODE'] = "serial"
 
         self.app_cmd = f"{sys.executable} {self.MPI_ENSEMBLE_EXE}"
         self.app_cmd += f" --time-limit-min={minutes_left}"
