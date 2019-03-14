@@ -64,7 +64,7 @@ class ServerInfo:
         NAME = 'balsam'
         OPTIONS = {'connect_timeout' : 30}
 
-        user = getuser()
+        user = os.environ.get('BALSAM_USER', getuser())
         password = self.get('password', '')
         host = self.get('host', '')
         port = self.get('port', '')
