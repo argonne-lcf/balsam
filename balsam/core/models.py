@@ -826,15 +826,12 @@ class ApplicationDefinition(models.Model):
         default='')
 
     def __repr__(self):
-        return f'''
-Application {self.pk}:
------------------------------
-Name:           {self.name}
-Description:    {self.description}
-Executable:     {self.executable}
-Preprocess:     {self.preprocess}
-Postprocess:    {self.postprocess}
-'''.strip() + '\n'
+        result = f'Application {self.pk}:\n'
+        result += '-----------------------\n'
+        result += '\n'.join( (k+':').ljust(32) + str(v) 
+                for k,v in self.__dict__.items() 
+                if k not in ['_state', 'id'])
+        return result
     
     def __str__(self):
         return self.__repr__()
