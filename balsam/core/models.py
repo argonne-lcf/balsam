@@ -613,6 +613,16 @@ class BalsamJob(models.Model):
         line = f"{app.executable} {self.args}"
         return ' '.join(os.path.expanduser(w) for w in line.split())
 
+    @property
+    def envscript(self):
+        app = self.get_application()
+        _envscript = app.envscript
+        if _envscript and os.path.isfile(_envscript):
+            return _envscript
+        else:
+            return None
+
+
     def get_children(self):
         return BalsamJob.objects.filter(parents__icontains=str(self.pk))
 
@@ -805,6 +815,10 @@ class ApplicationDefinition(models.Model):
     preprocess = models.TextField(
         'Preprocessing Script',
         help_text='A script that is run in a job working directory prior to submitting the job to the queue.',
+        default='')
+    envscript = models.TextField(
+        'Environment Setup Script',
+        help_text='A script that is sourced immediately prior to the job launch command.',
         default='')
     postprocess = models.TextField(
         'Postprocessing Script',

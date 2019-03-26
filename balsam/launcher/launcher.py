@@ -63,14 +63,21 @@ class MPIRun:
                                cpu_affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
-        logger.info(f"{job.cute_id} running:\n{mpi_str}\n on workers: {workers}")
         self.outfile = open(outname, 'w+b')
+        envscript = job.envscript
+        if envscript:
+            args = ' '.join('source', envscript, '&&', mpi_str)
+            shell = True
+        else:
+            args = shlex.split(mpi_str)
+            shell = False
+        logger.info(f"{job.cute_id} Popen (shell={shell}):\n{args}\n on workers: {workers}")
         self.process = subprocess.Popen(
-                args=shlex.split(mpi_str),
+                args=args,
                 cwd=job.working_directory,
                 stdout=self.outfile,
                 stderr=subprocess.STDOUT,
-                shell=False,
+                shell=shell,
                 env=envs,
                 )
         self.current_state = 'RUNNING'

@@ -151,7 +151,8 @@ class ResourceManager:
                 name=job.name,
                 cuteid=job.cute_id,
                 cmd=job.app_cmd,
-                envs=job.get_envs()
+                envs=job.get_envs(),
+                envscript=job.envscript,
             )
             message[job.pk] = job_spec
 
@@ -396,8 +397,14 @@ class Worker:
         name = job_spec['name']
         cmd = job_spec['cmd']
         envs = job_spec['envs']
-
-        if type(cmd) is str: cmd = shlex.split(cmd)
+        envscript = job_spec['envscript']
+        
+        if envscript:
+            args = ' '.join('source', envscript, '&&', cmd)
+            shell = True
+        else:
+            args = shlex.split(cmd)
+            shell = False
 
         if self.gpus_per_node > 0:
             idx = list(self.job_specs.keys()).index(pk) 
@@ -406,14 +413,14 @@ class Worker:
             envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
 
         out_name = f'{name}.out'
-        logger.info(self.log_prefix(pk) + f"\nPopen: {cmd}")
+        logger.info(f"{self.log_prefix(pk)} Popen (shell={shell}):\n{args}")
 
         if not os.path.exists(workdir): os.makedirs(workdir)
         outfile = open(os.path.join(workdir, out_name), 'wb')
         self.outfiles[pk] = outfile
         try:
-            proc = Popen(cmd, stdout=outfile, stderr=STDOUT,
-                         cwd=workdir, env=envs, shell=False,)
+            proc = Popen(args, stdout=outfile, stderr=STDOUT,
+                         cwd=workdir, env=envs, shell=shell,)
         except Exception as e:
             proc = FailedToStartProcess()
             logger.error(self.log_prefix(pk) + f"Popen error:\n{str(e)}\n")
