@@ -66,7 +66,7 @@ class MPIRun:
         self.outfile = open(outname, 'w+b')
         envscript = job.envscript
         if envscript:
-            args = ' '.join('source', envscript, '&&', mpi_str)
+            args = ' '.join(['source', envscript, '&&', mpi_str])
             shell = True
         else:
             args = shlex.split(mpi_str)
