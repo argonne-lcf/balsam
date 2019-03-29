@@ -400,7 +400,7 @@ class Worker:
         envscript = job_spec['envscript']
         
         if envscript:
-            args = ' '.join('source', envscript, '&&', cmd)
+            args = ' '.join(['source', envscript, '&&', cmd])
             shell = True
         else:
             args = shlex.split(cmd)
