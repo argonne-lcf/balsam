@@ -25,6 +25,7 @@ config_logging('serial-launcher')
 
 comm = MPI.COMM_WORLD
 RANK = comm.Get_rank()
+MSG_BUFSIZE = 2**16
 connections.close_all()
 
 class ResourceManager:
@@ -44,7 +45,7 @@ class ResourceManager:
         self.job_cache = []
         self.killed_pks = []
 
-        self.recv_requests = {i:comm.irecv(source=i) for i in range(1,comm.size)}
+        self.recv_requests = {i:comm.irecv(MSG_BUFSIZE, source=i) for i in range(1,comm.size)}
 
         self.job_source.check_qLaunch()
         if self.job_source.qLaunch is not None:
@@ -170,7 +171,7 @@ class ResourceManager:
                 assert stat.source == rank
 
         for rank,msg in completed_requests:
-            self.recv_requests[rank] = comm.irecv(source=rank)
+            self.recv_requests[rank] = comm.irecv(MSG_BUFSIZE, source=rank)
         return completed_requests
 
     def serve_requests(self):
@@ -448,6 +449,12 @@ class Worker:
 
     def write_message(self, job_statuses):
         msg = {'ask' : [], 'done' : [], 'error': []}
+        num_jobs = len(job_statuses)
+        num_errors = len([
+            s for s in job_statuses.values()
+            if s not in ["running","done"]
+        ])
+        max_tail = (MSG_BUFSIZE - 110*num_jobs) // max(1,num_errors)
         for pk, status in job_statuses.items():
             if status == 'running':
                 msg['ask'].append(pk)
@@ -455,7 +462,8 @@ class Worker:
                 msg['done'].append(pk)
             else:
                 retcode, tail = status
-                msg['error'].append((pk, status[0], status[1]))
+                tail = tail[-max_tail:]
+                msg['error'].append((pk, retcode, tail))
         return msg
 
     def update_processes(self):
