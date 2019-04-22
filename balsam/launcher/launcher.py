@@ -244,8 +244,10 @@ class MPILauncher:
         else:
             logger.debug(f'{num_idle} idle worker nodes')
 
-        return manager.get_runnable(max_nodes=num_idle,
-                                    order_by='-num_nodes')
+        return manager.get_runnable(
+            max_nodes=num_idle,
+            order_by=('-num_nodes', '-wall_time_minutes')
+        )
 
     def report_constrained(self):
         now = time.time()

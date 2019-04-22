@@ -62,7 +62,8 @@ class ResourceManager:
             jobquery = self.job_source.get_runnable(
                 max_nodes=1,
                 serial_only=True,
-                order_by='node_packing_count' # ascending
+                order_by=('node_packing_count', # ascending
+                          '-wall_time_minutes') # descending
             )
             self.job_cache = list(jobquery[:10000])
             self.last_job_fetch = now

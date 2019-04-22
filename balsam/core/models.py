@@ -349,7 +349,9 @@ class JobSource(models.Manager):
             mpiquery = Q(num_nodes__gt=1) | Q(ranks_per_node__gt=1)
             runnable = runnable.filter(mpiquery)
         if order_by is not None:
-            runnable = runnable.order_by(order_by)
+            if isinstance(order_by, str):
+                order_by = (order_by,)
+            runnable = runnable.order_by(*order_by)
         return runnable
 
     @transaction.atomic
