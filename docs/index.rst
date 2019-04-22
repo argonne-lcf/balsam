@@ -3,8 +3,16 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Balsam - HPC Workflow and Edge Service
-======================================
+Balsam 
+========
+
+Automated Job Packing, Scheduling, and Execution
+************************************************
+
+Balsam allows you to manage a database of workflows with simple command-line interfaces
+and a Python API. As you populate the database, the **Balsam service** can automatically reserve bundles
+of tasks and batch-schedule them for parallel execution. Inside each batch job, the **Balsam launcher** 
+monitors available resources, launches applications, and sends status updates back to the database.
 
 Balsam is a Python service that automates scheduling and concurrent,
 fault-tolerant execution of workflows in HPC environments. It is one of the
@@ -64,14 +72,7 @@ HPC resources.
     userguide/tutorial.rst
     userguide/dag
     userguide/multi-user
-
-.. _dev_docs:
-.. toctree::
-    :maxdepth: 3
-    :caption: Developer Documentation
-
-    devguide/roadmap
-    devguide/launcher
+    userguide/developer
 
 .. toctree::
     :maxdepth: 2

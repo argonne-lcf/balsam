@@ -41,18 +41,22 @@ activate_script = path.join('balsam', 'scripts', 'balsamactivate')
 deactivate_script = path.join('balsam', 'scripts', 'balsamdeactivate')
 bcd_script = path.join('balsam', 'scripts', 'bcd')
 
+ABOUT = {}
+with open(path.join(here, 'balsam', '__version__.py')) as f:
+    exec(f.read(), ABOUT)
+
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name='balsam',
-    version='0.1',
-    description='HPC Edge service and workflow management',
+    version=ABOUT['__version__'],
+    description='Auto Scheduler and HPC Job Manager',
     long_description=long_description,
     
     url='', # Home page
-    author='',
-    author_email='',
+    author='Misha Salim',
+    author_email='msalim@anl.gov',
 
     classifiers = [],
 

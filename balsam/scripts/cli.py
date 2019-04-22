@@ -5,6 +5,7 @@ import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm
 from balsam.scripts.cli_commands import kill,mkchild,launcher,service,make_dummies
 from balsam.scripts.cli_commands import init, which, server, submitlaunch, log
+from balsam import __version__
 
 def main():
     if not sys.version_info >= (3,6):
@@ -42,8 +43,8 @@ def service_subparser(subparser=None):
     return parser
 
 def make_parser():
-    parser = argparse.ArgumentParser(prog='balsam', description="Balsam command line interface")
-    subparsers = parser.add_subparsers(title="Subcommands")
+    parser = argparse.ArgumentParser(prog='balsam', description="Balsam "+__version__)
+    subparsers = parser.add_subparsers(title="Command line interface")
 
 
     # ADD APP

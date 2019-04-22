@@ -8,6 +8,8 @@ import django
 from django.db import OperationalError
 from django.conf import settings
 
+from balsam.__version__ import __version__
+
 def setup():
     if not settings.configured:
         os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
