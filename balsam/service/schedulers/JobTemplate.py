@@ -45,9 +45,11 @@ class ScriptTemplate:
     @staticmethod
     def get_balsam_env():
         balsam_bin = shutil.which("balsam")
-        pg_bin = shutil.which("pg_ctl")
+        pg_bin = os.path.dirname(shutil.which("pg_ctl"))
         if balsam_bin is None:
             balsam_bin = os.path.dirname(sys.executable)
+        else:
+            balsam_bin = os.path.dirname(balsam_bin)
 
         balsam_db_path = os.environ['BALSAM_DB_PATH']
         return dict(
