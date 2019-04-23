@@ -44,25 +44,14 @@ class ScriptTemplate:
 
     @staticmethod
     def get_balsam_env():
-        conda_env = os.environ.get('CONDA_PREFIX')
-        if conda_env:
-            activate_path = shutil.which("activate", mode=os.F_OK)
-            conda_path = conda_env
-            python_path = None
-        else:
-            activate_path = None
-            conda_path = None
-            python_path = os.path.dirname(sys.executable)
+        balsam_bin = shutil.which("balsam")
+        pg_bin = shutil.which("pg_ctl")
+        if balsam_bin is None:
+            balsam_bin = os.path.dirname(sys.executable)
 
-        balsam_lib = os.path.dirname(os.path.dirname(find_spec('balsam').origin))
-        p = subprocess.run('which balsam', shell=True, stdout=subprocess.PIPE, encoding='utf-8')
-        balsam_bin = os.path.dirname(p.stdout)
-        site_top = os.path.dirname(os.path.dirname(find_spec('django').origin))
         balsam_db_path = os.environ['BALSAM_DB_PATH']
-        return dict(conda_path=conda_path,
-                    activate_path=activate_path,
-                    python_path=python_path,
-                    balsam_lib=balsam_lib,
-                    balsam_bin=balsam_bin,
-                    site_top=site_top,
-                    balsam_db_path=balsam_db_path)
+        return dict(
+            balsam_bin=balsam_bin,
+            balsam_db_path=balsam_db_path,
+            pg_bin=pg_bin,
+        )
