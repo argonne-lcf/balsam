@@ -329,7 +329,6 @@ def make_parser():
     parser_server = subparsers.add_parser('server', help="Control Balsam server at BALSAM_DB_PATH")
     group = parser_server.add_mutually_exclusive_group(required=True)
     group.add_argument('--connect', action='store_true', help="connect to existing or start new server")
-    group.add_argument('--disconnect', action='store_true', help="kill server")
     group.add_argument('--reset', action='store_true', help="stop and start server")
     group.add_argument('--list-active-connections', action='store_true', help="see how many clients have active connection")
     group.add_argument('--list-users', action='store_true', help="list authorized Balsam users")

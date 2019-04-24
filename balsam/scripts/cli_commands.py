@@ -379,8 +379,6 @@ def server(args):
 
     if args.connect:
         postgres_control.start_main(db_path)
-    elif args.disconnect:
-        postgres_control.disconnect_main(db_path)
     elif args.reset:
         postgres_control.reset_main(db_path)
     elif args.list_active_connections:

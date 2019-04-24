@@ -6,15 +6,6 @@ from getpass import getuser
 
 ADDRESS_FNAME = 'server-info'
 
-def ps_list():
-    def tryint(s):
-        try: return int(s)
-        except ValueError: pass
-    ps = subprocess.run("ps aux | awk '{print $2}'", shell=True, stdout=subprocess.PIPE)
-    pids = ps.stdout.decode('utf-8').split('\n')
-    pids = [tryint(pid) for pid in pids]
-    pids = [pid for pid in pids if type(pid) is int]
-    return pids
 
 class ServerInfo:
     def __init__(self, balsam_db_path):
@@ -41,23 +32,6 @@ class ServerInfo:
         with open(self.path, 'w') as fp:
             fp.write(json.dumps(self.data))
 
-    def add_client(self):
-        client_id = [socket.gethostname(), os.getppid()]
-        active_clients = self.get('active_clients', [])
-        if client_id not in active_clients:
-            active_clients.append(client_id)
-            self.update({'active_clients' : active_clients})
-    
-    def remove_client(self):
-        local_host = socket.gethostname()
-        local_ps_list = ps_list()
-        client_id = [local_host, os.getppid()]
-        active_clients = self.get('active_clients', [])
-        disconnected_clients = [cid for cid in active_clients
-                                if (cid[0] == local_host) and (cid[1] not in local_ps_list)]
-        disconnected_clients.append(client_id)
-        active_clients = [cid for cid in active_clients if cid not in disconnected_clients]
-        self.update({'active_clients' : active_clients})
 
     def django_db_config(self):
         ENGINE = 'django.db.backends.postgresql_psycopg2'

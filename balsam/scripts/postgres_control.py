@@ -1,19 +1,25 @@
 from balsam.django_config import serverinfo
+from .infolock import InfoLock
 import sys
 import time
 import socket
+import signal
 import subprocess
 import os
 
+class SignalReceived(Exception): pass
+def term_handler(signum, stack):
+    raise SignalReceived(f"Killed by signal {signum}")
 
 def launch_server(info):
     if not info._is_owner:
         raise PermissionError("Please ask the owner of this DB to launch it")
     info.reset_server_address()
-    log_path = os.path.join(os.path.expanduser('~'), '.balsam', 'postgres.log')
-    if not os.path.exists(os.path.dirname(log_path)):
+    log_path = os.path.join(info.balsam_db_path, 'postgres.log')
+    user_home = os.path.join(os.path.expanduser('~'), '.balsam')
+    if not os.path.exists(user_home):
         print("Creating ~/.balsam directory")
-        os.makedirs(os.path.dirname(log_path))
+        os.makedirs(user_home)
     start_cmd = f"pg_ctl -w start -D {info.pg_db_path} -l {log_path} --mode=smart"
     print("Launching Balsam DB server")
     proc = subprocess.run(start_cmd, shell=True, check=True)
@@ -32,7 +38,7 @@ def kill_server(info):
     else:
         print("Stopping remote Balsam DB server")
         subprocess.run(f"ssh {server_host} {stop_cmd}", shell=True)
-    info.update(dict(host='', port='', active_clients=[]))
+    info.update(dict(host='', port=''))
 
 
 def test_connection(info, raises=False):
@@ -59,31 +65,26 @@ def reset_main(db_path):
     info = serverinfo.ServerInfo(db_path)
     kill_server(info)
 
-
-def disconnect_main(db_path):
-    info = serverinfo.ServerInfo(db_path)
-    info.remove_client()
-    active_clients = info.get('active_clients', [])
-    if len(active_clients) == 0 and info._is_owner:
-        kill_server(info)
-
-
 def start_main(db_path):
+    old_handler = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, term_handler)
+    with InfoLock(db_path):
+        _start_main(db_path)
+    signal.signal(signal.SIGTERM, old_handler)
+
+def _start_main(db_path):
     info = serverinfo.ServerInfo(db_path)
 
     if not (info.get('host') or info.get('port')):
         launch_server(info)
         test_connection(info, raises=True)
-        info.add_client()
     elif test_connection(info):
         print("Connected to already running Balsam DB server!")
-        info.add_client()
     elif info._is_owner:
         print(f"Server at {info['host']}:{info['port']} isn't responsive; will try to kill and restart")
         kill_server(info)
         launch_server(info)
         test_connection(info, raises=True)
-        info.add_client()
     else:
         print(f"Server at {info['host']}:{info['port']} isn't responsive; please ask the owner to restart it")
 
