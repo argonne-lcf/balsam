@@ -1,15 +1,77 @@
-Install Balsam
-==========================
+Get Balsam
+==========
 
-.. note::
-    If you are reading this documentation from GitHub/GitLab, some of the example code
-    is not displayed!  Take a second and build this documentation on your
-    own machine (until it's hosted somewhere accessible from the internet)::
+On Theta
+---------
+The fastest way to get Balsam on Theta is to load the module. 
 
-        $ pip install --user sphinx
+.. highlight:: console
+
+::
+    
+    $ module load balsam
+    $ which balsam
+    /soft/datascience/balsam/env/bin/balsam
+    $ which python
+
+The module loads
+a Python 3.6 environment with pre-configured Balsam installation. This environment is 
+only used for managing the containing the Balsam installation is immediately available.
+
+.. highlight:: python
+
+::
+    
+    >>> from balsam.launcher import dag
+    >>> job = dag.current_job
+    >>> job.state
+    "RUN_ERROR"
+
+That's it.
+
+.. highlight:: console
+
+::
+
+    $ . balsamactivate ~/testdb/
+    Server at Mishas-MacBook-Pro:63462 isn't responsive; will try to kill and restart
+    Stopping local Balsam DB server
+    pg_ctl: PID file "/Users/misha/testdb/balsamdb/postmaster.pid" does not exist
+    Is server running?
+    Launching Balsam DB server
+    waiting for server to start.... done
+    server started
+    [BalsamDB: testdb] $
+    [BalsamDB: testdb] $ balsam ls
+                                  job_id |    name | workflow | application |  state
+    --------------------------------------------------------------------------------
+    f59d0d04-97e5-4d6b-aa4e-d2d51c2b4f6f | fail199 | test2    | failer      | FAILED
+    78c5e168-9b4d-4598-81e1-824c5ce5a47c | fail118 | test2    | failer      | FAILED
+    1a95da86-6bc8-4a2c-823c-c41970471f23 | fail24  | test2    | failer      | FAILED
+    f6376e28-9949-4ec7-aa48-15c7023aaf1f | fail63  | test2    | failer      | FAILED
+    2c2ab35c-afbc-4a8f-8e98-a0f235859ed7 | fail51  | test2    | failer      | FAILED
+    ef25b672-6383-4bfb-8e37-3a3a6783d4d7 | fail108 | test2    | failer      | FAILED
+    73ba9764-49ad-48a5-97b5-61c278b0f85b | fail13  | test2    | failer      | FAILED
+    600d4d9e-e6bb-4a28-ab61-dfa1b4d8d84f | fail12  | test2    | failer      | FAILED
+    225f04cd-0cbb-4a43-aeec-dfb87b0fe5ab | fail134 | test2    | failer      | FAILED
+    5bad88d2-9a97-4c82-8a4d-24bdaa9e2da4 | fail1   | test2    | failer      | FAILED
+    9894e79b-e70a-4efe-a8df-18eb11076539 | fail167 | test2    | failer      | FAILED
+    93316efa-4bf5-463f-8296-de0e8b2d2355 | fail92  | test2    | failer      | FAILED
+    71b4de2b-58ad-47f0-8d8a-e17d778675f3 | fail125 | test2    | failer      | FAILED
+
+thats all folks.
+
+
+Building documentation
+------------------------
+You can use Sphinx to build this documentation from source and view it locally in your web browser:
+
+.. code:: bash
+
+        $ pip install --user sphinx sphinx-rtd-theme
         $ cd docs
         $ make html
-        $ firefox _build/html/index.html # or navigate to file from browser
+        $ firefox _build/html/index.html
         
 
 Prerequisites
