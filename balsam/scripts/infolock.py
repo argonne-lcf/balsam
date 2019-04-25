@@ -18,6 +18,7 @@ class InfoLock:
     def acquire_lock(self, timeout=40.0):
         acquired = False
         start = time.time()
+        newline = False
         def _time_left():
             if timeout is None: return True
             return time.time() - start < timeout
@@ -27,12 +28,13 @@ class InfoLock:
             except OSError:
                 time.sleep(1.0 + random.uniform(0, 0.5))
                 print(".", end='', flush=True)
+                newline = True
                 if self.check_stale():
                     try: os.rmdir(self.lock_path)
                     except FileNotFoundError: pass
             else: 
                 acquired = True
-                print("")
+                if newline: print("")
         if not acquired:
             raise TimeoutError(f'Failed to acquire {self.lock_path} for {timeout} sec')
 
