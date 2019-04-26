@@ -1,6 +1,0 @@
-include README.md
-include LICENSE.md
-include balsam/django_config/default_settings.json
-include balsam/django_config/theta_policy.ini
-include balsam/django_config/job-templates/theta.cobaltscheduler.tmpl
-include balsam/django_config/job-templates/default.cobaltscheduler.tmpl

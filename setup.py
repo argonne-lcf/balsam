@@ -9,37 +9,20 @@ from codecs import open
 from os import path
 import os
 import time
-
-class PostInstallCommand(install):
-    '''Post-installation for installation mode'''
-    def run(self):
-        install.run(self)
-        from Cython.Build import cythonize
-        extensions = [
-            Extension("balsam.service.pack._packer", 
-                      ["balsam/service/pack/_packer.pyx"])
-        ]
-        setup(ext_modules=cythonize(extensions))
-
-
-class PostDevelopCommand(develop):
-    '''Post-installation for installation mode'''
-    def run(self):
-        develop.run(self)
-        from Cython.Build import cythonize
-        extensions = [
-            Extension("balsam.service.pack._packer", 
-                      ["balsam/service/pack/_packer.pyx"])
-        ]
-        setup(ext_modules=cythonize(extensions))
+from Cython.Build import cythonize
 
 
 here = path.abspath(path.dirname(__file__))
-#activate_script = path.join(here, 'balsam', 'scripts', 'balsamactivate')
-#deactivate_script = path.join(here, 'balsam', 'scripts', 'balsamdeactivate')
 activate_script = path.join('balsam', 'scripts', 'balsamactivate')
 deactivate_script = path.join('balsam', 'scripts', 'balsamdeactivate')
 bcd_script = path.join('balsam', 'scripts', 'bcd')
+
+extensions = [
+    Extension(
+        "balsam.service.pack._packer",
+        ["balsam/service/pack/_packer.pyx"]
+    ),
+]
 
 ABOUT = {}
 with open(path.join(here, 'balsam', '__version__.py')) as f:
@@ -66,8 +49,9 @@ setup(
 
     python_requires='>=3.6',
 
-    install_requires=['cython', 'django==2.1.1', 'jinja2',
-        'psycopg2-binary', 'sphinx', 'sphinx_rtd_theme', 'numpy'],
+    setup_requires=['cython'],
+    install_requires=['django==2.1.1', 'jinja2',
+        'psycopg2-binary', 'mpi4py', 'sphinx', 'sphinx_rtd_theme', 'numpy'],
 
     package_data = {
         'balsam' : ['django_config/*.json',
@@ -88,9 +72,5 @@ setup(
         'gui_scripts': [],
     },
 
-    # Balsam DB auto-setup post installation
-    cmdclass={
-        'develop': PostDevelopCommand,
-        'install': PostInstallCommand,
-    },
+    ext_modules = cythonize(extensions),
 )

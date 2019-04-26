@@ -58,9 +58,10 @@ def dummy_pack(jobs, queues):
     if not queues: return None
     qname = list(queues.keys())[0]
     qlaunch = QueuedLaunch(queue=qname,
-                           nodes=3,
-                           job_mode='serial',
-                           wall_minutes=12)
+                           nodes=8,
+                           job_mode='mpi',
+                           prescheduled_only=False,
+                           wall_minutes=60)
     return qlaunch, jobs.all()
 
 _pack_jobs = dummy_pack
