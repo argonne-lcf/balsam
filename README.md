@@ -1,8 +1,8 @@
-# Balsam: HPC Workflows & Edge Service
-
 <p align="center">
 <img src="docs/_static/logo/small3.png">
 </p>
+
+# Balsam: HPC Workflows & Edge Service
 
 ![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/balsam-alcf/balsam.svg?label=version)
 [![Documentation Status](https://readthedocs.org/projects/balsam/badge/?version=latest)](https://balsam.readthedocs.io/en/latest/?badge=latest)
@@ -11,12 +11,11 @@
 
 
 Balsam makes it easy to manage large compute campaigns on a supercomputer:
-
-    - Many independent application runs (i.e. classic ensemble jobs)
-    - Many instances of workflows, with inter-task dependencies forming graphs
-    - Dynamic workflows, where some tasks spawn other tasks with the Python API
-    - Remotely submit workflows and track their progress
-    - Multi-user workflow management
+- Many independent application runs (i.e. classic ensemble jobs)
+- Many instances of workflows, with inter-task dependencies forming graphs
+- Dynamic workflows, where some tasks spawn other tasks with the Python API
+- Remotely submit workflows and track their progress
+- Multi-user workflow management
 
 Use a command-line interface or Python API to fill a database with a few dozen
 or million tasks.  The Balsam components will automatically bundle your work
