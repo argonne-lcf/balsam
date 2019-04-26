@@ -1,6 +1,15 @@
 # Balsam: HPC Workflows & Edge Service
 
-** Read the Balsam Documentation online:** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
+<p align="center">
+<img src="docs/_static/logo/small3.png">
+</p>
+
+![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/balsam-alcf/balsam.svg?label=version)
+[![Documentation Status](https://readthedocs.org/projects/balsam/badge/?version=latest)](https://balsam.readthedocs.io/en/latest/?badge=latest)
+![PyPI - License](https://img.shields.io/pypi/l/deephyper.svg)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/deephyper.svg?label=Pypi%20downloads)
+
+**Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
 
 ## Installation
 
