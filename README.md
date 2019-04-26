@@ -35,16 +35,28 @@ Balsam requires Python 3.6 or later.  You will need setuptools 39.2 or newer:
 $ pip install --upgrade pip setuptools
 ```
 
-Some Balsam components require `mpi4py`, so it is best to install Balsam in an
-environment with [mpi4py](https://github.com/mpi4py/mpi4py) already in place
+Some Balsam components require [mpi4py](https://github.com/mpi4py/mpi4py),  so
+it is best to install Balsam in an environment with `mpi4py` already in place
 and configured for your platform.  At the very least, a working MPI
 implementation and `mpicc` compiler wrapper should be in the search path so
 that the dependency can be automatically installed.
 
-Cython is also used to compile some CPU-intensive portions of the Balsam
-service.  While the Cython dependency will also be installed if it's absent, it
-is preferable to have an existing version built with your platform-tuned compiler wrappers.
+[cython](https://github.com/cython/cython) is also used to compile some
+CPU-intensive portions of the Balsam service.  While the Cython dependency will
+also be installed if it's absent, it is preferable to have an existing version
+built with your platform-tuned compiler wrappers.
 
+Finally, Balsam requires PostgreSQL version 9.6.4 or newer to be installed. You can verify
+that PostgreSQL is in the search `PATH` and the version is up-to-date with
+
+```console
+$ pg_ctl --version
+```
+
+It's very easy to [get the PostgreSQL binaries](https://www.enterprisedb.com/download-postgresql-binaries) if you
+don't already have them.  Simply adding the PostgreSQL `bin/` to your search
+PATH should be enough to use Balsam without having to bother a system
+administrator.
 
 #### Quick setup
 
@@ -52,6 +64,14 @@ is preferable to have an existing version built with your platform-tuned compile
 $ pip insall balsam-flow
 $ balsam init ~/myWorkflow
 $ source balsamactivate myWorkflow
+```
+
+Once a Balsam DB is activated, you can use the command line to manage your workflows:
+
+```console
+$ balsam app --name SayHello --executable "echo hello,"
+$ balsam job --name hi --workflow test --application SayHello --args "World!"
+$ balsam ls
 ```
 
 ## Citing Balsam

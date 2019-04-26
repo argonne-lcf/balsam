@@ -2,12 +2,45 @@ import glob
 import os
 import sys
 from pprint import pprint
+import re
 import subprocess
 from balsam import setup, settings
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from balsam.django_config.serverinfo import ServerInfo
 from balsam.scripts import postgres_control
 from django.db import connection
+
+POSTGRES_REQUIRED = (9,6,4)
+POSTGRES_MSG = \
+f'''You need PostgreSQL {'.'.join(map(str, POSTGRES_REQUIRED))} or newer.
+Ensure pg_ctl is in the search PATH, and double-check version with pg_ctl --version.
+You can easily grab the Postgres binaries at:
+https://www.enterprisedb.com/download-postgresql-binaries
+'''
+
+def check_postgres():
+    p = subprocess.run(
+        'pg_ctl --version',
+        shell=True,
+        encoding='utf-8',
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=True
+    )
+    stdout = p.stdout.strip()
+    pattern = re.compile(r'(\d+\.)?(\d+\.)?(\*|\d+)$')
+    match = pattern.search(stdout).group()
+    major, minor, *rest = match.split('.')
+    if rest and int(rest[0])>0:
+        version_info = (int(major), int(minor), int(rest[0]))
+    else:
+        version_info = (int(major), int(minor))
+    if version_info >= POSTGRES_REQUIRED:
+        print(f"PostgreSQL {version_info} meets required: {POSTGRES_REQUIRED}")
+        return True
+    else:
+        print(f"PostgreSQL {version_info} does not meet required: {POSTGRES_REQUIRED}")
+        return False
 
 def postgres_init(serverInfo):
     if not os.path.exists(serverInfo.pg_db_path): # postgres data directory
@@ -38,6 +71,9 @@ def run_migrations():
         print("BalsamJob table created successfully")
 
 if __name__ == "__main__":
+    if not check_postgres():
+        raise RuntimeError(POSTGRES_MSG)
+
     dbpath = sys.argv[1]
     os.environ['BALSAM_DB_PATH'] = dbpath
     serverInfo = ServerInfo(dbpath)
