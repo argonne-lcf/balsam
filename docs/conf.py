@@ -37,7 +37,7 @@ sys.path.insert(0, os.path.abspath('../'))
 # ones.
 extensions = ['sphinx.ext.autodoc']
 
-autodoc_mock_imports = ["mpi4py"]
+autodoc_mock_imports = ["mpi4py", "cython", "Cython", "numpy"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

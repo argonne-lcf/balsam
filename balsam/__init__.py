@@ -4,9 +4,12 @@ import logging.handlers
 import os
 import sys
 
-import django
-from django.db import OperationalError
-from django.conf import settings
+try:
+    import django
+    from django.db import OperationalError
+    from django.conf import settings
+except ImportError:
+    print("Warning: Django is not installed")
 
 from balsam.__version__ import __version__
 
