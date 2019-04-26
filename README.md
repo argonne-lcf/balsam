@@ -9,7 +9,23 @@
 ![PyPI - License](https://img.shields.io/pypi/l/deephyper.svg)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/deephyper.svg?label=Pypi%20downloads)
 
+
+Balsam makes it easy to manage large compute campaigns on a supercomputer:
+
+    - Many independent application runs (i.e. classic ensemble jobs)
+    - Many instances of workflows, with inter-task dependencies forming graphs
+    - Dynamic workflows, where some tasks spawn other tasks with the Python API
+    - Remotely submit workflows and track their progress
+    - Multi-user workflow management
+
+Use a command-line interface or Python API to fill a database with a few dozen
+or million tasks.  The Balsam components will automatically bundle your work
+and talk to the system scheduler to allocate resources.  On the inside, a pilot
+*launcher* process executes your workflows and keeps you informed of what's
+going on.
+
 **Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
+
 
 ## Installation
 
@@ -34,6 +50,7 @@ is preferable to have an existing version built with your platform-tuned compile
 #### Quick setup
 
 ```console
-$ pip insall Balsam   # Capital B!
+$ pip insall balsam-flow
+$ balsam init ~/myWorkflow
+$ source balsamactivate myWorkflow
 ```
-
