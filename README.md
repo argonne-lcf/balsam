@@ -54,3 +54,8 @@ $ pip insall balsam-flow
 $ balsam init ~/myWorkflow
 $ source balsamactivate myWorkflow
 ```
+
+## Citing Balsam
+If you are referencing Balsam in a publication, please cite the following paper:
+
+-  M. Salim, T. Uram, J.T. Childers, P. Balaprakash, V. Vishwanath, M. Papka. *Balsam: Automated Scheduling and Execution of Dynamic, Data-Intensive HPC Workflows*. In Proceedings of the 8th Workshop on Python for High-Performance and Scientific Computing. ACM Press, 2018.
