@@ -1,5 +1,14 @@
 from setuptools import setup, Extension
-from os import path
+from setuptools.config import read_configuration
+from os import path, environ
+
+here = path.dirname(__file__)
+conf_dict = read_configuration(path.join(here, 'setup.cfg'))
+
+install_requires = conf_dict['options']['install_requires']
+
+if environ.get('READTHEDOCS') == 'True':
+    install_requires = [k for k in install_requires if 'mpi4py' not in k]
 
 extensions = [
     Extension(
@@ -8,13 +17,7 @@ extensions = [
     ),
 ]
 
-#here = path.abspath(path.dirname(__file__))
-#version_path = path.join(here, 'balsam', '__version__.py')
-#version_dict = {}
-#with open(version_path) as f: 
-#    exec(f.read(), version_dict)
-
 setup(
-    #version=version_dict['__version__'],
+    install_requires = install_requires,
     ext_modules = extensions,
 )
