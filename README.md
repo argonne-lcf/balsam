@@ -1,12 +1,12 @@
 <p align="center">
-<img align="center" src="docs/_static/logo/small3.png">
+<img align="center" src="docs/_static/logo/small3.png" style="border: 0;">
 </p>
-
-# Balsam: HPC Workflows & Edge Service
 
 ![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/balsam-alcf/balsam.svg?label=version)
 [![Documentation Status](https://readthedocs.org/projects/balsam/badge/?version=latest)](https://balsam.readthedocs.io/en/latest/?badge=latest)
 ![PyPI - License](https://img.shields.io/pypi/l/balsam-flow.svg)
+
+# Balsam: HPC Workflows & Edge Service
 
 
 Balsam makes it easy to manage large compute campaigns on a supercomputer:
