@@ -1,5 +1,5 @@
 <p align="center">
-<img src="docs/_static/logo/small3.png">
+<img align="center" src="docs/_static/logo/small3.png">
 </p>
 
 # Balsam: HPC Workflows & Edge Service
