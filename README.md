@@ -62,7 +62,7 @@ administrator.
 #### Quick setup
 
 ```console
-$ pip insall balsam-flow
+$ pip install balsam-flow
 $ balsam init ~/myWorkflow
 $ source balsamactivate myWorkflow
 ```
