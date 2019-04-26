@@ -1,5 +1,7 @@
 <p align="center">
+<a href="https://balsam.readthedocs.io">
 <img align="center" src="docs/_static/logo/small3.png" style="border: 0;">
+</a>
 </p>
 
 ![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/balsam-alcf/balsam.svg?label=version)
