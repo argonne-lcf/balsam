@@ -1,8 +1,8 @@
-# Balsam: HPC Workflows & Edge Service
-
 <p align="center">
-<img src="docs/_static/logo/small3.png">
+<img align="center" src="docs/_static/logo/small3.png">
 </p>
+
+# Balsam: HPC Workflows & Edge Service
 
 ![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/balsam-alcf/balsam.svg?label=version)
 [![Documentation Status](https://readthedocs.org/projects/balsam/badge/?version=latest)](https://balsam.readthedocs.io/en/latest/?badge=latest)
