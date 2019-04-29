@@ -10,17 +10,17 @@
 
 # Balsam: HPC Workflows & Edge Service
 
-
 Balsam makes it easy to manage large computational campaigns on a
 supercomputer. Instead of writing and submitting job scripts to the batch
-scheduler, you pass application run commands to Balsam. The **service** takes
-care of reserving compute resources in response to changing workload.  The
-**launcher** components fetch and execute the workflows on the allocated
+scheduler, you send individual tasks (application runs) to Balsam. The **service** takes
+care of reserving compute resources in response to changing workloads.  The
+**launcher** fetches tasks and executes the workflow on its allocated
 resources.
 
-Balsam is designed to have minimal buy-in or cognitive overhead: it is arguably 
-faster and easier to run a simple app 10 times by using Balsam than by writing
-an "ensemble" shell script. 
+Balsam is designed to minimize user "buy-in" and cognitive overhead.
+You don't have to learn an API or write any glue code to acheive throughput with
+existing applications. In fact, it's arguably faster and easier to run a
+simple app several times using Balsam than by writing an ensemble job script:
 
 ```console
 $ balsam app --name SayHello --executable "echo hello,"
@@ -31,30 +31,40 @@ $ for i in {1..10}
 $ balsam submit-launch -A Project -q Queue -t 5 -n 2 --job-mode=serial
 ```
 
-Because Balsam stands in for the "script job, applications run with
-**absolutely no modification**, whether or not they use MPI, run on bare metal,
-or [inside a Singularity container](https://www.alcf.anl.gov/user-guides/singularity).
+## Highlights
+- Applications require zero modification and run *as-is* with Balsam
+- Launch MPI applications or pack several non-MPI tasks-per-node
+- Run apps on bare metal or [inside a Singularity container](https://www.alcf.anl.gov/user-guides/singularity)
+- Flexible Python API and command-line interfaces for workflow management
+- Execution is load balanced and resilient to task faults. Errors are automatically recorded to database for quick lookup and
+  debugging of workflows
+- Scheduled jobs can overlap in time; launchers cooperatively consume work from the same database
+- Multi-user workflow management: collaborators on the same project can add tasks and submit launcher jobs using
+  the same database
 
-It is Balsam supports 
-- Many independent application runs (i.e. classic ensemble jobs)
-- Many instances of workflows, with inter-task dependencies forming graphs
-- Dynamic workflows, where some tasks spawn other tasks with the Python API
+The Python API A variety of scenarios beyond the independent bag-of-tasks are possible with Balsam:
+- Task dependencies forming DAGs
+- Dynamic workflows: some tasks spawn or kill others mid-execution
 - Remotely submit workflows and track their progress
-- Multi-user workflow management
 
-Use a command-line interface or Python API to fill a database with a few dozen
-or million tasks.  The Balsam components will automatically bundle your work
-and talk to the system scheduler to allocate resources.  On the inside, a pilot
-*launcher* process executes your workflows and keeps you informed of what's
-going on.
+## **Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
 
-**Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
+## Existing site-wide installations
 
+Balsam is deployed in a public location at the following sites.  On these systems,
+it's not necessary to install Balsam yourself:
+
+|Location | System | Command|
+|---------|--------|-------|
+|ALCF     | Theta | `module load balsam` |
 
 ## Installation
 
 #### Prerequisites
-Balsam requires Python 3.6 or later.  You will need setuptools 39.2 or newer:
+Balsam requires Python 3.6 or later. Preferably, set up an isolated
+virtualenv or conda environment for Balsam. It's no problem if some
+applications in your workflow run in different Python environments. You will
+need setuptools 39.2 or newer:
 
 ```console
 $ pip install --upgrade pip setuptools
@@ -62,9 +72,9 @@ $ pip install --upgrade pip setuptools
 
 Some Balsam components require [mpi4py](https://github.com/mpi4py/mpi4py),  so
 it is best to install Balsam in an environment with `mpi4py` already in place
-and configured for your platform.  At the very least, a working MPI
-implementation and `mpicc` compiler wrapper should be in the search path so
-that the dependency can be automatically installed.
+and configured for your platform.  **At the minimum**, a working MPI
+implementation and `mpicc` compiler wrapper should be in the search path, in
+which case the `mpi4py` dependency will automatically build and install.
 
 [cython](https://github.com/cython/cython) is also used to compile some
 CPU-intensive portions of the Balsam service.  While the Cython dependency will
@@ -72,7 +82,7 @@ also be installed if it's absent, it is preferable to have an existing version
 built with your platform-tuned compiler wrappers.
 
 Finally, Balsam requires PostgreSQL version 9.6.4 or newer to be installed. You can verify
-that PostgreSQL is in the search `PATH` and the version is up-to-date with
+that PostgreSQL is in the search `PATH` and the version is up-to-date with:
 
 ```console
 $ pg_ctl --version
@@ -91,13 +101,16 @@ $ balsam init ~/myWorkflow
 $ source balsamactivate myWorkflow
 ```
 
-Once a Balsam DB is activated, you can use the command line to manage your workflows:
+Once a Balsam database is activated, you can use the command line to manage your workflows:
 
 ```console
 $ balsam app --name SayHello --executable "echo hello,"
 $ balsam job --name hi --workflow test --application SayHello --args "World!"
-$ balsam ls
+$ balsam submit-launch -A MyProject -q DebugQueue -t 5 -n 1 --job-mode=mpi
+$ watch balsam ls   #  follow status in realtime from command-line
 ```
+
+## **Keep reading the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
 
 ## Citing Balsam
 If you are referencing Balsam in a publication, please cite the following paper:

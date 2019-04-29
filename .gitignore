@@ -10,6 +10,7 @@ balsam/argo/migrations/*.py
 balsam/core/migrations/*.py
 !balsam/core/migrations/__init__.py
 build/
+dist/
 
 experiments
 docs/_build/*
