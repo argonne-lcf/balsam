@@ -11,7 +11,31 @@
 # Balsam: HPC Workflows & Edge Service
 
 
-Balsam makes it easy to manage large compute campaigns on a supercomputer:
+Balsam makes it easy to manage large computational campaigns on a
+supercomputer. Instead of writing and submitting job scripts to the batch
+scheduler, you pass application run commands to Balsam. The **service** takes
+care of reserving compute resources in response to changing workload.  The
+**launcher** components fetch and execute the workflows on the allocated
+resources.
+
+Balsam is designed to have minimal buy-in or cognitive overhead: it is arguably 
+faster and easier to run a simple app 10 times by using Balsam than by writing
+an "ensemble" shell script. 
+
+```console
+$ balsam app --name SayHello --executable "echo hello,"
+$ for i in {1..10}
+> do
+>  balsam job --name hi$i --workflow test --application SayHello --args "world $i"
+> done
+$ balsam submit-launch -A Project -q Queue -t 5 -n 2 --job-mode=serial
+```
+
+Because Balsam stands in for the "script job, applications run with
+**absolutely no modification**, whether or not they use MPI, run on bare metal,
+or [inside a Singularity container](https://www.alcf.anl.gov/user-guides/singularity).
+
+It is Balsam supports 
 - Many independent application runs (i.e. classic ensemble jobs)
 - Many instances of workflows, with inter-task dependencies forming graphs
 - Dynamic workflows, where some tasks spawn other tasks with the Python API
