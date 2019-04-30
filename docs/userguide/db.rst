@@ -1,3 +1,5 @@
+.. _BalsamDB:
+
 The Balsam Database
 ===================
 
@@ -21,7 +23,7 @@ You will find this contains the following:
   :bash:`balsam log` if you need to closely inspect what's going on.
 - **qsubmit/**: this directory stores every launcher job script that is 
   submitted to the local batch scheduler.  The stdout/stderr and scheduler logs
-   corresponding to these scripts is directed here as well.
+  corresponding to these scripts is directed here as well.
 - **server-info**: this file holds a little bit of JSON data that tells Balsam
   components what host and port the database server is running on
 
@@ -66,11 +68,11 @@ with `balsam which` and log into that node. You can then identify the
 parent server process and kill it gracefully by sending SIGTERM:
 
 .. code-block:: bash
-    :emphasize-lines:4,6
+    :emphasize-lines: 4,6
+
     [BalsamDB: foo] $  ps aux | grep $USER | grep postgres
     user  39608  0.0  0.0  6495720    980   ??  Ss    4:29PM   0:00.00 postgres: checkpointer process
     user  39606  0.0  0.0  4321984    820   ??  Ss    4:29PM   0:00.00 postgres: logger process
-    user  39605  0.0  0.4  6496000  72072 s002  S     4:29PM   0:00.06 /usr/local/Cellar/postgresql/10.4/bin/postgres -D /Users/misha/foo/balsamdb
+    user  39605  0.0  0.4  6496000  72072 s002  S     4:29PM   0:00.06 /path/to/bin/postgres -D /home/user/foo/balsamdb
 
-    $ kill 39605 
-
+    [BalsamDB: foo] $ kill 39605 

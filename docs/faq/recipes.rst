@@ -12,10 +12,10 @@ estimated run-time below the allocation's remaining wall-time.
 Where does the output of my jobs go?
 ---------------------------------------
 
-Look in the ``data/`` subdirectory of your :doc:`Balsam database directory
-<../quick/db>`.  The jobs will be organized into folders according to the name
-of their workflow, and each job working directory is in turn given a unique
-name from its name and UUID.
+Look in the **data/** subdirectory of your Balsam database directory (see
+:ref:`BalsamDB`). The jobs will be organized into subfolders according to the
+name of their workflow, and each job working directory is in turn given a
+unique name from its name and UUID.
 
 All stdout/stderr from a job is directed into the file ``<jobname>.out``, along with job timing
 information. Any files created by the job will be placed in its working directory, unless another
