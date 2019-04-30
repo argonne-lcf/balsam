@@ -28,7 +28,7 @@ scheduler submission command (e.g. `qsub`). Hence, usage is straightforward:
 
 .. code-block:: bash
 
-    balsam submit-launch -A Project -q Queue -t 15 -n 5 --job-mode=mpi
+    $ balsam submit-launch -A Project -q Queue -t 15 -n 5 --job-mode=mpi
 
 The only required argument that is unique to Balsam is the **--job-mode**, explained
 below.
@@ -74,7 +74,7 @@ tag, you can provide the **wf-filter** option:
 
 .. code-block:: bash
 
-    balsam submit-launch -A Project -q Queue -t 15 -n 5 --job-mode=mpi --wf-filter=Experiment3
+    $ balsam submit-launch -A Project -q Queue -t 15 -n 5 --job-mode=mpi --wf-filter=Experiment3
 
 Now, only tasks whose :bash:`workflow` field contains the substring "Experiment3"
 will be eligible to run inside this job.  This is a useful way to limit what workflows
@@ -97,6 +97,12 @@ of tasks.
 
 Allowing Balsam Service to Submit Jobs
 ----------------------------------------
+
+Running :bash:`balsam service` starts a daemon on the login node tho
+automatically package and reserve groups tasks for job submission.
+**This is the cornerstone of using Balsam as an edge service:**
+when the service is on, remotely-submitted jobs can be processed without ever
+having to log in yourself.
 
 Monitoring and Killing Jobs
 ----------------------------

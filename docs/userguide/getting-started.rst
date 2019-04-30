@@ -1,11 +1,14 @@
 Getting Started
 =================
 
-Existing site-wide installations
----------------------------------
+Site Guides
+-----------
 
-Theta
-~~~~~~~
+The following sections contain quick instructions for getting started
+on specific machines.
+
+Theta (@ALCF)
+~~~~~~~~~~~~~~~~~
 The fastest way to get Balsam on Theta is to load the module.
 
 .. highlight:: console
@@ -24,6 +27,20 @@ Balsam installation. Don't worry if your applications rely on different environm
 or Python installations. You can simply use the Balsam Python
 environment to set up and manage your workflows, while a different version of
 Python runs in the backend.
+
+Cooley (@ALCF)
+~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+    $ soft add +anaconda
+    $ conda config --add channels intel
+    $ conda create -p ~/BalsamEnv intelpython3_core python=3.6
+    $ source activate ~/BalsamEnv
+
+    $ conda install mpi4py
+    $ pip install balsam-flow
+    
 
 Installation
 --------------

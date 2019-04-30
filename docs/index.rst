@@ -56,21 +56,19 @@ The Balsam API enables a variety of scenarios beyond the independent bag-of-task
 
     userguide/getting-started.rst
     userguide/configuration.rst
+    userguide/db.rst
     userguide/app.rst
     userguide/submit.rst
     userguide/cli.rst
-    userguide/tutorial-theta.rst
-    userguide/tutorial.rst
-    userguide/dag
-    userguide/multi-user
+    userguide/dag.rst
+    userguide/multi-user.rst
 
 .. toctree::
     :maxdepth: 2
     :caption: Tutorials
 
-    tutorial/quickstart.rst
-    tutorial/db.rst
     tutorial/hello.rst
+    tutorial/tutorial-theta.rst
 
 .. toctree::
     :maxdepth: 2
