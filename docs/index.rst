@@ -3,83 +3,80 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Balsam 
-========
 
-Automated Job Packing, Scheduling, and Execution
-************************************************
+Balsam: HPC Workflows & Edge Service
+=========================================
 
-Balsam allows you to manage a database of workflows with simple command-line interfaces
-and a Python API. As you populate the database, the **Balsam service** can automatically reserve bundles
-of tasks and batch-schedule them for parallel execution. Inside each batch job, the **Balsam launcher** 
-monitors available resources, launches applications, and sends status updates back to the database.
+Balsam allows you to manage a database of workflows with simple command-line
+interfaces and a Python API. As you populate the database, the **Balsam
+service** can automatically reserve bundles of tasks and batch-schedule them
+for parallel execution. Inside each batch job, the **Balsam launcher**
+monitors available resources, launches applications, and sends status updates
+back to the database.
 
-Balsam is a Python service that automates scheduling and concurrent,
-fault-tolerant execution of workflows in HPC environments. It is one of the
-easiest ways to set up a large computational campaign, where many instances of
-an application need to run across several days or weeks worth of batch jobs.
-You use a command line interface or Python API to control a Balsam database, which
-stores a **task** for each application instance. The Balsam **launcher** is then
-started inside a batch job to actually run the available work.  The launcher
-automatically consumes tasks from the database, runs them in parallel across the available compute
-nodes, and records workflow state in the database. 
+Balsam is designed to minimize user "buy-in" and cognitive overhead.
+You don't have to learn an API or write any glue code to acheive throughput with
+existing applications. In fact, it's arguably faster and easier to run a
+simple app several times using Balsam than by writing an ensemble job script:
 
-The persistence of workflow
-state in the database is what allows Balsam to capture and record task level
-errors, auto-restart timed out tasks, and schedule batch jobs over time. The
-underlying PostgreSQL database server is a core part of the Balsam technology,
-but database administration tasks and SQL in general are completely hidden from
-users and encapsulated in Balsam.
+.. highlight:: console
 
-It also gives users flexible
-tools to query the status of their campaign, and
+::
 
-Balsam automatically 1
-many instances of some application need to run across  
-It runs on the login nodes, keeping
-track of all your jobs and submitting them to the local scheduler on your
-behalf.
+    $ balsam app --name SayHello --executable "echo hello,"
+    $ for i in {1..10}
+    > do
+    >  balsam job --name hi$i --workflow test --application SayHello --args "world $i"
+    > done
+    $ balsam submit-launch -A Project -q Queue -t 5 -n 2 --job-mode=serial
+    ```
 
-Whereas a local batch scheduler like Cobalt runs on behalf of **all users**,
-with the goals of fair resource sharing and maximizing overall utilization,
-Balsam runs on **your** behalf, interacting with the scheduler to check for
-idle resources and sizing jobs to minimize time-to-solution.
+Highlights
+----------------
 
-You could use Balsam as a drop-in replacement for ``qsub``, simply using
-``balsam qsub`` to submit your jobs with absolutely no restrictions. Let Balsam
-throttle submission to the local queues, package jobs into ensembles for you,
-and dynamically size these packages to exploit local scheduling policies.
+- Applications require zero modification and run *as-is* with Balsam
+- Launch MPI applications or pack several non-MPI tasks-per-node
+- Run apps on bare metal or inside a Singularity_ container 
+- Flexible Python API and command-line interfaces for workflow management
+- Execution is load balanced and resilient to task faults. Errors are automatically recorded to database for quick lookup and
+  debugging of workflows
+- Scheduled jobs can overlap in time; launchers cooperatively consume work from the same database
+- Multi-user workflow management: collaborators on the same project can add tasks and submit launcher jobs using
+  the same database
 
-There is :doc:`much more <userguide/overview>` to Balsam, which is a complete
-service for managing complex workflows and optimized scheduling across multiple
-HPC resources.
+The Balsam API enables a variety of scenarios beyond the independent bag-of-tasks:
 
-
-.. toctree::
-    :maxdepth: 2
-    :caption: Quickstart
-
-    quick/quickstart.rst
-    quick/db.rst
-    quick/hello.rst
+- Add task dependencies to form DAGs
+- Program dynamic workflows: some tasks spawn or kill other tasks at runtime
+- Remotely submit workflows, track their progress, and coordinate data movement tasks
 
 .. toctree::
     :maxdepth: 2
     :caption: User Guide
 
-    userguide/overview
+    userguide/getting-started.rst
+    userguide/configuration.rst
+    userguide/app.rst
+    userguide/submit.rst
     userguide/tutorial-theta.rst
     userguide/tutorial.rst
     userguide/dag
     userguide/multi-user
-    userguide/developer
 
 .. toctree::
     :maxdepth: 2
-    :caption: Use Cases
+    :caption: Tutorials
 
-    example/dl-hps.rst
-    example/recipes.rst
+    tutorial/quickstart.rst
+    tutorial/db.rst
+    tutorial/hello.rst
+
+.. toctree::
+    :maxdepth: 2
+    :caption: FAQs & Common Recipes
+
+    faq/dl-hps.rst
+    faq/recipes.rst
 
 
 Indices and tables
@@ -88,3 +85,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. _Singularity: https://www.alcf.anl.gov/user-guides/singularity

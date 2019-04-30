@@ -1,25 +1,5 @@
-Get Balsam
-==========
-
 On Theta
 ---------
-The fastest way to get Balsam on Theta is to load the module. 
-
-.. highlight:: console
-
-::
-    
-    $ module load balsam
-    $ which balsam
-    /soft/datascience/Balsam/0.3.5.1/env/bin/balsam
-    $ which python
-    /soft/datascience/Balsam/0.3.5.1/env/bin/python
-
-As you can see, the module loads a Python 3.6 environment with pre-configured Balsam installation. 
-Don't worry if your applications use different versions of Python in other environments. You can simply
-use the Balsam Python environment to set up and manage your workflows, while a different version of Python or 
-any application, for that matter, runs in the backend.
-
 .. highlight:: python
 
 ::

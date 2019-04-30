@@ -1,5 +1,0 @@
- job_id                               | name                       | workflow                   | application                | latest update
---------------------------------------------------------------------------------------------------------------------------------------------
- c0315dc3-e0a2-42e5-80b4-9a743acc47b1 | default                    | qsub                       | /home/harms/working/theta/workflow/hpc-edge-service/docs/quick/examples/theta/hello.x | [01-12-2018 23:20:52 CREATED]
- e8afc054-41c0-48e2-b64c-2b40e0358689 | default                    | qsub                       | /home/harms/working/theta/workflow/hpc-edge-service/docs/quick/examples/theta/hello.x | [01-12-2018 23:20:58 CREATED]
- eed322bd-1a32-4777-b956-fd88435e89d0 | default                    | qsub                       | /home/harms/working/theta/workflow/hpc-edge-service/docs/quick/examples/theta/hello.x | [01-12-2018 23:21:03 CREATED]

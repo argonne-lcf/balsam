@@ -17,10 +17,11 @@ care of reserving compute resources in response to changing workloads.  The
 **launcher** fetches tasks and executes the workflow on its allocated
 resources.
 
-Balsam is designed to minimize user "buy-in" and cognitive overhead.
-You don't have to learn an API or write any glue code to acheive throughput with
-existing applications. In fact, it's arguably faster and easier to run a
-simple app several times using Balsam than by writing an ensemble job script:
+Balsam is designed to minimize user "buy-in" and cognitive overhead. You
+don't have to learn an API or write any glue code to acheive throughput with
+existing applications. On systems with Balsam installed, it's arguably faster
+and easier for a beginner to run an ensemble using Balsam than
+by writing an ensemble job script:
 
 ```console
 $ balsam app --name SayHello --executable "echo hello,"
@@ -32,6 +33,7 @@ $ balsam submit-launch -A Project -q Queue -t 5 -n 2 --job-mode=serial
 ```
 
 ## Highlights
+
 - Applications require zero modification and run *as-is* with Balsam
 - Launch MPI applications or pack several non-MPI tasks-per-node
 - Run apps on bare metal or [inside a Singularity container](https://www.alcf.anl.gov/user-guides/singularity)
@@ -42,10 +44,10 @@ $ balsam submit-launch -A Project -q Queue -t 5 -n 2 --job-mode=serial
 - Multi-user workflow management: collaborators on the same project can add tasks and submit launcher jobs using
   the same database
 
-The Python API A variety of scenarios beyond the independent bag-of-tasks are possible with Balsam:
-- Task dependencies forming DAGs
-- Dynamic workflows: some tasks spawn or kill others mid-execution
-- Remotely submit workflows and track their progress
+The Balsam API enables a variety of scenarios beyond the independent bag-of-tasks:
+- Add task dependencies to form DAGs
+- Program dynamic workflows: some tasks spawn or kill other tasks at runtime
+- Remotely submit workflows, track their progress, and coordinate data movement tasks
 
 ## **Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
 
