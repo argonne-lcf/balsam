@@ -94,7 +94,9 @@ Installation from PyPI
     $ pip install balsam-flow
 
 
-Create a Balsam DB and start working!
+.. _BalsamInit:
+
+Create a Balsam DB to start working
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 You can use the command line to start working with Balsam. 
 `balsam init` is used to create a new database at the specified path. 
