@@ -84,3 +84,14 @@ example is shown below.
     balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }}
 
     source balsamdeactivate
+
+.. warning::
+    It is best to avoid exporting global `LD_LIBRARY_PATH` or `PYTHONPATH`
+    variables in your Job Template, because these are inherited by all tasks
+    in the workflow and often clobber how shared libraries or Python packages
+    are loaded, respectively. 
+    `If your codes are properly linked <http://xahlee.info/UnixResource_dir/_/ldpath.html>`_ 
+    and Python packages are properly installed into isolated environments, it is rarely
+    necessary to set these variables. If you must, it's much better to set
+    them in the Application `envscript` to prevent polluting the global
+    environment (see :ref:`ApplicationDefinition`).

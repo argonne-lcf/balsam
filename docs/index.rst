@@ -58,6 +58,7 @@ The Balsam API enables a variety of scenarios beyond the independent bag-of-task
     userguide/configuration.rst
     userguide/app.rst
     userguide/submit.rst
+    userguide/cli.rst
     userguide/tutorial-theta.rst
     userguide/tutorial.rst
     userguide/dag
