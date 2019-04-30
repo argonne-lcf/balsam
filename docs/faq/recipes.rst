@@ -1,6 +1,11 @@
 Frequently Asked Questions
 ==========================
 
+Any tips for running VASP workflows on Theta?
+----------------------------------------------
+Navigate to the `vasp-users repository <https://github.com/balsam-alcf/vasp-users>`_ on Github
+for some guidelines and code snippets for managing large ensembles of VASP jobs on Theta.
+
 Why isn't the launcher running my jobs?
 ---------------------------------------------
 
