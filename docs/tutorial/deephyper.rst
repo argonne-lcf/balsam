@@ -36,6 +36,7 @@ Now let's have a look at the MNIST-MLP code.  We immediately notice some arbitra
 choices for hyperparameters that we'd like to vary, highlighted in the lines below:
 
 .. code-block:: python
+    :caption: (Excerpt) Original mnist_mlp.py from Keras GitHub
     :emphasize-lines: 1,22,23,24,25,31
 
     batch_size = 128
@@ -118,28 +119,26 @@ rather than using the fixed set of hyperparmeters in the model code on Github.
 
 Interfacing to the Model
 -------------------------
-Wrapping in a run() function
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Getting DeepHyper to call the model code requires a straightforward modification of the script.
 We place the entire model build/train/validate code inside a function called :bash:`run()`, which
 accepts one argument: a dictionary of hyperparmeters.  The dictionary keys will match those defined in the 
 **HpProblem**, and the values can span the entire problem space.
 
-Using the hyperparameters
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Of course, the model code must actually unpack the dictionary items and use them in
 configuration of the model build/train process. This is illustrated in the code snippet below.
 
-Returning a minimization objective
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 After the model validation step, the :bash:`run()` function must return the optimization objective back to
 DeepHyper. Since the problem is cast as a **minimization**, we will return the **negative validation accuracy**,
 which will be equivalent to maximizing accuracy under DeepHyper. 
 
-The full modified model code should look like this:
+The full, modified model source code should look like the following after you have implemented the :bash:`run()` function
+(with proper signature and return value) and tweaked the model to read in a hyperparameter dictionary.  The relevant lines 
+are highlighted in yellow.
 
 .. code-block:: python
     :caption: **mnist_mlp_dh.py**
+    :emphasize-lines: 8-14,36-39,45,49,56
     
     from __future__ import print_function
 
@@ -220,14 +219,31 @@ search, simply dispatch a launcher job with as many nodes as you like:
 
 Monitor Execution and Check Results
 ---------------------------------------
-You can use Balsam to watch when the experiment starts running and track how many models are running in realtime.
-The :bash:`bcd` command line tool provides a convenient way to jump to the working directory of the AMBS task, which 
-will contain the search results in CSV and JSON formats. Notice the objective
-value in the second-to-last column of the :bash:`results.csv` file.
+You can use Balsam to watch when the experiment starts running and track how
+many models are running in realtime. Once the ambs task is RUNNING, the
+:bash:`bcd` command line tool provides a convenient way to jump to the
+working directory, which will contain the DeepHyper log and search results in
+CSV or JSON format. Notice the objective value in the second-to-last column
+of the :bash:`results.csv` file.
 
 .. highlight:: console
 
 ::
 
     $ balsam ls
-    . bcd <first-few-char-of-job-id>
+                                  job_id |        name |        workflow | application |   state
+    --------------------------------------------------------------------------------------------
+    806aa9a8-5028-4409-97c8-4971feb6aa87 | run05-01-19 | mnist_mlp_dh.py | ambs        | RUNNING
+
+    $ . bcd 806
+    $ balsam ls
+                                      job_id |        name |        workflow |      application |        state
+    ------------------------------------------------------------------------------------------------------
+        33ae4062-5a48-4602-8f98-fb645dd0b10a | task0       | mnist_mlp_dh.py | mnist_mlp_dh.run | JOB_FINISHED
+        806aa9a8-5028-4409-97c8-4971feb6aa87 | run05-01-19 | mnist_mlp_dh.py | ambs             | RUNNING
+        2026a35a-a686-4d34-b6b1-f870514fe0a3 | task1       | mnist_mlp_dh.py | mnist_mlp_dh.run | RUNNING
+
+    $ ls
+    deephyper.log  results.csv  results.json  run05-01-19.out
+
+  
