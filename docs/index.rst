@@ -65,12 +65,10 @@ The Balsam API enables a variety of scenarios beyond the independent bag-of-task
 
 .. toctree::
     :maxdepth: 2
-    :caption: Tutorials
+    :caption: Theta Tutorials
 
-    tutorial/hello.rst
     tutorial/deephyper.rst
     tutorial/nwchem.rst
-    tutorial/tutorial-theta.rst
 
 .. toctree::
     :maxdepth: 2

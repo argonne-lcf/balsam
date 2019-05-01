@@ -101,6 +101,8 @@ There is a convenience function for reading files in a job’s working directory
     if success:
         output = newjob.read_file_in_workdir(‘output.dat’) # contents of file in a string
 
+.. _FAQ-Querying:
+
 Querying the Job database
 ---------------------------
 You can perform complex queries on the BalsamJob database thanks to Django.  If
