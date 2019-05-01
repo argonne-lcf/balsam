@@ -27,11 +27,12 @@ Let's create a clean workspace and Balsam DB for this exercise as follows.
 
 .. code-block:: bash
 
-    mkdir ~/tut-nwchem
-    cd ~/tut-nwchem
-    module load balsam
-    balsam init db
-    . balsamactivate db
+    $ rm -r ~/.balsam  # reset default settings (for now)
+    $ mkdir ~/tut-nwchem
+    $ cd ~/tut-nwchem
+    $ module load balsam
+    $ balsam init db
+    $ . balsamactivate db
 
 The NWChem Application
 -----------------------
