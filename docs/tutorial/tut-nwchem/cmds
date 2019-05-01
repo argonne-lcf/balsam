@@ -1,0 +1,68 @@
+python apps.py 
+balsam ls apps
+balsam ls apps --v
+
+python populate.py 
+balsam ls
+
+balsam submit-launch -n 5 -t 60 -A datascience -q debug-cache-quad --job-mode=mpi
+
+balsam ls --by-states
+JOB_FINISHED  10
+RUNNING  5
+PREPROCESSED  85
+AWAITING_PARENTS  1
+
+BalsamDB: db] (06:09) msalim@thetalogin6:~/tut-nwchem>   balsam ls --state JOB_FINISHED
+                              job_id |   name | workflow |  application |        state
+--------------------------------------------------------------------------------------
+159070cb-03f8-4a37-9ed1-66bfb906e4bb | task4  | demo     | nwchem-water | JOB_FINISHED
+db12a2e7-f8b1-4eb5-9c03-5bb0c4ac74f8 | task3  | demo     | nwchem-water | JOB_FINISHED
+72d7f99e-76a5-495d-9d5f-648e0582e3a4 | task2  | demo     | nwchem-water | JOB_FINISHED
+46f689e1-7a1a-49b7-bc74-4d058b6faa1b | task19 | demo     | nwchem-water | JOB_FINISHED
+b83a6cb2-5ad9-44aa-b28b-d665bbbfbedf | task10 | demo     | nwchem-water | JOB_FINISHED
+b618dcbf-1e49-46e9-9b2f-b0ee69904dfc | task1  | demo     | nwchem-water | JOB_FINISHED
+ac765c84-6544-4bf0-9f60-b898cb6ec117 | task2  | demo     | nwchem-water | JOB_FINISHED
+3ff91a3d-7fb4-4580-92de-2cb24d345872 | task1  | demo     | nwchem-water | JOB_FINISHED
+dacb3fda-66dc-4974-a128-f037df13af04 | task42 | demo     | nwchem-water | JOB_FINISHED
+d16fd55a-596a-44bd-81f9-249bfc7b39f8 | task47 | demo     | nwchem-water | JOB_FINISHED
+d8481a28-c28f-4070-a4a5-b3bef85cfa85 | task5  | demo     | nwchem-water | JOB_FINISHED
+4384818b-5157-4b17-98fb-14122ee17928 | task8  | demo     | nwchem-water | JOB_FINISHED
+93e61d53-9101-4cab-8ca4-3e1781674faf | task32 | demo     | nwchem-water | JOB_FINISHED
+06ad8e90-8a87-4c2a-9d91-b07bed047ad7 | task6  | demo     | nwchem-water | JOB_FINISHED
+2c54f46d-94bb-425c-894e-af1c66cb07d8 | task0  | demo     | nwchem-water | JOB_FINISHED
+6ac8512f-c718-4275-b540-87eeb53c99c2 | task28 | demo     | nwchem-water | JOB_FINISHED
+6e87fdd9-cd41-4a55-bf5a-0acccf4f5f39 | task4  | demo     | nwchem-water | JOB_FINISHED
+64543479-3fea-4299-9ad6-325e6e060d46 | task7  | demo     | nwchem-water | JOB_FINISHED
+8e241553-c5ad-4e1b-9e03-d3fcb0bf6549 | task26 | demo     | nwchem-water | JOB_FINISHED
+c37253bb-3d95-4c1b-a589-a00840a37b08 | task0  | demo     | nwchem-water | JOB_FINISHED
+809dd476-e775-4038-862a-c7276d4dd412 | task13 | demo     | nwchem-water | JOB_FINISHED
+8ac31175-6c61-46d4-b657-107f48228b27 | task15 | demo     | nwchem-water | JOB_FINISHED
+6d51f9f9-dc88-4176-96fd-a9d3cda1b515 | task17 | demo     | nwchem-water | JOB_FINISHED
+e7729332-d1bc-46e1-b470-b035ad4fb540 | task31 | demo     | nwchem-water | JOB_FINISHED
+ce63a958-aa87-4937-9536-b881c182ca81 | task34 | demo     | nwchem-water | JOB_FINISHED
+
+. bcd 1590
+[BalsamDB: db] (06:11) msalim@thetalogin6:/gpfs/mira-home/msalim/tut-nwchem/db/data/demo/task4_159070cb>   ls
+h2o.b  'h2o.b^-1'  h2o.c  h2o.cfock  h2o.db  h2o.movecs  h2o.p  h2o.zmat  input.nw  postprocess.log  preprocess.log  task4.out
+BalsamDB: db] (06:10) msalim@thetalogin6:/gpfs/mira-home/msalim/tut-nwchem/db/data/demo/task4_159070cb>   BALSAM_LS_FIELDS=data balsam ls --state JOB_FINISHED
+                              job_id |   name | workflow |  application |        state |                                                                  data
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+159070cb-03f8-4a37-9ed1-66bfb906e4bb | task4  | demo     | nwchem-water | JOB_FINISHED | {'r': 0.8408163265306123, 'theta': 104.5, 'energy': -75.949402426371}
+db12a2e7-f8b1-4eb5-9c03-5bb0c4ac74f8 | task3  | demo     | nwchem-water | JOB_FINISHED | {'r': 0.8306122448979593, 'theta': 104.5, 'energy': -75.941790242862}
+72d7f99e-76a5-495d-9d5f-648e0582e3a4 | task2  | demo     | nwchem-water | JOB_FINISHED | {'r': 0.8204081632653062, 'theta': 104.5, 'energy': -75.93319131096}
+e667e9e8-b77d-4e78-9b73-f5084cc62e3a | task7  | demo     | nwchem-water | JOB_FINISHED | {'r': 0.8714285714285714, 'theta': 104.5, 'energy': -75.966950538242}
+77ecaf92-e462-49b2-8823-2d5a9c449528 | task49 | demo     | nwchem-water | JOB_FINISHED | {'r': 1.3, 'theta': 104.5, 'energy': -75.863011732378}
+6ca50987-d509-43aa-9604-da1d0d625a82 | task3  | demo     | nwchem-water | JOB_FINISHED | {'r': 0.8306122448979593, 'theta': 104.5, 'energy': -75.941790242862}
+46f689e1-7a1a-49b7-bc74-4d058b6faa1b | task19 | demo     | nwchem-water | JOB_FINISHED | {'r': 0.9938775510204082, 'theta': 104.5, 'energy': -75.981078202929}
+b83a6cb2-5ad9-44aa-b28b-d665bbbfbedf | task10 | demo     | nwchem-water | JOB_FINISHED | {'r': 0.9020408163265307, 'theta': 104.5, 'energy': -75.977730477137}
+b618dcbf-1e49-46e9-9b2f-b0ee69904dfc | task1  | demo     | nwchem-water | JOB_FINISHED | {'r': 0.8102040816326531, 'theta': 104.5, 'energy': -75.923535853437}
+ac765c84-6544-4bf0-9f60-b898cb6ec117 | task2  | demo     | nwchem-water | JOB_FINISHED | {'r': 0.8204081632653062, 'theta': 104.5, 'energy': -75.93319131096}
+
+balsam ls --name plot
+                              job_id | name | workflow | application |   state
+------------------------------------------------------------------------------
+fce9ecb3-b025-4e18-b499-a5c21e97e4ee | plot | demo     | plot-pes    | RUNNING
+
+. bcd fce9
+cat plot.out

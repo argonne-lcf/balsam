@@ -6,5 +6,4 @@ if [ -d "_build" ]
 then
     rm -r _build
 fi
-make html &&
-open _build/html/index.html
+make html
