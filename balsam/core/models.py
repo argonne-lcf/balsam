@@ -584,6 +584,7 @@ class BalsamJob(models.Model):
 
         try: result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
         except NoApplication: result += '\n' + '  *** Executed command:'.ljust(32) + f'NO APPLICATION MATCHING {self.application}'
+        except ApplicationDefinition.DoesNotExist: result += '\n' + '  *** Executed command:'.ljust(32) + f'NO APPLICATION MATCHING {self.application}'
 
         result += '\n' + '  *** Working directory:'.ljust(32) + self.working_directory +'\n'
         return result

@@ -166,7 +166,9 @@ class ResourceManager:
         stat = MPI.Status()
         for rank in self.recv_requests:
             req = self.recv_requests[rank]
+            logger.debug(f"calling req.test() on rank {rank}'s request...")
             done, msg = req.test(status = stat)
+            logger.debug(f"req.test() call completed:\ndone = {done}\nmsg = {msg}")
             if done: 
                 completed_requests.append((stat.source, msg))
                 assert stat.source == rank
@@ -291,6 +293,7 @@ class Master:
 
     def main(self):
         for remaining_minutes in self.remaining_timer:
+            logger.debug(f"{remaining_minutes} minutes remaining")
             self._main()
             if self.EXIT_FLAG:
                 logger.info("EXIT_FLAG on; master breaking main loop")

@@ -59,3 +59,6 @@ series of states according to the flow chart below.
     for a task (or take no action at all) depending on the state of the
     BalsamJob. For instance, to re-run a task, set its state to RESTART_READY.
 
+
+BalsamJob Fields
+-------------------
