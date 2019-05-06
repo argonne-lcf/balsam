@@ -140,7 +140,9 @@ class ResourceManager:
                 send_requests.append(mpiReq)
 
         BalsamJob.batch_update_state(acquired_pks, 'RUNNING', self.RUN_MESSAGE)
+        logger.debug("allocate_next_jobs: waiting on all isends...")
         MPI.Request.waitall(send_requests)
+        logger.debug("allocate_next_jobs: all isends completed.")
         return len(acquired_pks) > 0
 
     def _send_jobs(self, jobs, rank):
@@ -193,7 +195,9 @@ class ResourceManager:
         if done_jobs:  self._handle_dones(done_jobs)
         if error_jobs: self._handle_errors(error_jobs)
         if killed_pks: self.job_source.release(killed_pks)
+        logger.debug("serve_requests: waiting on all isends...")
         MPI.Request.waitall(send_reqs)
+        logger.debug("serve_requests: all isends completed.")
         return len(requests)
         
     def _handle_ask(self, rank, ask_pks):
@@ -508,8 +512,10 @@ class Worker:
         gpus_per_node = None
         self.gpus_per_node = comm.bcast(gpus_per_node, root=0)
         while tag != 'EXIT':
+            logger.debug(f"rank {RANK} waiting on recv from master...")
             msg = comm.recv(source=0)
             tag = msg['tag']
+            logger.debug(f"rank {RANK} recv done: got msg tag {tag}")
 
             if tag == 'NEW':
                 self.start_jobs(msg)
@@ -524,7 +530,9 @@ class Worker:
             logger.debug(f"rank {RANK} jobs: {cuteids}")
             if len(statuses) > 0:
                 msg = self.write_message(statuses)
+                logger.debug(f"rank {RANK} sending request to master...")
                 comm.send(msg, dest=0)
+                logger.debug(f"rank {RANK} send done")
         self.exit()
 
 if __name__ == "__main__":

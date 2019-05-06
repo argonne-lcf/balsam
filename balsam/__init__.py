@@ -32,9 +32,7 @@ def config_logging(basename):
             '%(asctime)s|%(process)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s', 
             datefmt="%d-%b-%Y %H:%M:%S"
             )
-    handler = logging.handlers.RotatingFileHandler(filename=HANDLER_FILE,
-            maxBytes=settings.LOG_FILE_SIZE_LIMIT,
-            backupCount=settings.LOG_BACKUP_COUNT)
+    handler = logging.FileHandler(filename=HANDLER_FILE)
     level = getattr(logging, settings.LOG_HANDLER_LEVEL)
     handler.setLevel(level)
     handler.setFormatter(formatter)
