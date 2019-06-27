@@ -15,19 +15,19 @@ Understanding Balsam Job Modes
 --------------------------------
 Suppose you need to use Theta to crank through a very large number of small
 simulations. The MPI job mode of Balsam works by launching several concurrent
-`apruns` and monitoring the status each process.  This MPI job mode is the
+`apruns` and monitoring the status of each process.  This MPI job mode is the
 *only* way to run codes built with Cray MPI, because initializing
-communications requires the blessing of Cray's Application Level Placement
+communications requires coordinating with Cray's Application Level Placement
 Scheduler (ALPS).  When applications use at least ~4 nodes and take ~1 minute
 to run, the MPI job mode of Balsam poses no bottlenecks to your workflow. 
 
 For smaller or shorter jobs, we start to feel two limitations of this launch
 mode.  First, Theta supports a maximum of 1000 concurrent apruns per job.  That
 means even if you have 2 million+ single node calculations, each batch job
-is limited to 1000 nodes. The natural workaround with Balsam is to submit more than one
-~800 node MPI-mode job, and allow them process your workload cooperatively.
+must be limited to 1000 nodes. (The natural workaround with Balsam is to submit several
+~800 node MPI-mode jobs, and allow them process your workload cooperatively.)
 The second limitation of the MPI job mode is a 100 ms delay between subsequent
-application launches.  Assuming a maximum of 800 `apruns` sustained in an
+application launches.  Assuming a target maximum of 800 `apruns` sustained in an
 800-node job, it will take about 80 seconds to ramp up to full utilization. If
 applications take several minutes to run or their completion is fairly
 staggered, this latency is hardly noticed. For significantly faster
@@ -40,22 +40,23 @@ machine in a single allocation, because the launcher wraps the execution of all
 tasks under a single MPI runtime launched at the beginning of the job.
 Unfortunately, the serial job mode only works for OpenMP or single-node codes
 built without Cray MPI, for the ALPS-startup reason mentioned above. Up til now,
-if your code uses purely MPI to scale, you were stuck with the MPI job mode.
+if your code used MPI to scale, you were stuck with the MPI job mode.
 
 Containerizing NWChem 6.8+OpenMPI
 --------------------------------------
 If we plan to run single-node instances of our MPI app, we *still* want MPI for
 parallelism across CPU cores. If we could avoid linking the code with the Cray
-MPI stack, we would be able to run in Balsam's `serial` job mode, since
-MPI-startup would not try to reach ALPS. Here, I'll show how Singularity can be 
-leveraged on Theta to run the application built with generic MPI inside a container.
+MPI stack, we would be able to run in Balsam's `serial` job mode, since a
+generic MPI initialization would be unaware of the interconnect and not try to
+reach ALPS. Here, I'll show how Singularity can be leveraged on Theta to run
+an application built with generic MPI inside a container.
 
 The example we'll follow here is for NWChem 6.8. Fortunately, Dr. Apra at PNNL
 has contributed several examples of Dockerfiles for NWChem builds to the
-official Github repository. We'll start with the generic `sockets ARMCI
+official Github repository. We'll start with a build that uses the generic `sockets ARMCI
 implementation <https://github.com/nwchemgit/nwchem-dockerfiles/blob/master/nwchem-681.fedora.sockets/Dockerfile>`_.
 This Dockerfile builds NWChem in a Fedora image with completely generic OpenMPI and
-Scalapack libraries, so it should 
+Scalapack libraries, so it should be fairly portable and interconnect-agnostic.
 One important change for compatibility with the Singularity runtime, which does
 not allow setting UID on Theta, is to remove the `USER` instruction from the
 Dockerfile. Instead of creating an `nwchem` user and building inside their home
@@ -120,7 +121,7 @@ Here's the modified Dockerfile that I used:
     ENTRYPOINT  ["/bin/bash"]
 
 The container was built with Docker Desktop for Mac OS, using 
-`docker build -t nwchem-681.fedora.sockets .` 
+:bash:`docker build -t nwchem-681.fedora.sockets .` 
 
 After building and pushing to Docker Hub, getting the Singularity image on Theta required
 only a simple `singularity pull` command.
@@ -171,7 +172,7 @@ serial (1 node, 1 rank, no-MPI) application.  Instead, we pass the `nproc` param
 the container** by crafting the commandline arguments on `job.args`. This allows the container's OpenMPI 
 to parallelize NWChem across cores without Balsam even knowing about it. We can call this `nw_job` function
 from anywhere (a login node, or inside another running job) to programatically dispatch new NWChem tasks for
-given input files. By invoking this script directly, we can ensure that the corresponding `ApplicationDefinition`
+given input files. By invoking this script directly, we ensure that the corresponding `ApplicationDefinition`
 named `nwchem` is created.
 
 Notice that we also associated this App with a postprocessing step and an envscript for setting up the Application's environment.
@@ -287,7 +288,7 @@ code snippet can be used to trace the number of completed job events over time:
     plt.step(timestamps, num_done, where="post")
     plt.show()
 
-The following bare-bones graph, missing axis labels and all, is obtained from of the snippet above:
+The following bare-bones graph, missing axis labels and all, is obtained from the snippet above:
 
 .. figure:: figs/nwcont-thru.png
     :align: center
@@ -296,7 +297,7 @@ The following bare-bones graph, missing axis labels and all, is obtained from of
     test job. This plot is zoomed in on the duration of the 2048 node experiment, in which 
     22,765 tasks completed over an 8 minute span.
 
-Dividing the 16,3842 node-minutes by the 22,765 completed tasks, the total
+Dividing the 16,384 node-minutes by 22,765 completed tasks, the total
 node-time per calculation comes to 43 node-seconds. Given that the actual
 walltime spent in NWChem is 9 seconds, there is a substantial overhead here.
 The loss in efficiency can partially be attributed to the `FULLCOPY` fork mode,
