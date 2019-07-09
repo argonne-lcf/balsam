@@ -42,7 +42,7 @@ def submit_qlaunch(qlaunch, verbose=False):
         qlaunch.scheduler_id = sched_id
         qlaunch.state = "submitted"
         qlaunch.command = script_path
-        qlaunch.save()
+        qlaunch.save(update_fields=['scheduler_id','state','command'])
         msg = f'Submit OK: {qlaunch}'
         logger.info(msg)
         if verbose: print(msg)

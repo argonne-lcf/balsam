@@ -288,17 +288,23 @@ def submitlaunch(args):
     setup()
     from balsam.service import service
     from balsam.core import models
-    QueuedLaunch = models.QueuedLaunch
-    qlaunch = QueuedLaunch(
-            project = args.project,
-            queue = args.queue,
-            nodes = args.nodes,
-            wall_minutes = args.time_minutes,
-            job_mode = args.job_mode,
-            wf_filter = args.wf_filter,
-            prescheduled_only=False)
-    qlaunch.save()
-    service.submit_qlaunch(qlaunch, verbose=True)
+    from django.db import connection, transaction
+
+    # Exclusive Lock on core_queuedlaunch
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute('LOCK TABLE core_queuedlaunch IN ACCESS EXCLUSIVE MODE;')
+            QueuedLaunch = models.QueuedLaunch
+            qlaunch = QueuedLaunch(
+                    project = args.project,
+                    queue = args.queue,
+                    nodes = args.nodes,
+                    wall_minutes = args.time_minutes,
+                    job_mode = args.job_mode,
+                    wf_filter = args.wf_filter,
+                    prescheduled_only=False)
+            qlaunch.save()
+            service.submit_qlaunch(qlaunch, verbose=True)
 
 def service(args):
     fname = find_spec("balsam.service.service").origin
