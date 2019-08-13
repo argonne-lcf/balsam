@@ -16,7 +16,7 @@ To start, let's set up a clean workspace and download the Keras benchmark model 
 .. code-block:: bash
 
     # Create a new workspace with a Balsam DB
-    $ module load deephyper
+    $ module load deephyper/0.0.6
     $ rm -r ~/.balsam # reset default settings (for now)
     $ mkdir ~/dh-tutorial
     $ cd ~/dh-tutorial
