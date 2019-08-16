@@ -86,7 +86,7 @@ if __name__ == "__main__":
     config_logging('service')
     logger.info(f"Balsam Service starting on {gethostname()}")
     parser = service_subparser()
-    transition_pool = transitions.TransitionProcessPool(1, '')
+    transition_pool = transitions.TransitionProcessPool(5, '')
     source.start_tick()
     try:
         main(parser.parse_args())
