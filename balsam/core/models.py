@@ -309,10 +309,6 @@ class JobSource(models.Manager):
 
         queryset = super().get_queryset()
         queryset = queryset.filter(self.lockQuery)
-        if self.qLaunch is not None:
-            queryset = queryset.filter(queued_launch_id=self.qLaunch.pk)
-        else:
-            queryset = queryset.filter(queued_launch__isnull=True)
         if self.workflow:
             queryset = queryset.filter(workflow__contains=self.workflow)
         return queryset

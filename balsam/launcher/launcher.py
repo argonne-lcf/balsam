@@ -418,13 +418,16 @@ def main(args):
     Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
     
     try:
-        transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
+        if nthread > 0:
+            transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
+        else:
+            transition_pool = None
         launcher = Launcher(wf_filter, timelimit_min, gpus_per_node)
         launcher.run()
     except:
         raise
     finally:
-        transition_pool.terminate()
+        if transition_pool is not None: transition_pool.terminate()
         logger.info("Exit: Launcher exit graceful\n\n")
 
 def get_args(inputcmd=None):
