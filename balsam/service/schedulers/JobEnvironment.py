@@ -11,7 +11,8 @@ class JobEnvironment:
     RECOGNIZED_HOSTS = {
         'BGQ'    : 'vesta cetus mira'.split(),
         'THETA'   : 'theta'.split(),
-        'COOLEY' : 'cooley cc'.split()
+        'COOLEY' : 'cooley cc'.split(),
+        'SLURM': 'bebop blues lcrc'.split(),
     }
 
     def __init__(self, scheduler):
