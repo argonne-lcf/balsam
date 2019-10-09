@@ -100,6 +100,16 @@ class WorkerGroup:
         for id in node_ids:
             self.workers.append(Worker(id, host_type='THETA', num_nodes=1))
 
+    def setup_SLURM(self):
+        logger.info(f'SLURM_HOSTS: {self.workers_str}')
+        if not self.workers_str:
+            raise ValueError("Slurm WorkerGroup needs SLURM_HOSTS env")
+
+        for id in self.workers_str.split():
+            self.workers.append(
+                Worker(id, host_type='SLURM', num_nodes=1)
+            )
+
     def setup_BGQ(self):
         # Boot blocks
         # Get (block, corner, shape) args for each sub-block

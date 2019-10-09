@@ -17,7 +17,7 @@ class SlurmScheduler(Scheduler.Scheduler):
     SCHEDULER_VARIABLES = {
         'current_scheduler_id' : 'SLURM_JOB_ID',
         'num_workers'  : 'SLURM_JOB_NUM_NODES',
-        'workers_str'  : 'SLURM_JOB_NODELIST',
+        'workers_str'  : 'SLURM_HOSTS',
     }
     JOBSTATUS_VARIABLES = {
         'id' : 'jobid',

@@ -5,6 +5,7 @@
 #SBATCH --time={{ time_minutes }}
 
 export PATH={{ balsam_bin }}:{{ pg_bin }}:$PATH
+export SLURM_HOSTS=$(scontrol show hostnames)
 
 source balsamactivate {{ balsam_db_path }}
 sleep 2

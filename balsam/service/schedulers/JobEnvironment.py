@@ -19,7 +19,7 @@ class JobEnvironment:
         self.scheduler_vars = scheduler.SCHEDULER_VARIABLES
         self.pid = os.getpid()
         self.hostname = gethostname()
-        self.host_type = 'DEFAULT'
+        self.host_type = 'SLURM'
         
         self.current_scheduler_id = None
         self.num_workers = 1
