@@ -165,6 +165,7 @@ class SLURMMPICommand(MPICommand):
     def worker_str(self, workers):
         if not workers:
             return ""
-        return f"--nodelist {','.join(str(worker.id) for worker in workers)} "
+        num = len(workers)
+        return f"--nodelist {','.join(str(worker.id) for worker in workers)} --nodes {num} "
 
 MPIcmd = SLURMMPICommand
