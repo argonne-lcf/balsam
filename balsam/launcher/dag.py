@@ -108,6 +108,7 @@ def add_job(
         environ_vars={}, 
         data=None,
         save=True,
+        **kwargs
     ):
     '''Add a new job to the BalsamJob DB
     
@@ -139,6 +140,9 @@ def add_job(
     job.environ_vars   = environ_vars
     job.data = data if data else dict()
     job.get_application()
+
+    for k,v in kwargs.items():
+        setattr(job, k, v)
 
     if current_job:
         job.queued_launch = current_job.queued_launch
