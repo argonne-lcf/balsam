@@ -10,6 +10,7 @@ from subprocess import Popen, STDOUT, TimeoutExpired
 import shlex
 import signal
 import time
+import psutil
 
 from mpi4py import MPI
 from django.db import transaction, connections
@@ -76,11 +77,11 @@ class ResourceManager:
         if now - self.last_killed_refresh > self.KILLED_REFRESH_PERIOD:
             killed_pks = self.job_source.filter(state='USER_KILLED').values_list('job_id', flat=True)
 
-            if len(killed_pks) > len(self.killed_pks): 
+            if len(killed_pks) > len(self.killed_pks):
                 logger.info(f"Killed jobs: {self.killed_pks}")
             self.killed_pks = killed_pks
             self.last_killed_refresh = now
-        
+
     def pre_assign(self, rank, job):
         job_occ = 1.0 / job.node_packing_count
         self.node_occupancy[rank] += job_occ
@@ -105,8 +106,8 @@ class ResourceManager:
         for job in self.job_cache:
             if job.node_packing_count < min_packing_count: continue
             job_occ = 1.0 / job.node_packing_count
-            
-            free_ranks = (i for i in range(1, comm.size) 
+
+            free_ranks = (i for i in range(1, comm.size)
                           if self.node_occupancy[i]+job_occ < 1.0001)
             rank = next(free_ranks, None)
 
@@ -119,7 +120,7 @@ class ResourceManager:
 
         if len(pre_assignments) == 0: return False
 
-        to_acquire = [job.pk for rank in pre_assignments 
+        to_acquire = [job.pk for rank in pre_assignments
                       for job in pre_assignments[rank]]
         acquired_pks = self.job_source.acquire(to_acquire)
         logger.info(f'Acquired lock on {len(acquired_pks)} out of {len(to_acquire)} jobs marked for running')
@@ -128,7 +129,7 @@ class ResourceManager:
         for (rank, pre_jobs) in pre_assignments.items():
             runjobs = []
             for j in pre_jobs:
-                if j.pk in acquired_pks: 
+                if j.pk in acquired_pks:
                     runjobs.append(j)
                     self.job_cache.remove(j)
                 else:
@@ -171,7 +172,7 @@ class ResourceManager:
             logger.debug(f"calling req.test() on rank {rank}'s request...")
             done, msg = req.test(status = stat)
             logger.debug(f"req.test() call completed:\ndone = {done}\nmsg = {msg}")
-            if done: 
+            if done:
                 completed_requests.append((stat.source, msg))
                 assert stat.source == rank
 
@@ -199,7 +200,7 @@ class ResourceManager:
         MPI.Request.waitall(send_reqs)
         logger.debug("serve_requests: all isends completed.")
         return len(requests)
-        
+
     def _handle_ask(self, rank, ask_pks):
         self.refresh_killed_jobs()
         response = {'tag': 'CONTINUE', 'kill_pks': []}
@@ -218,7 +219,7 @@ class ResourceManager:
                          f"occupancy is now {self.node_occupancy[rank]}")
 
         return response['kill_pks'], req
-    
+
     def _handle_dones(self, done_pks):
         for pk in done_pks:
             rank = self.running_locations[pk]
@@ -227,7 +228,7 @@ class ResourceManager:
         BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
         self.job_source.release(done_pks)
         logger.info(f"RUN_DONE: {len(done_pks)} jobs")
-    
+
     @transaction.atomic
     def _handle_errors(self, error_jobs):
         error_pks = [j[0] for j in error_jobs]
@@ -239,7 +240,7 @@ class ResourceManager:
             state_msg = f"nonzero return {retcode}: {tail}"
             job.update_state('RUN_ERROR', state_msg)
         self.job_source.release(error_pks)
-    
+
     def send_exit(self):
         logger.debug(f"send_exit: waiting on all pending recvs")
         active_ranks = list(set(self.running_locations.values()))
@@ -263,7 +264,7 @@ class Master:
         comm.bcast(args.gpus_per_node, root=0)
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
-        
+
         job_source = BalsamJob.source
         job_source.workflow = args.wf_name
         job_source.start_tick()
@@ -344,17 +345,24 @@ class Worker:
         self.start_times = {}
         self.retry_counts = {}
         self.job_specs = {}
-    
+#TODO: This is currently theta specific, and needs to be modified
+        self.all_affinity = list(range(64))
+#END TODO
+        self.used_affinity = []
+
     def _cleanup_proc(self, pk, timeout=0):
         self._kill(pk, timeout=timeout)
         self.processes[pk].communicate()
         self.outfiles[pk].close()
+        # Get the affinity this job was using and free it in the internal list:
+        for used_aff in self.job_specs[pk]['used_affinity']:
+            self.used_affinity.remove(used_aff)
         for d in (self.processes, self.outfiles, self.cuteids, self.start_times,
                   self.retry_counts, self.job_specs):
             del d[pk]
-    
+
     def _check_retcode(self, proc, timeout):
-        try: 
+        try:
             retcode = proc.wait(timeout=timeout)
         except TimeoutExpired:
             retcode = None
@@ -379,13 +387,13 @@ class Worker:
         logmsg = self.log_prefix(pk) + f'nonzero return {retcode}:\n {tail}'
         logger.error(logmsg)
         return tail
-           
+
     def _can_retry(self, pk, retcode):
         if retcode in self.RETRY_CODES:
             elapsed = time.time() - self.start_times[pk]
             retry_count = self.retry_counts[pk]
             if elapsed < self.RETRY_WINDOW and retry_count <= self.MAX_RETRY:
-                logmsg = self.log_prefix(pk) 
+                logmsg = self.log_prefix(pk)
                 logmsg += (f'can retry task (err occured after {elapsed:.2f} sec; '
                           f'attempt {self.retry_counts[pk]}/{self.MAX_RETRY})')
                 logger.error(logmsg)
@@ -407,7 +415,8 @@ class Worker:
         cmd = job_spec['cmd']
         envs = job_spec['envs']
         envscript = job_spec['envscript']
-        
+        required_num_cores = job_spec['required_num_cores']
+
         if envscript:
             args = ' '.join(['source', envscript, '&&', cmd])
             shell = True
@@ -416,10 +425,23 @@ class Worker:
             shell = False
 
         if self.gpus_per_node > 0:
-            idx = list(self.job_specs.keys()).index(pk) 
+            idx = list(self.job_specs.keys()).index(pk)
             gpu_device = idx % self.gpus_per_node
             envs['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
             envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
+
+        # Set the affinity for this process:
+
+        open_affinity = [ cpu for cpu in self.all_affinity if cpu not in self.used_affinity ]
+#TODO: Should this check occur?
+        # if len(open_cpus) < required_num_cores:
+        #     raise Exception("Not enough available cpus")
+        # else:
+# END TODO
+        # Update the affinity:
+        self.job_spec[pk]['used_affinity'] = open_affinity[0:required_num_cores]
+
+
 
         out_name = f'{name}.out'
         logger.info(f"{self.log_prefix(pk)} Popen (shell={shell}):\n{args}")
@@ -428,15 +450,22 @@ class Worker:
         outfile = open(os.path.join(workdir, out_name), 'wb')
         self.outfiles[pk] = outfile
         try:
+            _p = psutil.Process()
+            # Set this job's affinity:
+            _p.cpu_affinity(self.job_spec[pk]['used_affinity'])
             proc = Popen(args, stdout=outfile, stderr=STDOUT,
                          cwd=workdir, env=envs, shell=shell,)
+            # And, reset to all:
+            _p.cpu_affinity([])
         except Exception as e:
             proc = FailedToStartProcess()
             logger.error(self.log_prefix(pk) + f"Popen error:\n{str(e)}\n")
             sleeptime = 0.5 + 3.5*random.random()
             time.sleep(sleeptime)
+        # Update the list of used affinity after a successful launch:
+        self.used_affinity += self.job_spec[pk]['used_affinity']
         self.processes[pk] = proc
-    
+
     def _handle_error(self, pk, retcode):
         tail = self._log_error_tail(pk, retcode)
 
@@ -485,7 +514,7 @@ class Worker:
             else:
                 statuses[pk] = self._handle_error(pk, retcode)
         return statuses
-    
+
     def exit(self):
         all_pks = list(self.processes.keys())
         for pk in all_pks:
