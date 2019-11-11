@@ -440,7 +440,7 @@ class Worker:
         # else:
 # END TODO
         # Update the affinity:
-        self.job_spec[pk]['used_affinity'] = open_affinity[0:required_num_cores]
+        self.job_specs[pk]['used_affinity'] = open_affinity[0:required_num_cores]
 
 
 
