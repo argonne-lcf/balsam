@@ -158,6 +158,7 @@ class ResourceManager:
                 cmd=job.app_cmd,
                 envs=job.get_envs(),
                 envscript=job.envscript,
+                required_num_cores=job.required_num_cores,
             )
             message[job.pk] = job_spec
 
