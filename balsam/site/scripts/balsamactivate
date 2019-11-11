@@ -1,0 +1,60 @@
+#!/bin/bash
+
+[[ "$0" = *"balsamactivate"* ]] && echo "Error: Must source this script. Run 'source balsamactivate' instead of 'balsamactivate'" && exit
+
+py_version=$(python -c 'from __future__ import print_function; import sys; print(sys.version_info.major, sys.version_info.minor)')
+major=$(echo $py_version | cut -d' ' -f1)
+minor=$(echo $py_version | cut -d' ' -f2)
+if [[ $major -lt 3 || $minor -lt 6 ]]; then
+    echo "Balsam requires Python >= 3.6; current version is: $major.$minor"
+    return 1
+fi
+
+known_list=$(balsam which --list 2> /dev/null)
+if [ $? -ne 0 ]
+then
+    echo "Balsam is not configured properly; please check output of 'balsam which --list'"
+    return 1
+fi
+
+USAGE="Usage: balsamactivate {db_name}"
+USAGE+=$'\nKnown databases:\n'
+USAGE+=$known_list
+USAGE+=$'\nUse "balsam init" to create a new DB, or provide an existing DB path to balsamactivate'
+
+if [ $# -ne 1 ]
+then
+    echo "$USAGE"
+    return 1
+fi
+
+# Not a dirname; search index
+if [ ! -d $1 ]
+then
+    db_path=$(balsam which --name $1)
+    if [ $? -ne 0 ]
+    then
+        return 1
+    fi
+else
+    if [ ! -f $1/server-info ]
+    then
+        echo "No Balsam DB found in dir $1"
+        return 1
+    fi
+    db_path=$(readlink -f $1)
+    temp=$(BALSAM_DB_PATH=$db_path balsam which --list 2> /dev/null)
+fi
+
+export BALSAM_DB_PATH=$db_path
+if [ ! -z "$OLD_PS1" ]
+then
+    export PS1=$OLD_PS1
+    unset OLD_PS1
+fi
+export OLD_PS1=$PS1
+export PS1="[BalsamDB: $(basename $1)] $PS1"
+
+balsam server --connect
+
+return 0

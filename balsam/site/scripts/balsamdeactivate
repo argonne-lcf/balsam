@@ -1,0 +1,18 @@
+#!/bin/bash
+
+[[ "$0" = *"balsamdeactivate"* ]] && echo "Error: Must source this script. Run 'source balsamdeactivate' instead of 'balsamdeactivate'" && exit
+
+if [ ! -z "$OLD_PS1" ]
+then
+    export PS1=$OLD_PS1
+    unset OLD_PS1
+fi
+
+if [ ! -z "$BALSAM_DB_PATH" ]
+then
+    unset BALSAM_DB_PATH
+    return 0
+else
+    echo "No Balsam DB is currently active"
+    return 1
+fi

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+[[ "$0" = *"bcd"* ]] && echo "Error: Must source this script. Run '. bcd <id>' instead of 'bcd <id>'" && exit
+
+USAGE="Usage: . bcd {id substring}"
+
+if [ $# -ne 1 ]
+then
+    echo "$USAGE"
+    return 1
+fi
+
+dir=$(python -c "from balsam.core.models import BalsamJob;print(BalsamJob.objects.get(job_id__contains=\"$1\").working_directory)" 2>&1)
+
+if [ $? -ne 0 ]
+then
+    echo "Could not match a job to ID $1"
+    return 1
+else
+    if [ -d $dir ]
+    then
+        cd $dir
+    else
+        echo "The job directory does not exist yet: $dir"
+    fi
+fi
