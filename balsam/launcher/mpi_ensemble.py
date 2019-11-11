@@ -453,7 +453,7 @@ class Worker:
         try:
             _p = psutil.Process()
             # Set this job's affinity:
-            _p.cpu_affinity(self.job_spec[pk]['used_affinity'])
+            _p.cpu_affinity(self.job_specs[pk]['used_affinity'])
             proc = Popen(args, stdout=outfile, stderr=STDOUT,
                          cwd=workdir, env=envs, shell=shell,)
             # And, reset to all:
@@ -464,7 +464,7 @@ class Worker:
             sleeptime = 0.5 + 3.5*random.random()
             time.sleep(sleeptime)
         # Update the list of used affinity after a successful launch:
-        self.used_affinity += self.job_spec[pk]['used_affinity']
+        self.used_affinity += self.job_specs[pk]['used_affinity']
         self.processes[pk] = proc
 
     def _handle_error(self, pk, retcode):
