@@ -1,5 +1,3 @@
-# These must come before any other imports
-# --------------
 import argparse
 import sys
 from balsam.scripts.cli_commands import newapp,newjob,newdep,ls,modify,rm
@@ -47,8 +45,10 @@ def make_parser():
     subparsers = parser.add_subparsers(title="Command line interface")
 
 
-    # ADD APP
-    # --------
+    parser_activate = subparsers.add_parser('activate', help="Activate a Balsam site")
+    parser_activate.set_defaults(func=activate)
+    parser_activate.add_argument('site', help="Path or unique string identifying Site")
+
     parser_app = subparsers.add_parser('app',
                                        help="add a new application definition",
                                        description="add a new application definition",
@@ -295,7 +295,8 @@ def make_parser():
     # INIT
     # --------
     parser_init = subparsers.add_parser('init', help="Create new balsam DB")
-    parser_init.add_argument('path', help="Path to Balsam DB directory")
+    parser_init.add_argument('site-path', help="Path to Balsam DB directory")
+    parser_init.add_argument('site-type', choices=['db', 'remote-db', 'web'], default='db', nargs='?')
     parser_init.set_defaults(func=init)
     # -----------------
 

@@ -10,10 +10,11 @@ if [[ $major -lt 3 || $minor -lt 6 ]]; then
     return 1
 fi
 
-known_list=$(balsam which --list 2> /dev/null)
+known_list=$(balsam which --list 2>&1)
 if [ $? -ne 0 ]
 then
-    echo "Balsam is not configured properly; please check output of 'balsam which --list'"
+    echo "Balsam is not configured properly; please see output of 'balsam which --list':"
+    echo "$known_list"
     return 1
 fi
 
@@ -27,6 +28,11 @@ then
     echo "$USAGE"
     return 1
 fi
+
+echo "***************************************************"
+echo "  'source balsamactivate <DB>' is deprecated"
+echo "  From now on, just use 'balsam activate <DB>'!"
+echo "***************************************************"
 
 # Not a dirname; search index
 if [ ! -d $1 ]

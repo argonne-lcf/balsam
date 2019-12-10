@@ -1,14 +1,33 @@
 import os
-import sys
 import random
 import time
 
-class InfoLock:
+class SignalReceived(Exception): pass
+
+def raise_handler(signum, stack):
+    raise SignalReceived(f"Killed by signal {signum}")
+
+def directory_locked_atomic(dir_path):
+
+    def decorator(func):
+        def decorated_func(*args, **kwargs):
+            with DirLock(dir_path):
+                return func(*args, **kwargs)
+        return decorated_func
+
+    return decorator
+
+class DirLock:
+    """
+    Use as context manager
+    with DirLock("/folder/to/lock"):
+        ...
+    """
     EXPIRATION_SECONDS = 20
 
     def __init__(self, path):
         assert os.path.isdir(path)
-        self.lock_path = os.path.join(path, '.infolock')
+        self.lock_path = os.path.join(path, '.DirLock')
 
     def check_stale(self):
         try: mtime = os.path.getmtime(self.lock_path)
@@ -43,7 +62,10 @@ class InfoLock:
         except FileNotFoundError: pass
             
     def __enter__(self):
+        self.term_handler = signal.getsignal(signal.SIGTERM)
+        signal.signal(signal.SIGTERM, raise_handler)
         self.acquire_lock()
     
     def __exit__(self, exc_type, exc_value, traceback):
         self.release_lock()
+        signal.signal(signal.SIGTERM, self.term_handler)

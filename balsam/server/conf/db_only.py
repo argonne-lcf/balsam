@@ -31,6 +31,8 @@ def set_database(
         'timezone': 'UTC',
     }
 ):
+    from django.conf import settings
+    from django import db
     global DATABASES
     db = dict(
         ENGINE=engine,
@@ -43,8 +45,10 @@ def set_database(
         CONN_MAX_AGE=conn_max_age,
     )
     DATABASES = {'default': db}
-    os.environ.setdefault(
-        'DJANGO_SETTINGS_MODULE',
-        'balsam.server.conf.db_only'
-    )
-    django.setup()
+    if not settings.configured:
+        os.environ.setdefault(
+            'DJANGO_SETTINGS_MODULE',
+            'balsam.server.conf.db_only'
+        )
+        django.setup()
+    db.connections.close_all()

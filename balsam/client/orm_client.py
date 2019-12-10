@@ -2,14 +2,15 @@ from balsam.server.conf import db_only
 from .client import ClientAPI
 
 class ORMClient(ClientAPI):
-
     def __init__(
         self,
-        site_id,
         user,
-        passwd,
+        password,
+        site_id,
+        site_path,
         host,
         port,
+        rel_db_path='balsamdb',
         db_name="balsam",
         engine='django.db.backends.postgresql',
         conn_max_age=60,
@@ -24,18 +25,59 @@ class ORMClient(ClientAPI):
         Initialize Django with a settings module for ORM usage only
         """
         db_only.set_database(
-            user, passwd, host, port,
+            user, password, host, port,
             db_name, engine, conn_max_age, db_options
         )
         from balsam.server import models
         self.DJANGO_MODELS = models.MODELS
-        self._site = self.DJANGO_MODELS['Site'].get(pk=site_id)
+        self.user = user
+        self.password = password
+        self.site_path = site_path
+        self.site_id = site_id
+        self.host = host
+        self.port = port
+        self.db_name = db_name
+        self.engine = engine
+        self.conn_max_age = conn_max_age
+        self.db_options = db_options
+        self.rel_db_path = rel_db_path
+
+    def dict_config(self):
+        d = {
+            "user": self.user,
+            "password": self.password,
+            "site_id": self.site_id,
+            "host": self.host,
+            "port": self.port,
+            "db_name": self.db_name,
+            "engine": self.engine,
+            "conn_max_age": self.conn_max_age,
+            "db_options": self.db_options,
+            "rel_db_path": self.rel_db_path,
+        }
+        return d
+
+    @property
+    def site(self):
+        if self._site is None:
+            self._site = self.DJANGO_MODELS['Site'].get(pk=site_id)
+        return self._site
 
     def _get_django_model(self, model_name):
         model = self.DJANGO_MODELS.get(model_name)
         if model is None:
             raise ValueError(f'Invalid model_name {model_name}')
         return model
+
+    def set_host_port(self, host, port):
+        self.host = host
+        self.port = port
+        db_only.set_database(
+            self.user, self.password,
+            host, port,
+            self.db_name, self.engine,
+            self.conn_max_age, self.db_options
+        )
 
     def list(
         self, model_name, field_names, 
@@ -101,3 +143,5 @@ class ORMClient(ClientAPI):
         Starts daemon heartbeat thread to refresh lock
         """
         raise NotImplementedError
+
+ClientAPI._class_registry['ORMClient'] = ORMClient
