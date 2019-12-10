@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import click
 
-from balsam.site import conf, site_index
+from balsam.site import conf
 
 def handover_to_bash(site_path):
     """
@@ -12,28 +12,26 @@ def handover_to_bash(site_path):
     """
     os.environ['BALSAM_SHELL']='1'
     os.environ['OLD_PS1']=os.environ.get('PS1', '')
-
-    bashrc_path = Path.home() / '.bashrc'
     completion_path = Path(shutil.which('balsam')).parent / 'completion.sh'
 
     with tempfile.NamedTemporaryFile('w+', delete=False) as rcfile:
-        if bashrc_path.is_file():
-            rcfile.write(f'source {bashrc_path.as_posix()}\n')
-
         site_abbrev = f'{site_path.parent.name}/{site_path.name}'
         rcfile.write(f'export PS1="[{site_abbrev}] $OLD_PS1"\n')
-
         if completion_path.is_file():
             rcfile.write(f'source {completion_path.as_posix()}')
-
         rcfile.flush()
         os.execvp('/bin/bash', ['/bin/bash', '--rcfile', rcfile.name])
 
+def validate_site_path(ctx, param, value):
+    path = Path(value).resolve()
+    if path.joinpath('settings.py').is_file():
+        return path
+    raise click.BadParameter(f'{path} is not a valid Balsam site directory')
 
 @click.command()
-@click.argument('site')
-def activate(site):
-    """Switch the Balsam context to the given SITE"""
+@click.argument('site-path', type=click.Path(writable=True), callback=validate_site_path)
+def activate(site_path):
+    """Switch the Balsam context to the given SITE-PATH"""
 
     if os.environ.get('BALSAM_SHELL'):
         raise click.UsageError(
@@ -41,7 +39,6 @@ def activate(site):
             "Please use `exit` to quit the current environment, then re-activate."
         )
 
-    site_path = site_index.lookup(site)
     os.environ['BALSAM_SITE_PATH'] = str(site_path)
     conf.client.ensure_connection()
-    handover_to_bash(Path(site))
+    handover_to_bash(site_path)
