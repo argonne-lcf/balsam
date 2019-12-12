@@ -1,5 +1,5 @@
 from balsam import site
-from balsam.site.service.util import file_watcher
+from .util import file_watcher
 import threading
 
 FILE_WATCHER_DELAY = 2

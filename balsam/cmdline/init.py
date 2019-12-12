@@ -23,4 +23,23 @@ def init():
 @click.argument('path', type=click.Path(writable=True))
 def db(path):
     """Inititialize a site at PATH with local database"""
-    click.echo("DB: %s" % path)
+    site_path = Path(site_path)
+    try:
+        client = ORMClient.from_yaml(site_path)
+    except FileNotFoundError:
+        new_db = True
+    else:
+        new_db = False
+
+    if new_db:
+        client = pg.create_new_db(site_path, rel_db_path)
+    else:
+        client.ensure_connection()
+
+    verb = 'created' if new_db else 'migrated'
+    client.run_migrations(client)
+    banner(f"""
+        Successfully {verb} Balsam DB at: {site_path}
+        Use `source balsamactivate {site_path.name}` to begin working.
+        """
+    )

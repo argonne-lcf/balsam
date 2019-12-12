@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 import logging
 import psycopg2
+import yaml
 
 MIN_VERSION = (10,0,0)
 POSTGRES_MSG = \
@@ -37,6 +38,44 @@ def identify_hostport():
     host = socket.gethostname()
     port = identify_free_port()
     return (host, port)
+
+def create_new_db(site_path, rel_db_path='balsamdb', db_name='balsam', pwfile='server-info'):
+    """
+    Create & start a new PostgresDB cluster inside `site_path.joinpath(rel_db_path)`
+    A DB named `db_name` is created. If `pwfile` given, write DB credentials to
+    `site_path/pwfile`.  Returns a dict containing client credentials/connection
+    info.
+    """
+    version_check()
+
+    site_path=Path(site_path).absolute()
+    db_path = site_path / rel_db_path
+
+    superuser, password = init_db_cluster(db_path)
+    host, port = identify_hostport()
+    mutate_conf_port(db_path, port)
+
+    client = dict(
+        user=superuser,
+        password=password,
+        site_id=0,
+        site_path=site_path,
+        host=host,
+        port=port,
+        rel_db_path=rel_db_path,
+    )
+
+    if pwfile:
+        with open(site_path.joinpath(pwfile), 'w') as fp:
+            yaml.dump(client, fp)
+    
+    start_db(db_path)
+    create_database(
+        new_dbname=db_name,
+        **client
+    )
+    return client
+
 
 # *******************************
 # Functions that use a subprocess
@@ -168,7 +207,34 @@ def connections_list(host, port, user, password, **kwargs):
         """)
         return cur.fetchall()
 
-def add_user(new_user, new_password, host, port, user, password, **kwargs):
+def create_user_and_pwfile(new_user, host, port, user, password, pwfile=None):
+    """
+    Create new Postgres user `new_user` and auto-generated
+    token for the database at `host:port`.  A pwfile
+    containing the DB credentials is written for transfer to the new user
+    """
+    token = make_token()
+    pg_add_user(new_user, token, host, port, user, password)
+
+    if pwfile is None:
+        pwfile = f'{new_user}-info.yml'
+
+    with open(pwfile, 'w') as fp:
+        yaml.dump(dict(
+            user=new_user,
+            password=token,
+            host=host,
+            port=port,
+        ))
+    banner(
+        f"Created new Postgres user: data in {fp.name}.\n"
+        f"Protect this file in transit to {username}! "
+        f"It contains the token necessary to reach the DB. "
+        f"The new user can now create Balsam endpoints using the command: \n"
+        f"`balsam init --remote-db {fp.name}`"
+    )
+
+def pg_add_user(new_user, new_password, host, port, user, password):
     with PgCursor(host, port, user, password) as cur:
         cur.execute(f'''
         CREATE ROLE {new_user} WITH LOGIN PASSWORD '{new_password}'; \

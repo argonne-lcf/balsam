@@ -23,7 +23,7 @@ def handover_to_bash(site_path):
         os.execvp('/bin/bash', ['/bin/bash', '--rcfile', rcfile.name])
 
 def validate_site_path(ctx, param, value):
-    path = Path(value).resolve()
+    path = Path(value).expanduser().resolve()
     if path.joinpath('settings.py').is_file():
         return path
     raise click.BadParameter(f'{path} is not a valid Balsam site directory')
@@ -33,7 +33,7 @@ def validate_site_path(ctx, param, value):
 def activate(site_path):
     """Switch the Balsam context to the given SITE-PATH"""
 
-    if os.environ.get('BALSAM_SHELL'):
+    if os.environ.get('BALSAM_SHELL') is not None:
         raise click.UsageError(
             "You cannot activate inside an existing Balsam subshell. " 
             "Please use `exit` to quit the current environment, then re-activate."
@@ -41,4 +41,5 @@ def activate(site_path):
 
     os.environ['BALSAM_SITE_PATH'] = str(site_path)
     conf.client.ensure_connection()
+    conf.ensure_service()
     handover_to_bash(site_path)

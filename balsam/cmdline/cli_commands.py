@@ -7,22 +7,6 @@ import sys
 
 import django
 
-def activate(site):
-    if os.environ.get('BALSAM_SHELL') is not None:
-        print('Already in a Balsam subshell. Exit this one before entering a new one.', file=sys.stderr)
-        sys.exit(1)
-
-    os.environ['BALSAM_SHELL']='1'
-    os.environ['BALSAM_SITE']='/path/foo'
-
-    with tempfile.NamedTemporaryFile('w+', delete=False) as rcfile:
-        bashrc_path = Path.home() / '.bashrc'
-        if bashrc_path.is_file():
-            rcfile.write(f'source {bashrc_path.as_posix()}\n')
-        rcfile.write(f'export PS1="($BALSAM_SITE) $PS1"\n')
-        rcfile.flush()
-        os.execvp('/bin/bash', ['/bin/bash', '--rcfile', rcfile.name])
-
 def ls_procs(keywords):
     if type(keywords) == str: keywords = [keywords]
 

@@ -1,83 +1,49 @@
-from balsam.server.conf import db_only
+import sys
+from django import db
+from django.core.management import call_command
+
 from .client import ClientAPI
 
-class ORMClient(ClientAPI):
-    def __init__(
-        self,
-        user,
-        password,
-        site_id,
-        site_path,
-        host,
-        port,
-        rel_db_path='balsamdb',
-        db_name="balsam",
-        engine='django.db.backends.postgresql',
-        conn_max_age=60,
-        db_options={
-            'connect_timeout': 30,
-            'client_encoding': 'UTF8',
-            'default_transaction_isolation': 'read committed',
-            'timezone': 'UTC',
-        },
-    ):
-        """
-        Initialize Django with a settings module for ORM usage only
-        """
-        db_only.set_database(
-            user, password, host, port,
-            db_name, engine, conn_max_age, db_options
-        )
-        from balsam.server import models
-        self.DJANGO_MODELS = models.MODELS
-        self.user = user
-        self.password = password
-        self.site_path = site_path
-        self.site_id = site_id
-        self.host = host
-        self.port = port
-        self.db_name = db_name
-        self.engine = engine
-        self.conn_max_age = conn_max_age
-        self.db_options = db_options
-        self.rel_db_path = rel_db_path
-
-    def dict_config(self):
-        d = {
-            "user": self.user,
-            "password": self.password,
-            "site_id": self.site_id,
-            "host": self.host,
-            "port": self.port,
-            "db_name": self.db_name,
-            "engine": self.engine,
-            "conn_max_age": self.conn_max_age,
-            "db_options": self.db_options,
-            "rel_db_path": self.rel_db_path,
-        }
-        return d
+class DjangoORMClient(ClientAPI):
+    _django_models = None
 
     @property
     def site(self):
         if self._site is None:
-            self._site = self.DJANGO_MODELS['Site'].get(pk=site_id)
+            self._site = self._django_models['Site'].get(pk=site_id)
         return self._site
 
     def _get_django_model(self, model_name):
-        model = self.DJANGO_MODELS.get(model_name)
+        if self._django_models is None:
+            from balsam.server import models
+            self._django_models = models.MODELS
+        model = self._django_models.get(model_name)
         if model is None:
             raise ValueError(f'Invalid model_name {model_name}')
         return model
 
-    def set_host_port(self, host, port):
-        self.host = host
-        self.port = port
-        db_only.set_database(
-            self.user, self.password,
-            host, port,
-            self.db_name, self.engine,
-            self.conn_max_age, self.db_options
-        )
+    def test_connection(self, raises=False):
+        """
+        Returns True if client can reach Job DB.
+        If raises=False, will supress db.OperationalError
+        """
+        db.connections.close_all()
+        Job = self._django_models['Job']
+        try:
+            c = Job.objects.count()
+        except db.OperationalError:
+            if raises: raise
+            return False
+        else:
+            return True
+
+    def run_migrations(self):
+        """
+        Run Django migrations through an ORMClient
+        """
+        isatty = sys.stdout.isatty()
+        call_command('migrate', interactive=isatty, verbosity=2)
+        self.test_connection(raises=True)
 
     def list(
         self, model_name, field_names, 
@@ -115,7 +81,7 @@ class ORMClient(ClientAPI):
         """
         Create from list of instances
         """
-        model = self.DJANGO_MODELS.get(model_name)
+        model = self._django_models.get(model_name)
         objs = [model(**instance_fields) for instance_fields in instances]
 
     def update(self, instances, fields):
@@ -143,5 +109,3 @@ class ORMClient(ClientAPI):
         Starts daemon heartbeat thread to refresh lock
         """
         raise NotImplementedError
-
-ClientAPI._class_registry['ORMClient'] = ORMClient
