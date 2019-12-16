@@ -39,11 +39,11 @@ def identify_hostport():
     port = identify_free_port()
     return (host, port)
 
-def create_new_db(site_path, rel_db_path='balsamdb', db_name='balsam', pwfile='server-info'):
+def create_new_db(site_path, rel_db_path='balsamdb', db_name='balsam', pwfile='client.yml'):
     """
     Create & start a new PostgresDB cluster inside `site_path.joinpath(rel_db_path)`
     A DB named `db_name` is created. If `pwfile` given, write DB credentials to
-    `site_path/pwfile`.  Returns a dict containing client credentials/connection
+    `site_path/pwfile`.  Returns a dict containing credentials/connection
     info.
     """
     version_check()
@@ -55,7 +55,7 @@ def create_new_db(site_path, rel_db_path='balsamdb', db_name='balsam', pwfile='s
     host, port = identify_hostport()
     mutate_conf_port(db_path, port)
 
-    client = dict(
+    pw_dict = dict(
         user=superuser,
         password=password,
         site_id=0,
@@ -67,14 +67,14 @@ def create_new_db(site_path, rel_db_path='balsamdb', db_name='balsam', pwfile='s
 
     if pwfile:
         with open(site_path.joinpath(pwfile), 'w') as fp:
-            yaml.dump(client, fp)
+            yaml.dump(pw_dict, fp)
     
     start_db(db_path)
     create_database(
         new_dbname=db_name,
-        **client
+        **pw_dict
     )
-    return client
+    return pw_dict
 
 
 # *******************************

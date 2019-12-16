@@ -1,7 +1,4 @@
 import sys
-from django import db
-from django.core.management import call_command
-
 from .client import ClientAPI
 
 class DjangoORMClient(ClientAPI):
@@ -27,6 +24,7 @@ class DjangoORMClient(ClientAPI):
         Returns True if client can reach Job DB.
         If raises=False, will supress db.OperationalError
         """
+        from django import db
         db.connections.close_all()
         Job = self._django_models['Job']
         try:
@@ -41,6 +39,7 @@ class DjangoORMClient(ClientAPI):
         """
         Run Django migrations through an ORMClient
         """
+        from django.core.management import call_command
         isatty = sys.stdout.isatty()
         call_command('migrate', interactive=isatty, verbosity=2)
         self.test_connection(raises=True)

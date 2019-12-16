@@ -20,6 +20,16 @@ class SiteConfiguration:
         self._site_path = path
         return self._site_path
 
+    @site_path.setter
+    def site_path(self, path):
+        path = path.expanduser().resolve()
+        if not path.is_dir():
+            raise FileNotFoundError(f'{path} is not an existing directory')
+
+        self._site_path = path
+        self._settings_module = None
+        self._client = None
+
     @property
     def settings_module(self):
         if self._settings_module is not None:

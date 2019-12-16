@@ -1,3 +1,3 @@
-from .site_conf import SiteConfiguration
+from .config import SiteConfiguration
 conf = SiteConfiguration()
 __all__ = ['conf']

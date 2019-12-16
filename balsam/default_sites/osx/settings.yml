@@ -1,0 +1,34 @@
+mpirun: 
+    template: balsam.platform.mpirun.aprun_xc40
+    defaults:
+        num_nodes: 1
+        ranks_per_node: 1
+client:
+    type: PostgresDjangoORMClient
+    host: 
+    port:
+    auto_port: True
+
+job_template:
+    template: balsam.platform.job_templates.theta
+    defaults:
+        project: datascience
+        queues: 
+            - default:
+                max_queued: 20
+                min_nodes: 128
+                max_nodes: 4096
+            - debug-cache-quad:
+                max_queueud: 1
+                min_nodes: 1
+                max_nodes: 8
+
+compute_node: balsam.platform.compute_node.theta
+scheduler: balsam.platform.scheduler.cobalt
+service:
+    transition_threads: 5
+    job_source: None
+    status_updater:
+        type: balsam.service.zeromq_updater
+        host: thetalogin2
+        port: 12345

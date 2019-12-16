@@ -1,9 +1,9 @@
 from balsam import __version__
 import click
 
-from . import init
-from . import ls
-from . import activate
+from balsam.cmdline import init
+from balsam.cmdline import ls
+from balsam.cmdline import activate
 
 # Monkey-patch make_default_short_help: cut off after first line
 _old_shorthelp = click.utils.make_default_short_help
@@ -36,3 +36,6 @@ LOAD_COMMANDS = [
 
 for cmd in LOAD_COMMANDS:
     main.add_command(cmd)
+
+if __name__ == "__main__":
+    main()
