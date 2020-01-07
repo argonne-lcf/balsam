@@ -27,6 +27,7 @@ class SiteConfiguration:
             raise FileNotFoundError(f'{path} is not an existing directory')
 
         self._site_path = path
+        os.environ['BALSAM_SITE_PATH'] = self._site_path
         self._settings_module = None
         self._client = None
 
