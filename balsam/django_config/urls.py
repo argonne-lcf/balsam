@@ -1,8 +1,9 @@
 from django.conf.urls import url,include
-from balsam.core import views as balsam_views
-from balsam.core import urls as balsam_urls
+from balsam.django_config import views
+from balsam.core import views as core_views
+from balsam.core import urls as core_urls
 
 urlpatterns = [
-    url(r'^$', balsam_views.home_page, name="home"),
-    url(r'^balsam/', include(balsam_urls)),
+    url(r'^$', views.index, name="home"),
+    url(r'^balsam/', include(core_urls)),
 ]

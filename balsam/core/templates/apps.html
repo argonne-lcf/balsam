@@ -1,4 +1,42 @@
-{% extends 'base.html' %}
+{% extends 'base_table.html' %}
 {% block content %}
+<header class="masthead mb-auto">
+    <div class="inner">
+      <h3 class="masthead-brand"> [{{ env_name }}] </h3>
+      <nav class="nav nav-masthead justify-content-center">
+        <a class="nav-link" href="{% url 'home' %}">Home</a>
+        <a class="nav-link active" href="#">Applications</a>
+        <a class="nav-link" href="{% url 'jobs' %}">Jobs</a>
+      </nav>
+    </div>
+</header>
+
 <h1 class="h1 text-center"> ApplicationDefinition Table </h1>
+
+<table id="example" class="table-dark table-striped table-bordered dataTable" style="width: 100%;" role="grid" aria-describedby="example_info">
+    <thead><tr>
+        <th>id</th>
+        <th>name</th>
+        <th>description</th>
+        <th>executable</th>
+        <th>preprocess</th>
+        <th>postprocess</th>
+        <th>envscript</th>
+    </tr></thead>
+    <tbody>
+        {% for app in apps %}
+        <tr>
+            <td><a href="{% url 'edit_app' app.id %}">{{ app.id }}</a></td>
+            <td>{{ app.name }}</td>
+            <td>{{ app.description }}</td>
+            <td>{{ app.executable }}</td>
+            <td>{{ app.preprocess }}</td>
+            <td>{{ app.postprocess }}</td>
+            <td>{{ app.envscript }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a class="btn btn-success btn-dark" data-toggle="collapse" href="{% url 'add_app' %}" role="button"> New App </a>
 {% endblock %}

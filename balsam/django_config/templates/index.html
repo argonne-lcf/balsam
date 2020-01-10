@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<header class="masthead mb-auto">
+    <div class="inner">
+      <h3 class="masthead-brand"> [{{ env_name }}] </h3>
+      <nav class="nav nav-masthead justify-content-center">
+        <a class="nav-link active" href="#">Home</a>
+        <a class="nav-link" href="{% url 'apps' %}">Applications</a>
+        <a class="nav-link" href="{% url 'jobs' %}">Jobs</a>
+      </nav>
+    </div>
+</header>
+
+<main role="main" class="inner cover">
+    <img src="/static/logo_small3.png" alt="balsam logo" width="100px">
+
+    <h1 class="cover-heading">Balsam DB: [{{ env_name }}]</h1>
+    <p class="lead">These pages will help you navigate your Balsam DB of jobs and applications.</p>
+    {{ status_text |safe }}
+</main>
+
+{% endblock %}
