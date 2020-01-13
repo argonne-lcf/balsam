@@ -29,18 +29,34 @@ class SchedulerInterface(object):
         return self._username
     
     def submit(self, script_path, project, queue, num_nodes, time_minutes):
+        """
+        Submit the script at `script_path` to a local job queue.
+        Returns scheduler ID of the submitted job.
+        """
         raise NotImplementedError
     
     def get_statuses(self):
+        """
+        Returns list of JobStatus for each job belonging to current user
+        """
         raise NotImplementedError
 
     def delete_job(self, scheduler_id):
+        """
+        Deletes the batch job matching `scheduler_id`
+        """
         raise NotImplementedError
 
     def get_site_nodelist(self):
+        """
+        Returns a list of NodeWindows on the system
+        """
         raise NotImplementedError
 
     def check_queues(self):
+        """
+        Returns list of JobStatus for all queued jobs on the system
+        """
         raise NotImplementedError
 
 

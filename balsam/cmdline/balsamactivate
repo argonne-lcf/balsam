@@ -6,12 +6,13 @@ _py_resolve_path ()
 {
     python -c "import os; print(os.path.abspath(\"$1\"))"
 }
-_resolver=$(which readlink -f || _py_resolve_path)
 
 _py_basename ()
 {
     python -c "import os; print(os.path.basename(\"$1\"))"
 }
+
+_resolver=$(which readlink -f || _py_resolve_path)
 _get_basename=$(which basename || _py_basename)
 
 _setup_env ()

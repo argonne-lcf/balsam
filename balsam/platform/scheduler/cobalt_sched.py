@@ -30,19 +30,21 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     
     status_fields = {
         'id' : 'JobID',
-        'time_remaining' : 'TimeRemaining',
-        'wall_time' : 'WallTime',
+        'time_remaining_min' : 'TimeRemaining',
+        'wall_time_min' : 'WallTime',
         'state' : 'State',
         'queue' : 'Queue',
         'nodes' : 'Nodes',
         'project' : 'Project',
         'command' : 'Command',
+        'user': 'User',
+        'job_name' : 'JobName',
     }
     field_maps = {
         'id' : lambda id: int(id),
         'nodes' : lambda n: int(n)
-        'time_remaining' : parse_cobalt_time_minutes,
-        'wall_time' : parse_cobalt_time_minutes,
+        'time_remaining_min' : parse_cobalt_time_minutes,
+        'wall_time_min' : parse_cobalt_time_minutes,
         'state' : state_map,
     }
 
