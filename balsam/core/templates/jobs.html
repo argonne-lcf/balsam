@@ -11,9 +11,11 @@
     </div>
 </header>
 
-<h1 class="h1 text-center"> ApplicationDefinition Table </h1>
-
-<table id="example" class="table-dark table-striped table-bordered dataTable" style="width: 100%;" role="grid" aria-describedby="example_info">
+<h1 class="h1 text-center"> BalsamJob Table </h1>
+<form action="{% url 'add_job' %}" method="post" >
+REGEX Search:<input type="search" class="form-control-sm">
+</br>
+<table id="db_list" class="table-dark table-striped table-bordered dataTable" style="width: 100%;" role="grid" aria-describedby="example_info">
     <thead><tr>
         <th>id</th>
         <th>workflow</th>
@@ -28,7 +30,7 @@
     <tbody>
         {% for job in jobs %}
         <tr>
-            <td> <a href="{% url 'edit_job' job.pk %}">{{ job.pk |truncatechars:8 }}</a></td>
+            <td><input type="checkbox" name="job_select" value="{{ job.pk }}"> <a href="{% url 'edit_job' job.pk %}">{{ job.pk |truncatechars:8 }}</a></td>
             <td>{{ job.workflow }}</td>
             <td>{{ job.name }}</td>
             <td>{{ job.state }}</td>
@@ -42,5 +44,6 @@
     </tbody>
 </table>
 
-<a class="btn btn-success btn-dark" data-toggle="collapse" href="{% url 'add_job' %}" role="button"> New Job </a>
+<button type="submit" class="btn btn-primary btn-dark" name="new_job" value="new_job"> New Job </button>
+</form>
 {% endblock %}

@@ -33,12 +33,25 @@
     <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
     <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js"></script>
-    <script type="text/javascript" class="init">
-    
-$(document).ready(function() {
-    $('#example').DataTable();
-} );
+    <script type="text/javascript">
+function filterREGEX () {
+    $('#db_list').DataTable().search(
+        $('#global_filter').val(),
+        true,
+        false
+    ).draw();
+}
 
+$(document).ready(function() {
+    $('#db_list').DataTable({
+         "iDisplayLength": 100,
+         "order": [[ 0, "desc" ]]
+      });
+
+    $('#global_filter').on( 'keyup click', function () {
+        filterREGEX();
+    } );
+} );
     </script>
 </head>
 

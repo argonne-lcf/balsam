@@ -1,5 +1,5 @@
 from getpass import getuser
-import os
+import os,json
 from socket import gethostname
 
 from django.shortcuts import render, redirect
@@ -22,8 +22,16 @@ def list_jobs(request):
     env_name = 'NoEnv'
     if 'BALSAM_DB_PATH' in os.environ:
         env_name = os.path.basename(os.environ['BALSAM_DB_PATH'])
+
+    if request.method == 'POST':
+        print(request)
+        print(request.POST)
+
+        print(dir(request.POST))
+        if 'new_job' in request.POST:
+            return redirect('balsam/add_job.html')
+
     jobs = BalsamJob.objects.all()
-    print(len(jobs))
     return render(request, 'jobs.html', {'jobs': jobs, 'env_name': env_name})
 
 
@@ -103,23 +111,36 @@ def add_job(request):
 
     # if this is a POST request we need to process the form data
     if request.method == 'POST':
-        # create a form instance and populate it with data from the request:
-        form = AddBalsamJobForm(request.POST)
-        # check whether it's valid:
-        if form.is_valid():
-            form.save()
-            return redirect('jobs')
+        print(request.POST)
+        # if this POST came from a click on the "jobs" page
+        # need to just create a new form and move on
+        if request.POST.get('new_job'):
+            form = AddBalsamJobForm()
+
+            # check if there were selected jobs for dependencies
+            if 'job_select' in request.POST:
+                print(type(request.POST))
+                print(dir(request.POST))
+                lists = request.POST.lists()
+                selected_job_ids = [ x for x in lists if 'job_select' in x[0]]
+                selected_job_ids = selected_job_ids[0][1]
+                print(selected_job_ids)
+                form.fields['parents'].initial = json.dumps(selected_job_ids)
+        # otherwise, we need to parse the submitted job
         else:
-            for field in form.cleaned_data.keys():
-                form.fields[field].initial = form.cleaned_data[field]
+            # create a form instance and populate it with data from the request
+            form = AddBalsamJobForm(request.POST)
+            # check whether it's valid:
+            if form.is_valid():
+                form.save()
+                return redirect('jobs')
+            else:
+                for field in form.cleaned_data.keys():
+                    form.fields[field].initial = form.cleaned_data[field]
 
     # if a GET (or any other method) we'll create a blank form
     else:
         form = AddBalsamJobForm()
-        if job_id:
-            job = BalsamJob.objects.get(pk=job_id)
-            for field in form.fields:
-                form.fields[field].initial = getattr(job, field)
 
     context['form'] = form
     return render(request, 'add_job.html', context)
