@@ -1,0 +1,24 @@
+from django.urls import path, include
+from rest_framework.schemas import get_schema_view
+
+from knox import views as knox_views
+from .views.knox_auth import LoginView
+from .views.user import UserList, UserDetail
+from .views.main import api_root
+
+
+schema_view = get_schema_view(title="Balsam API")
+
+urlpatterns = [
+    path('', api_root, name='api-root'),
+    path('schema/', schema_view),
+
+    path(r'login/', LoginView.as_view(), name='knox-login'),
+    path(r'logout/', knox_views.LogoutView.as_view(), name='knox-logout'),
+    path(r'logoutall/', knox_views.LogoutAllView.as_view(), name='knox-logoutall'),
+    path(r'api-auth/', include('rest_framework.urls')),
+
+    path('users/', UserList.as_view(), name="user-list"),
+    path('users/<int:pk>', UserDetail.as_view(), name="user-detail"),
+
+]

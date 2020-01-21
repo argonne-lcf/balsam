@@ -134,6 +134,8 @@ def init_db_cluster(db_path, superuser='postgres'):
         fp.write('shared_buffers=2GB # appended from balsam init\n')
         fp.write('synchronous_commit=off # appended from balsam init\n')
         fp.write('wal_writer_delay=400ms # appended from balsam init\n')
+        fp.write("client_encoding = 'UTF8'\n")
+        fp.write("timezone = 'UTC'\n")
 
         # logging
         fp.write('logging_collector=on # appended from balsam init\n')

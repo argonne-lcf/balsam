@@ -17,6 +17,9 @@ balsam/core/migrations/*.py
 !balsam/core/migrations/__init__.py
 build/
 dist/
+planning/
+env/
+dev-db/
 
 experiments
 docs/_build/*
