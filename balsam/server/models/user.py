@@ -8,4 +8,3 @@ class BalsamUserManager(UserManager):
 
 class User(AbstractUser):
     objects = BalsamUserManager()
-    pass

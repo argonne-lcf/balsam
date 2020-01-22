@@ -3,13 +3,13 @@ from django.contrib.postgres.fields import JSONField
 
 class SiteManager(models.Manager):
 
-    def create(self, owner, hostname, site_path):
+    def create(self, owner, hostname, path):
         status = SiteStatus.objects.create()
         policy = SitePolicy.objects.create()
         site = Site(
             owner=owner, 
             hostname=hostname, 
-            site_path=site_path,
+            path=path,
             status=status,
             policy=policy,
             active=True
@@ -44,10 +44,10 @@ class Site(models.Model):
     objects = SiteManager()
 
     class Meta:
-        unique_together = [['hostname', 'site_path']]
+        unique_together = [['hostname', 'path']]
 
     hostname = models.CharField(max_length=128, blank=False, editable=False)
-    site_path = models.CharField(max_length=256, blank=False, editable=False, help_text='root of data dir')
+    path = models.CharField(max_length=256, blank=False, editable=False, help_text='root of data dir')
     active = models.BooleanField(default=True, editable=False, db_index=True)
     heartbeat = models.DateTimeField(auto_now=True)
     globus_endpoint = models.UUIDField(blank=True, null=True)
@@ -73,7 +73,7 @@ class Site(models.Model):
         self.save()
 
     def update(self, **kwargs):
-        fields = ['hostname', 'site_path']
+        fields = ['hostname', 'path']
         update_fields = [f for f in fields if f in kwargs]
         for f in update_fields:
             value = kwargs[f]
@@ -83,4 +83,4 @@ class Site(models.Model):
         return self
 
     def __str__(self):
-        return f'{self.hostname}:{self.site_path}'
+        return f'{self.hostname}:{self.path}'

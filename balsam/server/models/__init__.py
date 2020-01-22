@@ -1,9 +1,9 @@
 import logging
 from .user import User
-from .site import Site
-from .app import App
+from .site import Site, SiteStatus, SitePolicy
+from .app import AppExchange, AppBackend
 from .job import Job, EventLog, JobLock
-from .transfer import TransferItem, TransferTask
+from .transfer import TransferItem
 from .batchjob import BatchJob
 
 logger = logging.getLogger(__name__)
@@ -12,11 +12,13 @@ TIME_FMT = '%m-%d-%y %H:%M:%S.%f'
 MODELS = {
     'User': User,
     'Site': Site,
-    'App': App,
+    'SiteStatus': SiteStatus,
+    'SitePolicy': SitePolicy,
+    'AppExchange': AppExchange,
+    'AppBackend': AppBackend,
     'Job': Job,
     'EventLog': EventLog,
     'JobLock': JobLock,
     'TransferItem': TransferItem,
-    'TransferTask': TransferTask,
     'BatchJob': BatchJob,
 }

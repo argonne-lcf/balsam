@@ -1,7 +1,11 @@
 from django.db import models, transaction
 from django.contrib.postgres.fields import JSONField, ArrayField
+from django.utils import timezone
 from datetime import timedelta
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_TRANSITIONS = {
     'CREATED': ('READY', 'KILLED')
@@ -90,7 +94,8 @@ class JobManager(models.Manager):
 
     def bulk_update_state(self, patch_dict):
         logs = []
-        jobs = list(Job.objects.filter(pk__in=patch_dict))
+        qs = self.get_queryset()
+        jobs = list(qs.filter(pk__in=patch_dict))
         for job in jobs:
             event = job.update_state(
                 **patch_dict[job.pk], 
@@ -110,8 +115,6 @@ class JobManager(models.Manager):
 
 
 class Job(models.Model):
-    class Meta:
-        unique_together = [['site', 'workdir']]
 
     # Metadata
     workdir = models.CharField(
@@ -141,15 +144,19 @@ class Job(models.Model):
         on_delete=models.SET_NULL,
         db_index=True
     )
-    site = models.ForeignKey(
-        'Site',
+    owner = models.ForeignKey(
+        'User',
         null=False,
         editable=False,
         on_delete=models.CASCADE,
-        related_name='sites'
+        related_name='jobs'
     )
 
-    app = models.ForeignKey('App', on_delete=models.CASCADE)
+    app_exchange = models.ForeignKey('AppExchange', on_delete=models.CASCADE)
+    app_backend = models.ForeignKey(
+        'AppBackend', on_delete=models.CASCADE,
+        null=True
+    )
     parameters = JSONField(default=dict)
 
     batch_job = models.ForeignKey('BatchJob', on_delete=models.SET_NULL, null=True, blank=True)
@@ -184,7 +191,7 @@ class Job(models.Model):
     gpus_per_rank = models.IntegerField()
     node_packing_count = models.IntegerField()
 
-    wall_time_minutes = models.IntegerField(
+    wall_time_min = models.IntegerField(
         'Minimum walltime necessary to run the job',
         default=0
     )
@@ -194,6 +201,11 @@ class Job(models.Model):
 
     # Runtime methods like get_envs and app_cmd defined on local (Client) Job model
     # Here, instance methods only deal with state changes to the DB
+    
+    @property
+    def site(self):
+        if self.app_backend_id is not None:
+            return self.app_backend.site
 
     def update_state(self, new_state, message='', timestamp=None, save=True):
         if new_state not in ALLOWED_TRANSITIONS[self.state]:

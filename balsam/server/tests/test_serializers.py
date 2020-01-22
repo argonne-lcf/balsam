@@ -40,12 +40,12 @@ class UserTests(APITestCase):
 
     def test_user_has_owned_sites(self):
         joe = User.objects.create_user(username='Joe', email='joe@aol.com')
-        site_paths = {'/path1', '/path2'}
-        for path in site_paths:
+        paths = {'/path1', '/path2'}
+        for path in paths:
             Site.objects.create(
                 owner=joe,
                 hostname='foo',
-                site_path=path,
+                path=path,
             )
 
         s = UserSerializer(joe)
@@ -56,16 +56,16 @@ class UserTests(APITestCase):
         self.assertSetEqual(set(owned_sites), set(auth_sites))
 
         qs = Site.objects.filter(pk__in=owned_sites)
-        from_db = qs.values_list('site_path', flat=True)
-        self.assertSetEqual(site_paths, set(from_db))
+        from_db = qs.values_list('path', flat=True)
+        self.assertSetEqual(paths, set(from_db))
     
     def test_authorized_users_share_site(self):
         joe = User.objects.create_user(username='Joe', email='joe@aol.com')
         bob = User.objects.create_user(username='Bob')
         sites = (
-            {'owner': joe, 'hostname': 'theta',  'site_path': '/path1'},
-            {'owner': joe, 'hostname': 'theta',  'site_path': '/path2'},
-            {'owner': bob, 'hostname': 'cooley', 'site_path': '/path3'},
+            {'owner': joe, 'hostname': 'theta',  'path': '/path1'},
+            {'owner': joe, 'hostname': 'theta',  'path': '/path2'},
+            {'owner': bob, 'hostname': 'cooley', 'path': '/path3'},
         )
         for s in sites: Site.objects.create(**s)
 
