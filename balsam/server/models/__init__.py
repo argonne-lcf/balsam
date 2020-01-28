@@ -1,6 +1,6 @@
 import logging
 from .user import User
-from .site import Site, SiteStatus, SitePolicy
+from .site import Site, SiteStatus
 from .app import AppExchange, AppBackend
 from .job import Job, EventLog, JobLock
 from .transfer import TransferItem
@@ -13,7 +13,6 @@ MODELS = {
     'User': User,
     'Site': Site,
     'SiteStatus': SiteStatus,
-    'SitePolicy': SitePolicy,
     'AppExchange': AppExchange,
     'AppBackend': AppBackend,
     'Job': Job,

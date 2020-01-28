@@ -1,8 +1,6 @@
-'''Strict API Functional Tests'''
-import os
+'''LiveServer + Balsam Client API-driven tests'''
+
 from django.test import LiveServerTestCase
-from client import api
-import random
 from rest_framework import status
 
 class BalsamClientFT(LiveServerTestCase):
@@ -32,15 +30,6 @@ class BalsamClientFT(LiveServerTestCase):
 class ClientAuthTests(BalsamClientFT):
 
     def test_client_can_register_and_login(self):
-        bob = self.register_client('Bob')
-        userlist = bob.users()
-        self.assertEqual(len(userlist), 1)
-        me = userlist[0]
-        self.assertEqual(me['username'], 'Bob')
-        self.assertEqual(me['owned_sites'], [])
-        self.assertEqual(bob.sites(), [])
-    
-    def test_create_and_view_site(self):
         bob = self.register_client('Bob')
         userlist = bob.users()
         self.assertEqual(len(userlist), 1)

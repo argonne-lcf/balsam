@@ -7,8 +7,11 @@ from django.db import models, transaction
 from django.contrib.postgres.fields import JSONField, ArrayField
 
 class AppManager(models.Manager):
+    def create(self, **kwargs):
+        return self.create_new(**kwargs)
+
     @transaction.atomic
-    def create_new(self, name, description, parameters, backend_dicts, owner, users):
+    def create_new(self, name, description, parameters, backend_dicts, owner, users=[]):
         if self.get_queryset().filter(owner=owner, name=name).exists():
             raise ValueError(f"User {owner.username} already has an App named {name}")
 
@@ -86,7 +89,6 @@ class AppBackend(models.Model):
         'AppExchange',
         related_name='backends',
         blank=True,
-        null=True,
     )
 
     @property
@@ -150,7 +152,7 @@ class AppExchange(models.Model):
         if backend_dicts is not None:
             self.update_backends(backend_dicts)
 
-    @transaction.atomic
-    def delete_app(self):
-        self.delete()
-        AppBackend.objects.filter(exchanges=None).delete()
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            super().delete(*args, **kwargs)
+            AppBackend.objects.filter(exchanges=None).delete()

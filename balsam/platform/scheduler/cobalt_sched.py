@@ -38,6 +38,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         'project' : 'Project',
         'command' : 'Command',
         'user': 'User',
+        'score': 'Score',
         'job_name' : 'JobName',
     }
     field_maps = {

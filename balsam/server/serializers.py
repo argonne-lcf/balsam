@@ -6,7 +6,6 @@ from balsam.server.models import (
     AppExchange,
     AppBackend,
     Site,
-    SitePolicy,
     SiteStatus,
     BatchJob,
     Job,
@@ -32,17 +31,15 @@ class OwnedJobPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
         return Job.objects.filter(owner=user)
 
 
-# SERIALIZERS
-# -----------
+# USER
+# ----
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = User
         fields = (
-            'pk', 'url', 'username', 'password', 'email',
-            'sites', 'apps',
+            'pk', 'url', 'username', 'email', 'sites', 'apps',
         )
     url = serializers.HyperlinkedIdentityField(view_name='user-detail')
-    password = serializers.CharField(max_length=128, write_only=True, required=False)
     sites = serializers.HyperlinkedRelatedField(
         many=True, read_only=True,
         view_name='site-detail'
@@ -56,63 +53,86 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         user = User.objects.create_user(**validated_data)
         return user
 
+# SITE
+# ----
 class SiteStatusSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = SiteStatus
         fields = [
             'num_nodes', 'num_idle_nodes', 'num_busy_nodes',
             'num_down_nodes', 'backfill_windows', 'queued_jobs',
-            'reservations',
         ]
 
-class SitePolicySerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = SitePolicy
-        fields = [
-            'submission_mode', 'max_num_queued', 'min_num_nodes',
-            'max_num_nodes', 'min_wall_time_min', 'max_wall_time_min',
-            'max_total_node_hours', 'node_hours_used',
-        ]
+    backfill_windows = serializers.ListField(
+        child=serializers.ListField(
+            child=serializers.IntegerField(min_value=0),
+            allow_empty=False, min_length=2, max_length=2
+         ), allow_empty=True
+    )
+    queued_jobs = serializers.ListField(
+        child=serializers.DictField(child=serializers.CharField())
+    )
+
+    def validate(self, attrs):
+        num_nodes = attrs['num_nodes']
+        num_idle = attrs['num_idle_nodes']
+        num_busy = attrs['num_busy_nodes']
+        if num_nodes < 1:
+            raise serializers.ValidationError('num_nodes must be at least 1')
+        if num_idle < 0 or num_busy < 0:
+            raise serializers.ValidationError('Cannot have negative node count')
+        if num_idle + num_busy > num_nodes:
+            raise serializers.ValidationError(
+                'num_idle_nodes+num_busy_nodes cannot exceed num_nodes'
+            )
+        for (num_backfill_nodes, _) in attrs['backfill_windows']:
+            if num_backfill_nodes > num_idle:
+                raise serializers.ValidationError(
+                    'Backfill nodes cannot exceed # of idle nodes'
+                )
+        return attrs
 
 class SiteSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Site
-        read_only_fields = ['owner']
+        read_only_fields = ['owner', 'owner_url']
         fields = [
             'pk', 'url', 'hostname', 'path',
-            'heartbeat', 'owner', 'status', 'policy',
-            'apps',
+            'last_refresh', 'owner', 'owner_url', 'status', 'apps',
         ]
 
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
+    owner_url = serializers.HyperlinkedRelatedField(
+        source='owner', read_only=True,
+        view_name='user-detail',
+    )
     status = SiteStatusSerializer()
-    policy = SitePolicySerializer()
     apps = serializers.StringRelatedField(
         many=True, source='registered_app_backends')
 
     def create(self, validated_data):
-        owner = self.context['request'].user
-        site = Site.objects.create(
-            owner = owner,
-            **validated_data
-        )
+        validated_data["owner"] = self.context['request'].user
+        site = Site.objects.create(**validated_data)
         return site
     
     def update(self, instance, validated_data):
-        return instance.update(**validated_data)
+        dat = validated_data
+        instance.update(
+            hostname=dat.get('hostname'),
+            path=dat.get('path'),
+            status=dat.get('status')
+        )
+        return instance
     
     def validate_path(self, value):
-        if not value.startswith('/'):
-            raise serializers.ValidationError(
-                "Must provide absolute path, starting with '/'.")
-        return value
+        path = Path(value)
+        if not path.is_absolute():
+            raise serializers.ValidationError('must be an absolute POSIX path')
+        return path.as_posix()
     
-    def validate_owner(self, value):
-        current_user = self.context['request'].user
-        if current_user in value:
-            raise serializers.ValidationError(
-                "Owner cannot add themselves to authorized_users group")
-        return value
 
+# APP
+# ----
 class AppBackendSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = AppBackend
@@ -173,7 +193,7 @@ class AppSerializer(serializers.HyperlinkedModelSerializer):
     )
     user_urls = serializers.HyperlinkedRelatedField(
         source='users', read_only=True,
-        view_name='user-detail',
+        view_name='user-detail', many=True
     )
 
     def validate_backends(self, value):
@@ -219,6 +239,8 @@ class AppMergeSerializer(serializers.Serializer):
         )
         return app_exchange
 
+# JOB
+# ----
 class EventLogSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = EventLog
@@ -267,12 +289,70 @@ class JobSerializer(serializers.HyperlinkedModelSerializer):
             raise serializers.ValidationError('must be a relative POSIX path')
         return path.as_posix()
 
+# BATCHJOB
+# ---------
+class BatchJobListSerializer(serializers.ListSerializer):
+    def update(self, instance, validated_data):
+        """
+        Bulk partial-update: no creation/deletion/reordering
+        """
+        allowed_pks = instance.values_list('pk', flat=True)
+        patch_list = [
+            patch for patch in validated_data
+            if patch["pk"] in allowed_pks
+        ]
+        BatchJob.objects.bulk_update(patch_list)
+        
 class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = BatchJob
+        list_serializer_class = BatchJobListSerializer
         fields = (
-            'site', 'scheduler_id', 'project', 'queue',
-            'nodes', 'wall_time_min', 'job_mode',
-            'filter_tags', 'state',
-            'start_time', 'end_time'
+            'pk', 'url', 'site', 'site_url',
+            'scheduler_id', 'project', 'queue',
+            'num_nodes', 'wall_time_min', 'job_mode',
+            'filter_tags', 'state', 'status_message',
+            'start_time', 'end_time', 'jobs'
         )
+    # we need "pk" as writeable field for bulk-updates
+    pk = serializers.IntegerField(allow_blank=True)
+    site = OwnedSitePrimaryKeyRelatedField()
+    site_url = serializers.HyperlinkedRelatedField(
+        source='site', read_only=True, view_name='site-detail'
+    )
+    filter_tags = serializers.DictField(
+        child=serializers.CharField(max_length=32)
+    )
+    # Including job URLs may result in fetching millions of rows
+    # Instead, provide a nested URL to access the Job collection:
+    jobs = serializers.HyperlinkedIdentityField(
+        view_name="batchjob-ensemble-list"
+    )
+
+    def create(self, validated_data):
+        dat = validated_data
+        return BatchJob.objects.create(
+            site=dat['site'],
+            project=dat['project'],
+            queue=dat['queue'],
+            num_nodes=dat['num_nodes'],
+            wall_time_min=dat['wall_time_min'],
+            job_mode=dat['job_mode'],
+            filter_tags=dat['filter_tags'],
+        )
+
+    def update(self, instance, validated_data):
+        validated_data.pop('site', None)
+        validated_data.pop('pk', None)
+        instance.update(**validated_data)
+        return instance
+
+    def validate_num_nodes(self, value):
+        if value < 1:
+            raise serializers.ValidationError('num_nodes must be greater than 0')
+        return value
+
+    def validate_wall_time_min(self, value):
+        if value < 1:
+            raise serializers.ValidationError('num_nodes must be greater than 0')
+        return value

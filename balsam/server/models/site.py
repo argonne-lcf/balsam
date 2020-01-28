@@ -3,42 +3,38 @@ from django.contrib.postgres.fields import JSONField
 
 class SiteManager(models.Manager):
 
+    @transaction.atomic
     def create(self, owner, hostname, path):
         status = SiteStatus.objects.create()
-        policy = SitePolicy.objects.create()
         site = Site(
             owner=owner, 
             hostname=hostname, 
             path=path,
             status=status,
-            policy=policy,
-            active=True
         )
         site.save()
         return site
 
 class SiteStatus(models.Model):
-
     num_nodes = models.IntegerField(default=0, help_text="Nodes visible to this Balsam site")
     num_idle_nodes = models.IntegerField(default=0, help_text="Number of idle nodes")
     num_busy_nodes = models.IntegerField(default=0, help_text="Number of nodes currently allocated")
     backfill_windows = JSONField(default=list, help_text="List of (num_nodes, time_minutes) tuples")
     queued_jobs = JSONField(default=list, help_text="List of jobs in the scheduler's queue")
-    reservations = JSONField(default=list, help_text="List of reservations on the system")
 
     @property
     def num_down_nodes(self):
         return self.num_nodes - self.num_idle_nodes - self.num_busy_nodes
 
-class SitePolicy(models.Model):
-    submission_mode = models.CharField(max_length=32)
-    max_num_queued = models.IntegerField(default=0)
-    min_num_nodes = models.IntegerField(default=0)
-    max_num_nodes = models.IntegerField(default=0)
-    min_wall_time_min = models.IntegerField(default=0)
-    max_wall_time_min = models.IntegerField(default=0)
-    max_total_node_hours = models.IntegerField(default=0)
-    node_hours_used = models.IntegerField(default=0)
+    def update(self, **kwargs):
+        keys = [
+            'num_nodes', 'num_idle_nodes', 'num_busy_nodes',
+            'backfill_windows', 'queued_jobs'
+        ]
+        d = {k:kwargs[k] for k in keys if k in kwargs}
+        self.__dict__.update(d)
+        self.save()
+        return self
 
 class Site(models.Model):
     objects = SiteManager()
@@ -46,11 +42,10 @@ class Site(models.Model):
     class Meta:
         unique_together = [['hostname', 'path']]
 
-    hostname = models.CharField(max_length=128, blank=False, editable=False)
-    path = models.CharField(max_length=256, blank=False, editable=False, help_text='root of data dir')
-    active = models.BooleanField(default=True, editable=False, db_index=True)
-    heartbeat = models.DateTimeField(auto_now=True)
-    globus_endpoint = models.UUIDField(blank=True, null=True)
+    hostname = models.CharField(max_length=128, blank=False)
+    path = models.CharField(max_length=256, blank=False, help_text='Absolute path to site directory')
+    last_refresh = models.DateTimeField(auto_now=True)
+    creation_date = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(
         'User',
         related_name='sites',
@@ -62,25 +57,22 @@ class Site(models.Model):
         SiteStatus,
         on_delete=models.CASCADE,
     )
-    policy = models.OneToOneField(
-        SitePolicy,
-        on_delete=models.CASCADE,
-    )
 
     @transaction.atomic
-    def deactivate(self):
-        self.active = False
+    def update(self, hostname=None, path=None, status=None):
+        if hostname is not None:
+            self.hostname = hostname
+        if path is not None:
+            self.path = path
         self.save()
-
-    def update(self, **kwargs):
-        fields = ['hostname', 'path']
-        update_fields = [f for f in fields if f in kwargs]
-        for f in update_fields:
-            value = kwargs[f]
-            setattr(self, f, kwargs[f])
-        if update_fields:
-            self.save(update_fields=update_fields)
+        if status is not None:
+            self.status.update(**status)
         return self
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            super().delete(*args, **kwargs)
+            self.status.delete()
 
     def __str__(self):
         return f'{self.hostname}:{self.path}'

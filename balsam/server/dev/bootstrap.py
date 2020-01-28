@@ -7,11 +7,12 @@ from balsam.server.models import *
 misha = User.objects.create_user(username='misha', email='f@f.net', password='f', is_staff=True, is_superuser=True)
 mysite = Site.objects.create(owner=misha, hostname='localhost', path='/foo')
 
-hello = AppExchange.objects.create(
+backend = [{"site": mysite, "class_name": "Demo.SayHello"}]
+
+hello = AppExchange.objects.create_new(
     name="say-hello",
-    description="echos hello to a name",
+    description="echos hello {name}",
     parameters=['name'],
-    site=mysite,
-    class_name='Demo.HelloApp',
-    owner=misha
+    backend_dicts=backend,
+    owner=misha,
 )

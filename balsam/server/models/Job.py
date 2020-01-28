@@ -152,17 +152,25 @@ class Job(models.Model):
         related_name='jobs'
     )
 
-    app_exchange = models.ForeignKey('AppExchange', on_delete=models.CASCADE)
+    app_exchange = models.ForeignKey(
+        'AppExchange', related_name='jobs',
+        on_delete=models.CASCADE
+    )
     app_backend = models.ForeignKey(
         'AppBackend', on_delete=models.CASCADE,
-        null=True
+        null=True, related_name='jobs'
     )
     parameters = JSONField(default=dict)
 
-    batch_job = models.ForeignKey('BatchJob', on_delete=models.SET_NULL, null=True, blank=True)
-    state = models.CharField(max_length=64)
+    batch_job = models.ForeignKey(
+        'BatchJob', on_delete=models.SET_NULL, 
+        related_name='balsam_jobs', null=True, blank=True
+    )
+    state = models.CharField(max_length=64, db_index=True)
     last_update = models.DateTimeField(auto_now=True)
     data = JSONField(default=dict)
+    application_return_code = models.IntegerField(blank=True, null=True)
+    last_message = models.TextField(blank=True, default='')
     
     # DAG: each Job can refer to 'parents' and 'children' attrs
     parents = models.ManyToManyField('self',
