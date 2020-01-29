@@ -29,3 +29,4 @@ default_balsamdb
 testdb
 nohup.out
 env-balsam
+htmlcov/

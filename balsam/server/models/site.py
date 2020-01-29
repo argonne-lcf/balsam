@@ -16,11 +16,11 @@ class SiteManager(models.Manager):
         return site
 
 class SiteStatus(models.Model):
-    num_nodes = models.IntegerField(default=0, help_text="Nodes visible to this Balsam site")
-    num_idle_nodes = models.IntegerField(default=0, help_text="Number of idle nodes")
-    num_busy_nodes = models.IntegerField(default=0, help_text="Number of nodes currently allocated")
-    backfill_windows = JSONField(default=list, help_text="List of (num_nodes, time_minutes) tuples")
-    queued_jobs = JSONField(default=list, help_text="List of jobs in the scheduler's queue")
+    num_nodes = models.IntegerField(default=0, blank=True, help_text="Nodes visible to this Balsam site")
+    num_idle_nodes = models.IntegerField(default=0, blank=True, help_text="Number of idle nodes")
+    num_busy_nodes = models.IntegerField(default=0, blank=True, help_text="Number of nodes currently allocated")
+    backfill_windows = JSONField(default=list, blank=True, help_text="List of (num_nodes, time_minutes) tuples")
+    queued_jobs = JSONField(default=list, blank=True, help_text="List of jobs in the scheduler's queue")
 
     @property
     def num_down_nodes(self):

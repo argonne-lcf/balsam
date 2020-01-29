@@ -67,30 +67,35 @@ class SiteStatusSerializer(serializers.HyperlinkedModelSerializer):
         child=serializers.ListField(
             child=serializers.IntegerField(min_value=0),
             allow_empty=False, min_length=2, max_length=2
-         ), allow_empty=True
+         ), allow_empty=True, required=False
     )
     queued_jobs = serializers.ListField(
-        child=serializers.DictField(child=serializers.CharField())
+        child=serializers.DictField(),
+        required=False
     )
 
-    def validate(self, attrs):
-        num_nodes = attrs['num_nodes']
-        num_idle = attrs['num_idle_nodes']
-        num_busy = attrs['num_busy_nodes']
-        if num_nodes < 1:
-            raise serializers.ValidationError('num_nodes must be at least 1')
-        if num_idle < 0 or num_busy < 0:
-            raise serializers.ValidationError('Cannot have negative node count')
-        if num_idle + num_busy > num_nodes:
+    def _validate_queued_job(self, value):
+        char_keys = ['queue', 'state']
+        int_keys = ['num_nodes', 'score', 'queued_time_min', 'wall_time_min']
+        required_keys = set(char_keys).union(set(int_keys))
+        diff = required_keys.difference(value.keys())
+        if diff:
             raise serializers.ValidationError(
-                'num_idle_nodes+num_busy_nodes cannot exceed num_nodes'
+                f'Missing values: {diff}.\nYou only supplied:{value.keys()}'
             )
-        for (num_backfill_nodes, _) in attrs['backfill_windows']:
-            if num_backfill_nodes > num_idle:
+        ret = {key: str(value[key]) for key in char_keys}
+        for key in int_keys:
+            try:
+                ret[key] = int(value[key])
+            except ValueError:
                 raise serializers.ValidationError(
-                    'Backfill nodes cannot exceed # of idle nodes'
+                    f'Cannot convert {value[key]} to integer'
                 )
-        return attrs
+        return ret
+
+    def validate_queued_jobs(self, value):
+        return [self._validate_queued_job(v) for v in value]
+
 
 class SiteSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -106,13 +111,19 @@ class SiteSerializer(serializers.HyperlinkedModelSerializer):
         source='owner', read_only=True,
         view_name='user-detail',
     )
-    status = SiteStatusSerializer()
+    status = SiteStatusSerializer(required=False)
     apps = serializers.StringRelatedField(
-        many=True, source='registered_app_backends')
+        many=True, source='registered_app_backends',
+        read_only=True
+    )
 
     def create(self, validated_data):
         validated_data["owner"] = self.context['request'].user
-        site = Site.objects.create(**validated_data)
+        site = Site.objects.create(
+            owner=validated_data['owner'],
+            hostname=validated_data['hostname'],
+            path=validated_data['path']
+        )
         return site
     
     def update(self, instance, validated_data):
@@ -166,6 +177,7 @@ class AppBackendSerializer(serializers.HyperlinkedModelSerializer):
         return value
 
 class AppSerializer(serializers.HyperlinkedModelSerializer):
+
     class Meta:
         model = AppExchange
         fields = (
@@ -189,7 +201,8 @@ class AppSerializer(serializers.HyperlinkedModelSerializer):
         view_name='user-detail',
     )
     users = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=User.objects.all()
+        many=True, queryset=User.objects.all(),
+        required=False
     )
     user_urls = serializers.HyperlinkedRelatedField(
         source='users', read_only=True,
@@ -205,11 +218,11 @@ class AppSerializer(serializers.HyperlinkedModelSerializer):
         dat = validated_data
         app_exchange = AppExchange.objects.create_new(
             name=dat["name"],
-            description=dat["description"],
+            description=dat.get("description", ""),
             parameters=dat["parameters"],
             backend_dicts=dat["backends"],
             owner=dat["owner"],
-            users=dat["users"],
+            users=dat.get("users", [])
         )
         return app_exchange
 
@@ -315,7 +328,7 @@ class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
             'start_time', 'end_time', 'jobs'
         )
     # we need "pk" as writeable field for bulk-updates
-    pk = serializers.IntegerField(allow_blank=True)
+    pk = serializers.IntegerField(required=False)
     site = OwnedSitePrimaryKeyRelatedField()
     site_url = serializers.HyperlinkedRelatedField(
         source='site', read_only=True, view_name='site-detail'
@@ -326,7 +339,9 @@ class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
     # Including job URLs may result in fetching millions of rows
     # Instead, provide a nested URL to access the Job collection:
     jobs = serializers.HyperlinkedIdentityField(
-        view_name="batchjob-ensemble-list"
+        view_name="batchjob-ensemble-list",
+        lookup_field="pk",
+        lookup_url_kwarg="batch_job_id"
     )
 
     def create(self, validated_data):

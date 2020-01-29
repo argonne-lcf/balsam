@@ -5,6 +5,7 @@ Timeout and Error handling behaviors also defined simply on the App
 """
 from django.db import models, transaction
 from django.contrib.postgres.fields import JSONField, ArrayField
+from .exceptions import ValidationError
 
 class AppManager(models.Manager):
     def create(self, **kwargs):
@@ -13,7 +14,7 @@ class AppManager(models.Manager):
     @transaction.atomic
     def create_new(self, name, description, parameters, backend_dicts, owner, users=[]):
         if self.get_queryset().filter(owner=owner, name=name).exists():
-            raise ValueError(f"User {owner.username} already has an App named {name}")
+            raise ValidationError(f"User {owner.username} already has an App named {name}")
 
         backends = []
         for data in backend_dicts:
@@ -40,15 +41,15 @@ class AppManager(models.Manager):
     @transaction.atomic
     def create_merged(self, name, existing_apps, owner, description=None):
         if self.get_queryset().filter(owner=owner, name=name).exists():
-            raise ValueError(f"User {owner.username} already has an App named {name}")
+            raise ValidationError(f"User {owner.username} already has an App named {name}")
 
         parameter_tuples = [tuple(app.parameters) for app in existing_apps]
         if len(set(parameter_tuples)) != 1:
-            raise ValueError(f"Cannot merge apps with different parameters")
+            raise ValidationError(f"Cannot merge apps with different parameters")
         parameters = parameter_tuples[0]
         
         if any(app.owner != owner for app in existing_apps):
-            raise ValueError(f"Merged apps must all have same owner")
+            raise ValidationError(f"Merged apps must all have same owner")
 
         if description is None:
             description = max(

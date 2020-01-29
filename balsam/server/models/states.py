@@ -1,5 +1,7 @@
 from itertools import combinations
 from .exceptions import *
+from .exceptions import InvalidStateError
+
 
 STATES = '''
 CREATED
@@ -53,7 +55,9 @@ USER_KILLED
 
 def validate_state(value):
     if value not in STATES:
-        raise InvalidStateError(f"{value} is not a valid state in balsam.models")
+        raise InvalidStateError(
+        f"{value} is not a valid state in balsam.models"
+    )
 
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]

@@ -4,14 +4,13 @@ from django.utils import timezone
 from datetime import timedelta
 import uuid
 import logging
+from .exceptions import InvalidStateError
 
 logger = logging.getLogger(__name__)
 
 ALLOWED_TRANSITIONS = {
     'CREATED': ('READY', 'KILLED')
 }
-
-class InvalidStateError(Exception): pass
 
 class EventLogManager(models.Manager):
     def create(self, job, old_state, new_state, timestamp=None, message='', save=True):

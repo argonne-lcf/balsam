@@ -156,7 +156,7 @@ class BatchJobList(generics.ListCreateAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        return BatchJob.objects.filter(site__owner=user).order_by('-last_changed')
+        return BatchJob.objects.filter(site__owner=user).order_by('-start_time')
 
     def put(self, request, format=None):
         """
@@ -181,6 +181,20 @@ class BatchJobDetail(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         user = self.request.user
         return BatchJob.objects.filter(site__owner=user)
+
+class JobList(generics.ListCreateAPIView):
+    queryset = Job.objects.all()
+    serializer_class = ser.JobSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = BalsamPaginator
+
+    def get_queryset(self):
+        qs = self.request.user.jobs.all()
+        batch_job_id = self.kwargs.get('batch_job_id')
+        if batch_job_id is not None:
+            qs = qs.filter(batch_job=batch_job_id)
+        return qs
+
 
 class BatchJobEnsembleList(generics.ListAPIView):
     """

@@ -1,5 +1,6 @@
 from django.db import models, transaction
 from django.contrib.postgres.fields import JSONField, ArrayField
+from .exceptions import ValidationError
 
 STATE_CHOICES = (
     'pending-submission', 'submit-failed', 'queued', 'starting',
@@ -89,7 +90,7 @@ class BatchJob(models.Model):
 
     def update_state(self, new_state):
         if self.state in TERMINAL_STATES:
-            return
+            raise ValidationError(f'Job state can no longer change after reaching {self.state}')
         if self.state == 'pending-deletion':
             if new_state != 'finished':
                 return
@@ -116,7 +117,11 @@ class BatchJob(models.Model):
             for field in pre_run_fields:
                 setattr(self, field, kwargs[field])
         elif pre_run_fields:
-            raise ValueError(f"{pre_run_fields} can only be updated while a job is queued")
+            raise ValidationError(
+                f"The following fields cannot be updated "
+                f"when a job has reached state {self.state}: "
+                f'{pre_run_fields}'
+            )
 
         new_state = kwargs.pop('state', None)
         if new_state is not None:

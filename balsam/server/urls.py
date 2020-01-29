@@ -7,7 +7,8 @@ from .views.main import (
     UserList, UserDetail,
     SiteList, SiteDetail,
     AppList, AppDetail, AppMerge,
-    BatchJobList, BatchJobDetail, BatchJobEnsembleList
+    BatchJobList, BatchJobDetail, BatchJobEnsembleList,
+    JobList
 )
 
 schema_view = get_schema_view(title="Balsam API")
@@ -22,7 +23,7 @@ urlpatterns = [
     path(r'api-auth/', include('rest_framework.urls')),
 
     path('users/', UserList.as_view(), name="user-list"),
-    path('users/<int:pk>/', UserDetail.as_view(), name="user-detail"),
+    path('users/<int:pk>', UserDetail.as_view(), name="user-detail"),
 
     path('sites/', SiteList.as_view(), name="site-list"),
     path('sites/<int:pk>', SiteDetail.as_view(), name="site-detail"),
@@ -33,5 +34,5 @@ urlpatterns = [
     
     path('batchjobs/', BatchJobList.as_view(), name="batchjob-list"),
     path('batchjobs/<int:pk>', BatchJobDetail.as_view(), name="batchjob-detail"),
-    path('batchjobs/<int:pk>/jobs', BatchJobEnsembleList.as_view(), name="batchjob-ensemble-list"),
+    path('batchjobs/<int:batch_job_id>/jobs', JobList.as_view(), name="batchjob-ensemble-list"),
 ]
