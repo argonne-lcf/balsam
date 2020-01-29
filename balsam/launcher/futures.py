@@ -90,7 +90,7 @@ class FutureTask:
         self._kwargs = kwargs
 
     def __repr__(self):
-        return f'<balsam.launcher.async.FutureTask {self._job.cute_id}: {self._state}>' 
+        return f'<balsam.launcher.futures.FutureTask {self._job.cute_id}: {self._state}>' 
 
     def _poll(self):
         self._job = BalsamJob.objects.get(pk=self._job.pk)

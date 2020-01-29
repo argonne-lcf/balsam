@@ -6,8 +6,8 @@ py_version=$(python -c 'from __future__ import print_function; import sys; print
 major=$(echo $py_version | cut -d' ' -f1)
 minor=$(echo $py_version | cut -d' ' -f2)
 if [[ $major -lt 3 || $minor -lt 6 ]]; then
-    echo "Balsam requires Python >= 3.6; current version is: $major.$minor"
-    return 1
+    echo "WARNING: Balsam requires Python >= 3.6; current version is: $major.$minor"
+    echo "You might be okay if balsam is installed in a Python3.6+ environment..."
 fi
 
 known_list=$(balsam which --list 2> /dev/null)
