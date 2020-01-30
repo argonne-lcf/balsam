@@ -66,11 +66,19 @@ it's not necessary to install Balsam yourself:
 Balsam requires Python 3.6 or later. Preferably, set up an isolated
 virtualenv or conda environment for Balsam. It's no problem if some
 applications in your workflow run in different Python environments. You will
-need setuptools 39.2 or newer:
-
+need setuptools 39.2 or newer. For virtualenv users with an outdated setuptools,
+run:
 ```console
 $ pip install --upgrade pip setuptools
 ```
+
+If you are using conda, the above command may break your conda environment.
+Instead, use:
+```console
+$  conda update setuptools
+```
+Note, `conda update --force conda` may fix errors resulting from the first command
+in this situation.
 
 Some Balsam components require [mpi4py](https://github.com/mpi4py/mpi4py),  so
 it is best to install Balsam in an environment with `mpi4py` already in place
