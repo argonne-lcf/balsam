@@ -194,20 +194,3 @@ class JobList(generics.ListCreateAPIView):
         if batch_job_id is not None:
             qs = qs.filter(batch_job=batch_job_id)
         return qs
-
-
-class BatchJobEnsembleList(generics.ListAPIView):
-    """
-    List the Jobs that run under a particular BatchJob
-    """
-    serializer_class = ser.JobSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = BalsamPaginator
-
-    def get_queryset(self):
-        user = self.request.user
-        batch_job = generics.get_object_or_404(
-            BatchJob.objects.filter(site__owner=user),
-            pk=self.kwargs['pk']
-        )
-        return batch_job.balsam_jobs.all()

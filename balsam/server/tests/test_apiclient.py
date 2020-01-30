@@ -4,7 +4,7 @@ from rest_framework.reverse import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from balsam.server.serializers import UserSerializer
-from balsam.server.models import User, Site
+from balsam.server.models import User, Site, AppBackend, AppExchange
 
 class TestAPIClient(APIClient):
     """Shortcut methods for get/post/etc that also test status code"""
@@ -38,6 +38,12 @@ class TestAPIClient(APIClient):
     def patch_data(self, view_name, uri=None, check=None, **kwargs):
         url = reverse(view_name, kwargs=uri)
         response = self.patch(url, kwargs)
+        self.check_stat(check, response)
+        return response.data
+    
+    def delete_data(self, view_name, uri=None, check=None):
+        url = reverse(view_name, kwargs=uri)
+        response = self.delete(url)
         self.check_stat(check, response)
         return response.data
     
@@ -127,12 +133,27 @@ class AppSharingTests(TwoUserTestCase):
         client2_apps = self.client2.get_data('app-list', check=status.HTTP_200_OK)
         self.assertEqual(client1_apps, client2_apps)
 
-class SiteTests(TestCase):
+class SiteFactoryMixin:
     def create_site(self, hostname='baz', path='/foo', check=status.HTTP_201_CREATED):
         site_data = self.client.post_data(
             'site-list', hostname=hostname, path=path, check=check
         )
         return site_data
+    
+class AppFactoryMixin:
+    def create_app(self, name="hello world", backends=None, parameters=None, check=status.HTTP_201_CREATED):
+        backends = [{"site": pk, "class_name": name} for pk,name in backends]
+        if parameters is None:
+            parameters = ['name', 'N']
+        app_data = self.client.post_data(
+            'app-list', check=check,
+            name=name,
+            backends=backends,
+            parameters=parameters,
+        )
+        return app_data
+
+class SiteTests(TestCase, SiteFactoryMixin):
 
     def test_can_create_site(self):
         site = self.create_site()
@@ -189,7 +210,7 @@ class SiteTests(TestCase):
             num_nodes=128,
             num_idle_nodes=10,
             num_busy_nodes=118,
-            backfill_windows=[(8, 30), (2,120)],
+            backfill_windows=[[8, 30], [2,120]],
             queued_jobs=[
                 {
                     "queue": "foo", "state": "queued", "num_nodes": 64, 
@@ -208,52 +229,179 @@ class SiteTests(TestCase):
 
         # Patch: 8 nodes taken; now 2 idle & 126 busy
         patch_dict = dict(status={
-            'backfill_windows': [(2,120)],
+            'backfill_windows': [[2,120]],
             'num_idle_nodes': 2,
             'num_busy_nodes': 126,
         })
+        target_site = site.copy()
+        target_site["status"].update(**patch_dict["status"])
+
         updated_site = self.client.patch_data(
             'site-detail', uri={"pk":site["pk"]},
             check=status.HTTP_200_OK, **patch_dict
         )
-        site_status = updated_site["status"]
-        self.assertEqual(site_status["num_nodes"], 128)
-        self.assertEqual(site_status["num_idle_nodes"], 2)
-        self.assertEqual(site_status["num_busy_nodes"], 126)
-        self.assertEqual(site_status["num_down_nodes"], 0)
-        self.assertEqual(site_status["backfill_windows"], [[2,120]])
-        self.assertEqual(site_status["queued_jobs"], site["status"]["queued_jobs"])
 
-    def test_delete_site(self):
-        pass
+        # The patch was successful: updated_site is identical to expected
+        # barring the "last_refresh" time stamp
+        updated_site.pop('last_refresh')
+        target_site.pop('last_refresh')
+        self.assertEqual(updated_site, target_site)
 
-class AppTests(TestCase):
+    def test_deleting_site_removes_associated_backends(self):
+        site = self.create_site()
+        # Register a new app with one backend at this site
+        app = self.client.post_data(
+            'app-list', check=status.HTTP_201_CREATED,
+            name="hello world",
+            backends=[{"site": site["pk"], "class_name": "Demo.SayHello"}],
+            parameters=['name', 'N']
+        )
+        backends = app["backends"]
+        self.assertEqual(len(backends), 1)
+        self.assertEqual(backends[0]['site'], site['pk'])
+
+        # Now delete the site.  The app should remain, but with 0 backends.
+        self.client.delete_data(
+            'site-detail', uri={"pk":site["pk"]}, check=status.HTTP_204_NO_CONTENT
+        )
+        app = self.client.get_data('app-detail', uri={"pk":app["pk"]}, check=status.HTTP_200_OK)
+        self.assertEqual(len(app["backends"]), 0)
+
+class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
     def test_can_create_app(self):
-        pass
+        site = self.create_site()
+        app = self.create_app(backends=[(site["pk"], 'DemoApp.hello')])
+        self.assertEqual(app["backends"][0]["class_name"], 'DemoApp.hello')
 
     def test_created_app_in_list_view(self):
-        pass
+        site = self.create_site()
+        app = self.create_app(backends=[(site["pk"], 'DemoApp.hello')])
+        self.assertEqual(app['backends'][0]['site'], site['pk'])
+
+        # Retrieve the app list; ensure the App shows up 
+        app_list = self.client.get_data('app-list', check=status.HTTP_200_OK)
+        self.assertEqual(len(app_list), 1)
+        self.assertEqual(app_list[0], app)
 
     def test_created_app_appears_on_site_detail(self):
-        pass
+        site = self.create_site()
+        app = self.create_app(backends=[(site["pk"], 'Foo.bar')])
+        app_retrieved = self.client.get_data(
+            'app-detail', uri={'pk':app["pk"]}
+        )
+        self.assertEqual(app, app_retrieved)
+        backend = app["backends"][0]
+        self.assertEqual(backend["site"], site["pk"])
+        self.assertEqual(backend["class_name"], 'Foo.bar')
 
-    def test_detail_view(self):
-        pass
+    def test_cannot_create_duplicate_name(self):
+        site1 = self.create_site()
+        site2 = self.create_site(hostname="otherhost")
+        app1 = self.create_app(name="foo12", backends=[(site1["pk"], 'Foo.bar')],check=status.HTTP_201_CREATED)
+        app2 = self.create_app(name="foo12", backends=[(site2["pk"], 'Foo.bar')],check=status.HTTP_400_BAD_REQUEST)
 
-    def test_update_app(self):
-        pass
+    def test_update_app_backends(self):
+        site1 = self.create_site(hostname="a", path='/my/Project1')
+        site2 = self.create_site(hostname="a", path='/my/Project2')
+        site3 = self.create_site(hostname="b", path='/foo/bar')
+        old_app = self.create_app(backends=[(site1["pk"], 'Simulations.calcX')])
+
+        # Patch app to have 3 new backends
+        backends_patch = [
+            {"site": site1["pk"], "class_name": "renamed_simulation.calc"},
+            {"site": site2["pk"], "class_name": "simulation.calc"},
+            {"site": site3["pk"], "class_name": "simulation.calc"},
+        ]
+        app = self.client.patch_data(
+            'app-detail', uri={"pk": old_app["pk"]},
+            backends=backends_patch, check=status.HTTP_200_OK
+        )
+        # The new backends match the intended patch (as far as site & class_name)
+        new_backends = app.pop('backends')
+        new_backends = [{"site":d["site"], "class_name":d["class_name"]} for d in new_backends]
+        self.assertEqual(backends_patch, new_backends)
+        # Otherwise, the app is unchanged
+        old_app.pop('backends')
+        self.assertEqual(old_app, app)
 
     def test_delete_app(self):
-        pass
+        site1 = self.create_site(hostname="a", path='/my/Project1')
+        site2 = self.create_site(hostname="a", path='/my/Project2')
+        app_local = self.create_app(
+            name="foo_local",  
+            backends=[(site1["pk"], 'Foo.bar')], 
+            check=status.HTTP_201_CREATED
+        )
+        app_shared = self.create_app(
+            name="foo_dualsite", 
+            backends=[(site1["pk"], 'Foo.bar'), (site2["pk"], 'Foo.bar')],
+            check=status.HTTP_201_CREATED
+        )
+        # Peek into DB: there are only 2 backends
+        self.assertEqual(AppBackend.objects.count(), 2)
+        # Now the dual-backend app is deleted, leaving only the first backend
+        self.client.delete_data(
+            'app-detail', uri={'pk': app_shared["pk"]},
+            check=status.HTTP_204_NO_CONTENT
+        )
+        self.assertEqual(AppBackend.objects.count(), 1)
+        sites = self.client.get_data('site-list')
+        sites = {s["pk"]: s for s in sites}
+        self.assertEqual(sites[site1["pk"]]["apps"], ['Foo.bar'])
+        self.assertEqual(sites[site2["pk"]]["apps"], [])
 
     def test_app_merge(self):
-        pass
-
+        site1 = self.create_site(hostname="theta", path='/my/Project1')
+        site2 = self.create_site(hostname="cooley", path='/my/Project2')
+        app1 = self.create_app(
+            name="foo_theta",  
+            backends=[(site1["pk"], 'Foo.bar')], 
+            check=status.HTTP_201_CREATED
+        )
+        app2 = self.create_app(
+            name="foo_cooley",  
+            backends=[(site2["pk"], 'Foo.bar')], 
+            check=status.HTTP_201_CREATED
+        )
+        app3 = self.client.post_data(
+            'app-merge',
+            name="foo_merged",
+            description="",
+            existing_apps=[ app1["pk"], app2["pk"] ],
+            check=status.HTTP_201_CREATED
+        )
+        self.assertEqual(app1["parameters"], app3["parameters"])
+        self.assertEqual(len(app3["backends"]), 2)
+        
 class BatchJobTests(TestCase):
+
     def test_can_create_batchjob(self):
+        self.client.post_data(
+            'batchjob-list',
+        )
+
+    def test_list_batchjobs_spanning_sites(self):
         pass
 
-    def test_created_batchjob_in_list_view(self):
+    def test_bulk_status_update_batch_jobs(self):
+        pass
+
+    def test_json_tags_filter_list(self):
+        pass
+    
+    def test_filter_by_site(self):
+        pass
+    
+    def test_filter_by_time_range(self):
+        pass
+
+    def test_paginated_responses(self):
+        pass
+
+    def test_search_by_hostname(self):
+        pass
+
+    def test_order_by_listings(self):
         pass
 
     def test_detail_view(self):

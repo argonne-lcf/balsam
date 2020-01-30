@@ -147,6 +147,7 @@ class SiteSerializer(serializers.HyperlinkedModelSerializer):
 class AppBackendSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = AppBackend
+        validators = []
         fields = (
             'site', 'site_url', 'site_hostname', 'site_path', 'class_name',
         )
@@ -181,6 +182,7 @@ class AppSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = AppExchange
         fields = (
+            'pk',
             'name',
             'description',
             'parameters',
@@ -251,6 +253,16 @@ class AppMergeSerializer(serializers.Serializer):
             owner=dat["owner"]
         )
         return app_exchange
+
+    def to_representation(self, instance):
+        """
+        On POST response, we serialize the created App using the same AppSerializer
+        """
+        serializer = AppSerializer(
+            instance,
+            context={"request": self.context["request"]}
+        )
+        return serializer.data
 
 # JOB
 # ----

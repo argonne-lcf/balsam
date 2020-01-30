@@ -7,7 +7,7 @@ from .views.main import (
     UserList, UserDetail,
     SiteList, SiteDetail,
     AppList, AppDetail, AppMerge,
-    BatchJobList, BatchJobDetail, BatchJobEnsembleList,
+    BatchJobList, BatchJobDetail,
     JobList
 )
 
