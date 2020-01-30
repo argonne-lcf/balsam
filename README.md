@@ -107,7 +107,7 @@ Once a Balsam database is activated, you can use the command line to manage your
 
 ```console
 $ balsam app --name SayHello --executable "echo hello,"
-$ balsam job --name hi --workflow test --application SayHello --args "World!"
+$ balsam job --name hi --workflow test --application SayHello --args 'world!' --yes
 $ balsam submit-launch -A MyProject -q DebugQueue -t 5 -n 1 --job-mode=mpi
 $ watch balsam ls   #  follow status in realtime from command-line
 ```
