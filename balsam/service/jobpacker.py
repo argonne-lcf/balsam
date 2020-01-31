@@ -29,7 +29,7 @@ def ready_query():
     return BalsamJob.objects.filter(
         lock='',
         queued_launch__isnull=True,
-        state__in=['PREPROCESSED', 'RESTART_READY']
+        state__in=['PREPROCESSED', 'RESTART_READY', 'AWAITING_PARENTS']
     )
 
 def serial_node_count():
@@ -57,11 +57,11 @@ def dummy_pack(jobs, queues):
     and list/queryset of jobs scheduled for that launch'''
     if not queues: return None
     qname = list(queues.keys())[0]
-    qlaunch = QueuedLaunch(queue=qname,
-                           nodes=8,
+    qlaunch = QueuedLaunch(queue='default',
+                           nodes=256,
                            job_mode='mpi',
                            prescheduled_only=False,
-                           wall_minutes=60)
+                           wall_minutes=360)
     return qlaunch, jobs.all()
 
 _pack_jobs = dummy_pack

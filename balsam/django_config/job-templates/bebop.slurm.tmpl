@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH --account={{ project }}
+#SBATCH --partition={{ queue }}
+#SBATCH --nodes={{ nodes }}
+#SBATCH --time={{ time_minutes }}
+
+export PATH={{ balsam_bin }}:{{ pg_bin }}:$PATH
+export SLURM_HOSTS=$(scontrol show hostnames)
+
+source balsamactivate {{ balsam_db_path }}
+sleep 2
+
+balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }}
+
+source balsamdeactivate

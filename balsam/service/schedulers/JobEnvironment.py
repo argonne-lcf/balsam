@@ -11,14 +11,15 @@ class JobEnvironment:
     RECOGNIZED_HOSTS = {
         'BGQ'    : 'vesta cetus mira'.split(),
         'THETA'   : 'theta'.split(),
-        'COOLEY' : 'cooley cc'.split()
+        'COOLEY' : 'cooley cc'.split(),
+        'SLURM': 'bebop blues lcrc'.split(),
     }
 
     def __init__(self, scheduler):
         self.scheduler_vars = scheduler.SCHEDULER_VARIABLES
         self.pid = os.getpid()
         self.hostname = gethostname()
-        self.host_type = 'DEFAULT'
+        self.host_type = 'SLURM'
         
         self.current_scheduler_id = None
         self.num_workers = 1

@@ -1,7 +1,7 @@
 {
- "SCHEDULER_CLASS": "CobaltScheduler",
- "SCHEDULER_SUBMIT_EXE": "/usr/bin/qsub",
- "SCHEDULER_STATUS_EXE": "/usr/bin/qstat",
+ "SCHEDULER_CLASS": "SlurmScheduler",
+ "SCHEDULER_SUBMIT_EXE": "/usr/bin/sbatch",
+ "SCHEDULER_STATUS_EXE": "/usr/bin/squeue",
  "DEFAULT_PROJECT": "datascience",
  "SERVICE_PERIOD": 1,
 
@@ -13,6 +13,6 @@
  "LOG_FILE_SIZE_LIMIT": 104857600,
 
  "QUEUE_POLICY": "theta_policy.ini",
- "JOB_TEMPLATE": "job-templates/theta.cobaltscheduler.tmpl"
+ "JOB_TEMPLATE": "job-templates/bebop.slurm.tmpl"
     
 }

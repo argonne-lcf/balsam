@@ -253,9 +253,9 @@ def add_dependency(parent,child):
     else:
         new_parents.append(parent_pk_str)
     child.set_parents(new_parents)
-    if detect_circular(child):
-        child.set_parents(existing_parents)
-        raise RuntimeError("Detected circular dependency; not creating link")
+    #if detect_circular(child):
+        #child.set_parents(existing_parents)
+        #raise RuntimeError("Detected circular dependency; not creating link")
 
 def clone(job, **kwargs):
     assert isinstance(job, BalsamJob)
