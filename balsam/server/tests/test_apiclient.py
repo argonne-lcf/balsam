@@ -1,10 +1,52 @@
 '''APIClient-driven tests'''
+import pprint
+from datetime import datetime, timedelta
 from dateutil.parser import isoparse
+import random
 from rest_framework.reverse import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from balsam.server.serializers import UserSerializer
-from balsam.server.models import User, Site, AppBackend, AppExchange
+from balsam.server.models import User, Site, AppBackend, AppExchange, BatchJob
+
+
+def pretty_data(data):
+    return '\n' + pprint.pformat(data, width=93, indent=2)
+
+class SiteFactoryMixin:
+    def create_site(self, hostname='baz', path='/foo', check=status.HTTP_201_CREATED):
+        return self.client.post_data('site-list', hostname=hostname, path=path, check=check)
+    
+class AppFactoryMixin:
+    def create_app(self, name="hello world", sites=None, cls_names=None, parameters=None, check=status.HTTP_201_CREATED):
+        """Sites: dict with pk, or list of dicts with pk, or list of ints, or int"""
+        # Site validation
+        if isinstance(sites, dict): sites = [int(sites["pk"])]
+        elif isinstance(sites, list): sites = [(int(s["pk"]) if isinstance(s, dict) else int(s)) for s in sites]
+        elif isinstance(sites, int): sites = [sites]
+        else: raise ValueError("sites must be a single-or-list of ints or dicts-with-pk")
+        # Class Names validation
+        if isinstance(cls_names, str): cls_names = [cls_names]
+        elif isinstance(cls_names, list): cls_names = [str(s) for s in cls_names]
+        else: raise ValueError('cls_names')
+
+        backends = [{"site": pk, "class_name": name} for pk,name in zip(sites, cls_names)]
+        if parameters is None: parameters = ['name', 'N']
+        return self.client.post_data(
+            'app-list', check=check, name=name,
+            backends=backends, parameters=parameters,
+        )
+
+class BatchJobFactoryMixin:
+    def create_batchjob(
+        self, site, project='datascience', queue='default', num_nodes=128, wall_time_min=30,
+        job_mode='mpi', filter_tags={"system": 'H2O', "type": 'sp_energy'}, check=status.HTTP_201_CREATED
+    ):
+        return self.client.post_data(
+            'batchjob-list', site=site['pk'], project=project, queue=queue, num_nodes=num_nodes,
+            wall_time_min=wall_time_min, job_mode=job_mode, filter_tags=filter_tags, check=check
+        )
+
 
 class TestAPIClient(APIClient):
     """Shortcut methods for get/post/etc that also test status code"""
@@ -21,7 +63,7 @@ class TestAPIClient(APIClient):
             fn = self.parent.assertEquals
         else:
             fn = self.parent.assertIn
-        return fn(response.status_code, expect_code, str(response.data))
+        return fn(response.status_code, expect_code, pretty_data(response.data))
 
     def post_data(self, view_name, uri=None, check=None, **kwargs):
         url = reverse(view_name, kwargs=uri)
@@ -47,9 +89,10 @@ class TestAPIClient(APIClient):
         self.check_stat(check, response)
         return response.data
     
-    def get_data(self, view_name, uri=None, check=None, follow=False):
+    def get_data(self, view_name, uri=None, check=None, follow=False, **kwargs):
+        """GET kwargs become URL query parameters (e.g. /?site=3)"""
         url = reverse(view_name, kwargs=uri)
-        response = self.get(url, follow=follow)
+        response = self.get(url, data=kwargs, follow=follow)
         self.check_stat(check, response)
         return response.data
 
@@ -63,6 +106,16 @@ class TestCase(APITestCase):
         """Called before each test"""
         self.client = TestAPIClient(self)
         self.client.login(username='user', password='abc')
+
+    def assertEqual(self, first, second, msg=None):
+        if msg is not None and not isinstance(msg, str):
+            msg = pretty_data(msg)
+        return super().assertEqual(first, second, msg=msg)
+    
+    def assertIn(self, member, container, msg=None):
+        if msg is not None and not isinstance(msg, str):
+            msg = pretty_data(msg)
+        return super().assertIn(member, container, msg=msg)
 
 class TwoUserTestCase(APITestCase):
     """Testing interactions from two clients"""
@@ -131,27 +184,7 @@ class AppSharingTests(TwoUserTestCase):
         )
         client1_apps = self.client1.get_data('app-list', check=status.HTTP_200_OK)
         client2_apps = self.client2.get_data('app-list', check=status.HTTP_200_OK)
-        self.assertEqual(client1_apps, client2_apps)
-
-class SiteFactoryMixin:
-    def create_site(self, hostname='baz', path='/foo', check=status.HTTP_201_CREATED):
-        site_data = self.client.post_data(
-            'site-list', hostname=hostname, path=path, check=check
-        )
-        return site_data
-    
-class AppFactoryMixin:
-    def create_app(self, name="hello world", backends=None, parameters=None, check=status.HTTP_201_CREATED):
-        backends = [{"site": pk, "class_name": name} for pk,name in backends]
-        if parameters is None:
-            parameters = ['name', 'N']
-        app_data = self.client.post_data(
-            'app-list', check=check,
-            name=name,
-            backends=backends,
-            parameters=parameters,
-        )
-        return app_data
+        self.assertListEqual(client1_apps, client2_apps)
 
 class SiteTests(TestCase, SiteFactoryMixin):
 
@@ -270,12 +303,12 @@ class SiteTests(TestCase, SiteFactoryMixin):
 class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
     def test_can_create_app(self):
         site = self.create_site()
-        app = self.create_app(backends=[(site["pk"], 'DemoApp.hello')])
+        app = self.create_app(sites=site, cls_names='DemoApp.hello')
         self.assertEqual(app["backends"][0]["class_name"], 'DemoApp.hello')
 
     def test_created_app_in_list_view(self):
         site = self.create_site()
-        app = self.create_app(backends=[(site["pk"], 'DemoApp.hello')])
+        app = self.create_app(sites=site, cls_names='DemoApp.hello')
         self.assertEqual(app['backends'][0]['site'], site['pk'])
 
         # Retrieve the app list; ensure the App shows up 
@@ -285,7 +318,7 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
 
     def test_created_app_appears_on_site_detail(self):
         site = self.create_site()
-        app = self.create_app(backends=[(site["pk"], 'Foo.bar')])
+        app = self.create_app(sites=site, cls_names='Foo.bar')
         app_retrieved = self.client.get_data(
             'app-detail', uri={'pk':app["pk"]}
         )
@@ -297,14 +330,14 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
     def test_cannot_create_duplicate_name(self):
         site1 = self.create_site()
         site2 = self.create_site(hostname="otherhost")
-        app1 = self.create_app(name="foo12", backends=[(site1["pk"], 'Foo.bar')],check=status.HTTP_201_CREATED)
-        app2 = self.create_app(name="foo12", backends=[(site2["pk"], 'Foo.bar')],check=status.HTTP_400_BAD_REQUEST)
+        app1 = self.create_app(name="foo12", sites=site1, cls_names='Foo.bar', check=status.HTTP_201_CREATED)
+        app2 = self.create_app(name="foo12", sites=site2, cls_names='Foo.bar', check=status.HTTP_400_BAD_REQUEST)
 
     def test_update_app_backends(self):
         site1 = self.create_site(hostname="a", path='/my/Project1')
         site2 = self.create_site(hostname="a", path='/my/Project2')
         site3 = self.create_site(hostname="b", path='/foo/bar')
-        old_app = self.create_app(backends=[(site1["pk"], 'Simulations.calcX')])
+        old_app = self.create_app(sites=site1, cls_names='Simulations.calcX')
 
         # Patch app to have 3 new backends
         backends_patch = [
@@ -327,14 +360,10 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
     def test_delete_app(self):
         site1 = self.create_site(hostname="a", path='/my/Project1')
         site2 = self.create_site(hostname="a", path='/my/Project2')
-        app_local = self.create_app(
-            name="foo_local",  
-            backends=[(site1["pk"], 'Foo.bar')], 
-            check=status.HTTP_201_CREATED
-        )
+        app_local = self.create_app(name="foo_local", sites=site1, cls_names='Foo.bar', check=status.HTTP_201_CREATED)
         app_shared = self.create_app(
             name="foo_dualsite", 
-            backends=[(site1["pk"], 'Foo.bar'), (site2["pk"], 'Foo.bar')],
+            sites=[site1, site2], cls_names=['Foo.bar', 'Foo.bar'],
             check=status.HTTP_201_CREATED
         )
         # Peek into DB: there are only 2 backends
@@ -354,57 +383,189 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
         site1 = self.create_site(hostname="theta", path='/my/Project1')
         site2 = self.create_site(hostname="cooley", path='/my/Project2')
         app1 = self.create_app(
-            name="foo_theta",  
-            backends=[(site1["pk"], 'Foo.bar')], 
+            name="foo_theta", sites=site1, cls_names='Foo.bar', 
             check=status.HTTP_201_CREATED
         )
         app2 = self.create_app(
-            name="foo_cooley",  
-            backends=[(site2["pk"], 'Foo.bar')], 
+            name="foo_cooley", sites=site2, cls_names='Foo.bar',
             check=status.HTTP_201_CREATED
         )
         app3 = self.client.post_data(
-            'app-merge',
-            name="foo_merged",
-            description="",
+            'app-merge', name="foo_merged",
             existing_apps=[ app1["pk"], app2["pk"] ],
             check=status.HTTP_201_CREATED
         )
         self.assertEqual(app1["parameters"], app3["parameters"])
         self.assertEqual(len(app3["backends"]), 2)
         
-class BatchJobTests(TestCase):
+class BatchJobTests(TestCase, SiteFactoryMixin, BatchJobFactoryMixin):
 
     def test_can_create_batchjob(self):
-        self.client.post_data(
-            'batchjob-list',
-        )
+        site = self.create_site()
+        batch_job = self.create_batchjob(site=site, check=status.HTTP_201_CREATED)
+        self.assertIn("status_message", batch_job)
+        self.assertIn("scheduler_id", batch_job)
+        self.assertEqual(batch_job["state"], "pending-submission", msg=batch_job)
 
     def test_list_batchjobs_spanning_sites(self):
+        site1 = self.create_site(hostname="1")
+        site2 = self.create_site(hostname="2")
+        for time in [10,20,30,40]:
+            for site in [site1, site2]:
+                self.create_batchjob(site=site, wall_time_min=time)
+        bjob_list = self.client.get_data('batchjob-list')
+        self.assertEqual(bjob_list["count"], 8)
+        self.assertEqual(len(bjob_list["results"]), 8)
+
+    def test_filter_by_site(self):
+        site1 = self.create_site(hostname="1")
+        site2 = self.create_site(hostname="2")
+        for time in [10,20,30,40]:
+            for site in [site1, site2]:
+                self.create_batchjob(site=site, wall_time_min=time)
+
+        # providing GET kwargs causes result list to be filtered
+        dat = self.client.get_data('batchjob-list', site=site2["pk"])
+        self.assertEqual(dat["count"], 4)
+        results = dat["results"]
+        self.assertEqual(len(results), 4)
+        self.assertListEqual([j["site"] for j in results], 4*[site2["pk"]])
+    
+    def test_filter_by_time_range(self):
+        site = self.create_site()
+        # Create 10 historical batchjobs
+        # Job n started n hours ago and took 30 minutes
+        pks = []
+        now = datetime.utcnow() # IMPORTANT! all times in UTC
+        for i in range(1, 11):
+            j = self.create_batchjob(site=site, job_mode="serial")
+            start = now - timedelta(hours=i*1)
+            end = start + timedelta(minutes=30)
+            j.update(state='finished', start_time=start, end_time=end)
+            if now-timedelta(hours=5) <= end <= now-timedelta(hours=3):
+                j["filter_tags"].update(good="Yes")
+            self.client.put_data(
+                'batchjob-detail', uri={'pk': j["pk"]}, **j,
+                check=status.HTTP_200_OK
+            )
+
+        # Now, we want to filter for jobs that ended between 3 and 5 hours ago
+        # The end_times are: 0.5h ago, 1.5 ago, 2.5, 3.5, 4.5, 5.5, ...
+        # So we should have 2 jobs land in this window
+        end_after=(now-timedelta(hours=5)).isoformat()+'Z'
+        end_before=(now-timedelta(hours=3)).isoformat()+'Z'
+        jobs = self.client.get_data(
+            'batchjob-list',
+            end_time_after=end_after,
+            end_time_before=end_before,
+            check=status.HTTP_200_OK
+        )
+        self.assertEqual(jobs["count"], 2)
+        jobs = jobs["results"]
+        for job in jobs:
+            self.assertIn("good", job["filter_tags"])
+    
+    def test_json_tags_filter_list(self):
+        site = self.create_site()
+        for priority in [None, 1, 2, 3]:
+            for system in ["H2O", "D2O", "HF"]:
+                if priority: tags = {"priority": priority, "system": system}
+                else: tags = {"system": system}
+                self.create_batchjob(site, filter_tags=tags)
+
+        jobs = self.client.get_data('batchjob-list')
+        self.assertEqual(jobs['count'], 12)
+        jobs = self.client.get_data('batchjob-list', filter_tags__priority__gt=1)
+        self.assertEqual(jobs['count'], 6)
+        jobs = self.client.get_data('batchjob-list', filter_tags__priority__lt=1)
+        self.assertEqual(jobs['count'], 0)
+        jobs = self.client.get_data('batchjob-list', filter_tags__priority=3)
+        self.assertEqual(jobs['count'], 3)
+        jobs = self.client.get_data('batchjob-list', filter_tags__priority__isnull=True)
+        self.assertEqual(jobs['count'], 3)
+        
+        jobs = self.client.get_data('batchjob-list', filter_tags__system='D2O')
+        self.assertEqual(jobs['count'], 4)
+        
+        jobs = self.client.get_data(
+            'batchjob-list', 
+            filter_tags__system__icontains='F',
+            filter_tags__priority__isnull=True
+        )
+        self.assertEqual(jobs['count'], 1)
+        
+    def test_search_by_hostname(self):
+        site1 = self.create_site(hostname='theta')
+        site2 = self.create_site(hostname='cooley')
+        for s in [site1, site2]:
+            for num_nodes in [128,256]:
+                self.create_batchjob(site=s, num_nodes=num_nodes)
+        jobs = self.client.get_data('batchjob-list', search="thet")
+        self.assertEqual(jobs['count'], 2)
+        self.assertEqual(jobs['results'][0]['site'], site1['pk'])
+        self.assertEqual(jobs['results'][1]['site'], site1['pk'])
+
+    def test_order_by_listings(self):
+        # Create a shuffled list of batchjobs
+        site = self.create_site(hostname='theta')
+        states = 5*['finished'] + 5*['running']
+        deltas = [timedelta(hours=random.randint(-30,-1)) for i in range(10)]
+        random.shuffle(states)
+        now = datetime.utcnow()
+        start_times = [now + delta for delta in deltas]
+
+        for state, start in zip(states, start_times):
+            j = self.create_batchjob(site)
+            j.update(state=state, start_time=start)
+            self.client.put_data(
+                'batchjob-detail', uri={"pk": j["pk"]},
+                check=status.HTTP_200_OK, **j
+            )
+
+        # Order by state and descending start time
+        jobs = self.client.get_data(
+            'batchjob-list', ordering="state,-start_time",
+            check=status.HTTP_200_OK
+        )
+        jobs = jobs['results']
+        self.assertEqual(len(jobs), 10)
+        states = [j["state"] for j in jobs]
+        stimes_finished = [isoparse(j["start_time"]) for j in jobs[:5]]
+        stimes_running = [isoparse(j["start_time"]) for j in jobs[5:]]
+        self.assertListEqual(states, sorted(states))
+        self.assertListEqual(stimes_finished, sorted(stimes_finished, reverse=True))
+        self.assertListEqual(stimes_running, sorted(stimes_running, reverse=True))
+
+    def test_paginated_responses(self):
+        site = self.create_site(hostname='theta')
+        site = Site.objects.first()
+        jobs = [BatchJob(site=site,num_nodes=1,wall_time_min=1,job_mode='mpi') for i in range(2000)]
+        BatchJob.objects.bulk_create(jobs)
+
+        # default page size is 100
+        jobs = self.client.get_data('batchjob-list')
+        self.assertEqual(jobs['count'], 2000)
+        self.assertEqual(len(jobs['results']), 100)
+        self.assertIn('limit', jobs["next"])
+        self.assertEqual(None, jobs["previous"]) # no previous page
+
+        # larger page and offset:
+        jobs = self.client.get_data('batchjob-list',limit=800,offset=200)
+        self.assertEqual(jobs['count'], 2000)
+        self.assertEqual(len(jobs['results']), 800)
+        self.assertIn('limit', jobs["next"])
+        self.assertIn('limit', jobs["previous"])
+    
+    def test_detail_view(self):
+        pass
+    
+    def test_update(self):
+        pass
+    
+    def test_partial_update(self):
         pass
 
     def test_bulk_status_update_batch_jobs(self):
-        pass
-
-    def test_json_tags_filter_list(self):
-        pass
-    
-    def test_filter_by_site(self):
-        pass
-    
-    def test_filter_by_time_range(self):
-        pass
-
-    def test_paginated_responses(self):
-        pass
-
-    def test_search_by_hostname(self):
-        pass
-
-    def test_order_by_listings(self):
-        pass
-
-    def test_detail_view(self):
         pass
 
     def test_update_batchjob_before_running(self):

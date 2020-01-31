@@ -241,14 +241,14 @@ class AppSerializer(serializers.HyperlinkedModelSerializer):
 
 class AppMergeSerializer(serializers.Serializer):
     name = serializers.CharField(min_length=1, max_length=128)
-    description = serializers.CharField(allow_blank=True)
+    description = serializers.CharField(required=False, allow_blank=True)
     existing_apps = OwnedAppPrimaryKeyRelatedField(many=True)
 
     def create(self, validated_data):
         dat = validated_data
         app_exchange = AppExchange.objects.create_merged(
             name=dat["name"],
-            description=dat["description"],
+            description=dat.get("description", None),
             existing_apps=dat["existing_apps"],
             owner=dat["owner"]
         )
@@ -329,6 +329,14 @@ class BatchJobListSerializer(serializers.ListSerializer):
         BatchJob.objects.bulk_update(patch_list)
         
 class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
+    def __init__(self, *args, **kwargs):
+        bulk_update = kwargs.pop('bulk_update', False)
+        super().__init__(*args, **kwargs)
+
+        # we need "pk" as a writeable field for bulk-updates
+        if bulk_update:
+            self.fields['pk'] = serializers.IntegerField()
+
     class Meta:
         model = BatchJob
         list_serializer_class = BatchJobListSerializer
@@ -339,8 +347,6 @@ class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
             'filter_tags', 'state', 'status_message',
             'start_time', 'end_time', 'jobs'
         )
-    # we need "pk" as writeable field for bulk-updates
-    pk = serializers.IntegerField(required=False)
     site = OwnedSitePrimaryKeyRelatedField()
     site_url = serializers.HyperlinkedRelatedField(
         source='site', read_only=True, view_name='site-detail'

@@ -33,7 +33,7 @@ class IsAuthenticatedOrAdmin(permissions.BasePermission):
         return view.kwargs["pk"] == request.user.pk
 
 class BalsamPaginator(LimitOffsetPagination):
-    default_limit = 500
+    default_limit = 100
     max_limit = 5000
     limit_query_param = 'limit'
     offset_query_param = 'offset'
@@ -127,12 +127,12 @@ class AppMerge(generics.CreateAPIView):
         serializer.save(owner=self.request.user)
     
 class BatchJobFilter(django_filters.FilterSet):
-    start_time = django_filters.DateTimeFromToRangeFilter()
-    end_time = django_filters.DateTimeFromToRangeFilter()
+    start_time = django_filters.IsoDateTimeFromToRangeFilter()
+    end_time = django_filters.IsoDateTimeFromToRangeFilter()
     class Meta:
         model = BatchJob
         fields = [
-            'site','scheduler_id', 'project', 'queue', 'num_nodes', 
+            'site', 'scheduler_id', 'project', 'queue', 'num_nodes', 
             'wall_time_min', 'job_mode', 'start_time', 'end_time', 
             'state', 'scheduler_id'
         ]
@@ -152,7 +152,7 @@ class BatchJobList(generics.ListCreateAPIView):
     json_filter_field = "filter_tags"
     json_filter_type = str
     ordering_fields = ['start_time', 'end_time', 'state'] # ?ordering=-end_time,state
-    search_fields = ['site__hostname'] # partial, case-insensitive matching across all search fields
+    search_fields = ['site__hostname', 'site__path'] # partial matching across fields
     
     def get_queryset(self):
         user = self.request.user
@@ -167,7 +167,7 @@ class BatchJobList(generics.ListCreateAPIView):
         qs = self.get_queryset().active_jobs()
         serializer = ser.BatchJobSerializer(
             qs, data=request.data, many=True, partial=True,
-            context={'request': request}
+            context={'request': request}, bulk_update=True
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
