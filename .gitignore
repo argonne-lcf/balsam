@@ -13,7 +13,7 @@ balsam/*/__pycache__*
 balsam/service/pack/_packer.c
 balsam/argo/migrations/*.py
 !balsam/argo/migrations/__init__.py
-balsam/core/migrations/*.py
+balsam/server/models/migrations/*.py
 !balsam/core/migrations/__init__.py
 build/
 dist/

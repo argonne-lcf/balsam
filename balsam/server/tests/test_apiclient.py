@@ -169,7 +169,7 @@ class AppSharingTests(TwoUserTestCase):
         )
         client1_apps = self.client1.get_data('app-list', check=status.HTTP_200_OK)
         self.assertEqual(len(client1_apps), 1)
-        self.assertEqual(app, client1_apps[0])
+        self.assertDictEqual(app, client1_apps[0])
         client2_apps = self.client2.get_data('app-list', check=status.HTTP_200_OK)
         self.assertEqual(len(client2_apps), 0)
     
@@ -207,7 +207,7 @@ class SiteTests(TestCase, SiteFactoryMixin):
         retrieved_site = self.client.get_data(
             'site-detail', uri={"pk":pk}, check=status.HTTP_200_OK
         )
-        self.assertEqual(created_site, retrieved_site)
+        self.assertDictEqual(created_site, retrieved_site)
 
     def test_update_site_status(self):
         created_site = self.create_site()
@@ -278,7 +278,7 @@ class SiteTests(TestCase, SiteFactoryMixin):
         # barring the "last_refresh" time stamp
         updated_site.pop('last_refresh')
         target_site.pop('last_refresh')
-        self.assertEqual(updated_site, target_site)
+        self.assertDictEqual(updated_site, target_site)
 
     def test_deleting_site_removes_associated_backends(self):
         site = self.create_site()
@@ -314,7 +314,7 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
         # Retrieve the app list; ensure the App shows up 
         app_list = self.client.get_data('app-list', check=status.HTTP_200_OK)
         self.assertEqual(len(app_list), 1)
-        self.assertEqual(app_list[0], app)
+        self.assertDictEqual(app_list[0], app)
 
     def test_created_app_appears_on_site_detail(self):
         site = self.create_site()
@@ -322,7 +322,7 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
         app_retrieved = self.client.get_data(
             'app-detail', uri={'pk':app["pk"]}
         )
-        self.assertEqual(app, app_retrieved)
+        self.assertDictEqual(app, app_retrieved)
         backend = app["backends"][0]
         self.assertEqual(backend["site"], site["pk"])
         self.assertEqual(backend["class_name"], 'Foo.bar')
@@ -352,10 +352,10 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
         # The new backends match the intended patch (as far as site & class_name)
         new_backends = app.pop('backends')
         new_backends = [{"site":d["site"], "class_name":d["class_name"]} for d in new_backends]
-        self.assertEqual(backends_patch, new_backends)
+        self.assertListEqual(backends_patch, new_backends)
         # Otherwise, the app is unchanged
         old_app.pop('backends')
-        self.assertEqual(old_app, app)
+        self.assertDictEqual(old_app, app)
 
     def test_delete_app(self):
         site1 = self.create_site(hostname="a", path='/my/Project1')
@@ -557,16 +557,57 @@ class BatchJobTests(TestCase, SiteFactoryMixin, BatchJobFactoryMixin):
         self.assertIn('limit', jobs["previous"])
     
     def test_detail_view(self):
-        pass
+        site = self.create_site(hostname='theta')
+        job = self.create_batchjob(site)
+        self.client.get_data('batchjob-detail', uri={'pk': job['pk']}, check=status.HTTP_200_OK)
     
-    def test_update(self):
-        pass
+    def test_update_to_invalid_state(self):
+        site = self.create_site(hostname='theta')
+        job = self.create_batchjob(site)
+        job.update(num_nodes=4096, state='invalid-state')
+        self.client.put_data('batchjob-detail', uri={'pk': job['pk']}, **job, check=status.HTTP_400_BAD_REQUEST)
+    
+    def test_update_valid(self):
+        site = self.create_site(hostname='theta')
+        job = self.create_batchjob(site)
+        job.update(status_message="Please submit to another queue", state='submit-failed')
+        self.client.put_data('batchjob-detail', uri={'pk': job['pk']}, **job, check=status.HTTP_200_OK)
+        ret = self.client.get_data('batchjob-detail', uri={'pk': job['pk']})
+        self.assertDictEqual(ret, job)
     
     def test_partial_update(self):
-        pass
+        site = self.create_site(hostname='theta')
+        job = self.create_batchjob(site)
+        patch = dict(status_message="You dont have permission to submit to this queue", state='submit-failed')
+        patched_job = self.client.patch_data('batchjob-detail', uri={'pk': job['pk']}, **patch, check=status.HTTP_200_OK)
+        expected_result = job.copy()
+        expected_result.update(patch)
+        self.assertDictEqual(patched_job, expected_result)
 
     def test_bulk_status_update_batch_jobs(self):
-        pass
+        theta = self.create_site(hostname='theta')
+        cooley = self.create_site(hostname='cooley')
+        for _ in range(10):
+            self.create_batchjob(theta)
+            self.create_batchjob(cooley)
+
+        # cooley scheduler agent receives 10 batchjobs
+        jobs = self.client.get_data('batchjob-list', site=cooley["pk"])
+        self.assertEqual(jobs['count'], 10)
+        jobs = jobs['results']
+
+        # first 5 jobs are submitted
+        for job in jobs[:5]:
+            job["state"] = "queued"
+        
+        # last 5 jobs started running
+        for job in jobs[5:]:
+            job["state"] = "running"
+            job["start_time"] = datetime.utcnow() + timedelta(minutes=random.randint(-30,0))
+
+        # make a bulk status update
+        updates = [{k:job[k] for k in job if k in ['pk', 'state', 'start_time']} for job in jobs]
+        
 
     def test_update_batchjob_before_running(self):
         pass
