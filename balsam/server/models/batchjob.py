@@ -7,7 +7,7 @@ STATE_CHOICES = (
     'running', 'exiting', 'finished', 'dep-hold', 'user-hold',
     'pending-deletion'
 )
-WAITING_STATES = ('pending-submission', 'queued', 'dep-hold', 'user-hold')
+WAITING_STATES = ('pending-submission', 'pending-deletion', 'queued', 'dep-hold', 'user-hold')
 TERMINAL_STATES = ('submit-failed', 'finished')
 
 STATE_CHOICES = [(s,s) for s in STATE_CHOICES]
@@ -56,10 +56,12 @@ class BatchJobManager(models.Manager):
             pk = patch.pop("pk")
             patch_map[pk] = patch
 
-        jobs = self.model.filter(pk__in=patch_map)
-        for job in jobs.select_for_update():
+        jobs = self.filter(pk__in=patch_map)
+        jobs = list(jobs.select_for_update())
+        for job in jobs:
             patch = patch_map[job.pk]
             job.update(bulk_select_for_update=True, **patch)
+        return jobs
 
 
 class BatchJob(models.Model):
@@ -101,12 +103,18 @@ class BatchJob(models.Model):
         self.__dict__.update(locked_self.__dict__)
 
     @transaction.atomic
-    def update(self, bulk_select_for_update=False, **kwargs):
+    def update(self, bulk_select_for_update=False, revert=False, **kwargs):
         pre_run_fields = [
             'scheduler_id', 'project', 'queue',
             'num_nodes', 'wall_time_min', 'job_mode', 'filter_tags'
         ]
         anytime_fields = ['status_message', 'start_time', 'end_time']
+
+        # When a *running* qstat is inconsistent with the BatchJob record,
+        # the client will send revert=True, which allows them to roll back
+        if revert:
+            anytime_fields.extend(pre_run_fields)
+            pre_run_fields = []
 
         if not bulk_select_for_update:
             self.lock_and_refresh()

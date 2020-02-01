@@ -71,15 +71,33 @@ class TestAPIClient(APIClient):
         self.check_stat(check, response)
         return response.data
     
+    def bulk_post_data(self, view_name, list_data, uri=None, check=None):
+        url = reverse(view_name, kwargs=uri)
+        response = self.post(url, list_data)
+        self.check_stat(check, response)
+        return response.data
+    
     def put_data(self, view_name, uri=None, check=None, **kwargs):
         url = reverse(view_name, kwargs=uri)
         response = self.put(url, kwargs)
         self.check_stat(check, response)
         return response.data
     
+    def bulk_put_data(self, view_name, list_data, uri=None, check=None):
+        url = reverse(view_name, kwargs=uri)
+        response = self.put(url, list_data)
+        self.check_stat(check, response)
+        return response.data
+    
     def patch_data(self, view_name, uri=None, check=None, **kwargs):
         url = reverse(view_name, kwargs=uri)
         response = self.patch(url, kwargs)
+        self.check_stat(check, response)
+        return response.data
+    
+    def bulk_patch_data(self, view_name, list_data, uri=None, check=None):
+        url = reverse(view_name, kwargs=uri)
+        response = self.patch(url, list_data)
         self.check_stat(check, response)
         return response.data
     
@@ -97,6 +115,7 @@ class TestAPIClient(APIClient):
         return response.data
 
 class TestCase(APITestCase):
+    maxDiff = None
     @classmethod
     def setUpTestData(cls):
         """Called once per entire class! Don't modify users"""
@@ -119,6 +138,7 @@ class TestCase(APITestCase):
 
 class TwoUserTestCase(APITestCase):
     """Testing interactions from two clients"""
+    maxDiff = None
     @classmethod
     def setUpTestData(cls):
         """Called once per entire class! Don't modify users"""
@@ -591,35 +611,218 @@ class BatchJobTests(TestCase, SiteFactoryMixin, BatchJobFactoryMixin):
             self.create_batchjob(theta)
             self.create_batchjob(cooley)
 
-        # cooley scheduler agent receives 10 batchjobs
+        # scheduler agent receives 10 batchjobs; sends back bulk-state updates
         jobs = self.client.get_data('batchjob-list', site=cooley["pk"])
         self.assertEqual(jobs['count'], 10)
         jobs = jobs['results']
-
-        # first 5 jobs are submitted
         for job in jobs[:5]:
             job["state"] = "queued"
-        
-        # last 5 jobs started running
         for job in jobs[5:]:
             job["state"] = "running"
             job["start_time"] = datetime.utcnow() + timedelta(minutes=random.randint(-30,0))
 
-        # make a bulk status update
         updates = [{k:job[k] for k in job if k in ['pk', 'state', 'start_time']} for job in jobs]
+        result = self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=updates
+        )
+
+        for updated_job in result:
+            pk = updated_job['pk']
+            expected_job = next(j for j in jobs if j['pk']==pk)
+            if expected_job['start_time'] is not None:
+                expected_job['start_time'] = expected_job['start_time'].isoformat() + 'Z'
+            self.assertDictEqual(updated_job, expected_job)
         
+        jobs = self.client.get_data(
+            'batchjob-list', site=cooley["pk"], state='running'
+        )
+        self.assertEqual(jobs['count'], 5)
 
     def test_update_batchjob_before_running(self):
-        pass
+        site = self.create_site(hostname='theta')
+        pk = self.create_batchjob(site, filter_tags={'system': 'H2O'})['pk']
+
+        # The Balsam site (agent) and user retrieve job at same time
+        user_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        site_job = self.client.get_data('batchjob-detail', uri={'pk': pk})
+
+        # first the Site submits the job and bulk-partial-updates as "queued"
+        site_job["state"] = 'queued'
+        site_job["scheduler_id"] = 123
+        self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[{'pk':pk, 'state': 'queued', 'scheduler_id': 123}]
+        )
+
+        # Meanwhile, another client clears-out filter_tags on their stale job
+        # We need to be using PATCH and partial-updating, to reduce likelihood
+        # of clobbering updates with stale data
+        user_job['filter_tags'] = {}
+        user_job = self.client.patch_data(
+            'batchjob-detail', uri={'pk':pk}, filter_tags={},
+            check=status.HTTP_200_OK
+        )
+
+        self.assertEqual(user_job['filter_tags'], {})
+        self.assertEqual(user_job['state'], 'queued')
+        self.assertEqual(user_job['scheduler_id'], 123)
     
     def test_cannot_update_batchjob_after_running(self):
-        pass
-    
-    def test_cannot_update_batchjob_after_terminal_state(self):
-        pass
-    
-    def test_revert_stale_batchjob_update(self):
-        pass
+        site = self.create_site(hostname='theta')
+        pk = self.create_batchjob(site, num_nodes=7)['pk']
+        # The Balsam site (agent) and user retrieve job at same time
+        user_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        site_job = self.client.get_data('batchjob-detail', uri={'pk': pk})
 
-    def test_delete_batchjob(self):
-        pass
+        # Site runs job first
+        self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[{'pk':pk, 'state': 'running', 'scheduler_id': 123}]
+        )
+
+        # Client attempts to change num_nodes with stale record
+        response = self.client.patch_data(
+            'batchjob-detail', uri={'pk':pk}, num_nodes=27,
+            check=status.HTTP_400_BAD_REQUEST
+        )
+        self.assertIn('cannot be updated', response[0])
+
+    def test_revert_stale_batchjob_update(self):
+        # A BatchJob is added to user's theta site.
+        site = self.create_site(hostname='theta')
+        pk = self.create_batchjob(site, num_nodes=7)['pk']
+        
+        # The balsam site retrieves the new job
+        site_job = self.client.get_data('batchjob-detail', uri={'pk': pk})
+        self.assertEqual(site_job['state'], 'pending-submission')
+
+        # The site submits the job to the local queue
+
+        # The site updates state as "queued". Now there is a scheduler_id.
+        site_job = self.client.patch_data(
+            'batchjob-detail', uri={'pk': pk}, state='queued',
+            scheduler_id=123, check=status.HTTP_200_OK
+        )
+
+        # Time goes by..the job has started running
+
+        # The Balsam site (agent) and web client retrieve BatchJob
+        site_job = self.client.get_data('batchjob-detail', uri={'pk': pk})
+        web_user_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+
+        # Web Client doesnt know it's running. Updates num_nodes=27
+        web_user_job = self.client.patch_data(
+            'batchjob-detail', uri={'pk':pk}, num_nodes=27,
+            check=status.HTTP_200_OK
+        )
+        self.assertEqual(web_user_job['num_nodes'], 27)
+
+        # Balsam site does qstat: the job has started running on 7 nodes
+        qstat = {'state': 'running', 'scheduler_id': 123, 'num_nodes': 7}
+
+        # The site's record is stale!
+        self.assertEqual(site_job['num_nodes'], 7)
+        self.assertEqual(BatchJob.objects.get(pk=pk).num_nodes, 27)
+        
+        # In order to mitigate these invalid updates on stale BatchJobs, the site
+        # includes revert=True on all 'running' status updates
+        site_job.update(**qstat, revert=True)
+        self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[site_job]
+        )
+
+        # The BatchJob record is now updated to running and all 
+        # fields forced to match qstat values
+        web_user_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        site_job.pop('revert')
+        self.assertDictEqual(web_user_job, site_job)
+        self.assertEqual(site_job['num_nodes'], 7)
+        self.assertEqual(site_job['state'], 'running')
+    
+    def test_revert_does_not_override_deletion_state(self):
+        site = self.create_site(hostname='theta')
+        pk = self.create_batchjob(site, num_nodes=7)['pk']
+
+        user_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        site_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+
+        # One client marks job for deletion
+        user_job = self.client.patch_data(
+            'batchjob-detail', uri={'pk':pk}, check=status.HTTP_200_OK,
+            state='pending-deletion'
+        )
+
+        # Site updates job for running (therefore revert=True to enforce consistency)
+        site_job.update(scheduler_id=444, state='running', revert=True)
+        site_job = self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[site_job]
+        )[0]
+
+        # However, state "running" does not overwrite "pending-deletion"
+        self.assertEqual(site_job['state'], 'pending-deletion')
+        self.assertEqual(site_job['scheduler_id'], 444)
+        # Now the site knows to 'qdel' the job...
+        site_job.update(state='finished')
+        site_job = self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[site_job]
+        )[0]
+        self.assertEqual(site_job['state'], 'finished')
+
+    def test_cannot_update_batchjob_after_terminal_state(self):
+        site = self.create_site(hostname='theta')
+        pk = self.create_batchjob(site, num_nodes=7)['pk']
+        user_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        site_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+
+        site_job.update(state='finished')
+        site_job = self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[site_job]
+        )[0]
+
+        user_job = self.client.patch_data(
+            'batchjob-detail', uri={'pk':pk}, state='pending-deletion',
+            check=status.HTTP_400_BAD_REQUEST
+        )
+        self.assertIn('state can no longer change', user_job[0])
+
+    def test_delete_running_batchjob(self):
+        site = self.create_site(hostname='theta')
+        pk = self.create_batchjob(site, num_nodes=7)['pk']
+        user_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        site_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        self.assertEqual(user_job['scheduler_id'], None)
+
+        # site updates to running
+        site_job.update(
+            state='running', start_time=datetime.utcnow(), scheduler_id=123,
+            revert=True
+        )
+        site_job = self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[site_job]
+        )[0]
+        self.assertEqual(site_job['state'], 'running')
+
+        # user patches to pending-deletion
+        user_job = self.client.patch_data(
+            'batchjob-detail', uri={'pk':pk}, check=status.HTTP_200_OK,
+            state='pending-deletion'
+        )
+        self.assertEqual(user_job['state'], 'pending-deletion')
+        self.assertEqual(user_job['scheduler_id'], 123)
+        
+        # Client receives job marked for deletion
+        site_job = self.client.get_data('batchjob-detail', uri={'pk':pk})
+        self.assertEqual(site_job['state'], 'pending-deletion')
+        site_job.update(state='finished', status_message='user-deleted', end_time=datetime.utcnow())
+        patch = {k: site_job[k] for k in ['pk', 'state', 'status_message', 'end_time']}
+        site_job = self.client.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[patch]
+        )[0]
+        self.assertEqual(site_job['state'], 'finished')

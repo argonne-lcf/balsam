@@ -1,5 +1,6 @@
 from pathlib import Path
 from rest_framework import serializers
+ValidationError = serializers.ValidationError
 
 from balsam.server.models import (
     User,
@@ -74,23 +75,22 @@ class SiteStatusSerializer(serializers.HyperlinkedModelSerializer):
         required=False
     )
 
-    def _validate_queued_job(self, value):
-        char_keys = ['queue', 'state']
-        int_keys = ['num_nodes', 'score', 'queued_time_min', 'wall_time_min']
-        required_keys = set(char_keys).union(set(int_keys))
-        diff = required_keys.difference(value.keys())
+    def _validate_queued_job(self, job):
+        key_types = {
+            'queue': str, 'state': str,
+            'num_nodes': int, 'score': int, 'queued_time_min': int,
+            'wall_time_min': int
+        }
+        required_keys = set(key_types.keys())
+        diff = required_keys.difference(job.keys())
         if diff:
-            raise serializers.ValidationError(
-                f'Missing values: {diff}.\nYou only supplied:{value.keys()}'
-            )
-        ret = {key: str(value[key]) for key in char_keys}
-        for key in int_keys:
+            raise ValidationError(f'Missing required keys: {diff}')
+        ret = {}
+        for key, typ in key_types.items():
             try:
-                ret[key] = int(value[key])
-            except ValueError:
-                raise serializers.ValidationError(
-                    f'Cannot convert {value[key]} to integer'
-                )
+                ret[key] = typ(job[key])
+            except ValueError: 
+                raise ValidationError(f'{job[key]} is not a valid {typ.__name__}')
         return ret
 
     def validate_queued_jobs(self, value):
@@ -138,7 +138,7 @@ class SiteSerializer(serializers.HyperlinkedModelSerializer):
     def validate_path(self, value):
         path = Path(value)
         if not path.is_absolute():
-            raise serializers.ValidationError('must be an absolute POSIX path')
+            raise ValidationError('must be an absolute POSIX path')
         return path.as_posix()
     
 
@@ -172,9 +172,9 @@ class AppBackendSerializer(serializers.HyperlinkedModelSerializer):
     def validate_class_name(self, value):
         module, *clsname = value.split('.')
         if not module.isidentifier():
-            raise serializers.ValidationError('App class_name must be a valid Python identifier')
+            raise ValidationError('App class_name must be a valid Python identifier')
         if not (len(clsname)==1 and clsname[0].isidentifier()):
-            raise serializers.ValidationError('App class_name must be a valid Python identifier')
+            raise ValidationError('App class_name must be a valid Python identifier')
         return value
 
 class AppSerializer(serializers.HyperlinkedModelSerializer):
@@ -213,7 +213,7 @@ class AppSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate_backends(self, value):
         if len(value) == 0:
-            raise serializers.ValidationError("Provide at least one backend")
+            raise ValidationError("Provide at least one backend")
         return value
 
     def create(self, validated_data):
@@ -311,7 +311,7 @@ class JobSerializer(serializers.HyperlinkedModelSerializer):
     def validate_workdir(self, value):
         path = Path(value)
         if path.is_absolute():
-            raise serializers.ValidationError('must be a relative POSIX path')
+            raise ValidationError('must be a relative POSIX path')
         return path.as_posix()
 
 # BATCHJOB
@@ -322,20 +322,27 @@ class BatchJobListSerializer(serializers.ListSerializer):
         Bulk partial-update: no creation/deletion/reordering
         """
         allowed_pks = instance.values_list('pk', flat=True)
-        patch_list = [
-            patch for patch in validated_data
-            if patch["pk"] in allowed_pks
-        ]
-        BatchJob.objects.bulk_update(patch_list)
+        patch_list = []
+        for patch in validated_data:
+            pk = patch['pk']
+            if pk in allowed_pks:
+                patch_list.append(patch)
+            else:
+                raise ValidationError(f'Invalid pk: {pk}')
+        jobs = BatchJob.objects.bulk_update(patch_list)
+        return jobs
         
 class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
     def __init__(self, *args, **kwargs):
         bulk_update = kwargs.pop('bulk_update', False)
         super().__init__(*args, **kwargs)
 
-        # we need "pk" as a writeable field for bulk-updates
+        # we need "pk" and "revert" as writeable fields for bulk-updates
         if bulk_update:
-            self.fields['pk'] = serializers.IntegerField()
+            self.fields['pk'] = serializers.IntegerField(required=True)
+            self.fields['revert'] = serializers.BooleanField(
+                required=False, default=False, write_only=True
+            )
 
     class Meta:
         model = BatchJob
@@ -382,10 +389,10 @@ class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate_num_nodes(self, value):
         if value < 1:
-            raise serializers.ValidationError('num_nodes must be greater than 0')
+            raise ValidationError('num_nodes must be greater than 0')
         return value
 
     def validate_wall_time_min(self, value):
         if value < 1:
-            raise serializers.ValidationError('num_nodes must be greater than 0')
+            raise ValidationError('num_nodes must be greater than 0')
         return value
