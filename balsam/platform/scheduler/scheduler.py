@@ -35,7 +35,7 @@ class SchedulerInterface(object):
         """
         raise NotImplementedError
     
-    def get_statuses(self):
+    def get_statuses(self, project = None, user=None, queue=None):
         """
         Returns list of JobStatus for each job belonging to current user
         """
@@ -53,12 +53,6 @@ class SchedulerInterface(object):
         """
         raise NotImplementedError
 
-    def check_queues(self):
-        """
-        Returns list of JobStatus for all queued jobs on the system
-        """
-        raise NotImplementedError
-
 
 class SubprocessSchedulerInterface(SchedulerInterface):
 
@@ -70,8 +64,8 @@ class SubprocessSchedulerInterface(SchedulerInterface):
         scheduler_id = self._parse_submit_output(stdout)
         return scheduler_id
 
-    def get_statuses(self):
-        stat_args = self._render_status_args(user=self.username)
+    def get_statuses(self, project=None, user=None, queue=None):
+        stat_args = self._render_status_args(project, user, queue)
         stdout = scheduler_subproc(stat_args)
         stat_dict = self._parse_status_output(stdout)
         return stat_dict
@@ -90,11 +84,3 @@ class SubprocessSchedulerInterface(SchedulerInterface):
         nodelist = self._parse_nodelist(stdout)
         return nodelist
 
-    def check_queues(self):
-        """
-        Get all queues with lists of enqueued or running jobs
-        """
-        stat_args = self._render_status_args(user=None)
-        stdout = scheduler_subproc(stat_args)
-        stat_dict = self._parse_status_output(stdout)
-        return stat_dict
