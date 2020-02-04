@@ -6,7 +6,7 @@ import logging
 import re
 import numpy as np
 import socket
-import sys
+import time
 import threading
 from datetime import datetime, timedelta
 from django.utils import timezone
