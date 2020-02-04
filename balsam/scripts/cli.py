@@ -106,7 +106,7 @@ def make_parser():
     parser_job.add_argument('--threads-per-core',type=int, default=1,
                             help="Equivalent to -j option in aprun")
     # TODO(KGF): check the safety/security of the arg of this flag when passed and parsed:
-    parser_job.add_argument('--sched-flags', type=str, default=None,
+    parser_job.add_argument('--mpi-flags', type=str, default=None,
                             help="Additional flags to append to MPI command")
 
     parser_job.add_argument('--args', nargs='*', required=False, default=[],
