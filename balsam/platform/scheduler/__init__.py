@@ -1,5 +1,5 @@
 from .scheduler import SubprocessSchedulerInterface
-from .local import LocalScheduler
+from .dummy import DummyScheduler
 from .cobalt_sched import CobaltScheduler
 
 
