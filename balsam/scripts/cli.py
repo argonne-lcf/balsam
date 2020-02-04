@@ -29,7 +29,7 @@ def config_launcher_subparser(subparser=None):
     group.add_argument('--wf-filter', help="Continuously run jobs of specified workflow")
     parser.add_argument('--job-mode', choices=['mpi', 'serial'],
             required=True, default='mpi')
-    parser.add_argument('--time-limit-minutes', type=float, default=0, 
+    parser.add_argument('--time-limit-minutes', type=float, default=0,
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--num-transition-threads', type=int, default=None)
     parser.add_argument('--gpus-per-node', type=int, default=None)
@@ -55,9 +55,9 @@ def make_parser():
                                        )
     parser_app.set_defaults(func=newapp)
     parser_app.add_argument('--name', required=True)
-    parser_app.add_argument('--executable', help='full path to executable', 
+    parser_app.add_argument('--executable', help='full path to executable',
                             required=True)
-    parser_app.add_argument('--preprocess', default='', 
+    parser_app.add_argument('--preprocess', default='',
                             help='preprocessing script with full path')
     parser_app.add_argument('--postprocess', default='',
                             help='postprocessing script with full path')
@@ -79,7 +79,7 @@ def make_parser():
     parser_job.add_argument('--application', help='Name of the '
                             'application to use; must exist in '
                             'ApplicationDefinition DB', required=True)
-    
+
     parser_job.add_argument('--wall-time-minutes', type=int, required=False, default=1)
     parser_job.add_argument('--num-nodes',
                             type=int, required=False,default=1,
@@ -90,20 +90,24 @@ def make_parser():
                             type=int, required=False,default=0)
     parser_job.add_argument('--node-packing-count',
                             type=int, required=False,default=1)
-                            
+
     parser_job.add_argument('--ranks-per-node',
                             type=int, required=False,default=1,
                             help='Number of MPI ranks per compute node. '
                             '(Total MPI ranks calculated from num_nodes * '
                             'ranks_per_node. If only 1 total ranks, treated as serial '
                             'job).')
-    
+
     parser_job.add_argument('--description', required=False, nargs='*', default=[])
 
+    # TODO(KGF): generalize this info beyond Cobalt
     parser_job.add_argument('--threads-per-rank',type=int, default=1,
                             help="Equivalent to -d option in aprun")
     parser_job.add_argument('--threads-per-core',type=int, default=1,
                             help="Equivalent to -j option in aprun")
+    # TODO(KGF): check the safety/security of the arg of this flag when passed and parsed:
+    parser_job.add_argument('--sched-flags', type=str, default=None,
+                            help="Additional flags to append to MPI command")
 
     parser_job.add_argument('--args', nargs='*', required=False, default=[],
                             help="Command-line args to the application")
@@ -117,7 +121,7 @@ def make_parser():
                             help="Flag disables automatic job retry if it has "
                             "timed out in a previous run")
 
-    parser_job.add_argument('--input-files', nargs='*', required=False, 
+    parser_job.add_argument('--input-files', nargs='*', required=False,
                             default=['*'], help="Dataflow: filename patterns "
                             "that will be searched for in the parent job "
                             "working directories and retrieved for input. "
@@ -129,11 +133,11 @@ def make_parser():
                             help='Output URL to which output files are copied.')
     parser_job.add_argument('--stage-out-files', nargs='*', required=False,default=[],
                             help="Filename patterns; matches will be "
-                            "transferred to the destination specified " 
+                            "transferred to the destination specified "
                             "by --url-out option")
     parser_job.add_argument('--env', action='append', required=False,
-                            default=[], help="Environment variables specific " 
-                            "to this job; specify multiple envs like " 
+                            default=[], help="Environment variables specific "
+                            "to this job; specify multiple envs like "
                             "'--env VAR1=VAL1 --env VAR2=VAL2'.  "
                             "Application-specific variables can instead be "
                             "given in the ApplicationDefinition to avoid "
@@ -150,7 +154,7 @@ def make_parser():
                                        help="add a dependency between two existing jobs",
                                        description="add a dependency between two existing jobs"
                                        )
-    parser_dep.set_defaults(func=newdep) 
+    parser_dep.set_defaults(func=newdep)
     parser_dep.add_argument('parent', help="Parent must be finished before child")
     parser_dep.add_argument('child', help="The dependent job")
     #-------------------------------------------------------------------------
@@ -183,7 +187,7 @@ def make_parser():
     parser_modify.add_argument('--type', choices=['jobs', 'apps'], default='jobs', help="modify a job or AppDef")
     # -----------------------------------------------------------------------
 
-    
+
     # RM
     # --
     parser_rm = subparsers.add_parser('rm', help="remove jobs or applications from the database")
@@ -216,13 +220,13 @@ def make_parser():
     parser_mkchild.add_argument('--application', help='Name of the '
                             'application to use; must exist in '
                             'ApplicationDefinition DB', required=True)
-    
+
     parser_mkchild.add_argument('--wall-minutes', type=int, required=True)
     parser_mkchild.add_argument('--num-nodes',
                             type=int, required=True)
     parser_mkchild.add_argument('--ranks-per-node',
                             type=int, required=True)
-    
+
     parser_mkchild.add_argument('--description', required=False, nargs='*',
                             default=[])
 
@@ -247,7 +251,7 @@ def make_parser():
                             help="Flag disables automatic job retry if it has "
                             "timed out in a previous run")
 
-    parser_mkchild.add_argument('--input-files', nargs='*', required=False, 
+    parser_mkchild.add_argument('--input-files', nargs='*', required=False,
                             default=['*'], help="Dataflow: filename patterns "
                             "that will be searched for in the parent job "
                             "working directories and retrieved for input. "
@@ -259,11 +263,11 @@ def make_parser():
                             help='Output URL to which output files are copied.')
     parser_mkchild.add_argument('--stage-out-files', nargs='*', required=False,default=[],
                             help="Filename patterns; matches will be "
-                            "transferred to the destination specified " 
+                            "transferred to the destination specified "
                             "by --url-out option")
     parser_mkchild.add_argument('--env', action='append', required=False,
-                            default=[], help="Environment variables specific " 
-                            "to this job; specify multiple envs like " 
+                            default=[], help="Environment variables specific "
+                            "to this job; specify multiple envs like "
                             "'--env VAR1=VAL1 --env VAR2=VAL2'.  "
                             "Application-specific variables can instead be "
                             "given in the ApplicationDefinition to avoid "
@@ -290,8 +294,11 @@ def make_parser():
     parser_submitlaunch.add_argument('-A', '--project', type=str, required=True)
     parser_submitlaunch.add_argument('--job-mode', type=str, choices=['serial', 'mpi'], required=True)
     parser_submitlaunch.add_argument('--wf-filter', type=str, default='')
+    # TODO(KGF): check the safety/security of the arg of this flag when passed and parsed:
+    parser_submitlaunch.add_argument('--sched-flags', type=str, default='', required=False,
+                                     help="Additional flags to append to job scheduler submit command")
     parser_submitlaunch.set_defaults(func=submitlaunch)
-    
+
     # INIT
     # --------
     parser_init = subparsers.add_parser('init', help="Create new balsam DB")
@@ -311,19 +318,19 @@ def make_parser():
     parser_dummy = subparsers.add_parser('make_dummies')
     parser_dummy.add_argument('num', type=int)
     parser_dummy.set_defaults(func=make_dummies)
-    
+
     # WHICH
     # ---------
     parser_which = subparsers.add_parser('which', help="Get info on current/available DBs")
     parser_which.add_argument('--list', action='store_true', help="list cached DB paths")
     parser_which.add_argument('--name', help='Look up DB path from a partial name')
     parser_which.set_defaults(func=which)
-    
+
     # LOG
     # ---------
     parser_log = subparsers.add_parser('log', help="Quick view of Balsam log files")
     parser_log.set_defaults(func=log)
-    
+
     # SERVER
     # ---------
     parser_server = subparsers.add_parser('server', help="Control Balsam server at BALSAM_DB_PATH")

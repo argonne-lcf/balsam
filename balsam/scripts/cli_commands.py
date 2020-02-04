@@ -11,9 +11,9 @@ def ls_procs(keywords):
     if type(keywords) == str: keywords = [keywords]
 
     username = getpass.getuser()
-    
+
     searchcmd = 'ps aux | grep '
-    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords) 
+    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords)
     grep = subprocess.Popen(searchcmd, shell=True, stdout=subprocess.PIPE)
     stdout,stderr = grep.communicate()
     stdout = stdout.decode('utf-8')
@@ -35,7 +35,7 @@ def newapp(args):
     from balsam.core.models import ApplicationDefinition as AppDef
 
     def py_app_path(path):
-        if not path: 
+        if not path:
             return ''
         args = path.split()
         app = args[0]
@@ -48,7 +48,7 @@ def newapp(args):
 
     if AppDef.objects.filter(name=args.name).exists():
         raise RuntimeError(f"An application named {args.name} already exists")
-    
+
     app = AppDef()
     app.name = args.name
     app.description = ' '.join(args.description) if args.description else ''
@@ -217,13 +217,13 @@ def rm(args):
     if deleteall:
         deletion_objs = objects.all()
         message = f"ALL {objects_name}"
-    elif name: 
+    elif name:
         deletion_objs = objects.filter(name__icontains=name)
         message = f"{len(deletion_objs)} {objects_name} matching name {name}"
-        if not deletion_objs.exists(): 
+        if not deletion_objs.exists():
             print("No {objects_name} matching query")
             return
-    elif objid: 
+    elif objid:
         deletion_objs = objects.filter(pk__icontains=objid)
         if deletion_objs.count() > 1:
             raise RuntimeError(f"Multiple {objects_name} match ID")
@@ -231,7 +231,7 @@ def rm(args):
             raise RuntimeError(f"No {objects_name} match ID")
         else:
             message = f"{objects_name[:-1]} with ID matching {objid}"
-    
+
     # User confirmation
     if not force:
         if not cmd_confirmation(f"PERMANENTLY remove {message}?"):
@@ -250,7 +250,7 @@ def kill(args):
     Job = models.BalsamJob
 
     job_id = args.id
-    
+
     job = Job.objects.filter(job_id__startswith=job_id)
     if job.count() > 1:
         raise RuntimeError(f"More than one job matches {job_id}")
@@ -302,6 +302,7 @@ def submitlaunch(args):
                     wall_minutes = args.time_minutes,
                     job_mode = args.job_mode,
                     wf_filter = args.wf_filter,
+                    sched_flags = args.sched_flags,
                     prescheduled_only=False)
             qlaunch.save()
             service.submit_qlaunch(qlaunch, verbose=True)
@@ -325,7 +326,7 @@ def init(args):
         except:
             print(f"Failed to create directory {path}")
             sys.exit(1)
-        
+
     fname = find_spec("balsam.scripts.init").origin
     p = subprocess.Popen(f'{sys.executable} {fname} {path}', shell=True)
     p.wait()

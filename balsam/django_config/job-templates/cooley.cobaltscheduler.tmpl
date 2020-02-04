@@ -11,6 +11,6 @@ export PMI_NO_FORK=1 # otherwise, mpi4py-enabled Python apps with custom signal 
 source balsamactivate {{ balsam_db_path }}
 sleep 2
 
-balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }} --gpus-per-node=2
+balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }} --gpus-per-node=2 --{{ sched_flags }}
 
 source balsamdeactivate

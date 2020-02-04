@@ -31,12 +31,17 @@ class ScriptTemplate:
             wf_filter = f'wf-filter={qlaunch.wf_filter}'
         else:
             wf_filter = 'consume-all'
+        if qlaunch.sched_flags:
+            sched_flags = f'sched-flags={qlaunch.sched_flags}'
+        else:
+            sched_flags = None
         conf = dict(project=project,
                     queue=qlaunch.queue,
                     nodes=qlaunch.nodes,
                     time_minutes=qlaunch.wall_minutes,
                     job_mode=qlaunch.job_mode,
                     wf_filter=wf_filter,
+                    sched_flags=sched_flags
                     )
         balsam_env = self.get_balsam_env()
         conf.update(balsam_env)

@@ -3,7 +3,7 @@
 #COBALT -n {{ nodes }}
 #COBALT -q {{ queue }}
 #COBALT -t {{ time_minutes }}
-#COBALT --attrs ssds=required:ssd_size=128 
+#COBALT --attrs ssds=required:ssd_size=128
 
 export PATH={{ balsam_bin }}:{{ pg_bin }}:$PATH
 
@@ -17,6 +17,6 @@ export PMI_NO_FORK=1 # otherwise, mpi4py-enabled Python apps with custom signal 
 source balsamactivate {{ balsam_db_path }}
 sleep 2
 
-balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }}
+balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }} --{{ sched_flags }}
 
 source balsamdeactivate

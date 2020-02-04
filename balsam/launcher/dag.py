@@ -56,12 +56,12 @@ follows::
              fp.write("# a new input file here")
 
          dag.spawn_child(clone=True,
-             walltime_minutes=dag.current_job.walltime_minutes + 10, 
+             walltime_minutes=dag.current_job.walltime_minutes + 10,
              input_files = 'input_rescue.dat')
 '''
 import json
 import os
-import uuid 
+import uuid
 from collections import deque
 
 from balsam import setup
@@ -69,7 +69,7 @@ setup()
 from balsam.core.models import BalsamJob, history_line
 from balsam.service.schedulers import JobEnv
 
-__all__ = ['JOB_ID', 'TIMEOUT', 'ERROR', 
+__all__ = ['JOB_ID', 'TIMEOUT', 'ERROR',
            'current_job', 'parents', 'children',
            'add_job', 'add_dependency', 'spawn_child',
            'kill']
@@ -83,7 +83,7 @@ JOB_ID = _envs.get('BALSAM_JOB_ID', '')
 TIMEOUT = _envs.get('BALSAM_JOB_TIMEOUT', False) == "TRUE"
 ERROR = _envs.get('BALSAM_JOB_ERROR', False) == "TRUE"
 LAUNCHER_NODES = JobEnv.num_workers
-if LAUNCHER_NODES is None: 
+if LAUNCHER_NODES is None:
     LAUNCHER_NODES = 1
 
 if JOB_ID:
@@ -100,22 +100,22 @@ if JOB_ID:
         children = current_job.get_children()
 
 def add_job(
-        name, workflow, application, 
+        name, workflow, application,
         description='', args='',
-        num_nodes=1, ranks_per_node=1, 
+        num_nodes=1, ranks_per_node=1,
         cpu_affinity='depth', threads_per_rank=1,
-        threads_per_core=1, 
-        environ_vars={}, 
+        threads_per_core=1,
+        environ_vars={},
         data=None,
         save=True,
         **kwargs
     ):
     '''Add a new job to the BalsamJob DB
-    
+
     Creates a new job and saves it to the database in CREATED state.
     The job is initialized with all blank/default values for its fields; these
     must be configured by the user or provided via ``kwargs``
-    
+
     Args:
         - ``kwargs`` (*dict*): contains BalsamJob fields (keys) and their values to
           be set on BalsamJob instantiation.
@@ -152,13 +152,13 @@ def add_job(
 
 def detect_circular(job, path=[]):
     '''Detect a circular dependency in DAG
-    
+
     Args:
         - ``job`` (*BalsamJob*): node at which to start traversing the DAG
-    
+
     Returns:
         - ``detected`` (*bool*): True if a circular dependency was detected
-    ''' 
+    '''
     if job.pk in path: return True
     path = path[:] + [job.pk]
     for parent in job.get_parents():
@@ -166,7 +166,7 @@ def detect_circular(job, path=[]):
     return False
 
 def breadth_first_iterator(roots, max_depth=None):
-    try: 
+    try:
         roots = iter(roots)
     except TypeError:
         assert isinstance(roots, BalsamJob)
@@ -211,7 +211,7 @@ def wf_from_template(source_wf, new_wf, **kwargs):
 
 def add_dependency(parent,child):
     '''Create a dependency between two existing jobs
-    
+
     Args:
         - ``parent`` (*BalsamJob*): The job which must reach state JOB_FINISHED
           before ``child`` begins processing
@@ -228,18 +228,18 @@ def add_dependency(parent,child):
         parent = BalsamJob.objects.get(pk=parent)
     elif isinstance(parent, uuid.UUID):
         parent = BalsamJob.objects.get(pk=parent)
-    elif isinstance(parent, QuerySet): 
+    elif isinstance(parent, QuerySet):
         assert parent.count() == 1
         parent = parent.first()
     else:
         assert isinstance(parent, BalsamJob)
 
-    if isinstance(child, str): 
+    if isinstance(child, str):
         child = uuid.UUID(child)
         child = BalsamJob.objects.get(pk=child)
     elif isinstance(child, uuid.UUID):
         child = BalsamJob.objects.get(pk=child)
-    elif isinstance(child, QuerySet): 
+    elif isinstance(child, QuerySet):
         assert child.count() == 1
         child = child.first()
     else:
@@ -260,15 +260,15 @@ def add_dependency(parent,child):
 def clone(job, **kwargs):
     assert isinstance(job, BalsamJob)
     new_job = BalsamJob()
-    
+
     exclude_fields = '''_state objects source state tick user_workdir
     lock state_history job_id'''.split()
     fields = [f for f in job.__dict__ if f not in exclude_fields]
 
-    for f in fields: 
+    for f in fields:
         new_job.__dict__[f] = job.__dict__[f]
     assert new_job.pk != job.pk
-    
+
     for k,v in kwargs.items():
         try: field = job._meta.get_field(k)
         except: raise ValueError(f"Invalid field name: {k}")
@@ -277,7 +277,7 @@ def clone(job, **kwargs):
 
 def spawn_child(**kwargs):
     '''Add a new job that is dependent on the current job
-    
+
     This function creates a new child job that will not start until the current
     job is finished processing. The job is added to the BalsamJob database in
     CREATED state.
@@ -285,7 +285,7 @@ def spawn_child(**kwargs):
     Args:
         - ``clone`` (*bool*): If *True*, all fields of the current BalsamJob are
           copied into the child job (except for primary key and working
-          directory). Specific fields may then be overwritten via *kwargs*. 
+          directory). Specific fields may then be overwritten via *kwargs*.
           Defaults to *False*.
         - ``kwargs`` (*dict*) : Contains BalsamJob field names as keys and their
           desired values.
@@ -295,14 +295,14 @@ def spawn_child(**kwargs):
 
     Raises:
         - ``RuntimeError``: If no BalsamJob detected on module-load
-        - ``ValueError``: if an invalid field name is passed into *kwargs* 
+        - ``ValueError``: if an invalid field name is passed into *kwargs*
     '''
     if not isinstance(current_job, BalsamJob):
         raise RuntimeError("No current BalsamJob detected in environment")
 
     if 'workflow' not in kwargs:
         kwargs['workflow'] = current_job.workflow
-    
+
     child = clone(current_job, **kwargs)
     child.queued_launch = current_job.queued_launch
 
@@ -319,7 +319,7 @@ def kill(job, recursive=True):
 
     Mark a job (and optionally all jobs that depend on it) by the state
     USER_KILLED, which will prevent any further processing.
-    
+
     Args:
         - ``job`` (*BalsamJob*): the job (or subtree root) to kill
         - ``recursive`` (*bool*): if *True*, then traverse the DAG recursively
@@ -367,8 +367,8 @@ def add_app(name, executable, description='', envscript='', preprocess='', postp
     """
     from balsam.core.models import ApplicationDefinition as App
     import shutil
-    
-    if checkexe and not shutil.which(executable):        
+
+    if checkexe and not shutil.which(executable):
         raise ValueError('No executable {} found in the PATH'.format(executable))
 
     newapp, created = App.objects.get_or_create(name=name)
@@ -394,7 +394,7 @@ def get_apps(verbose=True):
         apps = None
     return apps
 
-def submit(project='datascience',queue='debug-flat-quad',nodes=1,wall_minutes=30,job_mode='mpi',wf_filter=''):
+def submit(project='datascience',queue='debug-flat-quad',nodes=1,wall_minutes=30,job_mode='mpi',wf_filter='',sched_flags=''):
     """
     Submits a job to the queue with the given parameters.
     Parameters
@@ -416,6 +416,7 @@ def submit(project='datascience',queue='debug-flat-quad',nodes=1,wall_minutes=30
     mylaunch.wall_minutes = wall_minutes
     mylaunch.job_mode = job_mode
     mylaunch.wf_filter = wf_filter
+    mylaunch.sched_flags = sched_flags
     mylaunch.prescheduled_only=False
     mylaunch.save()
     service.submit_qlaunch(mylaunch, verbose=True)

@@ -91,9 +91,10 @@ class MPIRun:
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
-    def __init__(self, wf_name, time_limit_minutes, gpus_per_node):
+    def __init__(self, wf_name, time_limit_minutes, gpus_per_node, sched_flags=None):
         self.jobsource = BalsamJob.source
         self.jobsource.workflow = wf_name
+        self.jobsource.sched_flags = sched_flags
         if wf_name:
             logger.info(f'Filtering jobs with workflow matching {wf_name}')
         else:
@@ -138,7 +139,7 @@ class MPILauncher:
 
     def check_exit(self):
         global EXIT_FLAG
-        try: 
+        try:
             remaining_minutes = next(self.timer)
         except StopIteration:
             EXIT_FLAG = True
@@ -148,7 +149,7 @@ class MPILauncher:
             EXIT_FLAG = True
             logger.info("Out of time; preparing to exit")
             return
-        if self.is_active: 
+        if self.is_active:
             logger.debug("Some runs are still active; will not quit")
             return
         processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
@@ -189,12 +190,12 @@ class MPILauncher:
         for run in runs: run.process.terminate() #SIGTERM
         start = time.time()
         for run in runs:
-            try: 
+            try:
                 run.process.wait(timeout=timeout)
-            except: 
+            except:
                 break
             if time.time() - start > timeout: break
-        for run in runs: 
+        for run in runs:
             run.process.kill()
             run.free_workers()
 
@@ -207,7 +208,7 @@ class MPILauncher:
         done_pks = [r.job.pk for r in by_states['RUN_DONE']]
         BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
         self.jobsource.release(done_pks)
-        
+
         error_pks = [r.job.pk for r in by_states['RUN_ERROR']]
         with db.transaction.atomic():
             models.safe_select(BalsamJob.objects.filter(pk__in=error_pks))
@@ -215,9 +216,9 @@ class MPILauncher:
                 run.job.refresh_from_db()
                 run.job.update_state('RUN_ERROR', run.err_msg)
         self.jobsource.release(error_pks)
-        
+
         active_pks = [r.job.pk for r in by_states['RUNNING']]
-        if timeout: 
+        if timeout:
             self.timeout_kill(by_states['RUNNING'])
             BalsamJob.batch_update_state(active_pks, 'RUN_TIMEOUT')
             self.jobsource.release(active_pks)
@@ -233,7 +234,7 @@ class MPILauncher:
             self.mpi_runs = []
         else:
             self.mpi_runs = by_states['RUNNING']
-        
+
     def get_runnable(self):
         '''queryset: jobs that can finish on idle workers (disregarding time limits)'''
         manager = self.jobsource
@@ -345,9 +346,10 @@ class MPILauncher:
 class SerialLauncher:
     MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
 
-    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None):
+    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, sched_flags=None):
         self.wf_name = wf_name
         self.gpus_per_node = gpus_per_node
+        self.sched_flags = sched_flags
 
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
@@ -360,7 +362,8 @@ class SerialLauncher:
         self.app_cmd += f" --time-limit-min={minutes_left}"
         if self.wf_name: self.app_cmd += f" --wf-name={self.wf_name}"
         if self.gpus_per_node: self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
-    
+        if self.sched_flags: self.app_cmd += f" --sched-flags={self.sched_flags}"
+
     def run(self):
         global EXIT_FLAG
         workers = self.worker_group
@@ -389,9 +392,9 @@ class SerialLauncher:
             shell=False)
 
         while not EXIT_FLAG:
-            try: 
+            try:
                 retcode = self.process.wait(timeout=2)
-            except subprocess.TimeoutExpired: 
+            except subprocess.TimeoutExpired:
                 pass
             else:
                 logger.info(f'ensemble pull subprocess returned {retcode}')
@@ -403,26 +406,27 @@ class SerialLauncher:
         except subprocess.TimeoutExpired:
             self.process.kill()
         self.outfile.close()
-        
+
 def main(args):
     signal.signal(signal.SIGINT,  sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
 
     wf_filter = args.wf_filter
+    sched_flags = args.sched_flags
     job_mode = args.job_mode
     timelimit_min = args.time_limit_minutes
     nthread = (args.num_transition_threads if args.num_transition_threads
               else settings.NUM_TRANSITION_THREADS)
     gpus_per_node = args.gpus_per_node
-    
+
     Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
-    
+
     try:
         if nthread > 0:
             transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
         else:
             transition_pool = None
-        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node)
+        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node, sched_flags)
         launcher.run()
     except:
         raise
