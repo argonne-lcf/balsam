@@ -43,7 +43,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     }
     field_maps = {
         'id' : lambda id: int(id),
-        'nodes' : lambda n: int(n)
+        'nodes' : lambda n: int(n),
         'time_remaining_min' : parse_cobalt_time_minutes,
         'wall_time_min' : parse_cobalt_time_minutes,
         'state' : state_map,
