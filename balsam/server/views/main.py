@@ -138,7 +138,6 @@ class BatchJobFilter(django_filters.FilterSet):
         ]
 
 class BatchJobList(generics.ListCreateAPIView):
-    queryset = BatchJob.objects.all()
     serializer_class = ser.BatchJobSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = BalsamPaginator
@@ -158,7 +157,7 @@ class BatchJobList(generics.ListCreateAPIView):
         user = self.request.user
         return BatchJob.objects.filter(site__owner=user).order_by('-start_time')
 
-    def put(self, request, format=None):
+    def patch(self, request, format=None):
         """
         Bulk-updates BatchJobs given a list of partial updates.
         Each partial update must contain the "pk" field.
