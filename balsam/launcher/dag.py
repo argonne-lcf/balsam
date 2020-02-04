@@ -394,7 +394,7 @@ def get_apps(verbose=True):
         apps = None
     return apps
 
-def submit(project='datascience',queue='debug-flat-quad',nodes=1,wall_minutes=30,job_mode='mpi',wf_filter='',sched_flags=''):
+def submit(project='datascience',queue='debug-flat-quad',nodes=1,wall_minutes=30,job_mode='mpi',wf_filter=''):
     """
     Submits a job to the queue with the given parameters.
     Parameters
@@ -405,6 +405,7 @@ def submit(project='datascience',queue='debug-flat-quad',nodes=1,wall_minutes=30
     wall_minutes: int, max wall time in minutes
     job_mode: str, Balsam job mode, can be 'mpi', 'serial'
     wf_filter: str, Selects Balsam jobs that matches the given workflow filter.
+    sched_flags: str, Additional flags to pass to the job scheduler.
     """
     from balsam.service import service
     from balsam.core import models
@@ -416,7 +417,6 @@ def submit(project='datascience',queue='debug-flat-quad',nodes=1,wall_minutes=30
     mylaunch.wall_minutes = wall_minutes
     mylaunch.job_mode = job_mode
     mylaunch.wf_filter = wf_filter
-    mylaunch.sched_flags = sched_flags
     mylaunch.prescheduled_only=False
     mylaunch.save()
     service.submit_qlaunch(mylaunch, verbose=True)

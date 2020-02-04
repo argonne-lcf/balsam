@@ -91,10 +91,9 @@ class MPIRun:
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
-    def __init__(self, wf_name, time_limit_minutes, gpus_per_node, sched_flags=None):
+    def __init__(self, wf_name, time_limit_minutes, gpus_per_node):
         self.jobsource = BalsamJob.source
         self.jobsource.workflow = wf_name
-        self.jobsource.sched_flags = sched_flags
         if wf_name:
             logger.info(f'Filtering jobs with workflow matching {wf_name}')
         else:
@@ -346,10 +345,9 @@ class MPILauncher:
 class SerialLauncher:
     MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
 
-    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, sched_flags=None):
+    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None):
         self.wf_name = wf_name
         self.gpus_per_node = gpus_per_node
-        self.sched_flags = sched_flags
 
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
@@ -362,7 +360,6 @@ class SerialLauncher:
         self.app_cmd += f" --time-limit-min={minutes_left}"
         if self.wf_name: self.app_cmd += f" --wf-name={self.wf_name}"
         if self.gpus_per_node: self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
-        if self.sched_flags: self.app_cmd += f" --sched-flags={self.sched_flags}"
 
     def run(self):
         global EXIT_FLAG
@@ -412,7 +409,6 @@ def main(args):
     signal.signal(signal.SIGTERM, sig_handler)
 
     wf_filter = args.wf_filter
-    sched_flags = args.sched_flags
     job_mode = args.job_mode
     timelimit_min = args.time_limit_minutes
     nthread = (args.num_transition_threads if args.num_transition_threads
@@ -426,7 +422,7 @@ def main(args):
             transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
         else:
             transition_pool = None
-        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node, sched_flags)
+        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node)
         launcher.run()
     except:
         raise
