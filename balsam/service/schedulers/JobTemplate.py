@@ -32,9 +32,7 @@ class ScriptTemplate:
         else:
             wf_filter = 'consume-all'
         if qlaunch.sched_flags:
-            sched_flags = f'sched-flags={qlaunch.sched_flags}'
-        else:
-            sched_flags = None
+            sched_flags = qlaunch.sched_flags
         conf = dict(project=project,
                     queue=qlaunch.queue,
                     nodes=qlaunch.nodes,
