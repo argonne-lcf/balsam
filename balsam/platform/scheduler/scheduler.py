@@ -4,12 +4,13 @@ import os
 
 class SchedulerNonZeroReturnCode(Exception): pass
 
-def scheduler_subproc(args):
+def scheduler_subproc(args, cwd=None):
     p = subprocess.run(
         args,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         encoding='utf-8',
+        cwd=cwd,
     )
     if p.returncode != 0:
         raise SchedulerNonZeroReturnCode(p.stdout)
@@ -28,7 +29,7 @@ class SchedulerInterface(object):
             self._username = getuser()
         return self._username
     
-    def submit(self, script_path, project, queue, num_nodes, time_minutes):
+    def submit(self, script_path, project, queue, num_nodes, time_minutes, cwd=None):
         """
         Submit the script at `script_path` to a local job queue.
         Returns scheduler ID of the submitted job.
@@ -56,11 +57,11 @@ class SchedulerInterface(object):
 
 class SubprocessSchedulerInterface(SchedulerInterface):
 
-    def submit(self, script_path, project, queue, num_nodes, time_minutes):
+    def submit(self, script_path, project, queue, num_nodes, time_minutes, cwd=None):
         submit_args = self._render_submit_args(
             script_path, project, queue, num_nodes, time_minutes
         )
-        stdout = scheduler_subproc(submit_args)
+        stdout = scheduler_subproc(submit_args,cwd)
         scheduler_id = self._parse_submit_output(stdout)
         return scheduler_id
 
@@ -81,6 +82,6 @@ class SubprocessSchedulerInterface(SchedulerInterface):
         """
         nodelist_args = self._render_nodelist_args()
         stdout = scheduler_subproc(nodelist_args)
-        nodelist = self._parse_nodelist(stdout)
+        nodelist = self._parse_nodelist_output(stdout)
         return nodelist
 
