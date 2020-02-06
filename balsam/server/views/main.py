@@ -9,6 +9,7 @@ from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework import filters as drf_filters
 from rest_framework.authentication import BasicAuthentication
+from rest_framework import status
 
 import django_filters.rest_framework as django_filters
 from knox.views import LoginView as KnoxLoginView
@@ -180,6 +181,9 @@ class BatchJobList(generics.ListCreateAPIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if getattr(qs, '_prefetched_objects_cache', None):
+            # forcibly invalidate the prefetch cache on the instance
+            qs._prefetched_objects_cache = {} 
         return Response(serializer.data)
 
 class BatchJobDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -202,7 +206,19 @@ class JobList(generics.ListCreateAPIView):
         batch_job_id = self.kwargs.get('batch_job_id')
         if batch_job_id is not None:
             qs = qs.filter(batch_job=batch_job_id)
+        qs = qs.select_related('site', 'owner', 'app_exchange', 'app_backend')
         return qs
+
+    def create(self, request, *args, **kwargs):
+        """Bulk-create semantics"""
+        serializer = ser.JobSerializer(
+            data=request.data, many=True, context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class JobDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Job.objects.all()

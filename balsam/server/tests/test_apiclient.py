@@ -3,6 +3,7 @@ import atexit
 import pprint
 from datetime import datetime, timedelta
 from dateutil.parser import isoparse
+import logging
 import os
 import random
 
@@ -15,6 +16,22 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from balsam.server.serializers import UserSerializer
 from balsam.server.models import User, Site, AppBackend, AppExchange, BatchJob
+
+
+class QueryLogger:
+    def __init__(self):
+        l = logging.getLogger('django.db.backends')
+        l.addHandler(logging.StreamHandler())
+        self.l = l
+
+    def __enter__(self):
+        if os.environ.get('LOG_SQL'):
+            self.l.setLevel(logging.DEBUG)
+            settings.DEBUG = True
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.l.setLevel(logging.INFO)
+        settings.DEBUG = False
 
 class QueryProfiler:
     is_enabled = os.environ.get('QUERY_REPORT', False)
@@ -69,7 +86,7 @@ class SiteFactoryMixin:
         return client.post_data('site-list', hostname=hostname, path=path, check=check)
     
 class AppFactoryMixin:
-    def create_app(self, name="hello world", sites=None, cls_names=None, parameters=None, check=status.HTTP_201_CREATED, client=None):
+    def create_app(self, name="hello world", sites=None, cls_names=None, parameters=['name', 'N'], check=status.HTTP_201_CREATED, client=None):
         """Sites: dict with pk, or list of dicts with pk, or list of ints, or int"""
         if client is None:
             client = self.client
@@ -102,6 +119,31 @@ class BatchJobFactoryMixin:
             'batchjob-list', site=site['pk'], project=project, queue=queue, num_nodes=num_nodes,
             wall_time_min=wall_time_min, job_mode=job_mode, filter_tags=filter_tags, check=check
         )
+
+class JobFactoryMixin:
+
+    def job_dict(
+        self, workdir='test/1', tags={}, app=None, transfers=[],
+        parameters={'name': 'world', 'N': 4}, data={}, parents=[],
+        num_nodes=2, ranks_per_node=4, threads_per_rank=1, threads_per_core=1,
+        cpu_affinity='depth', gpus_per_rank=0, node_packing_count=1, wall_time_min=0
+    ):
+        if app is None:
+            app = self.default_app
+        if isinstance(app, dict):
+            app = app['pk']
+        return dict(
+            workdir=workdir, tags=tags, app=app,
+            transfer_items=transfers, parameters=parameters, data=data, parents=parents,
+            num_nodes=num_nodes, ranks_per_node=ranks_per_node, threads_per_rank=threads_per_rank,
+            threads_per_core=threads_per_core, cpu_affinity=cpu_affinity, gpus_per_rank=gpus_per_rank,
+            node_packing_count=node_packing_count, wall_time_min=wall_time_min
+        )
+
+    def create_jobs(self, new_jobs, client=None, check=status.HTTP_201_CREATED):
+        if client is None:
+            client = self.client
+        return client.bulk_post_data('job-list', new_jobs, check=check)
 
 
 class TestAPIClient(APIClient):
@@ -960,3 +1002,27 @@ class BatchJobTests(TestCase, SiteFactoryMixin, BatchJobFactoryMixin):
             list_data=[patch]
         )[0]
         self.assertEqual(site_job['state'], 'finished')
+
+class JobTests(TestCase, SiteFactoryMixin, AppFactoryMixin, BatchJobFactoryMixin, JobFactoryMixin):
+    @classmethod
+    def setUpTestData(cls):
+        """Called once per entire class! Don't modify users"""
+        cls.user = User.objects.create_user(username='user', email='user@aol.com', password='abc')
+    
+    def setUp(self):
+        """Called before each test"""
+        self.client = TestAPIClient(self)
+        self.client.login(username='user', password='abc')
+        self.site = self.create_site(hostname='site1')
+        self.default_app = self.create_app(sites=self.site, cls_names='DemoApp.hello',)
+
+    def test_add_job(self):
+        jobs = [ 
+            self.job_dict(
+                app=self.default_app, parameters={'name': 'foo', 'N': i},
+                workdir=f'test/{i}'
+            )
+            for i in range(3)
+        ]
+        with QueryLogger():
+            self.create_jobs(jobs)

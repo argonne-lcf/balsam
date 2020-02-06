@@ -5,6 +5,7 @@ from datetime import timedelta
 import uuid
 import logging
 from .exceptions import InvalidStateError
+from .transfer import TransferItem
 
 logger = logging.getLogger(__name__)
 
@@ -91,38 +92,41 @@ class JobManager(models.Manager):
         qs = qs.prefetch_related('app_exchange', 'parents', 'app_backend', 'app_backend__site')
         return qs
 
-    # TODO: validate that params match App requirements on create/update
-    def validate_parameters(self, jobs):
-        """
-        On create, we need to fetch the existing Apps first
-        On update, we can just prefetch-related Apps and access them
-        """
-        app_pks = set(job['app_exchange'] for job in jobs)
-        params_map = {}
-        for app in AppExchange.objects.filter(pk__in=app_pks):
-            if app.pk not in params_map:
-                params_map[app.pk] = set(app.parameters)
-        for job in validated_data:
-            required_params = params_map[job["app_exchange"]]
-            diff = required_params.difference(job["parameters"].keys())
-            if diff:
-                raise ValidationError(f'Missing required parameters: {diff}')
+    @transaction.atomic
+    def create_from_list(self, job_list):
+        jobs = []
+        for dat in job_list:
+            job = self.create(**dat)
+            jobs.append(job)
+        return jobs
 
-    def bulk_create(self, job_list):
-        app_set = set(job["app"] for job in job_list)
-        job = self.model(state='CREATED')
-        if job.app_exchange.backends.count() == 1:
-            job.app_backend = job.app_exchange.backends.first()
+    def create(
+        self, workdir, tags, owner, app_exchange, transfer_items, parameters, data, parents,
+        num_nodes, ranks_per_node, threads_per_rank, threads_per_core, cpu_affinity,
+        gpus_per_rank, node_packing_count, wall_time_min, **kwargs
+    ):
+        job = self.model(
+            workdir=workdir, tags=tags, owner=owner,
+            app_exchange=app_exchange, app_backend=None,
+            parameters=parameters, data=data,
+            num_nodes=num_nodes, ranks_per_node=ranks_per_node,
+            threads_per_rank=threads_per_rank, threads_per_core=threads_per_core,
+            cpu_affinity=cpu_affinity, gpus_per_rank=gpus_per_rank,
+            node_packing_count=node_packing_count, wall_time_min=wall_time_min
+        )
+        job.set_initial_state(resetting=False)
         job.save()
+        job.parents.add(*parents)
+
+        job.transfer_items.add(*(TransferItem(
+                protocol=dat["protocol"], state="pending",
+                direction=dat["direction"], source=dat["source"],
+                destination=dat["destination"], job=job,
+            ) for dat in transfer_items)
+        )
         return job
 
-    def create(self):
-        pass
-
     def reset(self):
-        pass
-
-    def set_initial_state(self, reset=False):
         pass
 
     def acquire(self, site, lock):
@@ -150,6 +154,7 @@ class JobManager(models.Manager):
         )
 
 class Job(models.Model):
+    objects = JobManager()
 
     # Metadata
     workdir = models.CharField(
@@ -255,3 +260,8 @@ class Job(models.Model):
                 log.save()
                 self.save(update_fields=['state'])
         return log
+    
+    def set_initial_state(self, resetting=False):
+        backends = list(self.app_exchange.backends.all())
+        if len(backends) == 1:
+            self.app_backend = backends[0]

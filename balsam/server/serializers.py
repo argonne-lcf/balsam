@@ -2,6 +2,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from rest_framework import serializers
 from rest_framework.reverse import reverse
+from django.core.exceptions import ObjectDoesNotExist
 
 from balsam.server.models import (
     User,
@@ -19,39 +20,49 @@ ValidationError = serializers.ValidationError
 
 # OWNER-AWARE FIELDS
 # ------------------
-class OwnedSitePrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+class CachedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    def to_internal_value(self, data):
+        """
+        Cache fetched objects by PK on the request context
+        """
+        if self.pk_field is not None:
+            data = self.pk_field.to_internal_value(data)
+
+        cache = self.context.setdefault(f'{self.field_name}_cache', {})
+        if data in cache:
+            return cache[data]
+        try:
+            cache[data] = self.get_queryset().get(pk=data)
+            return cache[data]
+        except ObjectDoesNotExist:
+            self.fail('does_not_exist', pk_value=data)
+        except (TypeError, ValueError):
+            self.fail('incorrect_type', data_type=type(data).__name__)
+
+class OwnedSitePrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
         return Site.objects.filter(owner=user)
 
-class OwnedAppPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+class OwnedAppPrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
-        return user.owned_apps.all()
+        return user.owned_apps.all().prefetch_related('backends')
 
-class SharedAppPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+class SharedAppPrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
-        return user.apps.all()
+        return user.apps.all().prefetch_related('backends',)
 
-class OwnedJobPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+class OwnedJobPrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
         return Job.objects.filter(owner=user)
 
-class OwnedBatchJobPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+class OwnedBatchJobPrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
-        ser = self.context['request'].user
+        user = self.context['request'].user
         return BatchJob.objects.filter(site__owner=user)
-
-class QueryParameterHyperlinkedIdentityField(serializers.HyperlinkedIdentityField):
-    def get_url(self, obj, view_name, request, format):
-        lookup_field_value = getattr(obj, self.lookup_field, None)
-        result = '{}?{}'.format(
-            reverse(view_name, kwargs={}, request=request, format=format),
-            urlencode({self.lookup_url_kwarg: lookup_field_value})
-        )
-        return result
 
 # USER
 # ----
@@ -309,18 +320,26 @@ class TransferItemSerializer(serializers.HyperlinkedModelSerializer):
 
 class JobListSerializer(serializers.ListSerializer):
     def create(self, validated_data):
-        pass
-        
+        owner = self.context['request'].user
+        for job in validated_data:
+            job['owner'] = owner
 
-class JobSerializer(serializers.HyperlinkedModelSerializer):
+        jobs = Job.objects.create_from_list(validated_data)
+        return jobs
+
+    def update(self, instance, validated_data):
+        owner = self.context['request'].user
+    
+class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
+        list_serializer_class = JobListSerializer
         fields = (
             'workdir', 'tags', 'owner', 'batch_job',
-            'app', 'app_url', 'app_name', 'site', 'app_class',
+            'app', 'app_name', 'site', 'app_class',
             'events', 'transfer_items',
             'state', 'parameters', 'data',
-            'last_update', 'parents', 'parent_urls',
+            'last_update', 'parents',
             'num_nodes', 'ranks_per_node', 'threads_per_rank',
             'threads_per_core', 'cpu_affinity', 'gpus_per_rank',
             'node_packing_count', 'wall_time_min'
@@ -338,28 +357,37 @@ class JobSerializer(serializers.HyperlinkedModelSerializer):
             )
 
     tags = serializers.DictField(child=serializers.CharField(max_length=32))
-    batch_job = OwnedBatchJobPrimaryKeyRelatedField()
+    batch_job = OwnedBatchJobPrimaryKeyRelatedField(required=False)
 
-    # Read/Write: app pk. Read-only: App URL, name, backend-site, backend-class
+    # Read/Write: app pk. Read-only: name, backend-site, backend-class
     app = SharedAppPrimaryKeyRelatedField(source='app_exchange')
-    app_url = serializers.HyperlinkedRelatedField(
-        view_name='app-detail', read_only=True, source='app_exchange'
-    )
-    app_name = serializers.StringRelatedField(
-        read_only=True, source='app_exchange.name'
-    )
+    app_name = serializers.StringRelatedField(read_only=True, source='app_exchange.name')
     site = serializers.ReadOnlyField()
     app_class = serializers.ReadOnlyField()
 
-    transfer_items = TransferItemSerializer(many=True)
+    transfer_items = TransferItemSerializer(many=True, allow_empty=True)
     parents = OwnedJobPrimaryKeyRelatedField(many=True)
-    parent_urls = serializers.HyperlinkedRelatedField(
-        many=True, view_name='job-detail', read_only=True
-    )
-    parameters = serializers.DictField(
-        child=serializers.CharField(max_length=128)
-    )
+    parameters = serializers.DictField(child=serializers.CharField(max_length=128))
     data = serializers.DictField()
+
+    def create(self, validated_data):
+        raise NotImplementedError
+    
+    def update(self, instance, validated_data):
+        raise NotImplementedError
+
+    def validate(self, data):
+        # TODO: validate that params match App requirements on create/update
+        """
+        On create, we need to fetch the existing Apps first
+        On update, we can just prefetch-related Apps and access them
+        """
+        app_params = set(data['app_exchange'].parameters)
+        params = data['parameters']
+        diff = app_params.difference(params.keys())
+        if diff:
+            raise ValidationError(f'Job is missing parameters: {", ".join(diff)}')
+        return data
 
     def validate_workdir(self, value):
         path = Path(value)
