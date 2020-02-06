@@ -35,3 +35,5 @@ class TransferItem(models.Model):
         related_name='transfer_items',
         on_delete=models.CASCADE
     )
+    task_id = models.CharField(max_length=32)
+    status_message = models.TextField()

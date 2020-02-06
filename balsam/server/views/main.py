@@ -13,7 +13,7 @@ from rest_framework.authentication import BasicAuthentication
 import django_filters.rest_framework as django_filters
 from knox.views import LoginView as KnoxLoginView
 from balsam.server import serializers as ser
-from balsam.server.models import Site, AppExchange, Job, BatchJob
+from balsam.server.models import Site, AppExchange, Job, BatchJob, EventLog
 
 User = get_user_model()
 
@@ -31,6 +31,16 @@ class IsAuthenticatedOrAdmin(permissions.BasePermission):
         if request.user.is_staff:
             return True
         return view.kwargs["pk"] == request.user.pk
+
+class IsOwner(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.owner == request.user
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.owner == request.user
 
 class BalsamPaginator(LimitOffsetPagination):
     default_limit = 100
@@ -109,11 +119,11 @@ class AppList(generics.ListCreateAPIView):
 class AppDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = AppExchange.objects.all()
     serializer_class = ser.AppSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
 
     def get_queryset(self):
         user = self.request.user
-        return user.apps.all()
+        return user.apps.all().select_related('owner').prefetch_related('users', 'backends')
     
     def perform_destroy(self, instance):
         instance.delete()
@@ -192,4 +202,27 @@ class JobList(generics.ListCreateAPIView):
         batch_job_id = self.kwargs.get('batch_job_id')
         if batch_job_id is not None:
             qs = qs.filter(batch_job=batch_job_id)
+        return qs
+
+class JobDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Job.objects.all()
+    serializer_class = ser.JobSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = BalsamPaginator
+
+    def get_queryset(self):
+        qs = self.request.user.jobs.all()
+        return qs
+
+class EventList(generics.ListAPIView):
+    queryset = EventLog.objects.all()
+    serializer_class = ser.EventLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = BalsamPaginator
+
+    def get_queryset(self):
+        qs = EventLog.objects.filter(job__owner=self.request.user)
+        job_id = self.kwargs.get('job_id')
+        if job_id is not None:
+            qs = qs.filter(job=job_id)
         return qs

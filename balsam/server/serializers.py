@@ -1,6 +1,7 @@
 from pathlib import Path
+from urllib.parse import urlencode
 from rest_framework import serializers
-ValidationError = serializers.ValidationError
+from rest_framework.reverse import reverse
 
 from balsam.server.models import (
     User,
@@ -14,6 +15,8 @@ from balsam.server.models import (
     EventLog,
 )
 
+ValidationError = serializers.ValidationError
+
 # OWNER-AWARE FIELDS
 # ------------------
 class OwnedSitePrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
@@ -24,13 +27,31 @@ class OwnedSitePrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
 class OwnedAppPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
-        return AppExchange.objects.filter(owner=user)
+        return user.owned_apps.all()
+
+class SharedAppPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        user = self.context['request'].user
+        return user.apps.all()
 
 class OwnedJobPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
         return Job.objects.filter(owner=user)
 
+class OwnedBatchJobPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        ser = self.context['request'].user
+        return BatchJob.objects.filter(site__owner=user)
+
+class QueryParameterHyperlinkedIdentityField(serializers.HyperlinkedIdentityField):
+    def get_url(self, obj, view_name, request, format):
+        lookup_field_value = getattr(obj, self.lookup_field, None)
+        result = '{}?{}'.format(
+            reverse(view_name, kwargs={}, request=request, format=format),
+            urlencode({self.lookup_url_kwarg: lookup_field_value})
+        )
+        return result
 
 # USER
 # ----
@@ -282,31 +303,63 @@ class TransferItemSerializer(serializers.HyperlinkedModelSerializer):
         model = TransferItem
         fields = (
             'protocol', 'state', 'direction',
-            'source', 'destination', 'job'
+            'source', 'destination',
+            'task_id', 'status_message'
         )
+
+class JobListSerializer(serializers.ListSerializer):
+    def create(self, validated_data):
+        pass
+        
 
 class JobSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Job
         fields = (
-            'workdir', 'tags',
-            'site', 'owner', 'batch_job',
-            'app_class', 'app_name', 'app_id',
+            'workdir', 'tags', 'owner', 'batch_job',
+            'app', 'app_url', 'app_name', 'site', 'app_class',
             'events', 'transfer_items',
             'state', 'parameters', 'data',
-            'last_update', 'parents',
+            'last_update', 'parents', 'parent_urls',
             'num_nodes', 'ranks_per_node', 'threads_per_rank',
             'threads_per_core', 'cpu_affinity', 'gpus_per_rank',
             'node_packing_count', 'wall_time_min'
         )
+
+    def __init__(self, *args, **kwargs):
+        show_events = kwargs.pop('show_events', False)
+        super().__init__(*args, **kwargs)
+        if show_events:
+            self.fields['events'] = EventLogSerializer(many=True, read_only=True)
+        else:
+            self.fields['events'] = serializers.HyperlinkedIdentityField(
+                read_only=True, view_name='job-event-list', lookup_field='pk',
+                lookup_url_kwarg='job_id'
+            )
+
+    tags = serializers.DictField(child=serializers.CharField(max_length=32))
+    batch_job = OwnedBatchJobPrimaryKeyRelatedField()
+
+    # Read/Write: app pk. Read-only: App URL, name, backend-site, backend-class
+    app = SharedAppPrimaryKeyRelatedField(source='app_exchange')
+    app_url = serializers.HyperlinkedRelatedField(
+        view_name='app-detail', read_only=True, source='app_exchange'
+    )
+    app_name = serializers.StringRelatedField(
+        read_only=True, source='app_exchange.name'
+    )
+    site = serializers.ReadOnlyField()
+    app_class = serializers.ReadOnlyField()
+
     transfer_items = TransferItemSerializer(many=True)
     parents = OwnedJobPrimaryKeyRelatedField(many=True)
     parent_urls = serializers.HyperlinkedRelatedField(
-        many=True, view_name = 'job-detail', read_only=True
+        many=True, view_name='job-detail', read_only=True
     )
-    tags = serializers.DictField(
-        child=serializers.CharField(max_length=32)
+    parameters = serializers.DictField(
+        child=serializers.CharField(max_length=128)
     )
+    data = serializers.DictField()
 
     def validate_workdir(self, value):
         path = Path(value)

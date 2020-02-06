@@ -14,6 +14,7 @@ balsam/service/pack/_packer.c
 balsam/argo/migrations/*.py
 !balsam/argo/migrations/__init__.py
 balsam/server/models/migrations/*.py
+balsam/server/static/*
 !balsam/core/migrations/__init__.py
 build/
 dist/

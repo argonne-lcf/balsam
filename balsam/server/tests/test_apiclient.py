@@ -1,25 +1,78 @@
 '''APIClient-driven tests'''
+import atexit
 import pprint
 from datetime import datetime, timedelta
 from dateutil.parser import isoparse
+import os
 import random
+
+from django.conf import settings
+from django.db import connection, reset_queries
+from django.template import Template, Context
+
 from rest_framework.reverse import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from balsam.server.serializers import UserSerializer
 from balsam.server.models import User, Site, AppBackend, AppExchange, BatchJob
 
+class QueryProfiler:
+    is_enabled = os.environ.get('QUERY_REPORT', False)
+    atexit_registered = False
+    template = Template(
+        '''{{title}}: {{count}} quer{{count|pluralize:\"y,ies\"}} in {{time}} seconds:
+        {% for sql in sqllog %}[{{forloop.counter}}] {{sql.time}}s: {{sql.sql|safe}}{% if not forloop.last %}
+        {% endif %}{% endfor %}'''
+    )
+    reports = []
+    def __init__(self, title):
+        self.title = title
+        if not QueryProfiler.atexit_registered:
+            atexit.register(QueryProfiler.print_reports)
+            QueryProfiler.atexit_registered = True
+    
+    def __enter__(self):
+        if self.is_enabled:
+            settings.DEBUG = True
+            reset_queries()
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.is_enabled:
+            self.add_report()
+            reset_queries()
+            settings.DEBUG = False
+
+    def add_report(self):
+        elapsed = sum([float(q['time']) for q in connection.queries])
+        report = self.template.render(Context({
+            'title': self.title,
+            'sqllog': connection.queries,
+            'count': len(connection.queries),
+            'time': elapsed
+        }))
+        self.reports.append(report)
+
+    @classmethod
+    def print_reports(cls):
+        if cls.is_enabled:
+            print("\n  SUMMARY OF SQL QUERIES\n"+'*'*24)
+            for report in cls.reports:
+                print(report)
 
 def pretty_data(data):
     return '\n' + pprint.pformat(data, width=93, indent=2)
 
 class SiteFactoryMixin:
-    def create_site(self, hostname='baz', path='/foo', check=status.HTTP_201_CREATED):
-        return self.client.post_data('site-list', hostname=hostname, path=path, check=check)
+    def create_site(self, hostname='baz', path='/foo', check=status.HTTP_201_CREATED, client=None):
+        if client is None:
+            client = self.client
+        return client.post_data('site-list', hostname=hostname, path=path, check=check)
     
 class AppFactoryMixin:
-    def create_app(self, name="hello world", sites=None, cls_names=None, parameters=None, check=status.HTTP_201_CREATED):
+    def create_app(self, name="hello world", sites=None, cls_names=None, parameters=None, check=status.HTTP_201_CREATED, client=None):
         """Sites: dict with pk, or list of dicts with pk, or list of ints, or int"""
+        if client is None:
+            client = self.client
         # Site validation
         if isinstance(sites, dict): sites = [int(sites["pk"])]
         elif isinstance(sites, list): sites = [(int(s["pk"]) if isinstance(s, dict) else int(s)) for s in sites]
@@ -32,7 +85,7 @@ class AppFactoryMixin:
 
         backends = [{"site": pk, "class_name": name} for pk,name in zip(sites, cls_names)]
         if parameters is None: parameters = ['name', 'N']
-        return self.client.post_data(
+        return client.post_data(
             'app-list', check=check, name=name,
             backends=backends, parameters=parameters,
         )
@@ -40,9 +93,12 @@ class AppFactoryMixin:
 class BatchJobFactoryMixin:
     def create_batchjob(
         self, site, project='datascience', queue='default', num_nodes=128, wall_time_min=30,
-        job_mode='mpi', filter_tags={"system": 'H2O', "type": 'sp_energy'}, check=status.HTTP_201_CREATED
+        job_mode='mpi', filter_tags={"system": 'H2O', "type": 'sp_energy'}, check=status.HTTP_201_CREATED,
+        client=None
     ):
-        return self.client.post_data(
+        if client is None:
+            client = self.client
+        return client.post_data(
             'batchjob-list', site=site['pk'], project=project, queue=queue, num_nodes=num_nodes,
             wall_time_min=wall_time_min, job_mode=job_mode, filter_tags=filter_tags, check=check
         )
@@ -156,8 +212,10 @@ class AuthTests(TwoUserTestCase):
     def test_cannot_access_sites_after_logout(self):
         """One client logs out, then is forbidden from site-list. Does not affect other client"""
         self.client1.logout()
-        dat = self.client1.get_data('site-list', check=status.HTTP_401_UNAUTHORIZED)
-        dat = self.client2.get_data('site-list', check=status.HTTP_200_OK)
+        with QueryProfiler('site list: unauthorized'):
+            dat = self.client1.get_data('site-list', check=status.HTTP_401_UNAUTHORIZED)
+        with QueryProfiler('site list: authorized'):
+            dat = self.client2.get_data('site-list', check=status.HTTP_200_OK)
     
     def test_can_access_collections(self):
         """Can access all collections, except for User list"""
@@ -205,6 +263,82 @@ class AppSharingTests(TwoUserTestCase):
         client1_apps = self.client1.get_data('app-list', check=status.HTTP_200_OK)
         client2_apps = self.client2.get_data('app-list', check=status.HTTP_200_OK)
         self.assertListEqual(client1_apps, client2_apps)
+
+    def test_cannot_add_other_users_backend_to_app(self):
+        site1 = self.client1.post_data('site-list', check=status.HTTP_201_CREATED, hostname='baz', path='/foo')
+        site2 = self.client2.post_data('site-list', check=status.HTTP_201_CREATED, hostname='baz', path='/projects/bar')
+        backend1 = {"site": site1["pk"], "class_name": "Demo.SayHello"}
+        backend2 = {"site": site2["pk"], "class_name": "Demo.SayHello"}
+
+        app1 = self.client1.post_data(
+            'app-list', check=status.HTTP_201_CREATED,
+            name="hello world",
+            backends=[backend1],
+            parameters=['name', 'N'], users=[1,2]
+        )
+        app2 = self.client2.post_data(
+            'app-list', check=status.HTTP_201_CREATED,
+            name="hello world",
+            backends=[backend2],
+            parameters=['name', 'N'], users=[1,2]
+        )
+
+        # Client1 can see both apps
+        list1 = self.client1.get_data('app-list', check=status.HTTP_200_OK)
+        self.assertEqual(len(list1), 2)
+
+        # But Client1 cannot add a backend that doesn't belong to them
+        app1['backends'].append({'site': site2['pk'], 'class_name': 'Demo.SayHello'})
+        self.client1.put_data(
+            'app-detail', check=status.HTTP_400_BAD_REQUEST, uri={'pk':app1['pk']},
+            **app1
+        )
+
+class BatchJobPrivacyTests(TwoUserTestCase, SiteFactoryMixin, BatchJobFactoryMixin):
+    def test_no_shared_batchjobs_in_list_view(self):
+        """client2 cannot see client1's batchjobs"""
+        site1 = self.create_site(hostname='site1', client=self.client1)
+        site2 = self.create_site(hostname='site2', client=self.client2)
+        self.assertEqual(site1['owner'], self.user1.pk)
+        self.assertEqual(site2['owner'], self.user2.pk)
+
+        # client1 adds batchjob to site1
+        self.create_batchjob(site1, client=self.client1)
+        
+        # client2 cannot see it
+        jobs = self.client2.get_data('batchjob-list', check=status.HTTP_200_OK)
+        self.assertEqual(jobs['count'], 0)
+    
+    def test_permission_in_detail_view(self):
+        """client2 cannot see client1's batchjobs in detail view"""
+        site1 = self.create_site(hostname='site1', client=self.client1)
+        site2 = self.create_site(hostname='site2', client=self.client2)
+
+        # client1 adds batchjob to site1
+        pk = self.create_batchjob(site1, client=self.client1)['pk']
+        
+        # client2 gets 404 not found, but client1 can see it
+        self.client2.get_data('batchjob-detail', {'pk':pk}, check=status.HTTP_404_NOT_FOUND)
+        self.client1.get_data('batchjob-detail', {'pk':pk}, check=status.HTTP_200_OK)
+    
+    def test_bulk_update_cannot_affect_other_users_batchjobs(self):
+        """client2 bulk-update cannot affect client1's batchjobs"""
+        # a batchjob added to site1 belonging to user1
+        site1 = self.create_site(hostname='site1', client=self.client1)
+        pk = self.create_batchjob(site1, client=self.client1)['pk']
+
+        # client 2 attempts bulk update with client1's batchjob id; fails
+        patch = {'pk':pk, 'state': 'pending-deletion'}
+        self.client2.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_400_BAD_REQUEST,
+            list_data=[patch]
+        )
+        
+        # client 1 can do it, though:
+        self.client1.bulk_patch_data(
+            'batchjob-list', check=status.HTTP_200_OK,
+            list_data=[patch]
+        )
 
 class SiteTests(TestCase, SiteFactoryMixin):
 
@@ -472,8 +606,8 @@ class BatchJobTests(TestCase, SiteFactoryMixin, BatchJobFactoryMixin):
         # Now, we want to filter for jobs that ended between 3 and 5 hours ago
         # The end_times are: 0.5h ago, 1.5 ago, 2.5, 3.5, 4.5, 5.5, ...
         # So we should have 2 jobs land in this window
-        end_after=(now-timedelta(hours=5)).isoformat()+'Z'
-        end_before=(now-timedelta(hours=3)).isoformat()+'Z'
+        end_after = (now-timedelta(hours=5)).isoformat()+'Z'
+        end_before = (now-timedelta(hours=3)).isoformat()+'Z'
         jobs = self.client.get_data(
             'batchjob-list',
             end_time_after=end_after,

@@ -1,4 +1,5 @@
 from .base import *
+import os
     
 # SECURITY WARNING! In production, you must:
 # 1) Set DEBUG = False
@@ -7,6 +8,12 @@ from .base import *
 DEBUG = True
 SECRET_KEY = 'insecure-key-for-dev'
 ALLOWED_HOSTS = ['*']
+
+DEBUG_TOOLBAR = os.environ.get('DEBUG_TOOLBAR', False)
+if DEBUG_TOOLBAR:
+    INTERNAL_IPS = ['127.0.0.1']
+    INSTALLED_APPS.append('debug_toolbar')
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
 db = dict(
     ENGINE='django.db.backends.postgresql',
