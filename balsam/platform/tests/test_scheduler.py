@@ -6,27 +6,28 @@ class SchedulerTestMixin(object):
 
     def test_submit(self):
 
+        # verify script exists
         self.assertTrue(os.path.exists(self.script_path))
+        # verify submit command is in path
         self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.submit_exe)))
-
+        # submit job
         job_id = self.scheduler.submit(**self.submit_params)
-
+        # check job id for expected output
         self.assertIsInstance(job_id,int)
         self.assertGreater(job_id,0)
 
+        # clean up after this test, delete job, wait for delete to be complete
         self.scheduler.delete_job(job_id)
-
         stats = self.scheduler.get_statuses(**self.status_params)
         while job_id in stats:
             time.sleep(1)
             stats = self.scheduler.get_statuses(**self.status_params)
 
     def test_get_statuses(self):
-
+        # verify status command is in path
         self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.status_exe)))
-
+        # test status function
         stat_dict = self.scheduler.get_statuses(**self.status_params)
-
         # check that output is a dictionary
         self.assertIsInstance(stat_dict,dict)
 
@@ -43,27 +44,27 @@ class SchedulerTestMixin(object):
             self.assertGreater(job_status['nodes'],0)
 
     def test_delete_job(self):
+        # verify delete command exists
         self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.delete_exe)))
-        self.assertTrue(os.path.exists(self.script_path))
-        self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.submit_exe)))
 
-        # submit a job
+        # submit a job for deletion
         job_id = self.scheduler.submit(**self.submit_params)
-
+        # delete the job
         stdout = self.scheduler.delete_job(job_id)
-
-
+        # validate output
         self.assertIsInstance(stdout,str)
 
+
     def test_get_site_nodelist(self):
+        # verify nodelist command is in path
         self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.nodelist_exe)))
 
         nodelist = self.scheduler.get_site_nodelist()
         self.assertIsInstance(nodelist,dict)
         self.assertGreater(len(nodelist),0)
 
+        # verify that nodelist has expected output
         node_states = self.scheduler.node_states.values()
-
         for id,node_status in nodelist.items():
             self.assertIsInstance(node_status['state'],str)
             self.assertIsInstance(node_status['backfill_time'],int)
@@ -117,7 +118,7 @@ echo [$SECONDS] All Done! Great Test!
     submit_script_fn = 'cobalt_submit.sh'
 
     def setUp(self):
-        self.scheduler = CobaltScheduler()
+        self.scheduler = CobaltScheduler();
 
         self.script_path = os.path.join(os.getcwd(), self.submit_script_fn)
         script = open(self.script_path, 'w')
