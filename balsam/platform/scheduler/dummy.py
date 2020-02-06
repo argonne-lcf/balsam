@@ -89,7 +89,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
         'id': 'Node_id',
         'name': 'Name',
         'queues': 'Queues',
-        'node_state': 'Status',
+        'state': 'Status',
         'mem': 'MCDRAM',
         'numa': 'NUMA',
         'backfill_time': 'Backfill',
@@ -156,15 +156,13 @@ class DummyScheduler(SubprocessSchedulerInterface):
         return None
 
     def _render_status_args(self, project=None, user=None, queue=None):
-        args = [
-            self.status_exe,
-            '--user',
-            user,
-            '--queue',
-            queue,
-            '--project',
-            project,
-        ]
+        args = [self.status_exe]
+        if user is not None:
+            args += ['-u', user]
+        if project is not None:
+            args += ['-A', project]
+        if queue is not None:
+            args += ['-q', queue]
         return args
 
     def _parse_status_output(self,stdout):
@@ -207,7 +205,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
         ]
         return args
 
-    def _parse_nodelist(self,stdout):
+    def _parse_nodelist_output(self,stdout):
         raw_lines = stdout.split('\n')
         nodelist = {}
         node_lines = raw_lines[2:]
