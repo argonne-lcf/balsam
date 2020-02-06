@@ -362,8 +362,8 @@ class JobSerializer(serializers.ModelSerializer):
     # Read/Write: app pk. Read-only: name, backend-site, backend-class
     app = SharedAppPrimaryKeyRelatedField(source='app_exchange')
     app_name = serializers.StringRelatedField(read_only=True, source='app_exchange.name')
-    site = serializers.ReadOnlyField()
-    app_class = serializers.ReadOnlyField()
+    site = serializers.StringRelatedField(read_only=True, source='app_backend.site.__str__')
+    app_class = serializers.StringRelatedField(read_only=True, source='app_backend.class_name')
 
     transfer_items = TransferItemSerializer(many=True, allow_empty=True)
     parents = OwnedJobPrimaryKeyRelatedField(many=True)

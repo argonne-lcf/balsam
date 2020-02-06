@@ -1024,5 +1024,5 @@ class JobTests(TestCase, SiteFactoryMixin, AppFactoryMixin, BatchJobFactoryMixin
             )
             for i in range(3)
         ]
-        with QueryLogger():
-            self.create_jobs(jobs)
+        jobs = self.create_jobs(jobs)
+        print(jobs[0])
