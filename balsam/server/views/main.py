@@ -14,6 +14,9 @@ from rest_framework import status
 import django_filters.rest_framework as django_filters
 from knox.views import LoginView as KnoxLoginView
 from balsam.server import serializers as ser
+from .bulk import (
+    ListSingleCreateBulkUpdateAPIView, ListBulkCreateBulkUpdateBulkDestroyAPIView
+)
 from balsam.server.models import Site, AppExchange, Job, BatchJob, EventLog
 
 User = get_user_model()
@@ -54,7 +57,7 @@ class JSONFilter(drf_filters.BaseFilterBackend):
     View must define `json_filter_field` and `json_filter_type`
     Passes through any supported JSON lookup:
         tags__has_key="foo"
-        tags__foo__contains="x"
+        tags__foo__icontains="x"
         tags__foo="x"
     All query params are strings unless the view sets
     `json_filter_value_type` to a callable like `json.loads`
@@ -148,7 +151,7 @@ class BatchJobFilter(django_filters.FilterSet):
             'state', 'scheduler_id'
         ]
 
-class BatchJobList(generics.ListCreateAPIView):
+class BatchJobList(ListSingleCreateBulkUpdateAPIView):
     serializer_class = ser.BatchJobSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = BalsamPaginator
@@ -168,24 +171,6 @@ class BatchJobList(generics.ListCreateAPIView):
         user = self.request.user
         return BatchJob.objects.filter(site__owner=user).order_by('-start_time')
 
-    def patch(self, request, format=None):
-        """
-        Bulk-updates BatchJobs given a list of partial updates.
-        Each partial update must contain the "pk" field.
-        Does not support creation, deletion, or reordering.
-        """
-        qs = self.get_queryset().active_jobs()
-        serializer = ser.BatchJobSerializer(
-            qs, data=request.data, many=True, partial=True,
-            context={'request': request}, bulk_update=True
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        if getattr(qs, '_prefetched_objects_cache', None):
-            # forcibly invalidate the prefetch cache on the instance
-            qs._prefetched_objects_cache = {} 
-        return Response(serializer.data)
-
 class BatchJobDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = BatchJob.objects.all()
     serializer_class = ser.BatchJobSerializer
@@ -195,7 +180,7 @@ class BatchJobDetail(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         return BatchJob.objects.filter(site__owner=user)
 
-class JobList(generics.ListCreateAPIView):
+class JobList(ListBulkCreateBulkUpdateBulkDestroyAPIView):
     queryset = Job.objects.all()
     serializer_class = ser.JobSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -209,16 +194,11 @@ class JobList(generics.ListCreateAPIView):
         qs = qs.select_related('site', 'owner', 'app_exchange', 'app_backend')
         return qs
 
-    def create(self, request, *args, **kwargs):
-        """Bulk-create semantics"""
-        serializer = ser.JobSerializer(
-            data=request.data, many=True, context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
+    def perform_destroy(self, queryset):
+        Job.objects.bulk_delete_queryset(queryset)
 
 class JobDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Job.objects.all()

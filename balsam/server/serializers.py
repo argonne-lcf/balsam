@@ -2,8 +2,6 @@ from pathlib import Path
 from urllib.parse import urlencode
 from rest_framework import serializers
 from rest_framework.reverse import reverse
-from django.core.exceptions import ObjectDoesNotExist
-
 from balsam.server.models import (
     User,
     AppExchange,
@@ -15,30 +13,12 @@ from balsam.server.models import (
     TransferItem,
     EventLog,
 )
+from .bulk_serializer import CachedPrimaryKeyRelatedField, BulkModelSerializer
 
 ValidationError = serializers.ValidationError
 
-# OWNER-AWARE FIELDS
-# ------------------
-class CachedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
-    def to_internal_value(self, data):
-        """
-        Cache fetched objects by PK on the request context
-        """
-        if self.pk_field is not None:
-            data = self.pk_field.to_internal_value(data)
-
-        cache = self.context.setdefault(f'{self.field_name}_cache', {})
-        if data in cache:
-            return cache[data]
-        try:
-            cache[data] = self.get_queryset().get(pk=data)
-            return cache[data]
-        except ObjectDoesNotExist:
-            self.fail('does_not_exist', pk_value=data)
-        except (TypeError, ValueError):
-            self.fail('incorrect_type', data_type=type(data).__name__)
-
+# OWNERSHIP-AWARE FIELDS
+# -----------------------
 class OwnedSitePrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
@@ -52,7 +32,7 @@ class OwnedAppPrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
 class SharedAppPrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
         user = self.context['request'].user
-        return user.apps.all().prefetch_related('backends',)
+        return user.apps.all().prefetch_related('backends', 'backends__site')
 
 class OwnedJobPrimaryKeyRelatedField(CachedPrimaryKeyRelatedField):
     def get_queryset(self):
@@ -318,22 +298,9 @@ class TransferItemSerializer(serializers.HyperlinkedModelSerializer):
             'task_id', 'status_message'
         )
 
-class JobListSerializer(serializers.ListSerializer):
-    def create(self, validated_data):
-        owner = self.context['request'].user
-        for job in validated_data:
-            job['owner'] = owner
-
-        jobs = Job.objects.create_from_list(validated_data)
-        return jobs
-
-    def update(self, instance, validated_data):
-        owner = self.context['request'].user
-    
-class JobSerializer(serializers.ModelSerializer):
+class JobSerializer(BulkModelSerializer):
     class Meta:
         model = Job
-        list_serializer_class = JobListSerializer
         fields = (
             'workdir', 'tags', 'owner', 'batch_job',
             'app', 'app_name', 'site', 'app_class',
@@ -397,44 +364,20 @@ class JobSerializer(serializers.ModelSerializer):
 
 # BATCHJOB
 # ---------
-class BatchJobListSerializer(serializers.ListSerializer):
-    def update(self, instance, validated_data):
-        """
-        Bulk partial-update: no creation/deletion/reordering
-        """
-        allowed_pks = instance.values_list('pk', flat=True)
-        patch_list = []
-        for patch in validated_data:
-            pk = patch['pk']
-            if pk in allowed_pks:
-                patch_list.append(patch)
-            else:
-                raise ValidationError(f'Invalid pk: {pk}')
-        jobs = BatchJob.objects.bulk_update(patch_list)
-        return jobs
-        
-class BatchJobSerializer(serializers.HyperlinkedModelSerializer):
-    def __init__(self, *args, **kwargs):
-        bulk_update = kwargs.pop('bulk_update', False)
-        super().__init__(*args, **kwargs)
-
-        # we need "pk" and "revert" as writeable fields for bulk-updates
-        if bulk_update:
-            self.fields['pk'] = serializers.IntegerField(required=True)
-            self.fields['revert'] = serializers.BooleanField(
-                required=False, default=False, write_only=True
-            )
-
+class BatchJobSerializer(BulkModelSerializer):
     class Meta:
         model = BatchJob
-        list_serializer_class = BatchJobListSerializer
         fields = (
             'pk', 'url', 'site', 'site_url',
             'scheduler_id', 'project', 'queue',
             'num_nodes', 'wall_time_min', 'job_mode',
             'filter_tags', 'state', 'status_message',
-            'start_time', 'end_time', 'jobs'
+            'start_time', 'end_time', 'jobs', 'revert',
         )
+        
+    revert = serializers.BooleanField(
+        required=False, default=False, write_only=True
+    )
     site = OwnedSitePrimaryKeyRelatedField()
     site_url = serializers.HyperlinkedRelatedField(
         source='site', read_only=True, view_name='site-detail'
