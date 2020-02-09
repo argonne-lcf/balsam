@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.db.models import Count, Q
 from django.contrib.postgres.fields import JSONField, ArrayField
 from django.utils import timezone
 from datetime import timedelta
@@ -29,16 +30,6 @@ ALLOWED_TRANSITIONS = {
     'KILLED': ('RESET',),
     'RESET': ('AWAITING_PARENTS', 'READY',),
 }
-# Any unlocked job: OK to delete or modify
-# Locked job: attempting delete gives error
-
-# Not Directly Updateable fields:
-    # parents: must be fixed at job creation time.
-    # app_exchange: must be fixed at creation
-    # app_backend: set by reset_backend() or acquire() only
-    # owner: fixed at creation as auth.user
-    # lock: set by acquire(); unset by update_state()
-    # batchjob: set by acquire() when acquired from a launcher context
 
 # Lock signifies something is working on the job
 LOCKED_STATUS = {
@@ -53,21 +44,6 @@ LOCKED_STATUS = {
     'POSTPROCESSED': 'Staging out',
 }
 
-# Status update on a locked job requires release_lock=True
-
-# When a job is locked, any update other than a release_lock=True is rejected
-# Only "data" field can be modified while a job is locked
-# Prevents altering job or deleting it while job is being processed
-
-NON_REMOVABLE_STATES = [
-    'AWAITING_PARENTS',
-    'READY',
-    'STAGED_IN',
-    'PREPROCESSED',
-    'RESTART_READY',
-    'RUN_DONE', 'RUN_ERROR', 'RUN_TIMEOUT', 
-    'POSTPROCESSED'
-]
 STATE_CHOICES = [
     (k, k.capitalize().replace('_', ' ')) for k in ALLOWED_TRANSITIONS
 ]
@@ -151,7 +127,7 @@ class JobManager(models.Manager):
         return jobs
 
     @transaction.atomic
-    def bulk_apply_patch(self, patch_list):
+    def bulk_update(self, patch_list):
         patch_map = {}
         for patch in patch_list:
             pk = patch.pop("pk")
@@ -162,13 +138,6 @@ class JobManager(models.Manager):
         for job in qs.select_for_update():
             patch = patch_map[job.pk]
             job.update(**patch)
-        return qs
-
-    @transaction.atomic
-    def bulk_update_queryset(self, queryset, update_dict):
-        qs = self.chain_prefetch_for_update(queryset)
-        for job in qs.select_for_update():
-            job.update(**update_dict)
         return qs
 
     @transaction.atomic
@@ -192,16 +161,14 @@ class JobManager(models.Manager):
         )
         job.save()
         job.parents.add(*parents)
-        job.transfer_items.add(
-            *(
-                TransferItem(
-                    protocol=dat["protocol"], state="pending",
-                    direction=dat["direction"], source=dat["source"],
-                    destination=dat["destination"], job=job,
-                )
-                for dat in transfer_items
+        for dat in transfer_items:
+            TransferItem.objects.create(
+                direction=dat['direction'],
+                source=dat['source'],
+                destination=dat['destination'],
+                job=self
             )
-        )
+
         job.reset_backend()
         if job.is_waiting_for_parents():
             job.update_state('AWAITING_PARENTS')
@@ -288,32 +255,37 @@ class Job(models.Model):
     node_packing_count = models.IntegerField(default=1)
     wall_time_min = models.IntegerField(default=0)
 
+    # Not Directly Updateable fields:
+    # parents: must be fixed at job creation time.
+    # app_exchange: must be fixed at creation
+    # app_backend: set by reset_backend() or acquire() only
+    # owner: fixed at creation as auth.user
+    # lock: set by acquire(); unset by update_state()
+    # batchjob: set by acquire() when acquired from a launcher context
     def update(
         self, tags=None, workdir=None, parameters=None,
         state=None, state_timestamp=None, state_message='',
-        return_code=None,  data=None, transfer_items=None,
+        return_code=None, data=None, transfer_items=None,
         num_nodes=None, ranks_per_node=None, threads_per_rank=None,
         threads_per_core=None, cpu_affinity=None, gpus_per_rank=None,
         node_packing_count=None, wall_time_min=None
     ):
-        update_kwargs = [
-            'tags', 'workdir', 'parameters',
-            'num_nodes', 'ranks_per_node', 'threads_per_rank',
-            'threads_per_core', 'cpu_affinity', 'gpus_per_rank',
-            'node_packing_count', 'wall_time_min'
-        ]
-        _locals = locals()
-        update_kwargs = {
-            arg: _locals[arg] for arg in update_kwargs
-            if _locals[arg] is not None
-        }
+        update_kwargs = dict(
+            tags=tags, workdir=workdir, parameters=parameters,
+            num_nodes=num_nodes, ranks_per_node=ranks_per_node, threads_per_rank=threads_per_rank,
+            threads_per_core=threads_per_core, cpu_affinity=cpu_affinity, gpus_per_rank=gpus_per_rank,
+            node_packing_count=node_packing_count, wall_time_min=wall_time_min
+        )
+        update_kwargs = {k:v for k,v in update_kwargs.items() if v is not None}
+
+        if return_code is not None:
+            self.return_code = return_code
 
         if data is not None:
             self.data.update(data)
             EventLog.objects.log_update(self, f'Set data {data.keys()}')
 
-        if return_code is not None:
-            self.return_code = return_code
+        self.update_transfer_status(transfer_items)
         
         if not self.is_locked():
             for kwarg, new_value in update_kwargs.items():
@@ -323,12 +295,21 @@ class Job(models.Model):
                     self,
                     f'{kwarg.capitalize()} changed: {old_value} -> {new_value}'
                 )
-            self.update_transfer_items(transfer_items)
 
         if state is not None:
             self.update_state(state, message=state_message, timestamp=state_timestamp)
         else:
             self.save()
+
+    def update_transfer_status(self, transfer_status_updates):
+        if transfer_status_updates is None:
+            return
+
+        pk_map = {transfer.pk: transfer for transfer in self.transfer_items.all()}
+        for update in transfer_status_updates:
+            pk = update.pop("pk")
+            transfer_item = pk_map[pk]
+            transfer_item.update(**update)
 
     def delete(self, *args, **kwargs):
         if self.is_locked():
@@ -360,20 +341,42 @@ class Job(models.Model):
             transition_func(timestamp=timestamp)
 
     def on_READY(self, *args, timestamp=None, **kwargs):
-        if self.app_backend is not None:
+        # If the Job is not bound to a site, leave it READY
+        if self.app_backend is None:
             return
-        if self.transfer_items.count() == 0:
-            self.update_state('STAGED_IN', "No data to transfer", timestamp)
+        # Otherwise, a Job with only one execution site and nothing
+        # to transfer in can skip ahead
+        if self.transfer_items.filter(direction="in").count() == 0:
+            self.update_state('STAGED_IN', "Skipped stage-in", timestamp)
     
     def on_RESET(self, *args, timestamp=None, **kwargs):
         self.reset_backend()
         if self.is_waiting_for_parents():
-            self.update_state('AWAITING_PARENTS', timestamp=timestamp)
+            self.update_state(
+                'AWAITING_PARENTS', 
+                message="Waiting on at least one parent to finish",
+                timestamp=timestamp
+            )
         else:
             self.update_state('READY', timestamp=timestamp)
 
-    def on_JOB_FINISHED(self, *args, **kwargs):
-        pass
+    def on_POSTPROCESSED(self, *args, timestamp=None, **kwargs):
+        if self.transfer_items.filter(direction="out").count() == 0:
+            self.update_state('JOB_FINISHED', "Skipped stage-out", timestamp)
+
+    @transaction.atomic
+    def on_JOB_FINISHED(self, *args, timestamp=None, **kwargs):
+        qs = self.children.order_by('pk').select_for_update()
+        qs = qs.annotate(num_parents=Count('parents', distinct=True))
+        qs = qs.annotate(
+            finished_parents=Count(
+                'parents', distinct=True,
+                filter=Q(parents__state="JOB_FINISHED")
+            )
+        )
+        for child in qs:
+            if child.num_parents == child.finished_parents:
+                child.update_state('READY', message="All parents finished", timestamp=timestamp)
 
     def is_waiting_for_parents(self):
         parent_count = self.parents.count()

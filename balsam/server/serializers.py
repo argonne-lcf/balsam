@@ -289,14 +289,16 @@ class EventLogSerializer(serializers.HyperlinkedModelSerializer):
             'message'
         )
 
-class TransferItemSerializer(serializers.HyperlinkedModelSerializer):
+class TransferItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransferItem
-        fields = (
-            'protocol', 'state', 'direction',
-            'source', 'destination',
-            'task_id', 'status_message'
+        fields = ('state', 'direction', 'task_id', 'status_message')
+        read_only_fields = (
+            'protocol', 'remote_netloc', 'source_path', 'destination_path', 'job'
         )
+        write_only_fields = ('source', 'destination')
+    source = serializers.CharField(write_only=True)
+    destination = serializers.CharField(write_only=True)
 
 class JobSerializer(BulkModelSerializer):
     class Meta:
@@ -338,10 +340,10 @@ class JobSerializer(BulkModelSerializer):
     data = serializers.DictField()
 
     def create(self, validated_data):
-        raise NotImplementedError
+        return Job.objects.create(**validated_data)
     
     def update(self, instance, validated_data):
-        raise NotImplementedError
+        return instance.update(**validated_data)
 
     def validate(self, data):
         # TODO: validate that params match App requirements on create/update

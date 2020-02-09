@@ -1026,3 +1026,9 @@ class JobTests(TestCase, SiteFactoryMixin, AppFactoryMixin, BatchJobFactoryMixin
         ]
         jobs = self.create_jobs(jobs)
         #print(jobs[0])
+    
+    def test_add_job_with_parents(self):
+        pass
+    
+    def test_add_job_with_transfers(self):
+        pass
