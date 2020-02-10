@@ -107,7 +107,7 @@ def make_parser():
                             help="Number of CPUs to use per compute unit; "
                             "equivalent to -j option in aprun")
     # TODO(KGF): check the safety/security of the arg of this flag when passed and parsed:
-    parser_job.add_argument('--mpi-flags', type=str, default=None,
+    parser_job.add_argument('--mpi-flags', nargs='*', required=False, default=[],
                             help="Additional flags to append to MPI run command")
 
     parser_job.add_argument('--args', nargs='*', required=False, default=[],
