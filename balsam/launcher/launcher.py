@@ -12,7 +12,6 @@ if the program receives a SIGTERM or SIGINT. This takes the necessary cleanup
 actions and is guaranteed to execute only once through the EXIT_FLAG global
 flag.
 '''
-import argparse
 from collections import defaultdict
 from importlib.util import find_spec
 import logging
@@ -29,7 +28,6 @@ from balsam import config_logging, settings, setup
 from balsam.core import transitions
 from balsam.launcher import worker
 from balsam.launcher.util import remaining_time_minutes, delay_generator, get_tail
-from balsam.launcher.exceptions import *
 from balsam.scripts.cli import config_launcher_subparser
 from balsam.core import models
 

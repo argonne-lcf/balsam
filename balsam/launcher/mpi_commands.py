@@ -3,10 +3,10 @@ the Launcher detects a specific host type, the appropriate MPICommand class is
 automatically used.  Otherwise, the DEFAULTMPICommand class is assigned at
 module-load time, testing for MPICH or OpenMPI'''
 
-import subprocess
-import sys
 import logging
 logger = logging.getLogger(__name__)
+
+class BalsamRunnerException(Exception): pass
 
 class MPICommand(object):
     '''Base Class for creating ``mpirun`` command lines.
@@ -85,7 +85,7 @@ class BGQMPICommand(MPICommand):
         self.cpu_binding = None
         self.threads_per_rank = None
         self.threads_per_core = None
-    
+
     def worker_str(self, workers):
         if len(workers) != 1:
             raise BalsamRunnerException("BGQ requires exactly 1 worker (sub-block)")
@@ -103,7 +103,7 @@ class THETAMPICommand(MPICommand):
         self.cpu_binding = '-cc'
         self.threads_per_rank = '-d'
         self.threads_per_core = '-j'
-    
+
     def threads(self, affinity, thread_per_rank, thread_per_core):
         assert affinity in 'depth none'.split()
         result = f"{self.cpu_binding} {affinity} "
@@ -112,7 +112,7 @@ class THETAMPICommand(MPICommand):
             result += f"{self.threads_per_rank} {thread_per_rank} "
             result += f"{self.threads_per_core} {thread_per_core} "
         return result
-    
+
     def worker_str(self, workers):
         if not workers:
             return ""
@@ -128,7 +128,7 @@ class MPICHCommand(MPICommand):
         self.cpu_binding = None
         self.threads_per_rank = None
         self.threads_per_core = None
-    
+
     def worker_str(self, workers):
         return ""
 
@@ -142,7 +142,7 @@ class COOLEYMPICommand(MPICommand):
         self.cpu_binding = None
         self.threads_per_rank = None
         self.threads_per_core = None
-    
+
     def worker_str(self, workers):
         if not workers:
             return ""
@@ -158,7 +158,7 @@ class SLURMMPICommand(MPICommand):
         self.cpu_binding = None
         self.threads_per_rank = None
         self.threads_per_core = None
-    
+
     def env_str(self, envs):
         return ''
 

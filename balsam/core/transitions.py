@@ -28,15 +28,8 @@ from django import db
 from django.db.models.functions import Cast, Substr
 from django.db.models import CharField
 
-from balsam.core import transfer 
-from balsam.launcher.exceptions import *
-try:
-    from balsam.core.models import BalsamJob
-except:
-    from balsam.launcher import dag
-    BalsamJob = dag.BalsamJob
-
-from balsam.core.models import PROCESSABLE_STATES, END_STATES
+from balsam.core import transfer
+from balsam.core.models import BalsamJob, PROCESSABLE_STATES
 from balsam.launcher.util import get_tail
 
 import logging
@@ -46,6 +39,8 @@ JOBCACHE_LIMIT = 1000
 PREPROCESS_TIMEOUT_SECONDS = 300
 POSTPROCESS_TIMEOUT_SECONDS = 300
 EXIT_FLAG = False
+
+class BalsamTransitionError(Exception): pass
 
 def handler(signum, stack):
     global EXIT_FLAG
@@ -73,15 +68,17 @@ class TransitionProcessPool:
         logger.debug("Sending sigterm and waiting on transition processes")
         for proc in self.procs:
             proc.terminate()
-        for proc in self.procs: 
+        for proc in self.procs:
             proc.join()
         logger.info("All Transition processes joined: done.")
 
 @db.transaction.atomic
 def fail_update(failed_jobs):
     for job in failed_jobs:
-        try: failmsg = job.__fail_msg
-        except AttributeError: failmsg = ''
+        try:
+            failmsg = job.__fail_msg
+        except AttributeError:
+            failmsg = ''
         job.refresh_from_db()
         job.update_state('FAILED', failmsg)
 
@@ -150,7 +147,7 @@ def main(thread_idx, num_threads, wf_name):
     global EXIT_FLAG
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
-    
+
     manager = BalsamJob.source
     manager.workflow = wf_name
     random.seed(multiprocessing.current_process().pid)
@@ -257,7 +254,7 @@ def fast_forward(job_cache):
     # Timeout: retry
     retry_jobs = (j for j in job_cache if j.state=='RUN_TIMEOUT' and j.auto_timeout_retry and not j.post_timeout_handler)
     for job in retry_jobs: job.state = 'RESTART_READY'
-    
+
     # Timeout: fail
     timefail_jobs = (j for j in job_cache if j.state=='RUN_TIMEOUT'
                      and not j.auto_timeout_retry
@@ -265,7 +262,7 @@ def fast_forward(job_cache):
                     )
     for job in timefail_jobs: job.state = 'FAILED'
 
-    # Error: fail 
+    # Error: fail
     errfail_jobs = (j for j in job_cache if j.state=='RUN_ERROR'
                     and not (j.post_error_handler and j.postprocess)
                    )
@@ -309,13 +306,13 @@ def stage_in(job):
         parent_dir = parent.working_directory
         for pattern in input_patterns:
             path = os.path.join(parent_dir, pattern)
-            matches.extend((parent.pk,match) 
+            matches.extend((parent.pk,match)
                            for match in glob.glob(path))
 
     for parent_pk, inp_file in matches:
         basename = os.path.basename(inp_file)
         new_path = os.path.join(work_dir, basename)
-        
+
         if os.path.exists(new_path): new_path += f"_{str(parent_pk)[:8]}"
         # pointing to src, named dst
         logger.info(f"{job.cute_id}   {new_path}  -->  {inp_file}")
@@ -353,7 +350,7 @@ def stage_out(job):
         logger.info(f"{job.cute_id} stage out files: {matches}")
         with tempfile.TemporaryDirectory() as stagingdir:
             try:
-                for f in matches: 
+                for f in matches:
                     base = os.path.basename(f)
                     dst = os.path.join(stagingdir, base)
                     shutil.copyfile(src=f, dst=dst)
@@ -451,7 +448,7 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
         if timeout_handling: fp.write("# Invoked to handle RUN_TIMEOUT\n")
         if error_handling: fp.write("# Invoked to handle RUN_ERROR\n")
         fp.flush()
-        
+
         try:
             args = postproc_app.split()
             logger.info(f"{job.cute_id} postprocess Popen {args}")
@@ -466,7 +463,7 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
             try: proc.kill()
             except: pass
             raise BalsamTransitionError(message) from e
-    
+
     if retcode != 0:
         tail = get_tail(out, nlines=30)
         message = f"{job.cute_id} postprocess returned {retcode}:\n{tail}"
