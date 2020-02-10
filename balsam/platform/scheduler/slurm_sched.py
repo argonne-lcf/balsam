@@ -3,19 +3,33 @@ import os,logging
 logger = logging.getLogger(__name__)
 
 
+# parse "00:00:00" to minutes
+def parse_clock(t_str):
+    parts = t_str.split(':')
+    n = len(parts)
+    H = M = S = 0
+    if n == 3:
+        H, M, S = map(int, parts)
+    elif n == 2:
+        M, S = map(int, parts)
+
+    return H * 60 + M + round(S / 60)
+
+# parse "1-00:00:00" to minutes
 def parse_time_minutes(t_str):
+    mins = 0
     try:
+        print(t_str)
         parts = t_str.split('-')
         if len(parts) == 1:
-            H, M, S = map(int, parts[0].split(':'))
-            D = 0
+            mins += parse_clock(parts[0])
         elif len(parts) == 2:
-            H, M, S = map(int, parts[1].split(':'))
-            D = int(parts[0])
+            mins += parse_clock(parts[1])
+            mins += int(parts[0]) * 24 * 60
     except:
         return None
     else:
-        return D * 24 * 60 + H * 60 + M + round(S / 60)
+        return mins
 
 
 class SlurmScheduler(SubprocessSchedulerInterface):
@@ -66,7 +80,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _status_field_map(balsam_field):
         status_field_map = {
-            'id': lambda id: SlurmScheduler._parse_node_field(id),
+            'id': lambda id: int(id),
             'state': SlurmScheduler._job_state_map,
             'wall_time_min': parse_time_minutes,
             'nodes': lambda n: int(n),
@@ -76,27 +90,46 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return status_field_map.get(balsam_field, lambda x: x)
 
     # maps node list states to Balsam node states
+    # descriptions: https://slurm.schedmd.com/sinfo.html
     node_states = {
-        'down': 'busy',
-        'maint': 'busy',
-        'completing': 'busy',
-        'reserved': 'busy',
-        'allocated': 'busy',
-        'perfctrs': 'busy',
-        'drained': 'idle',
-        'drain': 'busy',
-        'comp': 'busy',
-        'resv': 'busy',
-        'npc': 'busy',
-        'mix': 'busy',
-        'alloc': 'busy',
-        'idle': 'idle',
+        'alloc': 'busy',    # allocated
+        'boot':  'busy',
+        'comp':  'busy',    # completing
+        'down':  'busy',
+        'drain': 'busy',    # drained
+        'drng':  'busy',    # draining
+        'fail':  'busy',
+        'failg': 'busy',    # failing
+        'futr':  'busy',    # future
+        'idle':  'idle',
+        'maint': 'busy',    # maintenance
+        'mix':   'busy',
+        'npc':   'busy',    # perfctrs
+        'pow_dn':'busy',    # power down
+        'pow_up':'busy',    # power up
+        'resv':  'busy',    # reserved
+        'unk':   'busy',    # unknown
     }
 
     @staticmethod
     def _node_state_map(nodelist_state):
         try:
-            nodelist_state = nodelist_state.replace('*','').replace('$','')
+            # removing special symbols that have some meaning
+            # in the future we might want to encode this info
+            # * The node is presently not responding and will not be allocated any new work.
+            nodelist_state = nodelist_state.replace('*','')
+            # ~ The node is presently in a power saving mode
+            nodelist_state = nodelist_state.replace('~','')
+            # # The node is presently being powered up or configured.
+            nodelist_state = nodelist_state.replace('#','')
+            # % The node is presently being powered down.
+            nodelist_state = nodelist_state.replace('%','')
+            # $ The node is currently in a reservation with a flag value of "maintenance".
+            nodelist_state = nodelist_state.replace('$','')
+            # @ The node is pending reboot.
+            nodelist_state = nodelist_state.replace('@','')
+            # alloc+ The node is allocated to one or more active jobs plus one or more jobs are in the process of COMPLETING.
+            nodelist_state = nodelist_state.replace('+','')
             return SlurmScheduler.node_states[nodelist_state]
         except KeyError:
             logger.warning('node state %s is not recognized',nodelist_state)
@@ -180,9 +213,12 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _parse_status_output(self, raw_output):
         # TODO: this can be much more efficient with a compiled regex findall()
         status_dict = {}
-        job_lines = raw_output.split('\n')[2:]
+        print('stdout:',raw_output)
+        job_lines = raw_output.strip().split('\n')[1:]
         for line in job_lines:
+            print('line:',line)
             job_stat = self._parse_status_line(line)
+            print('stat:',job_stat)
             if job_stat:
                 id = int(job_stat['id'])
                 status_dict[id] = job_stat
@@ -191,13 +227,14 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _parse_status_line(self, line):
         status = {}
         fields = line.split()
+        print(len(fields),len(self.status_fields))
         if len(fields) != len(self.status_fields):
             return status
 
         for name, value in zip(self.status_fields, fields):
             func = self._status_field_map(name)
             status[name] = func(value)
-
+        print(status)
         return status
 
     def _parse_nodelist_output(self, stdout):
@@ -213,7 +250,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         if len(fields) != len(self.nodelist_fields):
             return
 
-        node_ids = self._parse_nodes_field(fields[0])
+        node_ids = self._parse_node_field(fields[0])
 
         queue = fields[1]
         status = self._node_state_map(fields[2])
@@ -225,7 +262,8 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             else:
                 nodelist[node_id] = {'queues':[queue],'state':status}
 
-    def _parse_nodes_field(self,nodes_str):
+    @staticmethod
+    def _parse_node_field(nodes_str):
         node_numbers_str = nodes_str[len('nid['):-1]
         node_ranges = node_numbers_str.split(',')
         node_ids = []
