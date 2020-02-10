@@ -1,15 +1,25 @@
-import unittest,os,distutils,stat,time
+import os
+import shutil
+import stat
+import unittest
+import time
+
 from balsam.platform.scheduler import CobaltScheduler,SlurmScheduler
 from balsam.platform.scheduler.dummy import DummyScheduler
 
 class SchedulerTestMixin(object):
+
+
+    def assertInPath(self, exe):
+        which_exe = shutil.which(exe)
+        self.assertTrue(which_exe is not None)
 
     def test_submit(self):
 
         # verify script exists
         self.assertTrue(os.path.exists(self.script_path))
         # verify submit command is in path
-        self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.submit_exe)))
+        self.assertInPath(self.scheduler.submit_exe)
         # submit job
         job_id = self.scheduler.submit(**self.submit_params)
         # check job id for expected output
@@ -29,7 +39,7 @@ class SchedulerTestMixin(object):
 
     def test_get_statuses(self):
         # verify status command is in path
-        self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.status_exe)))
+        self.assertInPath(self.scheduler.status_exe)
 
         # submit job to stat
         job_id = self.scheduler.submit(**self.submit_params)
@@ -58,7 +68,7 @@ class SchedulerTestMixin(object):
 
     def test_delete_job(self):
         # verify delete command exists
-        self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.delete_exe)))
+        self.assertInPath(self.scheduler.delete_exe)
 
         # submit a job for deletion
         job_id = self.scheduler.submit(**self.submit_params)
@@ -70,7 +80,7 @@ class SchedulerTestMixin(object):
 
     def test_get_site_nodelist(self):
         # verify nodelist command is in path
-        self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.nodelist_exe)))
+        self.assertInPath(self.scheduler.nodelist_exe)
 
         nodelist = self.scheduler.get_site_nodelist()
         self.assertIsInstance(nodelist,dict)
