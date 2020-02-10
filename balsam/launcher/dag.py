@@ -101,7 +101,7 @@ if JOB_ID:
 
 def add_job(
         name, workflow, application,
-        description='', args='',
+        description='', args='', mpi_flags='',
         num_nodes=1, ranks_per_node=1,
         cpu_affinity='depth', threads_per_rank=1,
         threads_per_core=1,
@@ -132,6 +132,7 @@ def add_job(
     job.application      = application
     job.description      = description
     job.args             = args
+    job.mpi_flags        = mpi_flags
     job.num_nodes        = num_nodes
     job.ranks_per_node   = ranks_per_node
     job.threads_per_rank = threads_per_rank

@@ -85,6 +85,7 @@ def newjob(args):
 
     job.application = args.application
     job.args = ' '.join(args.args)
+    job.mpi_flags = ' '.join(args.mpi_flags)
     job.post_error_handler = args.post_handle_error
     job.post_timeout_handler = args.post_handle_timeout
     job.auto_timeout_retry = not args.disable_auto_timeout_retry
