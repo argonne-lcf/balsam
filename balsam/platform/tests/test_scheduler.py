@@ -30,10 +30,16 @@ class SchedulerTestMixin(object):
     def test_get_statuses(self):
         # verify status command is in path
         self.assertTrue(os.path.exists(distutils.spawn.find_executable(self.scheduler.status_exe)))
+
+        # submit job to stat
+        job_id = self.scheduler.submit(**self.submit_params)
+
         # test status function
         stat_dict = self.scheduler.get_statuses(**self.status_params)
         # check that output is a dictionary
         self.assertIsInstance(stat_dict,dict)
+
+        self.assertIn(job_id,stat_dict)
 
         # check that all states are expected
         balsam_job_states = self.scheduler.job_states.values()
@@ -46,6 +52,9 @@ class SchedulerTestMixin(object):
             self.assertIn(job_status['state'],balsam_job_states)
             self.assertGreaterEqual(job_status['wall_time_min'],0)
             self.assertGreater(job_status['nodes'],0)
+
+        # clean up after this test, delete job, wait for delete to be complete
+        self.scheduler.delete_job(job_id)
 
     def test_delete_job(self):
         # verify delete command exists
