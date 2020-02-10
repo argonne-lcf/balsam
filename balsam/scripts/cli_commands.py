@@ -2,10 +2,8 @@ import getpass
 import os
 from importlib.util import find_spec
 import subprocess
-import signal
 import sys
 
-import django
 
 def ls_procs(keywords):
     if type(keywords) == str: keywords = [keywords]
@@ -15,11 +13,12 @@ def ls_procs(keywords):
     searchcmd = 'ps aux | grep '
     searchcmd += ' | grep '.join(f'"{k}"' for k in keywords)
     grep = subprocess.Popen(searchcmd, shell=True, stdout=subprocess.PIPE)
-    stdout,stderr = grep.communicate()
+    stdout, stderr = grep.communicate()
     stdout = stdout.decode('utf-8')
 
     processes = [line for line in stdout.split('\n') if 'python' in line and line.split()[0]==username]
     return processes
+
 
 def cmd_confirmation(message=''):
     confirm = ''
@@ -28,6 +27,7 @@ def cmd_confirmation(message=''):
             confirm = input(f"{message} [y/n]: ")
         except: pass
     return confirm.lower() == 'y'
+
 
 def newapp(args):
     from balsam import setup
@@ -121,27 +121,24 @@ def match_uniq_job(s):
     else:
         raise ValueError(f"No job in local DB matched {s}")
 
+
 def newdep(args):
     from balsam import setup
     setup()
-    from balsam.core import models
+    # from balsam.core import models
     from balsam.launcher import dag
-    Job = models.BalsamJob
-    AppDef = models.ApplicationDefinition
 
     parent = match_uniq_job(args.parent)
     child = match_uniq_job(args.child)
     dag.add_dependency(parent, child)
     print(f"Created link {parent.cute_id} --> {child.cute_id}")
 
+
 def ls(args):
     from balsam import setup
     setup()
-    from balsam.core import models
-    from balsam.launcher import dag
+    # from balsam.core import models
     import balsam.scripts.ls_commands as lscmd
-    Job = models.BalsamJob
-    AppDef = models.ApplicationDefinition
 
     objects = args.objects
     name = args.name
@@ -162,8 +159,9 @@ def ls(args):
             lscmd.ls_wf(name, verbose, tree, wf)
         elif objects.startswith('queues'):
             lscmd.ls_queues(verbose)
-    except (KeyboardInterrupt,BrokenPipeError):
+    except (KeyboardInterrupt, BrokenPipeError):
         pass
+
 
 def modify(args):
     from balsam import setup
@@ -199,7 +197,6 @@ def rm(args):
     from balsam import setup
     setup()
     from balsam.core import models
-    from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
 
@@ -243,6 +240,7 @@ def rm(args):
     deletion_objs.delete()
     print("Deleted.")
 
+
 def kill(args):
     from balsam import setup
     setup()
@@ -276,6 +274,7 @@ def mkchild(args):
     dag.add_dependency(dag.current_job, child_job)
     print(f"Created link {dag.current_job.cute_id} --> {child_job.cute_id}")
 
+
 def launcher(args):
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
@@ -284,6 +283,7 @@ def launcher(args):
     pid = os.getpid()
     print(f"Starting Balsam launcher [{pid}]")
     os.execvp(cmd, args)
+
 
 def submitlaunch(args):
     from balsam import setup
@@ -298,16 +298,17 @@ def submitlaunch(args):
             cursor.execute('LOCK TABLE core_queuedlaunch IN ACCESS EXCLUSIVE MODE;')
             QueuedLaunch = models.QueuedLaunch
             qlaunch = QueuedLaunch(
-                    project = args.project,
-                    queue = args.queue,
-                    nodes = args.nodes,
-                    wall_minutes = args.time_minutes,
-                    job_mode = args.job_mode,
-                    wf_filter = args.wf_filter,
-                    sched_flags = args.sched_flags,
+                    project=args.project,
+                    queue=args.queue,
+                    nodes=args.nodes,
+                    wall_minutes=args.time_minutes,
+                    job_mode=args.job_mode,
+                    wf_filter=args.wf_filter,
+                    sched_flags=args.sched_flags,
                     prescheduled_only=False)
             qlaunch.save()
             service.submit_qlaunch(qlaunch, verbose=True)
+
 
 def service(args):
     fname = find_spec("balsam.service.service").origin
@@ -315,6 +316,7 @@ def service(args):
     command = [sys.executable] + [fname] + original_args
     p = subprocess.Popen(command)
     print(f"Starting Balsam service [{p.pid}]")
+
 
 def init(args):
     path = os.path.expanduser(args.path)
@@ -332,6 +334,7 @@ def init(args):
     fname = find_spec("balsam.scripts.init").origin
     p = subprocess.Popen(f'{sys.executable} {fname} {path}', shell=True)
     p.wait()
+
 
 def which(args):
     from balsam.django_config.db_index import refresh_db_index
@@ -372,12 +375,15 @@ def which(args):
             print('Use "source balsamactivate" to activate one of these existing databases:')
             pprint.pprint(refresh_db_index())
 
+
 def log(args):
     from balsam import settings, setup
     setup()
     path = os.path.join(settings.LOGGING_DIRECTORY, '*.log')
-    try: subprocess.run(f"tail -f {path}", shell=True)
-    except (KeyboardInterrupt,BrokenPipeError,ProcessLookupError): pass
+    try:
+        subprocess.run(f"tail -f {path}", shell=True)
+    except (KeyboardInterrupt, BrokenPipeError, ProcessLookupError):
+        pass
 
 
 def server(args):

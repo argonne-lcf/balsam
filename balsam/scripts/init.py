@@ -1,7 +1,5 @@
-import glob
 import os
 import sys
-from pprint import pprint
 import re
 import subprocess
 from balsam import setup, settings

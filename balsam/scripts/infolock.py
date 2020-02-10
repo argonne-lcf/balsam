@@ -1,7 +1,7 @@
 import os
-import sys
 import random
 import time
+
 
 class InfoLock:
     EXPIRATION_SECONDS = 20
@@ -32,7 +32,7 @@ class InfoLock:
                 if self.check_stale():
                     try: os.rmdir(self.lock_path)
                     except FileNotFoundError: pass
-            else: 
+            else:
                 acquired = True
                 if newline: print("")
         if not acquired:
@@ -41,9 +41,9 @@ class InfoLock:
     def release_lock(self):
         try: os.rmdir(self.lock_path)
         except FileNotFoundError: pass
-            
+
     def __enter__(self):
         self.acquire_lock()
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         self.release_lock()

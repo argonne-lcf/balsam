@@ -1,15 +1,18 @@
 from balsam.django_config import serverinfo
 from .infolock import InfoLock
-import sys
 import time
 import socket
 import signal
 import subprocess
 import os
 
+
 class SignalReceived(Exception): pass
+
+
 def term_handler(signum, stack):
     raise SignalReceived(f"Killed by signal {signum}")
+
 
 def launch_server(info):
     if not info._is_owner:
@@ -23,6 +26,7 @@ def launch_server(info):
     start_cmd = f"pg_ctl -w start -D {info.pg_db_path} -l {log_path} --mode=smart"
     print("Launching Balsam DB server")
     proc = subprocess.run(start_cmd, shell=True, check=True)
+
 
 def kill_server(info):
     if not info._is_owner:
@@ -54,16 +58,20 @@ def test_connection(info, raises=False):
     try:
         count = dag.BalsamJob.objects.count()
     except db.OperationalError:
-        if raises: raise
-        else: return False
+        if raises:
+            raise
+        else:
+            return False
     else:
         assert type(count) is int
         return True
+
 
 def reset_main(db_path):
     start_main(db_path)
     info = serverinfo.ServerInfo(db_path)
     kill_server(info)
+
 
 def start_main(db_path):
     old_handler = signal.getsignal(signal.SIGTERM)
@@ -71,6 +79,7 @@ def start_main(db_path):
     with InfoLock(db_path):
         _start_main(db_path)
     signal.signal(signal.SIGTERM, old_handler)
+
 
 def _start_main(db_path):
     info = serverinfo.ServerInfo(db_path)
@@ -88,6 +97,7 @@ def _start_main(db_path):
     else:
         print(f"Server at {info['host']}:{info['port']} isn't responsive; please ask the owner to restart it")
 
+
 def list_connections(db_path):
     info = serverinfo.ServerInfo(db_path)
     host = info['host']
@@ -99,6 +109,7 @@ def list_connections(db_path):
         ''',
         shell=True
     )
+
 
 def add_user(db_path, uname):
     info = serverinfo.ServerInfo(db_path)
@@ -114,6 +125,7 @@ def add_user(db_path, uname):
         shell=True
     )
 
+
 def drop_user(db_path, uname):
     info = serverinfo.ServerInfo(db_path)
     host = info['host']
@@ -127,6 +139,7 @@ def drop_user(db_path, uname):
         shell=True
     )
 
+
 def list_users(db_path):
     info = serverinfo.ServerInfo(db_path)
     host = info['host']
@@ -137,6 +150,7 @@ def list_users(db_path):
         ''',
         shell=True
     )
+
 
 def create_db(serverInfo):
     db_path = serverInfo.pg_db_path
@@ -160,5 +174,7 @@ def create_db(serverInfo):
     port = serverInfo['port']
     create_proc = subprocess.Popen(f'createdb balsam -p {port}', shell=True)
     retcode = create_proc.wait()
-    if retcode != 0: raise RuntimeError("createdb failed")
-    else: print("Created `balsam` DB")
+    if retcode != 0:
+        raise RuntimeError("createdb failed")
+    else:
+        print("Created `balsam` DB")
