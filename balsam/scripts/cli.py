@@ -100,14 +100,15 @@ def make_parser():
 
     parser_job.add_argument('--description', required=False, nargs='*', default=[])
 
-    # TODO(KGF): generalize this info beyond Cobalt
     parser_job.add_argument('--threads-per-rank',type=int, default=1,
-                            help="Equivalent to -d option in aprun")
+                            help="Number of CPUs for each processing element and its threads; "
+                            "equivalent to -d option in aprun")
     parser_job.add_argument('--threads-per-core',type=int, default=1,
-                            help="Equivalent to -j option in aprun")
+                            help="Number of CPUs to use per compute unit; "
+                            "equivalent to -j option in aprun")
     # TODO(KGF): check the safety/security of the arg of this flag when passed and parsed:
     parser_job.add_argument('--mpi-flags', type=str, default=None,
-                            help="Additional flags to append to MPI command")
+                            help="Additional flags to append to MPI run command")
 
     parser_job.add_argument('--args', nargs='*', required=False, default=[],
                             help="Command-line args to the application")
