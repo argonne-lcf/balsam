@@ -29,7 +29,7 @@ class SchedulerInterface(object):
             self._username = getuser()
         return self._username
     
-    def submit(self, script_path, project, queue, num_nodes, time_minutes, cwd=None):
+    def submit(self, script_path, project, queue, num_nodes, time_minutes, cwd=None, **kwargs):
         """
         Submit the script at `script_path` to a local job queue.
         Returns scheduler ID of the submitted job.
@@ -57,9 +57,10 @@ class SchedulerInterface(object):
 
 class SubprocessSchedulerInterface(SchedulerInterface):
 
-    def submit(self, script_path, project, queue, num_nodes, time_minutes, cwd=None):
+    def submit(self, script_path, project, queue, num_nodes, time_minutes, cwd=None, **kwargs):
+
         submit_args = self._render_submit_args(
-            script_path, project, queue, num_nodes, time_minutes
+            script_path, project, queue, num_nodes, time_minutes, **kwargs
         )
         stdout = scheduler_subproc(submit_args,cwd)
         scheduler_id = self._parse_submit_output(stdout)
