@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 #SBATCH --account={{ project }}
 #SBATCH --partition={{ queue }}
 #SBATCH --nodes={{ nodes }}
@@ -11,6 +11,23 @@ export SLURM_HOSTS=$(scontrol show hostnames)
 source balsamactivate {{ balsam_db_path }}
 sleep 2
 
-balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }}
+_term() {
+    kill -TERM "$child" # 2>/dev/null
+    wait "$child"
+}
+
+_int() {
+    kill -INT "$child" # 2>/dev/null
+    wait "$child"
+}
+
+trap _term SIGTERM
+trap _int SIGINT
+
+# background the child process
+balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }} &
+
+child=$!
+wait "$child"
 
 source balsamdeactivate
