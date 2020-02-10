@@ -1,6 +1,6 @@
 from django.db import models, transaction
 from django.db.models import Count, Q
-from django.contrib.postgres.fields import JSONField, ArrayField
+from django.contrib.postgres.fields import JSONField
 from django.utils import timezone
 from datetime import timedelta
 import logging
@@ -111,7 +111,7 @@ class JobManager(models.Manager):
     def chain_prefetch_for_update(self, qs):
         """Prefetch related items that would be hit in a big list view"""
         return qs.select_related(
-            'lock', 'app_exchange', 'app_backend', 
+            'lock', 'app_exchange', 'app_backend',
             'app_backend__site', 'batch_job', 'parents'
         ).prefetch_related(
             'app_exchange__backends',
@@ -135,7 +135,7 @@ class JobManager(models.Manager):
 
         qs = self.filter(pk__in=patch_map)
         qs = self.chain_prefetch_for_update(qs)
-        for job in qs.select_for_update():
+        for job in qs.order_by('pk').select_for_update():
             patch = patch_map[job.pk]
             job.update(**patch)
         return qs
@@ -160,7 +160,7 @@ class JobManager(models.Manager):
             node_packing_count=node_packing_count, wall_time_min=wall_time_min
         )
         job.save()
-        job.parents.add(*parents)
+        job.parents.set(parents)
         for dat in transfer_items:
             TransferItem.objects.create(
                 direction=dat['direction'],
@@ -177,7 +177,65 @@ class JobManager(models.Manager):
         return job
 
     @transaction.atomic
-    def acquire(self, site, lock):
+    def acquire(
+        self, site, acquire_unbound, states, lock,
+        filter_tags=None, max_num_acquire=1000,
+        max_nodes=None, max_time_min=None, max_cores=None, max_gpu=None,
+        node_resources=None, order_by=(),
+    ):
+        bound_to_site = Q(app_backend__site=site)
+        eligible_to_bind = Q(app_exchange__backends__site=site)
+        if acquire_unbound:
+            qs = self.get_queryset().filter(eligible_to_bind | bound_to_site)
+        else:
+            qs = self.get_queryset().filter(bound_to_site)
+        
+        if filter_tags is None:
+            filter_tags = {}
+        
+        qs = (qs
+              .filter(lock__isnull=True)
+              .filter(state__in=states)
+              .filter(tags__contains=filter_tags) # Job.keys contains all k:v pairs
+             )
+        if max_nodes is not None:
+            qs = qs.filter(num_nodes__lte=max_nodes)
+        if max_time_min is not None:
+            qs = qs.filter(wall_time_min__lte=max_time_min)
+
+        node_resources = {
+            'max_jobs_per_node': 1,
+        }
+        # select for update
+        # order by pk, DO NOT use skip_locked
+        # Using filter(lock=None).select_for_update(skip_locked=False)
+        # should do the right thing and serialize access to pre-selected rows
+        # skip_locked=True would improve concurrency only if a small LIMIT was
+        # used (e.g. 20 launchers concurrently selecting from a pool of 1 mil jobs, 
+        # and each launcher is taking up to 100 jobs at a time)
+
+        
+
+        # Hit the DB (not a simple count) to acquire the lock, ordering by pk:
+        match_pks = list(qs.order_by('pk').select_for_update().values('pk'))
+
+        # Set order *after* rows locked:
+        if acquire_unbound:
+            qs = qs.order_by(F('app_backend').desc(nulls_last=True))
+            # if acquire_unbound=True, sort jobs by bound-first, but allow unbound
+
+        # if simple max_num_acquire, just LIMIT the qs and return results
+
+        # if node_resources provided, then iterate over
+        # qs and pre-assign jobs (a la launcher)
+
+        # resource constraint includes a max_jobs_per_node
+            # if 1, then cannot pack multiple jobs per node
+        # stop when hitting max_num_acquire
+        # on selected jobs:
+            # bind to site: set app_backend
+            # bind to batch_job if job_id in context
+            # set lock
         pass
 
 class Job(models.Model):
@@ -203,7 +261,8 @@ class Job(models.Model):
         blank=True,
         default=None,
         on_delete=models.SET_NULL,
-        db_index=True
+        db_index=True,
+        editable=False
     )
     owner = models.ForeignKey(
         'User',
@@ -224,7 +283,7 @@ class Job(models.Model):
     parameters = JSONField(default=dict)
 
     batch_job = models.ForeignKey(
-        'BatchJob', on_delete=models.SET_NULL, 
+        'BatchJob', on_delete=models.SET_NULL, editable=False,
         related_name='balsam_jobs', null=True, blank=True
     )
     state = models.CharField(
@@ -256,12 +315,10 @@ class Job(models.Model):
     wall_time_min = models.IntegerField(default=0)
 
     # Not Directly Updateable fields:
-    # parents: must be fixed at job creation time.
-    # app_exchange: must be fixed at creation
-    # app_backend: set by reset_backend() or acquire() only
-    # owner: fixed at creation as auth.user
-    # lock: set by acquire(); unset by update_state()
-    # batchjob: set by acquire() when acquired from a launcher context
+    # parents, app_exchange, owner: set at creation
+    # app_backend: set in reset_backend() or acquire()
+    # lock: set by acquire(); unset in update_state()
+    # batchjob: set in acquire() when from a launcher context
     def update(
         self, tags=None, workdir=None, parameters=None,
         state=None, state_timestamp=None, state_message='',
@@ -322,15 +379,21 @@ class Job(models.Model):
         if new_state not in ALLOWED_TRANSITIONS[self.state]:
             raise InvalidStateError(f"Cannot transition from {self.state} to {new_state}")
 
+        old_state = self.state
         self.state = new_state
+
         if new_state == 'RUN_ERROR':
             self.last_error = message
         elif new_state == 'FAILED' and message:
             self.last_error = message
+
+        if self.is_locked() and new_state != 'RUNNING':
+            self.release_lock()
+
         self.save()
         EventLog.objects.log_transition(
             job=self,
-            old_state=self.state,
+            old_state=old_state,
             new_state=new_state,
             timestamp=timestamp,
             message=message,
@@ -347,13 +410,13 @@ class Job(models.Model):
         # Otherwise, a Job with only one execution site and nothing
         # to transfer in can skip ahead
         if self.transfer_items.filter(direction="in").count() == 0:
-            self.update_state('STAGED_IN', "Skipped stage-in", timestamp)
+            self.update_state('STAGED_IN', message="Skipped stage-in", timestamp=timestamp)
     
     def on_RESET(self, *args, timestamp=None, **kwargs):
         self.reset_backend()
         if self.is_waiting_for_parents():
             self.update_state(
-                'AWAITING_PARENTS', 
+                'AWAITING_PARENTS',
                 message="Waiting on at least one parent to finish",
                 timestamp=timestamp
             )
@@ -394,3 +457,6 @@ class Job(models.Model):
 
     def is_locked(self):
         return self.lock is not None
+
+    def release_lock(self):
+        self.lock = None

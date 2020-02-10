@@ -57,7 +57,7 @@ class BatchJobManager(models.Manager):
             patch_map[pk] = patch
 
         jobs = self.filter(pk__in=patch_map)
-        jobs = list(jobs.select_for_update())
+        jobs = list(jobs.order_by('pk').select_for_update())
         for job in jobs:
             patch = patch_map[job.pk]
             job.update(bulk_select_for_update=True, **patch)
@@ -99,7 +99,7 @@ class BatchJob(models.Model):
         self.state = new_state
 
     def lock_and_refresh(self):
-        locked_self = BatchJob.objects.select_for_update().get(pk=self.pk)
+        locked_self = BatchJob.objects.order_by('pk').select_for_update().get(pk=self.pk)
         self.__dict__.update(locked_self.__dict__)
 
     @transaction.atomic

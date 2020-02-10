@@ -307,8 +307,8 @@ class JobSerializer(BulkModelSerializer):
             'workdir', 'tags', 'owner', 'batch_job',
             'app', 'app_name', 'site', 'app_class',
             'events', 'transfer_items',
-            'state', 'parameters', 'data',
-            'last_update', 'parents',
+            'state', 'state_timestamp', 'state_message',
+            'parameters', 'data', 'last_update', 'parents',
             'num_nodes', 'ranks_per_node', 'threads_per_rank',
             'threads_per_core', 'cpu_affinity', 'gpus_per_rank',
             'node_packing_count', 'wall_time_min'
@@ -338,6 +338,8 @@ class JobSerializer(BulkModelSerializer):
     parents = OwnedJobPrimaryKeyRelatedField(many=True)
     parameters = serializers.DictField(child=serializers.CharField(max_length=128))
     data = serializers.DictField()
+    state_timestamp = serializers.DateTimeField(write_only=True, required=False)
+    state_message = serializers.CharField(write_only=True, required=False)
 
     def create(self, validated_data):
         return Job.objects.create(**validated_data)
