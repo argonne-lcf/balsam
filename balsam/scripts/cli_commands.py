@@ -278,10 +278,11 @@ def mkchild(args):
 def launcher(args):
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
-    command = [sys.executable] + [fname] + original_args
-    p = subprocess.Popen(command)
-    print(f"Started Balsam launcher [{p.pid}]")
-    p.wait()
+    cmd = sys.executable
+    args = [cmd, fname] + original_args
+    pid = os.getpid()
+    print(f"Starting Balsam launcher [{pid}]")
+    os.execvp(cmd, args)
 
 def submitlaunch(args):
     from balsam import setup
