@@ -1,13 +1,12 @@
 import os
 import sys
-import subprocess
 import shutil
-from importlib.util import find_spec
 
-from jinja2 import Template, Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader
 from django.conf import settings
 import logging
 logger = logging.getLogger(__name__)
+
 
 class ScriptTemplate:
     def __init__(self, template_top, template_path):

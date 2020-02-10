@@ -1,5 +1,5 @@
 #!/Users/misha/anaconda3/envs/testmpi/bin/python
-import balsam.launcher.dag as dag
+# import balsam.launcher.dag as dag
 
 print("Hello from reduce_post")
 

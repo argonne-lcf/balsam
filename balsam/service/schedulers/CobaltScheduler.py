@@ -1,16 +1,16 @@
 import os
 from getpass import getuser
 from datetime import datetime
-
 from django.conf import settings
-from balsam.service.schedulers.exceptions import * 
 from balsam.service.schedulers import Scheduler
 
 import logging
 logger = logging.getLogger(__name__)
 
+
 def new_scheduler():
     return CobaltScheduler()
+
 
 class CobaltScheduler(Scheduler.Scheduler):
     SCHEDULER_VARIABLES = {
@@ -32,15 +32,17 @@ class CobaltScheduler(Scheduler.Scheduler):
     QSTAT_EXE = settings.SCHEDULER_STATUS_EXE
 
     def _make_submit_cmd(self, script_path):
-        exe = settings.SCHEDULER_SUBMIT_EXE # qsub
+        exe = settings.SCHEDULER_SUBMIT_EXE  # qsub
         cwd = settings.SERVICE_PATH
         basename = os.path.basename(script_path)
         basename = os.path.splitext(basename)[0]
         return f"{exe} --cwd {cwd} -O {basename} {script_path}"
 
     def _parse_submit_output(self, submit_output):
-        try: scheduler_id = int(submit_output)
-        except ValueError: scheduler_id = int(submit_output.split()[-1])
+        try:
+            scheduler_id = int(submit_output)
+        except ValueError:
+            scheduler_id = int(submit_output.split()[-1])
         return scheduler_id
 
     def _make_status_cmd(self):
@@ -62,7 +64,8 @@ class CobaltScheduler(Scheduler.Scheduler):
     def _parse_job_line(self, line):
         fields = line.split()
         num_expected = len(self.JOBSTATUS_VARIABLES)
-        if len(fields) != num_expected: return {}
+        if len(fields) != num_expected:
+            return {}
         stat = {}
         for i, field_name in enumerate(self.JOBSTATUS_VARIABLES.keys()):
             stat[field_name] = fields[i]

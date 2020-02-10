@@ -16,6 +16,7 @@ You can easily grab the Postgres binaries at:
 https://www.enterprisedb.com/download-postgresql-binaries
 '''
 
+
 def check_postgres():
     p = subprocess.run(
         'pg_ctl --version',
@@ -40,6 +41,7 @@ def check_postgres():
         print(f"PostgreSQL {version_info} does not meet required: {POSTGRES_REQUIRED}")
         return False
 
+
 def postgres_init(serverInfo):
     if not os.path.exists(serverInfo.pg_db_path): # postgres data directory
         postgres_control.create_db(serverInfo)
@@ -48,8 +50,8 @@ def postgres_init(serverInfo):
         postgres_control.start_main(serverInfo.balsam_db_path)
         serverInfo.refresh()
 
+
 def run_migrations():
-    from django import db
     from django.core.management import call_command
     from balsam.django_config.db_index import refresh_db_index
     setup()

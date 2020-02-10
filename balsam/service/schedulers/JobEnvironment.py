@@ -1,17 +1,18 @@
 import os
-import sys
 import time
 from socket import gethostname
-from balsam.service.schedulers.exceptions import *
+from balsam.service.schedulers.exceptions import (
+    NoQStatInformation)
 
 import logging
 logger = logging.getLogger(__name__)
 
+
 class JobEnvironment:
     RECOGNIZED_HOSTS = {
-        'BGQ'    : 'vesta cetus mira'.split(),
-        'THETA'   : 'theta'.split(),
-        'COOLEY' : 'cooley cc'.split(),
+        'BGQ': 'vesta cetus mira'.split(),
+        'THETA': 'theta'.split(),
+        'COOLEY': 'cooley cc'.split(),
         'SLURM': 'bebop blues lcrc'.split(),
     }
 
@@ -20,7 +21,6 @@ class JobEnvironment:
         self.pid = os.getpid()
         self.hostname = gethostname()
         self.host_type = 'SLURM'
-        
         self.current_scheduler_id = None
         self.num_workers = 1
         self.workers_str = None
@@ -40,11 +40,12 @@ class JobEnvironment:
         logger.debug(f"Recognized host_type: {self.host_type}")
 
     def get_env(self):
-        '''Check for environment variables (e.g. COBALT_JOBID) indicating 
+        '''Check for environment variables (e.g. COBALT_JOBID) indicating
         currently inside a scheduled job'''
         for generic_name, specific_var in self.scheduler_vars.items():
             value = os.environ.get(specific_var, None)
-            if value is not None and value.startswith('num'): value = int(value)
+            if value is not None and value.startswith('num'):
+                value = int(value)
             setattr(self, generic_name, value)
 
         if self.current_scheduler_id:

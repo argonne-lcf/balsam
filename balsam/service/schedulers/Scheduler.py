@@ -1,8 +1,10 @@
-import shlex
 import subprocess
-from balsam.service.schedulers.exceptions import *
+from balsam.service.schedulers.exceptions import (
+    SubmitNonZeroReturnCode, StatusNonZeroReturnCode,
+    NoQStatInformation)
 import logging
 logger = logging.getLogger(__name__)
+
 
 class Scheduler:
     SCHEDULER_VARIABLES = {}
@@ -15,7 +17,7 @@ class Scheduler:
         submit_cmd = self._make_submit_cmd(script_path)
         p = subprocess.run(submit_cmd, stdout=subprocess.PIPE,shell=True,
                              stderr=subprocess.STDOUT, encoding='utf-8')
-        if p.returncode != 0: 
+        if p.returncode != 0:
             raise SubmitNonZeroReturnCode(p.stdout)
         scheduler_id = self._parse_submit_output(p.stdout)
         return scheduler_id
@@ -24,7 +26,7 @@ class Scheduler:
         stat_cmd = self._make_status_cmd()
         p = subprocess.run(stat_cmd, stdout=subprocess.PIPE, shell=True,
                            stderr=subprocess.STDOUT, encoding='utf-8')
-        if p.returncode != 0: 
+        if p.returncode != 0:
             raise StatusNonZeroReturnCode(p.stdout)
         statinfo = self._parse_status_output(p.stdout)
         return statinfo
@@ -34,11 +36,12 @@ class Scheduler:
         try:
             statuses = self._status()
         except StatusNonZeroReturnCode as e:
-            raise NoQStatInformation("QStat failed: {e}")
+            raise NoQStatInformation("QStat failed: {}".format(e))
         try:
             stat = statuses[scheduler_id]
         except KeyError:
-            raise NoQStatInformation(f"No status for {scheduler_id}: this might signal the job is over")
+            raise NoQStatInformation(
+                f"No status for {scheduler_id}: this might signal the job is over")
         else:
             return stat
 
