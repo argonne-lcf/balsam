@@ -117,7 +117,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
 
     _status_output = '''job_id state wall_time queue_name nodes project time_left
 ==============
- 3   QUEUED  60  default  20  p1  NA
+ 4   QUEUED  60  default  20  p1  NA
  2   USER_HOLD  60  default  20  p1  NA
  8   DEP_HOLD  60  default  20  p1  NA
  10   DEP_FAIL  60  default  20  p1  NA
