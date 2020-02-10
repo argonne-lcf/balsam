@@ -1,7 +1,7 @@
 Submitting Jobs
 =================
 The `balsam launcher` command starts running the launcher component inside of a
-scheduled job. The launcher automatically detects the allocated resources and 
+scheduled job. The launcher automatically detects the allocated resources and
 begins executing your workflows.
 
 However, you typically **do not** run `balsam launcher` yourself, unless you are
@@ -17,8 +17,8 @@ In either case, the following takes place when you submit with Balsam:
 
 - A bash script is generated from the Job Template (see
   :ref:`JobTemplate` for an easy way to "hook-in" custom data movement or other
-  pre-run commands) 
-- The script is named :bash:`qlaunch<id>.sh` and saved in the :bash:`qsubmit/` subdirectory of your database 
+  pre-run commands)
+- The script is named :bash:`qlaunch<id>.sh` and saved in the :bash:`qsubmit/` subdirectory of your database
 - The script is submitted to the batch scheduler using the platform's scheduler interface, via :bash:`qsub`, for instance
 
 Manually Submit with **submit-launch**
@@ -37,32 +37,32 @@ MPI job mode
 ~~~~~~~~~~~~~
 For :bash:`--job-mode=mpi`, the Balsam launcher runs as a pilot job on the
 head node of the allocated resources.  From this head node, it issues MPI
-launch commands (**mpirun** or equivalent) to launch jobs against the 
+launch commands (**mpirun** or equivalent) to launch jobs against the
 available resources.
 
 This job mode maps very closely to the traditional "ensemble job" script
-that you may be accustomed to thinking about and can run any kind of 
+that you may be accustomed to thinking about and can run any kind of
 task, whether it actually uses MPI or not.
 
 .. note::
     The launcher continuously attempts to launch tasks on idle
     nodes. Tasks are prioritized in order of decreasing **num_nodes**
     and then decreasing **wall_time_minutes** (see :ref:`BalsamJob`). This means that bigger, longer jobs will start
-    earlier than smaller, shorter jobs at the beginning.  The **wall_time_minutes** 
+    earlier than smaller, shorter jobs at the beginning.  The **wall_time_minutes**
     is a completely optional field that defaults to 0.  If you don't want to
-    provide a runtime estimate, simply leave it blank and jobs will not be 
-    prioritized according to this value. 
-    
+    provide a runtime estimate, simply leave it blank and jobs will not be
+    prioritized according to this value.
+
 
 Serial job mode
 ~~~~~~~~~~~~~~~~
 For tasks that run on a single node and **do not** use MPI, you may wish to
-pack several tasks per node.  You may also wish to run 4000 such tasks 
+pack several tasks per node.  You may also wish to run 4000 such tasks
 on 4000 nodes, without overburdening the head node with 4000 **mpirun**
-background processes. 
+background processes.
 
 The `--job-mode=serial` option solves both of these problems by launching
-a single forker process on each compute node.  These processes then run 
+a single forker process on each compute node.  These processes then run
 isolated tasks on the single nodes.  This job mode **will not** process
 any tasks that have specified the use of multiple MPI ranks.
 
@@ -85,12 +85,12 @@ so that all jobs can get as much work done as possible.
 Running many launchers concurrently
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 One of the biggest advantages of Balsam is that many launcher jobs
-can be scheduled to run concurrently.  
+can be scheduled to run concurrently.
 
 If you have a lot of tasks to run, simply call :bash:`submit-launch`
-multiple times (up to the queue limit, if you like) to enqueue many 
+multiple times (up to the queue limit, if you like) to enqueue many
 launcher jobs. They may run one-after-another or simultaneously, depending
-on resource availability. When launchers run simultaneously, they  
+on resource availability. When launchers run simultaneously, they
 cooperatively "check-out" idle runnable tasks from the database, ensuring
 that every task runs exactly one time and there is no duplicate processing
 of tasks.
@@ -108,9 +108,16 @@ Monitoring and Killing Jobs
 ----------------------------
 You can always use the local scheduler's utilities to monitor (e.g.
 :bash:`qstat`) and kill (e.g. :bash:`qdel`) Balsam jobs. Running launchers
-will intercept `SIGTERM` signals sent by the scheduler when a job
+will intercept `SIGINT` or `SIGTERM` signals sent by the scheduler when a job
 is killed or timed out. In turn, they gracefully stop running your workflow
 and mark timed-out tasks accordingly.
+
+Note: for Slurm, use :bash:`scancel --batch --signal=TERM job_id` (or :bash:`INT`)
+to kill a running Balsam launcher and allow it to gracefully exit. Unlike the Cobalt
+scheduler, Slurm signals the child processes of the batch shell process by default when
+canceling jobs, including the job steps invoked by `srun`. The :bash:`--batch` option
+prevents this behavior, and the :bash:`--signal` option overrides the default sending of
+:bash:`SIGKILL` to the batch step.
 
 If you want to kill a **particular task** while it's running inside a
 launcher, you can use the :bash:`balsam kill <jobid>` command (see
