@@ -6,7 +6,9 @@ module-load time, testing for MPICH or OpenMPI'''
 import logging
 logger = logging.getLogger(__name__)
 
+
 class BalsamRunnerException(Exception): pass
+
 
 class MPICommand(object):
     '''Base Class for creating ``mpirun`` command lines.
@@ -28,22 +30,25 @@ class MPICommand(object):
         return ""
 
     def env_str(self, envs):
-        envstrs = (f'{self.env} {var}="{val}"' for var,val in envs.items())
+        envstrs = (f'{self.env} {var}="{val}"' for var, val in envs.items())
         return " ".join(envstrs)
 
     def threads(self, cpu_affinity, thread_per_rank, thread_per_core):
         return ""
 
-
     def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node,
-                 envs, cpu_affinity, threads_per_rank=1,threads_per_core=1):
+                 envs, cpu_affinity, threads_per_rank=1, threads_per_core=1,
+                 mpi_flags=''):
         '''Build the mpirun/aprun/runjob command line string'''
         workers = self.worker_str(workers)
         envs = self.env_str(envs)
-        thread_str = self.threads(cpu_affinity, threads_per_rank, threads_per_core)
-        result =  (f"{self.mpi} {self.nproc} {num_ranks} {self.ppn} "
-                   f"{ranks_per_node} {envs} {workers} {thread_str} {app_cmd}")
+        thread_str = self.threads(cpu_affinity, threads_per_rank,
+                                  threads_per_core)
+        result = (f"{self.mpi} {self.nproc} {num_ranks} {self.ppn} "
+                  f"{ranks_per_node} {envs} {workers} {thread_str} "
+                  f"{mpi_flags} {app_cmd}")
         return result
+
 
 class OPENMPICommand(MPICommand):
     '''Single node OpenMPI: ppn == num_ranks'''
@@ -60,19 +65,23 @@ class OPENMPICommand(MPICommand):
         return ""
 
     def env_str(self, envs):
-        envstrs = (f'{self.env} {var}="{val}"' for var,val in envs.items())
+        envstrs = (f'{self.env} {var}="{val}"' for var, val in envs.items())
         return " ".join(envstrs)
 
     def threads(self, cpu_affinity, thread_per_rank, thread_per_core):
         return ""
 
-    def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node, envs, cpu_affinity, threads_per_rank=1,threads_per_core=1):
+    def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node, envs,
+                 cpu_affinity, threads_per_rank=1, threads_per_core=1,
+                 mpi_flags=''):
         '''Build the mpirun/aprun/runjob command line string'''
         workers = self.worker_str(workers)
         envs = self.env_str(envs)
-        thread_str = self.threads(cpu_affinity, threads_per_rank, threads_per_core)
-        result =  (f"{self.mpi} {self.nproc} {num_ranks} {self.ppn} "
-                   f"{ranks_per_node} {envs} {workers} {thread_str} {app_cmd}")
+        thread_str = self.threads(cpu_affinity, threads_per_rank,
+                                  threads_per_core)
+        result = (f"{self.mpi} {self.nproc} {num_ranks} {self.ppn} "
+                  f"{ranks_per_node} {envs} {workers} {thread_str} "
+                  f"{mpi_flags} {app_cmd}")
         return result
 
 
@@ -92,6 +101,7 @@ class BGQMPICommand(MPICommand):
         worker = workers[0]
         shape, block, corner = worker.shape, worker.block, worker.corner
         return f"--shape {shape} --block {block} --corner {corner} "
+
 
 class THETAMPICommand(MPICommand):
     def __init__(self):
@@ -118,6 +128,7 @@ class THETAMPICommand(MPICommand):
             return ""
         return f"-L {','.join(str(worker.id) for worker in workers)}"
 
+
 class MPICHCommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
@@ -131,6 +142,7 @@ class MPICHCommand(MPICommand):
 
     def worker_str(self, workers):
         return ""
+
 
 class COOLEYMPICommand(MPICommand):
     def __init__(self):
@@ -147,6 +159,7 @@ class COOLEYMPICommand(MPICommand):
         if not workers:
             return ""
         return f"--hosts {','.join(str(worker.id) for worker in workers)} "
+
 
 class SLURMMPICommand(MPICommand):
     def __init__(self):
@@ -167,5 +180,6 @@ class SLURMMPICommand(MPICommand):
             return ""
         num = len(workers)
         return f"--nodelist {','.join(str(worker.id) for worker in workers)} --nodes {num} "
+
 
 MPIcmd = SLURMMPICommand

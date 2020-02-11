@@ -59,12 +59,13 @@ class MPIRun:
         rpn = job.ranks_per_node
         tpr = job.threads_per_rank
         tpc = job.threads_per_core
+        mpi_flags = job.mpi_flags
 
         mpi_cmd = workers[0].mpi_cmd
         mpi_str = mpi_cmd(workers, app_cmd=app_cmd, envs={},
                           num_ranks=nranks, ranks_per_node=rpn,
                           cpu_affinity=affinity, threads_per_rank=tpr,
-                          threads_per_core=tpc)
+                          threads_per_core=tpc, mpi_flags=mpi_flags)
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
         self.outfile = open(outname, 'w+b')
