@@ -7,7 +7,9 @@ branches:
     - master
     - develop
 
-install: pip install -e .[dev,server]
+install: 
+ - pip install -e .[dev,server]
+ - pip install codecov
 
 before_script:
   - createdb -U postgres balsam
