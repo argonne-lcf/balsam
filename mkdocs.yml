@@ -1,0 +1,28 @@
+site_name: Balsam
+nav:
+  - Home: README.md
+  - Tutorials:
+    - "Launching Jobs from a Jupyter Notebook": tutorials/ffn_balsam_interactive.ipynb
+  - License: LICENSE.md
+
+
+theme:
+  name: 'material'
+  language: 'en'
+  palette:
+    primary: 'teal'
+    accent: 'amber'
+
+extra_css: [extra.css]
+
+repo_name: 'balsam-alcf/balsam'
+repo_url: 'https://github.com/balsam-alcf/balsam'
+
+extra:
+  social:
+    - type: 'github'
+      link: 'https://github.com/balsam-alcf'
+
+plugins:
+  - mkdocs-jupyter
+  - search

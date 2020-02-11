@@ -1,0 +1,4 @@
+IPython==7.9.0
+mkdocs==1.0.4
+mkdocs-jupyter==0.10.2
+mkdocs-material==4.6.0
