@@ -1,0 +1,49 @@
+{% extends 'base_table.html' %}
+{% block content %}
+<header class="masthead mb-auto">
+    <div class="inner">
+      <h3 class="masthead-brand"> [{{ env_name }}] </h3>
+      <nav class="nav nav-masthead justify-content-center">
+        <a class="nav-link" href="{% url 'home' %}">Home</a>
+        <a class="nav-link" href="{% url 'apps' %}">Applications</a>
+        <a class="nav-link active" href="#">Jobs</a>
+      </nav>
+    </div>
+</header>
+
+<h1 class="h1 text-center"> BalsamJob Table </h1>
+<form action="{% url 'add_job' %}" method="post" >
+REGEX Search:<input type="search" class="form-control-sm">
+</br>
+<table id="db_list" class="table-dark table-striped table-bordered dataTable" style="width: 100%;" role="grid" aria-describedby="example_info">
+    <thead><tr>
+        <th>id</th>
+        <th>workflow</th>
+        <th>name</th>
+        <th>state</th>
+        <th>app</th>
+        <th>nodes</th>
+        <th>rpn</th>
+        <th>packing</th>
+        <th>args</th>
+    </tr></thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr>
+            <td><input type="checkbox" name="job_select" value="{{ job.pk }}"> <a href="{% url 'edit_job' job.pk %}">{{ job.pk |truncatechars:8 }}</a></td>
+            <td>{{ job.workflow }}</td>
+            <td>{{ job.name }}</td>
+            <td>{{ job.state }}</td>
+            <td>{{ job.application }}</td>
+            <td>{{ job.num_nodes }}</td>
+            <td>{{ job.ranks_per_node }}</td>
+            <td>{{ job.node_packing_count }}</td>
+            <td>{{ job.args |truncatechars:15 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<button type="submit" class="btn btn-primary btn-dark" name="new_job" value="new_job"> New Job </button>
+</form>
+{% endblock %}

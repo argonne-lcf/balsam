@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<header class="masthead mb-auto">
+    <div class="inner">
+      <h3 class="masthead-brand"> [{{ env_name }}] </h3>
+      <nav class="nav nav-masthead justify-content-center">
+        <a class="nav-link" href="{% url 'home' %}">Home</a>
+        <a class="nav-link" href="{% url 'apps' %}">Applications</a>
+        <a class="nav-link" href="{% url 'jobs' %}">Jobs</a>
+      </nav>
+    </div>
+</header>
+
+<form action="{% url 'add_app' %}" method="post" >
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+        <div class="form-group fieldWrapper">
+            {{ field.errors }}
+            <label for="{{ field.id_for_label }}"> {{ field.label }} </label>
+            <input type="text" class="form-control" name="{{ field.name }}" value="{{ field.initial }}">
+            <small class="form-text text-muted"> {{ field.help_text }}</small>
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary btn-dark">Submit</button>
+</form>
+
+{% endblock %}
