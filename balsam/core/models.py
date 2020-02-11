@@ -82,7 +82,7 @@ JOB_FINISHED
 FAILED
 USER_KILLED
 '''.split()
-        
+
 STATE_TIME_PATTERN = re.compile(r'''
 ^                  # start of line
 \[                 # opening square bracket
@@ -162,7 +162,7 @@ def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
     joined = [state for g in groups for state in g]
     assert len(joined) == len(set(joined)) == len(STATES)
-    assert set(joined) == set(STATES) 
+    assert set(joined) == set(STATES)
     for g1,g2 in combinations(groups, 2):
         s1,s2 = set(g1), set(g2)
         assert s1.intersection(s2) == set()
@@ -248,7 +248,7 @@ class QueuedLaunch(models.Model):
                 logger.info(f'Detected new job: {j}')
             else:
                 saved_job = saved_jobs[saved_job_ids.index(job_id)]
-                if job['state'] != saved_job.state: 
+                if job['state'] != saved_job.state:
                     logger.info(f'Updating batch job {job_id}: state {job["state"]}')
                 saved_job.state = job['state']
                 saved_job.project = job['project']
@@ -389,7 +389,7 @@ class JobSource(models.Manager):
     def release_all_owned(self):
         alljobs = safe_select(BalsamJob.objects.filter(lock=self.lock_str))
         alljobs.update(lock='')
-    
+
     def clear_stale_locks(self):
         objects = self.model.objects
         total_count = objects.count()
@@ -498,11 +498,14 @@ class BalsamJob(models.Model):
         help_text='Setting this field at 2 means two serial jobs will run at a '
         'time on a node. This field is ignored for MPI jobs.',
         default=1)
+    required_num_cores = models.IntegerField(
+        'For serial (non-MPI) jobs only.  How many CPUs to use for this job.  Default is 1.',
+        default=1)
     environ_vars = models.TextField(
         'Environment variables specific to this job',
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
         default='')
-    
+
     application = models.TextField(
         'Application to Run',
         help_text='The application to run; located in Applications database',
@@ -578,8 +581,8 @@ class BalsamJob(models.Model):
     def __repr__(self):
         result = f'BalsamJob {self.pk}\n'
         result += '----------------------------------------------\n'
-        result += '\n'.join( (k+':').ljust(32) + str(v) 
-                for k,v in self.__dict__.items() 
+        result += '\n'.join( (k+':').ljust(32) + str(v)
+                for k,v in self.__dict__.items()
                 if k not in ['state_history', 'job_id', '_state', 'tick'])
 
         try: result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
@@ -609,7 +612,7 @@ class BalsamJob(models.Model):
             return f"[{self.name} | { str(self.pk)[:8] }]"
         else:
             return f"[{ str(self.pk)[:8] }]"
-    
+
     @property
     def app_cmd(self):
         app = self.get_application()
@@ -656,7 +659,7 @@ class BalsamJob(models.Model):
         self.save(update_fields=['parents'])
 
     def get_application(self):
-        if not self.application: 
+        if not self.application:
             raise NoApplication
         elif self.application in _app_cache:
             return _app_cache[self.application]
@@ -672,7 +675,7 @@ class BalsamJob(models.Model):
             return app.preprocess
         except NoApplication:
             return ''
-    
+
     @property
     def postprocess(self):
         try:
@@ -690,11 +693,11 @@ class BalsamJob(models.Model):
 
     def get_envs(self, *, timeout=False, error=False):
         envs = os.environ.copy()
-        
+
         if self.environ_vars:
             job_vars = self.parse_envstring(self.environ_vars)
             envs.update(job_vars)
-    
+
         balsam_envs = dict(
             BALSAM_JOB_ID=str(self.pk),
             BALSAM_PARENT_IDS=str(self.parents),
@@ -718,7 +721,7 @@ class BalsamJob(models.Model):
 
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
-        
+
         msg = history_line(new_state, message)
 
         with transaction.atomic():
@@ -756,8 +759,8 @@ class BalsamJob(models.Model):
     @property
     def runtime_seconds(self):
         times = self.get_state_times()
-        t0 = times.get('RUNNING', None) 
-        t1 = times.get('RUN_DONE', None) 
+        t0 = times.get('RUNNING', None)
+        t1 = times.get('RUN_DONE', None)
         if t0 and t1:
             return (t1-t0).total_seconds()
         else:
@@ -831,15 +834,14 @@ class ApplicationDefinition(models.Model):
     def __repr__(self):
         result = f'Application {self.pk}:\n'
         result += '-----------------------\n'
-        result += '\n'.join( (k+':').ljust(32) + str(v) 
-                for k,v in self.__dict__.items() 
+        result += '\n'.join( (k+':').ljust(32) + str(v)
+                for k,v in self.__dict__.items()
                 if k not in ['_state', 'id'])
         return result
-    
+
     def __str__(self):
         return self.__repr__()
 
     @property
     def cute_id(self):
         return f"[{self.name} | { str(self.pk)[:8] }]"
-
