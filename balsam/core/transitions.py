@@ -40,11 +40,14 @@ PREPROCESS_TIMEOUT_SECONDS = 300
 POSTPROCESS_TIMEOUT_SECONDS = 300
 EXIT_FLAG = False
 
+
 class BalsamTransitionError(Exception): pass
+
 
 def handler(signum, stack):
     global EXIT_FLAG
     EXIT_FLAG = True
+
 
 class TransitionProcessPool:
     '''Launch and terminate the transition processes'''
@@ -72,6 +75,7 @@ class TransitionProcessPool:
             proc.join()
         logger.info("All Transition processes joined: done.")
 
+
 @db.transaction.atomic
 def fail_update(failed_jobs):
     for job in failed_jobs:
@@ -82,6 +86,7 @@ def fail_update(failed_jobs):
         job.refresh_from_db()
         job.update_state('FAILED', failmsg)
 
+
 def update_states_from_cache(job_cache):
     # Update states of fast-forwarded jobs
     update_jobs = defaultdict(list)
@@ -89,12 +94,16 @@ def update_states_from_cache(job_cache):
     for job in job_cache:
         if job.state != job.__old_state:
             job.__old_state = job.state
-            if job.state != 'FAILED': update_jobs[job.state].append(job.pk)
-            else: failed_jobs.append(job)
+            if job.state != 'FAILED':
+                update_jobs[job.state].append(job.pk)
+            else:
+                failed_jobs.append(job)
 
-    if failed_jobs: fail_update(failed_jobs)
+    if failed_jobs:
+        fail_update(failed_jobs)
     for newstate, joblist in update_jobs.items():
         BalsamJob.batch_update_state(joblist, newstate)
+
 
 def select_range(num_threads, thread_idx):
     HEX_DIGITS = '0123456789abcdef'
@@ -117,6 +126,7 @@ def select_range(num_threads, thread_idx):
     logger.debug(f"TransitionThread{thread_idx} select:\n{qs.query}")
     return list(qs)
 
+
 def refresh_cache(job_cache, num_threads, thread_idx):
     manager = BalsamJob.source
     to_acquire = select_range(num_threads, thread_idx)
@@ -131,7 +141,9 @@ def refresh_cache(job_cache, num_threads, thread_idx):
         logger.debug(f'Acquired {len(acquired)} new jobs')
         acquired = BalsamJob.objects.filter(pk__in=acquired)
         job_cache.extend(acquired)
-    for job in job_cache: job.__old_state = job.state
+    for job in job_cache:
+        job.__old_state = job.state
+
 
 def release_jobs(job_cache):
     manager = BalsamJob.source
@@ -140,8 +152,10 @@ def release_jobs(job_cache):
         (j.state not in PROCESSABLE_STATES)
         or (j.state == 'AWAITING_PARENTS')
     ]
-    if release_jobs: manager.release(release_jobs)
+    if release_jobs:
+        manager.release(release_jobs)
     return [j for j in job_cache if j.pk not in release_jobs]
+
 
 def main(thread_idx, num_threads, wf_name):
     global EXIT_FLAG
@@ -163,6 +177,7 @@ def main(thread_idx, num_threads, wf_name):
     finally:
         manager.release_all_owned()
         logger.debug('Transition process finished: released all jobs')
+
 
 def _main(thread_idx, num_threads):
     global EXIT_FLAG
@@ -224,6 +239,7 @@ def check_parents(job):
         job.state = 'FAILED'
         job.__fail_msg = 'One or more parent jobs failed'
 
+
 def fast_forward(job_cache):
     '''Make several passes over the job list; advancing states in order'''
     # Check parents
@@ -245,34 +261,41 @@ def fast_forward(job_cache):
     # Skip preprocess
     preprocess_jobs = (j for j in job_cache if j.state == 'STAGED_IN')
     for job in preprocess_jobs:
-        if not job.preprocess: job.state = 'PREPROCESSED'
+        if not job.preprocess:
+            job.state = 'PREPROCESSED'
 
     # RUN_DONE: skip postprocess
     done_jobs = (j for j in job_cache if j.state=='RUN_DONE' and not j.postprocess)
-    for job in done_jobs: job.state = 'POSTPROCESSED'
+    for job in done_jobs:
+        job.state = 'POSTPROCESSED'
 
     # Timeout: retry
-    retry_jobs = (j for j in job_cache if j.state=='RUN_TIMEOUT' and j.auto_timeout_retry and not j.post_timeout_handler)
-    for job in retry_jobs: job.state = 'RESTART_READY'
+    retry_jobs = (j for j in job_cache if j.state=='RUN_TIMEOUT'
+                  and j.auto_timeout_retry and not j.post_timeout_handler)
+    for job in retry_jobs:
+        job.state = 'RESTART_READY'
 
     # Timeout: fail
     timefail_jobs = (j for j in job_cache if j.state=='RUN_TIMEOUT'
                      and not j.auto_timeout_retry
                      and not (j.postprocess and j.post_timeout_handler)
                     )
-    for job in timefail_jobs: job.state = 'FAILED'
+    for job in timefail_jobs:
+        job.state = 'FAILED'
 
     # Error: fail
     errfail_jobs = (j for j in job_cache if j.state=='RUN_ERROR'
                     and not (j.post_error_handler and j.postprocess)
                    )
-    for job in errfail_jobs: job.state = 'FAILED'
+    for job in errfail_jobs:
+        job.state = 'FAILED'
 
     # skip stageout (finished)
     stageout_jobs = (j for j in job_cache if j.state=='POSTPROCESSED'
                      and not (j.stage_out_url and j.stage_out_files)
                     )
-    for job in stageout_jobs: job.state = 'JOB_FINISHED'
+    for job in stageout_jobs:
+        job.state = 'JOB_FINISHED'
     update_states_from_cache(job_cache)
 
 
@@ -281,7 +304,7 @@ def stage_in(job):
 
     work_dir = job.working_directory
     if not os.path.exists(work_dir):
-        os.makedirs(workdir)
+        os.makedirs(work_dir)
         logger.debug(f"{job.cute_id} working directory {work_dir}")
 
     # stage in all remote urls
@@ -306,14 +329,15 @@ def stage_in(job):
         parent_dir = parent.working_directory
         for pattern in input_patterns:
             path = os.path.join(parent_dir, pattern)
-            matches.extend((parent.pk,match)
+            matches.extend((parent.pk, match)
                            for match in glob.glob(path))
 
     for parent_pk, inp_file in matches:
         basename = os.path.basename(inp_file)
         new_path = os.path.join(work_dir, basename)
 
-        if os.path.exists(new_path): new_path += f"_{str(parent_pk)[:8]}"
+        if os.path.exists(new_path):
+            new_path += f"_{str(parent_pk)[:8]}"
         # pointing to src, named dst
         logger.info(f"{job.cute_id}   {new_path}  -->  {inp_file}")
         try:
@@ -374,7 +398,7 @@ def preprocess(job):
         return
 
     if not os.path.exists(preproc_app.split()[0]):
-        #TODO: look for preproc in the EXE directories
+        # TODO: look for preproc in the EXE directories
         message = f"Preprocessor {preproc_app} does not exist on filesystem"
         raise BalsamTransitionError(message)
 
@@ -397,8 +421,10 @@ def preprocess(job):
             proc.communicate()
         except Exception as e:
             message = f"Preprocess failed: {e}"
-            try: proc.kill()
-            except: pass
+            try:
+                proc.kill()
+            except:
+                pass
             raise BalsamTransitionError(message) from e
 
     if retcode != 0:
@@ -409,12 +435,15 @@ def preprocess(job):
     job.state = 'PREPROCESSED'
     logger.debug(f"{job.cute_id} preprocess done")
 
+
 def postprocess(job, *, error_handling=False, timeout_handling=False):
     logger.debug(f'{job.cute_id} in postprocess')
     if error_handling and timeout_handling:
         raise ValueError("Both error-handling and timeout-handling is invalid")
-    if error_handling: logger.info(f'{job.cute_id} handling RUN_ERROR')
-    if timeout_handling: logger.info(f'{job.cute_id} handling RUN_TIMEOUT')
+    if error_handling:
+        logger.info(f'{job.cute_id} handling RUN_ERROR')
+    if timeout_handling:
+        logger.info(f'{job.cute_id} handling RUN_TIMEOUT')
 
     # Get postprocesser exe
     postproc_app = job.postprocess
@@ -434,7 +463,7 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
             return
 
     if not os.path.exists(postproc_app.split()[0]):
-        #TODO: look for postproc in the EXE directories
+        # TODO: look for postproc in the EXE directories
         message = f"Postprocessor {postproc_app} does not exist on filesystem"
         raise BalsamTransitionError(message)
 
@@ -445,8 +474,10 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
     out = os.path.join(job.working_directory, f"postprocess.log")
     with open(out, 'w') as fp:
         fp.write(f"# Balsam Postprocessor: {postproc_app}\n")
-        if timeout_handling: fp.write("# Invoked to handle RUN_TIMEOUT\n")
-        if error_handling: fp.write("# Invoked to handle RUN_ERROR\n")
+        if timeout_handling:
+            fp.write("# Invoked to handle RUN_TIMEOUT\n")
+        if error_handling:
+            fp.write("# Invoked to handle RUN_ERROR\n")
         fp.flush()
 
         try:
@@ -460,8 +491,10 @@ def postprocess(job, *, error_handling=False, timeout_handling=False):
             proc.communicate()
         except Exception as e:
             message = f"Postprocess failed: {e}"
-            try: proc.kill()
-            except: pass
+            try:
+                proc.kill()
+            except:
+                pass
             raise BalsamTransitionError(message) from e
 
     if retcode != 0:
@@ -502,6 +535,7 @@ def handle_run_error(job):
         postprocess(job, error_handling=True)
     else:
         raise BalsamTransitionError("No error handler: run failed")
+
 
 TRANSITIONS = {
     'AWAITING_PARENTS': check_parents,
