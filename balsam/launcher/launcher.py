@@ -155,12 +155,15 @@ class MPILauncher:
             logger.info("Out of time; preparing to exit")
             return
         if self.is_active:
+            # Reset exit counter whenever jobs are running, runable, or transitionble
+            self.exit_counter = 0
             logger.debug("Some runs are still active; will not quit")
             return
         processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
         if self.jobsource.workflow:
             processable = processable.filter(workflow__contains=self.jobsource.workflow)
         if processable.count() > 0:
+            self.exit_counter = 0
             logger.debug("Some BalsamJobs are still transitionable; will not quit")
             return
         if self.get_runnable().count() > 0:
