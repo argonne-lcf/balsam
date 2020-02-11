@@ -88,9 +88,13 @@ def make_parser():
                             'job. (Total number of MPI ranks determined as '
                             'num_nodes * ranks_per_node).')
     parser_job.add_argument('--coschedule-num-nodes',
-                            type=int, required=False, default=0)
+                            type=int, required=False, default=0,
+                            help='Number of additional compute nodes to reserve alongside this job. '
+                            'Used by Balsam service only.')
     parser_job.add_argument('--node-packing-count',
-                            type=int, required=False, default=1)
+                            type=int, required=False, default=1,
+                            help='Number of Balsam jobs to run on a single node at once '
+                            '(--job-mode=serial only).')
 
     parser_job.add_argument('--ranks-per-node',
                             type=int, required=False, default=1,
