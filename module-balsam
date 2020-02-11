@@ -11,6 +11,6 @@ set sys           [uname sysname]
 set os            [uname release]
 
 module load postgresql/9.6.12
-prepend-path   PATH              /soft/datascience/Balsam/0.3.4/env/bin
+prepend-path PATH /soft/datascience/Balsam/0.3.5.1/env/bin
 
 module-whatis  "Balsam environment"

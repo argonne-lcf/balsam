@@ -15,12 +15,13 @@ import psutil
 from mpi4py import MPI
 from django.db import transaction, connections
 
-from balsam import config_logging, settings, setup
+from balsam import config_logging, setup
 setup()
-from balsam.launcher.exceptions import *
-from balsam.launcher.util import cd, get_tail, remaining_time_minutes
-from balsam.core.models import BalsamJob, safe_select
+from balsam.launcher.util import get_tail, remaining_time_minutes
+from balsam.core.models import BalsamJob, safe_select, PROCESSABLE_STATES
+from django.conf import settings
 
+SERIAL_CORES_PER_NODE = settings.SERIAL_CORES_PER_NODE
 logger = logging.getLogger('balsam.launcher.mpi_ensemble')
 config_logging('serial-launcher')
 
@@ -56,6 +57,16 @@ class ResourceManager:
             self.RUN_MESSAGE = 'Not scheduled by Balsam service'
         logger.info(self.RUN_MESSAGE)
         logger.info(f'Assigning jobs to {comm.size-1} worker ranks')
+
+    def have_processable(self):
+        processable = BalsamJob.objects.filter(state__in=PROCESSABLE_STATES)
+        if self.job_source.workflow:
+            processable = processable.filter(workflow__contains=self.job_source.workflow)
+        if processable.exists():
+            logger.info('Waiting on transition jobs to become runnable')
+            return True
+        else:
+            return False
 
     def refresh_job_cache(self):
         now = time.time()
@@ -319,7 +330,7 @@ class Master:
         elapsed = time.time() - start
         if got_requests: logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
 
-        if not (ran_anything or got_requests):
+        if not (ran_anything or got_requests or self.manager.have_processable()):
             time.sleep(self.DELAY_PERIOD)
             self.idle_time += self.DELAY_PERIOD
         else:
@@ -346,9 +357,7 @@ class Worker:
         self.start_times = {}
         self.retry_counts = {}
         self.job_specs = {}
-#TODO: This is currently theta specific, and needs to be modified
-        self.all_affinity = list(range(64))
-#END TODO
+        self.all_affinity = list(range(SERIAL_CORES_PER_NODE))
         self.used_affinity = []
 
     def _cleanup_proc(self, pk, timeout=0):

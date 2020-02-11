@@ -2,7 +2,8 @@ from balsam import settings
 import subprocess
 import logging
 import glob
-import os,sys,traceback
+import os
+import traceback
 try:
     import urlparse
 except ImportError:
@@ -130,7 +131,7 @@ class LocalHandler:
 
       command = f'cp -r {source} {dest}'
       logger.debug('transfer.stage_out: command=' + command )
-      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT, 
+      p = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
               shell=True)
       stdout,stderr = p.communicate()
       if p.returncode != 0:

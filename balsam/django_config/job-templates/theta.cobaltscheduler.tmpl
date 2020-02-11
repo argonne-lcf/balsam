@@ -3,7 +3,8 @@
 #COBALT -n {{ nodes }}
 #COBALT -q {{ queue }}
 #COBALT -t {{ time_minutes }}
-#COBALT --attrs ssds=required:ssd_size=128 
+#COBALT --attrs ssds=required:ssd_size=128
+#COBALT {{ sched_flags }}
 
 export PATH={{ balsam_bin }}:{{ pg_bin }}:$PATH
 

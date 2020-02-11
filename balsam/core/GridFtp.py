@@ -1,4 +1,4 @@
-import sys,os,subprocess,shlex,logging,time,random
+import subprocess, shlex, logging, time, random
 from django.conf import settings
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ def globus_url_copy(from_path,to_path):
    cmd = settings.GRIDFTP_GLOBUS_URL_COPY + ' -cd  -r -nodcau ' + from_path + ' ' + to_path
    #logger.debug(' GridFtp, from_path = ' + from_path )
    #logger.debug(' GridFtp, to_path   = ' + to_path )
-   
+
    # added random sleep to keep too many grid ftp requests from hammering the server at the same time
    time.sleep(random.randint(1,100))
 
@@ -67,7 +67,5 @@ def globus_url_copy(from_path,to_path):
             logger.error(' waiting 10 minutes before trying transfer again ')
             time.sleep(600)
             continue
-      
+
    return stdout
-
-

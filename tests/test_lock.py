@@ -1,7 +1,5 @@
 from balsam.launcher.dag import BalsamJob
 from mpi4py import MPI
-import time
-import random
 import os
 import socket
 
@@ -19,7 +17,6 @@ if rank == 0:
 
 comm.barrier()
 
-#time.sleep(random.random())
 to_get = BalsamJob.jobsource.all()[:7]
 acquired = BalsamJob.jobsource.acquire(to_get)
 acquired_names = [j.name for j in acquired]
@@ -29,7 +26,8 @@ comm.barrier()
 print("Rank", rank, "has", BalsamJob.jobsource.all().count())
 comm.barrier()
 
-if rank == 0: print("Assertion tests...", end='')
+if rank == 0:
+    print("Assertion tests...", end='')
 
 jobs = BalsamJob.objects.all()
 count = 0
@@ -49,7 +47,8 @@ for job in BalsamJob.jobsource.all():
     assert job.lock.startswith(f"{socket.gethostname()}:{os.getpid()}") or job.lock == ''
 
 comm.barrier()
-if rank == 0: print("Passed!\n")
+if rank == 0:
+    print("Passed!\n")
 
 if rank == 0:
     print("")

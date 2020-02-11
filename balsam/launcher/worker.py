@@ -4,14 +4,13 @@ BG/Q: 1 worker = 1 subblock
 Default: 1 worker = local host machine
 
 Workers contain any identifying information needed to assign jobs to specific
-workers (e.g. via "mpirun") and the WorkerGroup keeps track of all busy and idle
-workers available in the current launcher instance'''
-
+workers (e.g. via "mpirun") and the WorkerGroup keeps track of all busy and
+idle workers available in the current launcher instance'''
+from balsam.service.schedulers import JobEnv
+from balsam.launcher import mpi_commands
 import logging
 logger = logging.getLogger(__name__)
 
-from balsam.service.schedulers import JobEnv
-from balsam.launcher import mpi_commands
 
 class Worker:
     def __init__(self, id, *, shape=None, block=None, corner=None,
@@ -23,18 +22,20 @@ class Worker:
         self.num_nodes = num_nodes
         self.host_type = host_type
         self.idle = True
+
     def __repr__(self):
         return f"worker{self.id}"
 
+
 class WorkerGroup:
     '''Collection of Workers, constructed by passing in a specific host_type
-    
+
     The host name and local batch scheduler's environment variables are used to
     identify the available compute resources and partition the resource into
     Workers.'''
     def __init__(self):
         '''Initialize WorkerGroup
-        
+
         Args:
             - ``host_type``: one of THETA, BGQ, COOLEY, DEFAULT
             - ``workers_str``: system-specific string identifying compute
@@ -69,14 +70,16 @@ class WorkerGroup:
         assigned = []
         nodes_assigned = 0
         while nodes_assigned < num_nodes:
-            if not idle_workers: break
+            if not idle_workers:
+                break
             worker = idle_workers.pop()
             assigned.append(worker)
             nodes_assigned += worker.num_nodes
         if nodes_assigned < num_nodes:
             return []
         else:
-            for worker in assigned: worker.idle = False
+            for worker in assigned:
+                worker.idle = False
             return assigned
 
     def __getitem__(self, i):
@@ -87,7 +90,7 @@ class WorkerGroup:
         node_ids = []
         if not self.workers_str:
             raise ValueError("Theta WorkerGroup needs workers_str to setup")
-            
+
         ranges = self.workers_str.split(',')
         for node_range in ranges:
             lo, *hi = node_range.split('-')
@@ -100,6 +103,16 @@ class WorkerGroup:
         for id in node_ids:
             self.workers.append(Worker(id, host_type='THETA', num_nodes=1))
 
+    def setup_SLURM(self):
+        logger.info(f'SLURM_HOSTS: {self.workers_str}')
+        if not self.workers_str:
+            raise ValueError("Slurm WorkerGroup needs SLURM_HOSTS env")
+
+        for id in self.workers_str.split():
+            self.workers.append(
+                Worker(id, host_type='SLURM', num_nodes=1)
+            )
+
     def setup_BGQ(self):
         # Boot blocks
         # Get (block, corner, shape) args for each sub-block
@@ -110,12 +123,12 @@ class WorkerGroup:
         node_ids = []
         if not self.workers_file:
             raise ValueError("Cooley WorkerGroup needs workers_file to setup")
-        
+
         data = open(self.workers_file).read()
         splitter = ',' if ',' in data else None
         node_ids = data.split(splitter)
         self.workers_str = " ".join(node_ids)
-        
+
         for id in node_ids:
             self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1))
 

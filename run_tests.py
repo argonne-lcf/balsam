@@ -4,25 +4,27 @@ import django
 import tempfile
 import unittest
 
-import balsam
+# import balsam
 import subprocess
+
 
 def set_permissions(top):
     os.chmod(top, 0o755)
-    for root,subdirs,files in os.walk(top):
+    for root, subdirs, files in os.walk(top):
         for dir in (os.path.join(root, s) for s in subdirs):
             os.chmod(dir, 0o755)
         for file in (os.path.join(root, f) for f in files):
             os.chmod(file, 0o644)
 
+
 def main():
-    
+
     if '--temp' in ' '.join(sys.argv[1:]):
         test_dir = os.path.abspath(os.path.dirname(__file__))
         tempdir = tempfile.TemporaryDirectory(dir=test_dir, prefix="testdata_")
-        test_directory = tempdir.name 
+        test_directory = tempdir.name
         set_permissions(test_directory)
-    
+
         os.environ['BALSAM_DB_PATH'] = os.path.expanduser(test_directory)
         p = subprocess.Popen(f'balsam init {test_directory}', shell=True)
         p.wait()

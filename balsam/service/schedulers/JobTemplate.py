@@ -1,13 +1,12 @@
 import os
 import sys
-import subprocess
 import shutil
-from importlib.util import find_spec
 
-from jinja2 import Template, Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader
 from django.conf import settings
 import logging
 logger = logging.getLogger(__name__)
+
 
 class ScriptTemplate:
     def __init__(self, template_top, template_path):
@@ -37,6 +36,7 @@ class ScriptTemplate:
                     time_minutes=qlaunch.wall_minutes,
                     job_mode=qlaunch.job_mode,
                     wf_filter=wf_filter,
+                    sched_flags=qlaunch.sched_flags
                     )
         balsam_env = self.get_balsam_env()
         conf.update(balsam_env)

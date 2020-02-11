@@ -1,12 +1,11 @@
 from datetime import datetime
-from importlib.util import find_spec
-
 from balsam.service.models import BalsamJob
 from tests.BalsamTestCase import BalsamTestCase
-from tests.BalsamTestCase import create_job, create_app
+from tests.BalsamTestCase import create_job
 
 from tests import util
-    
+
+
 class TestNoOp(BalsamTestCase):
 
     def setUp(self):
@@ -15,23 +14,23 @@ class TestNoOp(BalsamTestCase):
         self.launcherInfo = util.launcher_info()
         max_workers = self.launcherInfo.num_workers
 
-        num_nodes = [2**n for n in range(0,13) if 2**n <= max_workers]
+        num_nodes = [2**n for n in range(0, 13) if 2**n <= max_workers]
         if num_nodes[-1] != max_workers:
             num_nodes.append(max_workers)
 
         rpn = [64]
         jpn = [64, 512]
-        #jpn = [16]
+        # jpn = [16]
         self.experiments = product(num_nodes, rpn, jpn)
 
     def create_serial_expt(self, num_nodes, rpn, jpn):
         '''Populate DB with set number of dummy serial jobs; no deps'''
         BalsamJob.objects.all().delete()
         num_jobs = num_nodes * jpn
-        
+
         jobs = [create_job(name=f'task{i}', direct_command=f'echo Hello',
-                         args=str(i), workflow='bench-no-op', save=False)
-                         for i in range(num_jobs)]
+                           args=str(i), workflow='bench-no-op', save=False)
+                for i in range(num_jobs)]
         BalsamJob.objects.bulk_create(jobs)
         self.assertEqual(BalsamJob.objects.count(), num_jobs)
 
@@ -46,7 +45,7 @@ class TestNoOp(BalsamTestCase):
             num_jobs = num_nodes * jpn
 
             launcher_start_time = datetime.now()
-            success = util.run_launcher_until(lambda: done_query.count() == num_jobs, 
+            success = util.run_launcher_until(lambda: done_query.count() == num_jobs,
                                               timeout=1000, maxrpn=rpn)
             self.assertEqual(done_query.count(), num_jobs)
 

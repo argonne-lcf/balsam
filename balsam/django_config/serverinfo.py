@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 import socket
 from getpass import getuser
 
@@ -31,7 +30,6 @@ class ServerInfo:
         self.data.update(update_dict)
         with open(self.path, 'w') as fp:
             fp.write(json.dumps(self.data))
-
 
     def django_db_config(self):
         ENGINE = 'django.db.backends.postgresql_psycopg2'
@@ -67,7 +65,7 @@ class ServerInfo:
 
     def __setitem__(self, key, value):
         self.update({key:value})
-    
+
     def _ownership_check(self):
         if not self._is_owner:
             raise PermissionError(f"User {getuser()} does not own the server-info file for this BalsamDB;"

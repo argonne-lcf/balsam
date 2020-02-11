@@ -1,42 +1,38 @@
 import os
 from getpass import getuser
-from datetime import datetime
+from dateutil.parser import parse as parse_time
 from django.conf import settings
 from balsam.service.schedulers import Scheduler
-
 import logging
 logger = logging.getLogger(__name__)
 
 
 def new_scheduler():
-    return CobaltScheduler()
+    return SlurmScheduler()
 
 
-class CobaltScheduler(Scheduler.Scheduler):
+class SlurmScheduler(Scheduler.Scheduler):
     SCHEDULER_VARIABLES = {
-        'current_scheduler_id' : 'COBALT_JOBID',
-        'num_workers'  : 'COBALT_PARTSIZE',
-        'workers_str'  : 'COBALT_PARTNAME',
-        'workers_file' : 'COBALT_NODEFILE',
+        'current_scheduler_id': 'SLURM_JOB_ID',
+        'num_workers': 'SLURM_JOB_NUM_NODES',
+        'workers_str': 'SLURM_HOSTS',
     }
     JOBSTATUS_VARIABLES = {
-        'id' : 'JobID',
-        'time_remaining' : 'TimeRemaining',
-        'wall_time' : 'WallTime',
-        'state' : 'State',
-        'queue' : 'Queue',
-        'nodes' : 'Nodes',
-        'project' : 'Project',
-        'command' : 'Command',
+        'id': 'jobid',
+        'time_remaining': 'timeleft',
+        'wall_time': 'timelimit',
+        'state': 'state',
+        'queue': 'partition',
+        'nodes': 'numnodes',
+        'project': 'account',
+        'command': 'command',
     }
-    QSTAT_EXE = settings.SCHEDULER_STATUS_EXE
 
     def _make_submit_cmd(self, script_path):
-        exe = settings.SCHEDULER_SUBMIT_EXE  # qsub
         cwd = settings.SERVICE_PATH
         basename = os.path.basename(script_path)
         basename = os.path.splitext(basename)[0]
-        return f"{exe} --cwd {cwd} -O {basename} {script_path}"
+        return f"sbatch --chdir {cwd} --job-name {basename} -o {basename}.out {script_path}"
 
     def _parse_submit_output(self, submit_output):
         try:
@@ -47,13 +43,13 @@ class CobaltScheduler(Scheduler.Scheduler):
 
     def _make_status_cmd(self):
         fields = self.JOBSTATUS_VARIABLES.values()
-        cmd = "QSTAT_HEADER=" + ':'.join(fields)
-        cmd += f" {self.QSTAT_EXE} -u {getuser()}"
+        fmt = ' '.join(fields)
+        cmd = f'squeue -u {getuser()} -O "{fmt}"'
         return cmd
 
     def _parse_status_output(self, raw_output):
         status_dict = {}
-        job_lines = raw_output.split('\n')[2:]
+        job_lines = raw_output.split('\n')[1:]
         for line in job_lines:
             job_stat = self._parse_job_line(line)
             if job_stat:
@@ -71,7 +67,7 @@ class CobaltScheduler(Scheduler.Scheduler):
             stat[field_name] = fields[i]
             if 'time' in field_name:
                 try:
-                    t = datetime.strptime(fields[i], '%H:%M:%S')
+                    t = parse_time(fields[i])
                 except:
                     pass
                 else:

@@ -2,24 +2,23 @@ import getpass
 import os
 from importlib.util import find_spec
 import subprocess
-import signal
 import sys
 
-import django
 
 def ls_procs(keywords):
     if type(keywords) == str: keywords = [keywords]
 
     username = getpass.getuser()
-    
+
     searchcmd = 'ps aux | grep '
-    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords) 
+    searchcmd += ' | grep '.join(f'"{k}"' for k in keywords)
     grep = subprocess.Popen(searchcmd, shell=True, stdout=subprocess.PIPE)
-    stdout,stderr = grep.communicate()
+    stdout, stderr = grep.communicate()
     stdout = stdout.decode('utf-8')
 
     processes = [line for line in stdout.split('\n') if 'python' in line and line.split()[0]==username]
     return processes
+
 
 def cmd_confirmation(message=''):
     confirm = ''
@@ -29,13 +28,14 @@ def cmd_confirmation(message=''):
         except: pass
     return confirm.lower() == 'y'
 
+
 def newapp(args):
     from balsam import setup
     setup()
     from balsam.core.models import ApplicationDefinition as AppDef
 
     def py_app_path(path):
-        if not path: 
+        if not path:
             return ''
         args = path.split()
         app = args[0]
@@ -48,7 +48,7 @@ def newapp(args):
 
     if AppDef.objects.filter(name=args.name).exists():
         raise RuntimeError(f"An application named {args.name} already exists")
-    
+
     app = AppDef()
     app.name = args.name
     app.description = ' '.join(args.description) if args.description else ''
@@ -85,6 +85,7 @@ def newjob(args):
 
     job.application = args.application
     job.args = ' '.join(args.args)
+    job.mpi_flags = ' '.join(args.mpi_flags)
     job.post_error_handler = args.post_handle_error
     job.post_timeout_handler = args.post_handle_timeout
     job.auto_timeout_retry = not args.disable_auto_timeout_retry
@@ -120,27 +121,24 @@ def match_uniq_job(s):
     else:
         raise ValueError(f"No job in local DB matched {s}")
 
+
 def newdep(args):
     from balsam import setup
     setup()
-    from balsam.core import models
+    # from balsam.core import models
     from balsam.launcher import dag
-    Job = models.BalsamJob
-    AppDef = models.ApplicationDefinition
 
     parent = match_uniq_job(args.parent)
     child = match_uniq_job(args.child)
     dag.add_dependency(parent, child)
     print(f"Created link {parent.cute_id} --> {child.cute_id}")
 
+
 def ls(args):
     from balsam import setup
     setup()
-    from balsam.core import models
-    from balsam.launcher import dag
+    # from balsam.core import models
     import balsam.scripts.ls_commands as lscmd
-    Job = models.BalsamJob
-    AppDef = models.ApplicationDefinition
 
     objects = args.objects
     name = args.name
@@ -161,8 +159,9 @@ def ls(args):
             lscmd.ls_wf(name, verbose, tree, wf)
         elif objects.startswith('queues'):
             lscmd.ls_queues(verbose)
-    except (KeyboardInterrupt,BrokenPipeError):
+    except (KeyboardInterrupt, BrokenPipeError):
         pass
+
 
 def modify(args):
     from balsam import setup
@@ -198,7 +197,6 @@ def rm(args):
     from balsam import setup
     setup()
     from balsam.core import models
-    from balsam.launcher import dag
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
 
@@ -217,13 +215,13 @@ def rm(args):
     if deleteall:
         deletion_objs = objects.all()
         message = f"ALL {objects_name}"
-    elif name: 
+    elif name:
         deletion_objs = objects.filter(name__icontains=name)
         message = f"{len(deletion_objs)} {objects_name} matching name {name}"
-        if not deletion_objs.exists(): 
+        if not deletion_objs.exists():
             print("No {objects_name} matching query")
             return
-    elif objid: 
+    elif objid:
         deletion_objs = objects.filter(pk__icontains=objid)
         if deletion_objs.count() > 1:
             raise RuntimeError(f"Multiple {objects_name} match ID")
@@ -231,7 +229,7 @@ def rm(args):
             raise RuntimeError(f"No {objects_name} match ID")
         else:
             message = f"{objects_name[:-1]} with ID matching {objid}"
-    
+
     # User confirmation
     if not force:
         if not cmd_confirmation(f"PERMANENTLY remove {message}?"):
@@ -242,6 +240,7 @@ def rm(args):
     deletion_objs.delete()
     print("Deleted.")
 
+
 def kill(args):
     from balsam import setup
     setup()
@@ -250,7 +249,7 @@ def kill(args):
     Job = models.BalsamJob
 
     job_id = args.id
-    
+
     job = Job.objects.filter(job_id__startswith=job_id)
     if job.count() > 1:
         raise RuntimeError(f"More than one job matches {job_id}")
@@ -275,13 +274,16 @@ def mkchild(args):
     dag.add_dependency(dag.current_job, child_job)
     print(f"Created link {dag.current_job.cute_id} --> {child_job.cute_id}")
 
+
 def launcher(args):
     fname = find_spec("balsam.launcher.launcher").origin
     original_args = sys.argv[2:]
-    command = [sys.executable] + [fname] + original_args
-    p = subprocess.Popen(command)
-    print(f"Started Balsam launcher [{p.pid}]")
-    p.wait()
+    cmd = sys.executable
+    args = [cmd, fname] + original_args
+    pid = os.getpid()
+    print(f"Starting Balsam launcher [{pid}]")
+    os.execvp(cmd, args)
+
 
 def submitlaunch(args):
     from balsam import setup
@@ -296,15 +298,17 @@ def submitlaunch(args):
             cursor.execute('LOCK TABLE core_queuedlaunch IN ACCESS EXCLUSIVE MODE;')
             QueuedLaunch = models.QueuedLaunch
             qlaunch = QueuedLaunch(
-                    project = args.project,
-                    queue = args.queue,
-                    nodes = args.nodes,
-                    wall_minutes = args.time_minutes,
-                    job_mode = args.job_mode,
-                    wf_filter = args.wf_filter,
+                    project=args.project,
+                    queue=args.queue,
+                    nodes=args.nodes,
+                    wall_minutes=args.time_minutes,
+                    job_mode=args.job_mode,
+                    wf_filter=args.wf_filter,
+                    sched_flags=args.sched_flags,
                     prescheduled_only=False)
             qlaunch.save()
             service.submit_qlaunch(qlaunch, verbose=True)
+
 
 def service(args):
     fname = find_spec("balsam.service.service").origin
@@ -312,6 +316,7 @@ def service(args):
     command = [sys.executable] + [fname] + original_args
     p = subprocess.Popen(command)
     print(f"Starting Balsam service [{p.pid}]")
+
 
 def init(args):
     path = os.path.expanduser(args.path)
@@ -325,10 +330,11 @@ def init(args):
         except:
             print(f"Failed to create directory {path}")
             sys.exit(1)
-        
+
     fname = find_spec("balsam.scripts.init").origin
     p = subprocess.Popen(f'{sys.executable} {fname} {path}', shell=True)
     p.wait()
+
 
 def which(args):
     from balsam.django_config.db_index import refresh_db_index
@@ -369,12 +375,15 @@ def which(args):
             print('Use "source balsamactivate" to activate one of these existing databases:')
             pprint.pprint(refresh_db_index())
 
+
 def log(args):
     from balsam import settings, setup
     setup()
     path = os.path.join(settings.LOGGING_DIRECTORY, '*.log')
-    try: subprocess.run(f"tail -f {path}", shell=True)
-    except (KeyboardInterrupt,BrokenPipeError,ProcessLookupError): pass
+    try:
+        subprocess.run(f"tail -f {path}", shell=True)
+    except (KeyboardInterrupt, BrokenPipeError, ProcessLookupError):
+        pass
 
 
 def server(args):

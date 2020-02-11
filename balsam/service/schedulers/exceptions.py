@@ -1,5 +1,6 @@
 ''' Scheduler Exceptions '''
 
+
 class SchedulerException(Exception): pass
 class SubmitNonZeroReturnCode(SchedulerException): pass
 class SubmitSubprocessFailed(SchedulerException): pass
