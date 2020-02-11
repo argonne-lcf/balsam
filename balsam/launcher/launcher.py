@@ -27,7 +27,9 @@ from django import db
 from balsam import config_logging, settings, setup
 from balsam.core import transitions
 from balsam.launcher import worker
-from balsam.launcher.util import remaining_time_minutes, delay_generator, get_tail
+from balsam.launcher.util import (
+    remaining_time_minutes, delay_generator, get_tail
+    )
 from balsam.scripts.cli import config_launcher_subparser
 from balsam.core import models
 
@@ -35,19 +37,22 @@ logger = logging.getLogger('balsam.launcher.launcher')
 BalsamJob = models.BalsamJob
 EXIT_FLAG = False
 
+
 def sig_handler(signum, stack):
     global EXIT_FLAG
     EXIT_FLAG = True
 
+
 class MPIRun:
-    RUN_DELAY = 0.10 # 1000 jobs / 100 sec
+    RUN_DELAY = 0.10  # 1000 jobs / 100 sec
 
     def __init__(self, job, workers):
         self.job = job
         self.workers = workers
-        for w in self.workers: w.idle = False
+        for w in self.workers:
+            w.idle = False
 
-        envs = job.get_envs() # dict
+        envs = job.get_envs()
         app_cmd = job.app_cmd
         nranks = job.num_ranks
         affinity = job.cpu_affinity
@@ -57,8 +62,9 @@ class MPIRun:
 
         mpi_cmd = workers[0].mpi_cmd
         mpi_str = mpi_cmd(workers, app_cmd=app_cmd, envs={},
-                               num_ranks=nranks, ranks_per_node=rpn,
-                               cpu_affinity=affinity, threads_per_rank=tpr, threads_per_core=tpc)
+                          num_ranks=nranks, ranks_per_node=rpn,
+                          cpu_affinity=affinity, threads_per_rank=tpr,
+                          threads_per_core=tpc)
         basename = job.name
         outname = os.path.join(job.working_directory, f"{basename}.out")
         self.outfile = open(outname, 'w+b')
@@ -83,8 +89,9 @@ class MPIRun:
         time.sleep(self.RUN_DELAY)
 
     def free_workers(self):
-        for worker in self.workers:
-            worker.idle = True
+        for w in self.workers:
+            w.idle = True
+
 
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
@@ -184,14 +191,16 @@ class MPILauncher:
         return run.current_state
 
     def timeout_kill(self, runs, timeout=10):
-        for run in runs: run.process.terminate() #SIGTERM
+        for run in runs:
+            run.process.terminate()  # SIGTERM
         start = time.time()
         for run in runs:
             try:
                 run.process.wait(timeout=timeout)
             except:
                 break
-            if time.time() - start > timeout: break
+            if time.time() - start > timeout:
+                break
         for run in runs:
             run.process.kill()
             run.free_workers()
@@ -299,11 +308,11 @@ class MPILauncher:
             else:
                 num_idle = sum(w.num_nodes for w in self.worker_group.idle_workers())
                 assert job.num_nodes > num_idle
-                idx = next( (i for i,job in enumerate(cache[idx:], idx) if
-                           job.num_nodes <= num_idle), len(cache))
+                idx = next((i for i, job in enumerate(cache[idx:], idx) if
+                            job.num_nodes <= num_idle), len(cache))
 
         # acquire lock on jobs
-        to_acquire = [job.pk for (job,workers) in pre_assignments]
+        to_acquire = [job.pk for (job, workers) in pre_assignments]
         acquired_pks = self.jobsource.acquire(to_acquire)
         logger.debug(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
 
@@ -313,7 +322,8 @@ class MPILauncher:
                 run = MPIRun(job, workers)
                 self.mpi_runs.append(run)
             else:
-                for w in workers: w.idle = True
+                for w in workers:
+                    w.idle = True
         BalsamJob.batch_update_state(acquired_pks, 'RUNNING', self.RUN_MESSAGE)
 
     def run(self):
@@ -373,9 +383,9 @@ class SerialLauncher:
         else:
             num_ranks = self.total_nodes
             rpn = 1
-        mpi_str = workers.mpi_cmd(workers, app_cmd=self.app_cmd,
-                               num_ranks=num_ranks, ranks_per_node=rpn,
-                               cpu_affinity='none', envs={})
+        mpi_str = workers.mpi_cmd(
+            workers, app_cmd=self.app_cmd, num_ranks=num_ranks, ranks_per_node=rpn,
+            cpu_affinity='none', envs={})
         logger.info(f'Starting MPI Fork ensemble process:\n{mpi_str}')
 
         self.outfile = open(os.path.join(settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
@@ -402,6 +412,7 @@ class SerialLauncher:
             self.process.kill()
         self.outfile.close()
 
+
 def main(args):
     signal.signal(signal.SIGINT,  sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
@@ -410,7 +421,7 @@ def main(args):
     job_mode = args.job_mode
     timelimit_min = args.time_limit_minutes
     nthread = (args.num_transition_threads if args.num_transition_threads
-              else settings.NUM_TRANSITION_THREADS)
+               else settings.NUM_TRANSITION_THREADS)
     gpus_per_node = args.gpus_per_node
 
     Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
@@ -428,6 +439,7 @@ def main(args):
         if transition_pool is not None: transition_pool.terminate()
         logger.info("Exit: Launcher exit graceful\n\n")
 
+
 def get_args(inputcmd=None):
     '''Parse command line arguments'''
     parser = config_launcher_subparser()
@@ -435,6 +447,7 @@ def get_args(inputcmd=None):
         return parser.parse_args(inputcmd)
     else:
         return parser.parse_args()
+
 
 if __name__ == "__main__":
     setup()
