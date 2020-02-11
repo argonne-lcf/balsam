@@ -52,14 +52,10 @@ def handler(signum, stack):
 class TransitionProcessPool:
     '''Launch and terminate the transition processes'''
     def __init__(self, num_threads, wf_name):
-
-        self.procs = [
-            multiprocessing.Process(
-                target=main,
-                args=(i, num_threads, wf_name)
-            )
-            for i in range(num_threads)
-        ]
+        self.procs = [multiprocessing.Process(
+            target=main, args=(i, num_threads, wf_name),
+            name=self.__class__.__name__+str(i))
+                      for i in range(num_threads)]
         logger.info(f"Starting {len(self.procs)} transition processes")
         db.connections.close_all()
         for proc in self.procs:
