@@ -18,10 +18,11 @@ from django.urls import path, include
 from django.conf import settings
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('balsam.server.urls')),
+    path("admin/", admin.site.urls),
+    path("api/", include("balsam.server.urls")),
 ]
 
 if settings.DEBUG and settings.DEBUG_TOOLBAR:
     import debug_toolbar
-    urlpatterns.append(path('__debug__/', include(debug_toolbar.urls)))
+
+    urlpatterns.append(path("__debug__/", include(debug_toolbar.urls)))

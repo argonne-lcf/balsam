@@ -3,8 +3,8 @@ from pathlib import Path
 import importlib.util
 from balsam.client import ClientAPI
 
-class SiteConfiguration:
 
+class SiteConfiguration:
     def __init__(self):
         self._site_path = None
         self._settings_module = None
@@ -14,9 +14,9 @@ class SiteConfiguration:
     def site_path(self):
         if self._site_path is not None:
             return self._site_path
-        path = Path(os.environ.get('BALSAM_SITE_PATH')).expanduser().resolve()
+        path = Path(os.environ.get("BALSAM_SITE_PATH")).expanduser().resolve()
         if not path.is_dir():
-            raise FileNotFoundError(f'Set BALSAM_SITE_PATH to a site directory')
+            raise FileNotFoundError(f"Set BALSAM_SITE_PATH to a site directory")
         self._site_path = path
         return self._site_path
 
@@ -24,10 +24,10 @@ class SiteConfiguration:
     def site_path(self, path):
         path = path.expanduser().resolve()
         if not path.is_dir():
-            raise FileNotFoundError(f'{path} is not an existing directory')
+            raise FileNotFoundError(f"{path} is not an existing directory")
 
         self._site_path = path
-        os.environ['BALSAM_SITE_PATH'] = self._site_path
+        os.environ["BALSAM_SITE_PATH"] = self._site_path
         self._settings_module = None
         self._client = None
 
@@ -36,35 +36,37 @@ class SiteConfiguration:
         if self._settings_module is not None:
             return self._settings_module
 
-        settings_path = self.site_path.joinpath('settings.py')
+        settings_path = self.site_path.joinpath("settings.py")
         if not settings_path.is_file():
-            raise FileNotFoundError(f"Invalid BALSAM_SITE_PATH: {settings_path} must exist.")
+            raise FileNotFoundError(
+                f"Invalid BALSAM_SITE_PATH: {settings_path} must exist."
+            )
 
         try:
             module = self._load_module(settings_path)
             self._settings_module = module
         except Exception as e:
             raise RuntimeError(
-            f"An Exception occured while loading {settings_path}:" 
-            "Please fix the error in this module in order to proceed."
+                f"An Exception occured while loading {settings_path}:"
+                "Please fix the error in this module in order to proceed."
             ) from e
         return self._settings_module
 
     @property
     def apps_path(self):
-        return self.site_path.joinpath('apps')
-    
+        return self.site_path.joinpath("apps")
+
     @property
     def log_path(self):
-        return self.site_path.joinpath('log')
-    
+        return self.site_path.joinpath("log")
+
     @property
     def job_path(self):
-        return self.site_path.joinpath('qsubmit')
-    
+        return self.site_path.joinpath("qsubmit")
+
     @property
     def data_path(self):
-        return self.site_path.joinpath('data')
+        return self.site_path.joinpath("data")
 
     @property
     def client(self):
@@ -74,9 +76,7 @@ class SiteConfiguration:
         return self._client
 
     def _load_module(self, file_path):
-        spec = importlib.util.spec_from_file_location(
-            file_path, file_path
-        )
+        spec = importlib.util.spec_from_file_location(file_path, file_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module

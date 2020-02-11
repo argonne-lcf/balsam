@@ -4,7 +4,9 @@ import sys
 import shutil
 from jinja2 import Template
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class ScriptTemplate:
     def __init__(self, template_path):
@@ -17,7 +19,7 @@ class ScriptTemplate:
 
     @classmethod
     def discover(cls, directory):
-        paths = Path(directory).glob('**/*.tmpl')
+        paths = Path(directory).glob("**/*.tmpl")
         templates = {}
         for p in paths:
             templates[p.name] = cls(p)
@@ -32,7 +34,7 @@ class ScriptTemplate:
         job_mode,
         wf_exact=None,
         wf_contains=None,
-        tags_filter=None
+        tags_filter=None,
     ):
         """
         Returns string contained filled batch job script
@@ -45,11 +47,11 @@ class ScriptTemplate:
             job_mode=job_mode,
             wf_exact=wf_exact,
             wf_contains=wf_contains,
-            tags_filter=tags_filter
+            tags_filter=tags_filter,
         )
-        conf['balsam_site_path'] = os.environ['BALSAM_SITE_PATH']
-        conf['balsam_bin'] = self.locate_balsam()
-        conf['pg_bin'] = self.locate_postgres()
+        conf["balsam_site_path"] = os.environ["BALSAM_SITE_PATH"]
+        conf["balsam_bin"] = self.locate_balsam()
+        conf["pg_bin"] = self.locate_postgres()
         return self._template.render(conf)
 
     def locate_balsam(self):

@@ -8,9 +8,11 @@ from balsam.cmdline import activate
 # Monkey-patch make_default_short_help: cut off after first line
 _old_shorthelp = click.utils.make_default_short_help
 
+
 def _new_shorthelp(help, max_length=45):
-    help = help.lstrip().split('\n')[0]
+    help = help.lstrip().split("\n")[0]
     return _old_shorthelp(help, max_length)
+
 
 click.utils.make_default_short_help = _new_shorthelp
 click.core.make_default_short_help = _new_shorthelp
@@ -27,6 +29,7 @@ def main():
     `balsam activate`, Balsam tab-completion is enabled in bash shells.
     """
     pass
+
 
 LOAD_COMMANDS = [
     init.init,

@@ -1,16 +1,18 @@
-#from balsam.client import query
+# from balsam.client import query
 from uuid import UUID
-from pydantic import BaseModel, validator
-from typing import Optional, Union
+from pydantic import BaseModel
+from typing import Union
+
 
 class PydanticModel(BaseModel):
     class Config:
-        extra = 'forbid'
+        extra = "forbid"
         validate_assignment = True
+
     pk: Union[None, int, UUID] = None
 
-class BalsamModel(object):
 
+class BalsamModel(object):
     def __init__(self, **kwargs):
         """
         Populate instance Fields from kwargs
@@ -22,22 +24,19 @@ class BalsamModel(object):
             setattr(self._pydantic_data, name, value)
         else:
             super().__setattr__(name, value)
-    
+
     def __getattr__(self, name):
         print("Trying to get:", name)
         if name in self.DataClass.__fields__:
             return getattr(self._pydantic_data, name)
         else:
-            raise AttributeError(f'No such attribute {name}')
-    
+            raise AttributeError(f"No such attribute {name}")
+
     def __repr__(self):
         values = ", ".join(
-            f'{k}={repr(v)}' for k,v in
-            self._pydantic_data.__values__.items()
+            f"{k}={repr(v)}" for k, v in self._pydantic_data.__values__.items()
         )
-        return f'{self.__class__.__name__}({values})'
-
-
+        return f"{self.__class__.__name__}({values})"
 
 
 #    @property

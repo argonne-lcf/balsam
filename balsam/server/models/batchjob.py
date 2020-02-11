@@ -1,25 +1,39 @@
 from django.db import models, transaction
-from django.contrib.postgres.fields import JSONField, ArrayField
+from django.contrib.postgres.fields import JSONField
 from .exceptions import ValidationError
 
 STATE_CHOICES = (
-    'pending-submission', 'submit-failed', 'queued', 'starting',
-    'running', 'exiting', 'finished', 'dep-hold', 'user-hold',
-    'pending-deletion'
+    "pending-submission",
+    "submit-failed",
+    "queued",
+    "starting",
+    "running",
+    "exiting",
+    "finished",
+    "dep-hold",
+    "user-hold",
+    "pending-deletion",
 )
-WAITING_STATES = ('pending-submission', 'pending-deletion', 'queued', 'dep-hold', 'user-hold')
-TERMINAL_STATES = ('submit-failed', 'finished')
+WAITING_STATES = (
+    "pending-submission",
+    "pending-deletion",
+    "queued",
+    "dep-hold",
+    "user-hold",
+)
+TERMINAL_STATES = ("submit-failed", "finished")
 
-STATE_CHOICES = [(s,s) for s in STATE_CHOICES]
-JOB_MODE_CHOICES = ('mpi', 'serial', 'script')
-JOB_MODE_CHOICES = [(s,s) for s in JOB_MODE_CHOICES]
+STATE_CHOICES = [(s, s) for s in STATE_CHOICES]
+JOB_MODE_CHOICES = ("mpi", "serial", "script")
+JOB_MODE_CHOICES = [(s, s) for s in JOB_MODE_CHOICES]
+
 
 class BatchJobQuerySet(models.QuerySet):
     def active_jobs(self):
         return self.exclude(state__in=TERMINAL_STATES)
 
-class BatchJobManager(models.Manager):
 
+class BatchJobManager(models.Manager):
     def get_queryset(self):
         return BatchJobQuerySet(self.model, using=self._db)
 
@@ -27,8 +41,7 @@ class BatchJobManager(models.Manager):
         return self.get_queryset().active_jobs()
 
     def create(
-        self, site, project, queue, num_nodes, wall_time_min,
-        job_mode, filter_tags
+        self, site, project, queue, num_nodes, wall_time_min, job_mode, filter_tags
     ):
         batch_job = self.model(
             site=site,
@@ -57,7 +70,7 @@ class BatchJobManager(models.Manager):
             patch_map[pk] = patch
 
         jobs = self.filter(pk__in=patch_map)
-        jobs = list(jobs.order_by('pk').select_for_update())
+        jobs = list(jobs.order_by("pk").select_for_update())
         for job in jobs:
             patch = patch_map[job.pk]
             job.update(bulk_select_for_update=True, **patch)
@@ -66,14 +79,14 @@ class BatchJobManager(models.Manager):
 
 class BatchJob(models.Model):
     objects = BatchJobManager()
-    
+
     site = models.ForeignKey(
-        'Site',
-        on_delete=models.CASCADE,
-        related_name='batchjobs',
+        "Site", on_delete=models.CASCADE, related_name="batchjobs",
     )
     scheduler_id = models.IntegerField(
-        default=None, null=True, blank=True,
+        default=None,
+        null=True,
+        blank=True,
         help_text="Defaults to None until assigned by the site's scheduler",
     )
     project = models.CharField(max_length=128)
@@ -83,32 +96,40 @@ class BatchJob(models.Model):
     job_mode = models.CharField(max_length=32, choices=JOB_MODE_CHOICES)
     filter_tags = JSONField(default=dict, blank=True)
     state = models.CharField(
-        max_length=32,
-        default='pending-submission', choices=STATE_CHOICES
+        max_length=32, default="pending-submission", choices=STATE_CHOICES
     )
-    status_message = models.TextField(blank=True, default='')
+    status_message = models.TextField(blank=True, default="")
     start_time = models.DateTimeField(default=None, null=True, blank=True)
     end_time = models.DateTimeField(default=None, null=True, blank=True)
 
     def update_state(self, new_state):
         if self.state in TERMINAL_STATES:
-            raise ValidationError(f'Job state can no longer change after reaching {self.state}')
-        if self.state == 'pending-deletion':
-            if new_state != 'finished':
+            raise ValidationError(
+                f"Job state can no longer change after reaching {self.state}"
+            )
+        if self.state == "pending-deletion":
+            if new_state != "finished":
                 return
         self.state = new_state
 
     def lock_and_refresh(self):
-        locked_self = BatchJob.objects.order_by('pk').select_for_update().get(pk=self.pk)
+        locked_self = (
+            BatchJob.objects.order_by("pk").select_for_update().get(pk=self.pk)
+        )
         self.__dict__.update(locked_self.__dict__)
 
     @transaction.atomic
     def update(self, bulk_select_for_update=False, revert=False, **kwargs):
         pre_run_fields = [
-            'scheduler_id', 'project', 'queue',
-            'num_nodes', 'wall_time_min', 'job_mode', 'filter_tags'
+            "scheduler_id",
+            "project",
+            "queue",
+            "num_nodes",
+            "wall_time_min",
+            "job_mode",
+            "filter_tags",
         ]
-        anytime_fields = ['status_message', 'start_time', 'end_time']
+        anytime_fields = ["status_message", "start_time", "end_time"]
 
         # When a *running* qstat is inconsistent with the BatchJob record,
         # the client will send revert=True, which allows them to roll back
@@ -128,13 +149,13 @@ class BatchJob(models.Model):
             raise ValidationError(
                 f"The following fields cannot be updated "
                 f"when a job has reached state {self.state}: "
-                f'{pre_run_fields}'
+                f"{pre_run_fields}"
             )
 
-        new_state = kwargs.pop('state', None)
+        new_state = kwargs.pop("state", None)
         if new_state is not None:
             self.update_state(new_state)
-        
+
         anytime_fields = [f for f in anytime_fields if f in kwargs]
         for field in anytime_fields:
             setattr(self, field, kwargs[field])

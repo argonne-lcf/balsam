@@ -1,3 +1,4 @@
 from .config import SiteConfiguration
+
 conf = SiteConfiguration()
-__all__ = ['conf']
+__all__ = ["conf"]

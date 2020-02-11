@@ -1,8 +1,9 @@
 import shlex
 
+
 class MPIRun(object):
 
-    launch_command = 'mpiexec'
+    launch_command = "mpiexec"
 
     def __init__(
         self,
@@ -11,18 +12,19 @@ class MPIRun(object):
         num_ranks=1,
         ranks_per_node=1,
         threads_per_rank=1,
-        threads_per_core=1, gpus_per_rank=0,
+        threads_per_core=1,
+        gpus_per_rank=0,
         cpu_list=[],
         gpu_list=[],
         env={},
-        cpu_affinity='',
+        cpu_affinity="",
     ):
         if isinstance(app_args, str):
             self.app_args = shlex.split(app_args)
         elif isinstance(app_args, list):
             self.app_args = app_args
         else:
-            raise TypeError(f'Expected str or list app_args; got {type(app_args)}')
+            raise TypeError(f"Expected str or list app_args; got {type(app_args)}")
 
         assert isinstance(node_ids, (list, tuple))
         self.node_ids = node_ids
@@ -36,16 +38,16 @@ class MPIRun(object):
         self.gpu_list = gpu_list
         self.cpu_affinity = cpu_affinity
         self.env = env
-    
+
     def __str__(self):
-        return ' '.join(self.render_args())
+        return " ".join(self.render_args())
 
     def __iter__(self):
         return iter(self.render_args())
 
     def __repr__(self):
-        param_str = ', '.join(f'{k}={v}' for k,v in self.__dict__.items())
-        return f'{self.__class__.__name}({param_str})'
+        param_str = ", ".join(f"{k}={v}" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name}({param_str})"
 
     def render_args(self):
         launch_args = [str(a) for a in self.get_launch_args()]
@@ -53,6 +55,7 @@ class MPIRun(object):
 
     def get_launch_args(self):
         return []
+
 
 class DirectRun(MPIRun):
     def render_args(self):
