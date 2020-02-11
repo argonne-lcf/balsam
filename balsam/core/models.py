@@ -17,7 +17,7 @@ from pprint import pformat
 from balsam import setup
 setup()
 
-from django.core.exceptions import ValidationError,ObjectDoesNotExist
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db.utils import OperationalError
 from django.conf import settings
 from django.db import models, transaction
@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 class InvalidStateError(ValidationError): pass
 class InvalidParentsError(ValidationError): pass
 class NoApplication(Exception): pass
+
 
 TIME_FMT = '%m-%d-%Y %H:%M:%S.%f'
 
@@ -97,6 +98,7 @@ STATE_TIME_PATTERN = re.compile(r'''
 
 _app_cache = {}
 
+
 def process_job_times(qs=None):
     '''Returns {state : [elapsed_seconds_for_each_job_to_reach_state]}
     Useful for tracking job performance/throughput'''
@@ -113,6 +115,7 @@ def process_job_times(qs=None):
         time_data[state].append(time)
     return time_data
 
+
 def utilization_report(time_data=None):
     if time_data is None:
         qs = BalsamJob.objects
@@ -124,7 +127,8 @@ def utilization_report(time_data=None):
 
     startCounts = Counter(start_times)
     endCounts = Counter(end_times)
-    for t in endCounts: endCounts[t] *= -1
+    for t in endCounts:
+        endCounts[t] *= -1
     merged = sorted(list(startCounts.items()) + list(endCounts.items()),
                     key = lambda x: x[0])
     counts = np.fromiter((x[1] for x in merged), dtype=np.int)
@@ -132,6 +136,7 @@ def utilization_report(time_data=None):
     times = [x[0] for x in merged]
     running = np.cumsum(counts)
     return (times, running)
+
 
 def throughput_report(time_data=None):
     if time_data is None:
@@ -143,12 +148,14 @@ def throughput_report(time_data=None):
     counts = np.cumsum(np.fromiter((x[1] for x in doneCounts), dtype=np.int))
     return (times, counts)
 
+
 def error_report(time_data=None):
     if time_data is None:
         qs = BalsamJob.objects
         time_data = process_job_times(qs=qs)
     err_times = time_data.get('RUN_ERROR', [])
-    if not err_times: return
+    if not err_times:
+        return
     time0 = min(err_times)
     err_seconds = np.array([(t-time0).total_seconds() for t in err_times])
     hmin, hmax = 0, max(err_seconds)
@@ -158,28 +165,36 @@ def error_report(time_data=None):
     assert len(times) == len(hist) + 1
     return times, hist
 
+
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
     joined = [state for g in groups for state in g]
     assert len(joined) == len(set(joined)) == len(STATES)
     assert set(joined) == set(STATES)
-    for g1,g2 in combinations(groups, 2):
-        s1,s2 = set(g1), set(g2)
+    for g1, g2 in combinations(groups, 2):
+        s1, s2 = set(g1), set(g2)
         assert s1.intersection(s2) == set()
+
+
 assert_disjoint()
+
 
 def validate_state(value):
     if value not in STATES:
         raise InvalidStateError(f"{value} is not a valid state in balsam.models")
 
+
 def get_time_string():
     return timezone.now().strftime(TIME_FMT)
+
 
 def from_time_string(s):
     return datetime.strptime(s, TIME_FMT)
 
+
 def history_line(state='CREATED', message=''):
     return f"\n[{get_time_string()} {state}] ".rjust(46) + message
+
 
 def safe_select(queryset):
     qs = queryset.order_by('job_id').select_for_update()
@@ -222,7 +237,7 @@ class QueuedLaunch(models.Model):
             return False
 
     def __repr__(self):
-        dat = {k:v for k,v in self.__dict__.items() if k not in ['_state']}
+        dat = {k: v for k, v in self.__dict__.items() if k not in ['_state']}
         return f'''Qlaunch {pformat(dat, indent=4)}'''
 
     def __str__(self):
@@ -238,13 +253,13 @@ class QueuedLaunch(models.Model):
         for job_id, job in stats.items():
             if job_id not in saved_job_ids:
                 j = cls(scheduler_id=job_id,
-                    project=job['project'],
-                    queue=job['queue'],
-                    nodes=job['nodes'],
-                    wall_minutes=job['wall_time_min'],
-                    state=job['state'],
-                    command=job['command'],
-                    from_balsam=False)
+                        project=job['project'],
+                        queue=job['queue'],
+                        nodes=job['nodes'],
+                        wall_minutes=job['wall_time_min'],
+                        state=job['state'],
+                        command=job['command'],
+                        from_balsam=False)
                 j.save()
                 logger.info(f'Detected new job: {j}')
             else:
@@ -262,6 +277,7 @@ class QueuedLaunch(models.Model):
         cls.objects.filter(scheduler_id__in=delete_ids).delete()
         if delete_ids:
             logger.info(f'Deleting Jobs {delete_ids} no longer in scheduler')
+
 
 class JobSource(models.Manager):
 
@@ -306,8 +322,8 @@ class JobSource(models.Manager):
         return Q(lock='') | Q(lock=self.lock_str)
 
     def get_queryset(self):
-        if not self._checked_qLaunch: self.check_qLaunch()
-
+        if not self._checked_qLaunch:
+            self.check_qLaunch()
         queryset = super().get_queryset()
         queryset = queryset.filter(self.lockQuery)
         if self.workflow:
@@ -336,9 +352,12 @@ class JobSource(models.Manager):
         runnable = runnable.filter(num_nodes__lte=max_nodes)
 
         if remaining_minutes is not None:
-            try: remaining_minutes = int(remaining_minutes)
-            except: remaining_minutes = None
-            else: runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes)
+            try:
+                remaining_minutes = int(remaining_minutes)
+            except:
+                remaining_minutes = None
+            else:
+                runnable = runnable.filter(wall_time_minutes__lte=remaining_minutes)
 
         if serial_only:
             runnable = runnable.filter(num_nodes=1, ranks_per_node=1)
@@ -358,8 +377,8 @@ class JobSource(models.Manager):
         to_lock = BalsamJob.objects.filter(pk__in=pk_list)
         to_lock = to_lock.select_for_update(skip_locked=True).filter(lock='')
         acquired_pks = list(to_lock.values_list('job_id', flat=True))
-        BalsamJob.objects.filter(pk__in=acquired_pks).update(lock=new_lock,
-                tick=timezone.now())
+        BalsamJob.objects.filter(pk__in=acquired_pks).update(
+            lock=new_lock, tick=timezone.now())
         return acquired_pks
 
     def start_tick(self):
@@ -401,9 +420,11 @@ class JobSource(models.Manager):
             expired_count = expired_jobs.update(lock='')
         if expired_count:
             logger.info(f'Cleared stale lock on {expired_count} jobs')
-            if revert_count: logger.info(f'Reverted {revert_count} RUNNING jobs to RESTART_READY')
+            if revert_count:
+                logger.info(f'Reverted {revert_count} RUNNING jobs to RESTART_READY')
         elif locked_count:
             logger.debug(f'No stale locks (older than {self.EXPIRATION_PERIOD.total_seconds()} seconds)')
+
 
 class BalsamJob(models.Model):
     ''' A DB representation of a Balsam Job '''
@@ -499,9 +520,13 @@ class BalsamJob(models.Model):
         'Environment variables specific to this job',
         help_text="Colon-separated list of envs like VAR1=value1:VAR2=value2",
         default='')
+    mpi_flags = models.TextField(
+        'Additional MPI run command flags',
+        help_text='Additional flags to pass to MPI run command before executable',
+        default='')
 
     application = models.TextField(
-        'Application to Run',
+        'Application to run',
         help_text='The application to run; located in Applications database',
         default='')
     args = models.TextField(
@@ -512,7 +537,6 @@ class BalsamJob(models.Model):
         'Override the Balsam-generated workdir, point to existing location',
         default=''
     )
-
 
     wait_for_parents = models.BooleanField(
             'If True, do not process this job until parents are FINISHED',
@@ -556,8 +580,7 @@ class BalsamJob(models.Model):
     def from_dict(d):
         job = BalsamJob()
         SERIAL_FIELDS = [f for f in job.__dict__ if f not in
-                '_state force_insert force_update using update_fields'.split()
-                ]
+                         '_state force_insert force_update using update_fields'.split()]
 
         if type(d['job_id']) is str:
             d['job_id'] = uuid.UUID(d['job_id'])
@@ -571,17 +594,19 @@ class BalsamJob(models.Model):
         assert type(job.job_id) == uuid.UUID
         return job
 
-
     def __repr__(self):
         result = f'BalsamJob {self.pk}\n'
         result += '----------------------------------------------\n'
-        result += '\n'.join( (k+':').ljust(32) + str(v)
-                for k,v in self.__dict__.items()
-                if k not in ['state_history', 'job_id', '_state', 'tick'])
+        result += '\n'.join((k+':').ljust(32) + str(v)
+                            for k, v in self.__dict__.items()
+                            if k not in ['state_history', 'job_id', '_state', 'tick'])
 
-        try: result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
-        except NoApplication: result += '\n' + '  *** Executed command:'.ljust(32) + f'NO APPLICATION MATCHING {self.application}'
-        except ApplicationDefinition.DoesNotExist: result += '\n' + '  *** Executed command:'.ljust(32) + f'NO APPLICATION MATCHING {self.application}'
+        try:
+            result += '\n' + '  *** Executed command:'.ljust(32) + self.app_cmd
+        except NoApplication:
+            result += '\n' + '  *** Executed command:'.ljust(32) + f'NO APPLICATION MATCHING {self.application}'
+        except ApplicationDefinition.DoesNotExist:
+            result += '\n' + '  *** Executed command:'.ljust(32) + f'NO APPLICATION MATCHING {self.application}'
 
         result += '\n' + '  *** Working directory:'.ljust(32) + self.working_directory +'\n'
         return result
@@ -622,7 +647,6 @@ class BalsamJob(models.Model):
         else:
             return None
 
-
     def get_children(self):
         return BalsamJob.objects.filter(parents__icontains=str(self.pk))
 
@@ -645,7 +669,7 @@ class BalsamJob(models.Model):
         except:
             raise InvalidParentsError("Cannot convert input to list")
         for i, parent in enumerate(parents_list):
-            pk = parent.pk if isinstance(parent,BalsamJob) else parent
+            pk = parent.pk if isinstance(parent, BalsamJob) else parent
             if not BalsamJob.objects.filter(pk=pk).exists():
                 raise InvalidParentsError(f"Job PK {pk} is not in the BalsamJob DB")
             parents_list[i] = str(pk)
@@ -683,7 +707,7 @@ class BalsamJob(models.Model):
         result = {}
         entries = s.split(':')
         entries = [e.split('=') for e in entries]
-        return {variable:'='.join(values) for (variable,*values) in entries}
+        return {variable: '='.join(values) for (variable, *values) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
         envs = os.environ.copy()
@@ -700,8 +724,10 @@ class BalsamJob(models.Model):
         if self.threads_per_rank > 1:
             balsam_envs['OMP_NUM_THREADS'] = str(self.threads_per_rank)
 
-        if timeout: balsam_envs['BALSAM_JOB_TIMEOUT']="TRUE"
-        if error: balsam_envs['BALSAM_JOB_ERROR']="TRUE"
+        if timeout:
+            balsam_envs['BALSAM_JOB_TIMEOUT'] = "TRUE"
+        if error:
+            balsam_envs['BALSAM_JOB_ERROR'] = "TRUE"
         envs.update(balsam_envs)
         return envs
 
@@ -711,7 +737,8 @@ class BalsamJob(models.Model):
             exists = pk_list.exists()
         except AttributeError:
             exists = bool(pk_list)
-        if not exists: return
+        if not exists:
+            return
 
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
@@ -722,8 +749,7 @@ class BalsamJob(models.Model):
             update_jobs = cls.objects.filter(job_id__in=pk_list).exclude(state='USER_KILLED')
             update_jobs = safe_select(update_jobs)
             update_jobs.update(state=new_state,
-                               state_history=Concat('state_history', V(msg))
-                              )
+                               state_history=Concat('state_history', V(msg)))
 
     def update_state(self, new_state, message=''):
         if new_state not in STATES:
@@ -747,8 +773,7 @@ class BalsamJob(models.Model):
     def get_state_times(self):
         matches = STATE_TIME_PATTERN.findall(self.state_history)
         return {state: datetime.strptime(timestr, TIME_FMT)
-                for timestr, state in matches
-               }
+                for timestr, state in matches}
 
     @property
     def runtime_seconds(self):
@@ -774,7 +799,7 @@ class BalsamJob(models.Model):
 
     def to_dict(self):
         SERIAL_FIELDS = [f for f in self.__dict__ if f not in ['_state']]
-        d = {field : self.__dict__[field] for field in SERIAL_FIELDS}
+        d = {field: self.__dict__[field] for field in SERIAL_FIELDS}
         return d
 
     def serialize(self, **kwargs):
@@ -796,6 +821,7 @@ class BalsamJob(models.Model):
             serial_data = json.loads(serial_data)
         job = BalsamJob.from_dict(serial_data)
         return job
+
 
 class ApplicationDefinition(models.Model):
     ''' application definition, each DB entry is a task that can be run
@@ -828,9 +854,9 @@ class ApplicationDefinition(models.Model):
     def __repr__(self):
         result = f'Application {self.pk}:\n'
         result += '-----------------------\n'
-        result += '\n'.join( (k+':').ljust(32) + str(v)
-                for k,v in self.__dict__.items()
-                if k not in ['_state', 'id'])
+        result += '\n'.join((k+':').ljust(32) + str(v)
+                            for k, v in self.__dict__.items()
+                            if k not in ['_state', 'id'])
         return result
 
     def __str__(self):
