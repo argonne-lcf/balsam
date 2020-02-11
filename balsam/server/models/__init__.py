@@ -7,17 +7,17 @@ from .transfer import TransferItem
 from .batchjob import BatchJob
 
 logger = logging.getLogger(__name__)
-TIME_FMT = '%m-%d-%y %H:%M:%S.%f'
+TIME_FMT = "%m-%d-%y %H:%M:%S.%f"
 
 MODELS = {
-    'User': User,
-    'Site': Site,
-    'SiteStatus': SiteStatus,
-    'AppExchange': AppExchange,
-    'AppBackend': AppBackend,
-    'Job': Job,
-    'EventLog': EventLog,
-    'JobLock': JobLock,
-    'TransferItem': TransferItem,
-    'BatchJob': BatchJob,
+    "User": User,
+    "Site": Site,
+    "SiteStatus": SiteStatus,
+    "AppExchange": AppExchange,
+    "AppBackend": AppBackend,
+    "Job": Job,
+    "EventLog": EventLog,
+    "JobLock": JobLock,
+    "TransferItem": TransferItem,
+    "BatchJob": BatchJob,
 }

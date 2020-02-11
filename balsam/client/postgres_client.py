@@ -1,3 +1,4 @@
+from pathlib import Path
 from .client import ClientAPI
 from .orm_client import DjangoORMClient
 
@@ -11,25 +12,25 @@ class PostgresDjangoORMClient(DjangoORMClient):
         site_path,
         host,
         port,
-        rel_db_path='balsamdb',
+        rel_db_path="balsamdb",
         auto_port=True,
         db_name="balsam",
-        engine='django.db.backends.postgresql',
+        engine="django.db.backends.postgresql",
         conn_max_age=60,
         db_options={
-            'connect_timeout': 30,
-            'client_encoding': 'UTF8',
-            'default_transaction_isolation': 'read committed',
-            'timezone': 'UTC',
+            "connect_timeout": 30,
+            "client_encoding": "UTF8",
+            "default_transaction_isolation": "read committed",
+            "timezone": "UTC",
         },
     ):
         """
         Initialize Django with a settings module for ORM usage only
         """
         from balsam.server.conf import db_only
+
         db_only.set_database(
-            user, password, host, port,
-            db_name, engine, conn_max_age, db_options
+            user, password, host, port, db_name, engine, conn_max_age, db_options
         )
         self.user = user
         self.password = password
@@ -59,13 +60,14 @@ class PostgresDjangoORMClient(DjangoORMClient):
             "auto_port": self.auto_port,
         }
         return d
-    
+
     def establish_connection(self):
         """
         Restart DB server
         """
         from balsam.server.conf import db_only
         from balsam.util import postgres as pg
+
         if not self.rel_db_path:
             raise RuntimeError(
                 f"Do not have a filesystem path to control DB "
@@ -79,12 +81,17 @@ class PostgresDjangoORMClient(DjangoORMClient):
             self.host, self.port = host, port
             pg.mutate_conf_port(db_path, port)
             db_only.set_database(
-                self.user, self.password,
-                host, port,
-                self.db_name, self.engine,
-                self.conn_max_age, self.db_options
+                self.user,
+                self.password,
+                host,
+                port,
+                self.db_name,
+                self.engine,
+                self.conn_max_age,
+                self.db_options,
             )
             self.dump_yaml()
         pg.start_db(db_path)
 
-ClientAPI._class_registry['PostgresDjangoORMClient'] = PostgresDjangoORMClient
+
+ClientAPI._class_registry["PostgresDjangoORMClient"] = PostgresDjangoORMClient

@@ -1,9 +1,8 @@
 from itertools import combinations
-from .exceptions import *
 from .exceptions import InvalidStateError
 
 
-STATES = '''
+STATES = """
 CREATED
 AWAITING_PARENTS
 READY
@@ -24,13 +23,13 @@ RESTART_READY
 FAILED
 PARENT_FAILED
 USER_KILLED
-'''.split()
+""".split()
 
-ACTIVE_STATES = '''
+ACTIVE_STATES = """
 RUNNING
-'''.split()
+""".split()
 
-PROCESSABLE_STATES = '''
+PROCESSABLE_STATES = """
 CREATED
 AWAITING_PARENTS
 READY
@@ -39,32 +38,34 @@ RUN_DONE
 POSTPROCESSED
 RUN_TIMEOUT
 RUN_ERROR
-'''.split()
+""".split()
 
-RUNNABLE_STATES = '''
+RUNNABLE_STATES = """
 PREPROCESSED
 RESTART_READY
-'''.split()
+""".split()
 
-END_STATES = '''
+END_STATES = """
 JOB_FINISHED
 PARENT_FAILED
 FAILED
 USER_KILLED
-'''.split()
+""".split()
+
 
 def validate_state(value):
     if value not in STATES:
-        raise InvalidStateError(
-        f"{value} is not a valid state in balsam.models"
-    )
+        raise InvalidStateError(f"{value} is not a valid state in balsam.models")
+
 
 def assert_disjoint():
     groups = [ACTIVE_STATES, PROCESSABLE_STATES, RUNNABLE_STATES, END_STATES]
     joined = [state for g in groups for state in g]
     assert len(joined) == len(set(joined)) == len(STATES)
-    assert set(joined) == set(STATES) 
-    for g1,g2 in combinations(groups, 2):
-        s1,s2 = set(g1), set(g2)
+    assert set(joined) == set(STATES)
+    for g1, g2 in combinations(groups, 2):
+        s1, s2 = set(g1), set(g2)
         assert s1.intersection(s2) == set()
+
+
 assert_disjoint()

@@ -5,11 +5,4 @@ from .slurm import SlurmRun
 from .openmpi import OpenMPIRun
 from .mpich import MPICHRun
 
-__all__ = [
-    'MPIRun',
-    'DirectRun',
-    'ThetaAprun',
-    'SlurmRun',
-    'OpenMPIRun',
-    'MPICHRun'
-]
+__all__ = ["MPIRun", "DirectRun", "ThetaAprun", "SlurmRun", "OpenMPIRun", "MPICHRun"]

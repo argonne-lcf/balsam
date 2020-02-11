@@ -1,10 +1,9 @@
 from balsam.site import conf
-from .api.base_model import Model
 
 REPR_OUTPUT_SIZE = 20
 
-class BaseIterable:
 
+class BaseIterable:
     def __init__(self, query):
         self.query = query
 
@@ -12,35 +11,38 @@ class BaseIterable:
         query = self.query
         results = conf.client.list(
             query.model_class.__name__,
-            {'pk', *query.model_class._field_names},
+            {"pk", *query.model_class._field_names},
             filters=query._filters,
             excludes=query._excludes,
             order_by=query._order_fields,
             limit=query._limit,
             offset=query._offset,
         )
-        query._count = results['count']
-        return self._iter_results(results['rows'])
+        query._count = results["count"]
+        return self._iter_results(results["rows"])
 
     def _iter_results(self, results):
         raise NotImplementedError
+
 
 class ModelIterable(BaseIterable):
     def _iter_results(self, results):
         for row in results:
             yield self.query.model_class(**row)
 
+
 class ValuesIterable(BaseIterable):
     def _iter_results(self, results):
         yield from results
+
 
 class ValuesListIterable(BaseIterable):
     def _iter_results(self, results):
         for r in results:
             yield list(r.values())
 
-class Query:
 
+class Query:
     def __init__(self, model_class=None):
         self.model_class = model_class
         self._result_cache = None
@@ -59,10 +61,10 @@ class Query:
             )
 
     def __repr__(self):
-        data = list(self[:REPR_OUTPUT_SIZE + 1])
+        data = list(self[: REPR_OUTPUT_SIZE + 1])
         if len(data) > REPR_OUTPUT_SIZE:
             data[-1] = "...(remaining elements truncated)..."
-        return '<%s %r>' % (self.__class__.__name__, data)
+        return "<%s %r>" % (self.__class__.__name__, data)
 
     def __len__(self):
         self._fetch_cache()
@@ -78,13 +80,12 @@ class Query:
         """
         if not isinstance(k, (int, slice)):
             raise TypeError(
-                'Query indices must be integers or slices, not %s.'
-                % type(k).__name__
+                "Query indices must be integers or slices, not %s." % type(k).__name__
             )
-        assert (
-            (not isinstance(k, slice) and (k >= 0)) or
-            (isinstance(k, slice) and (k.start is None or k.start >= 0) 
-             and (k.stop is None or k.stop >= 0))
+        assert (not isinstance(k, slice) and (k >= 0)) or (
+            isinstance(k, slice)
+            and (k.start is None or k.start >= 0)
+            and (k.stop is None or k.stop >= 0)
         ), "Negative indexing is not supported."
 
         if self._result_cache is not None:
@@ -101,7 +102,7 @@ class Query:
             else:
                 stop = None
             clone._set_limits(start, stop)
-            return list(clone)[::k.step] if k.step else clone
+            return list(clone)[:: k.step] if k.step else clone
         else:
             clone = self._clone()
             clone._set_limits(k, k + 1)
@@ -182,7 +183,7 @@ class Query:
             raise self.model_class.MultipleObjectsReturned(nobj)
 
     def count(self):
-        if self._count = None:
+        if self._count is None:
             results = conf.client.list(
                 self.model_class,
                 filters=self._filters,
@@ -190,9 +191,9 @@ class Query:
                 order_by=None,
                 limit=self._limit,
                 offset=self._offset,
-                count_only=True
+                count_only=True,
             )
-            self._count = results['count']
+            self._count = results["count"]
         return self._count
 
     def update(self, **kwargs):
