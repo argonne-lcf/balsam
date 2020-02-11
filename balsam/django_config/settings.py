@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'widget_tweaks',
 ]
 
 MIGRATION_MODULES = {'core': 'balsamdb_migrations'}
@@ -124,7 +125,7 @@ ROOT_URLCONF = 'balsam.django_config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': ['django_config/templates','core/templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -178,3 +179,14 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'django_config/static')
+]
+
+
+# TMP: added by Taylor for ./manage.py runserver
+SILENCED_SYSTEM_CHECKS = [
+    'admin.E408',
+    'admin.E409',
+    'admin.E410'
+    ]

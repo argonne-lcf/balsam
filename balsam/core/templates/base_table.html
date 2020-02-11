@@ -1,0 +1,70 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="The starting page for your personal Balsam instance">
+    <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
+    <title>Balsam</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css">
+    
+    <style>
+      .bd-placeholder-img {
+        font-size: 1.125rem;
+        text-anchor: middle;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      @media (min-width: 768px) {
+        .bd-placeholder-img-lg {
+          font-size: 3.5rem;
+        }
+      }
+    </style>
+    <link href="/static/index.css" rel="stylesheet">
+
+
+    <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
+    <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js"></script>
+    <script type="text/javascript">
+function filterREGEX () {
+    $('#db_list').DataTable().search(
+        $('#global_filter').val(),
+        true,
+        false
+    ).draw();
+}
+
+$(document).ready(function() {
+    $('#db_list').DataTable({
+         "iDisplayLength": 100,
+         "order": [[ 0, "desc" ]]
+      });
+
+    $('#global_filter').on( 'keyup click', function () {
+        filterREGEX();
+    } );
+} );
+    </script>
+</head>
+
+<body>
+
+<div class="p-3 mx-auto flex-column">
+    
+
+    {% block content %}{% endblock %}
+    
+    <footer class="mastfoot mt-auto">
+        <div class="inner">
+          <p>Cover template for <a href="https://getbootstrap.com/">Bootstrap</a>, by <a href="https://twitter.com/mdo">@mdo</a>.</p>
+        </div>
+    </footer>
+</div>
