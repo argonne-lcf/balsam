@@ -1,0 +1,27 @@
+language: python
+
+services: postgresql
+
+branches:
+  only:
+    - master
+    - develop
+
+install: pip install -e .[dev,server]
+
+before_script:
+  - createdb -U postgres balsam
+  - balsam/server/manage.py makemigrations
+  - balsam/server/manage.py migrate
+  - python balsam/server/dev/bootstrap.py
+
+script:
+  - black --check balsam/
+  - flake8 balsam/
+  - pytest --cov-report term --cov=balsam/server balsam/server
+
+after_success:
+  - codecov
+
+env:
+  - CODECOV_TOKEN="f2eb627d-60b8-408d-bfa5-7cc58187c538"

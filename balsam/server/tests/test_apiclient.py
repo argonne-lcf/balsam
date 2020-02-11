@@ -214,7 +214,7 @@ class JobFactoryMixin:
         return client.bulk_post_data("job-list", new_jobs, check=check)
 
 
-class TestAPIClient(APIClient):
+class BalsamAPIClient(APIClient):
     """Shortcut methods for get/post/etc that also test status code"""
 
     def __init__(self, test_case):
@@ -227,7 +227,7 @@ class TestAPIClient(APIClient):
         try:
             iter(expect_code)
         except TypeError:
-            fn = self.parent.assertEquals
+            fn = self.parent.assertEqual
         else:
             fn = self.parent.assertIn
         return fn(response.status_code, expect_code, pretty_data(response.data))
@@ -294,7 +294,7 @@ class TestCase(APITestCase):
 
     def setUp(self):
         """Called before each test"""
-        self.client = TestAPIClient(self)
+        self.client = BalsamAPIClient(self)
         self.client.login(username="user", password="abc")
 
     def assertEqual(self, first, second, msg=None):
@@ -325,9 +325,9 @@ class TwoUserTestCase(APITestCase):
 
     def setUp(self):
         """Called before each test"""
-        self.client1 = TestAPIClient(self)
+        self.client1 = BalsamAPIClient(self)
         self.client1.login(username="user1", password="abc")
-        self.client2 = TestAPIClient(self)
+        self.client2 = BalsamAPIClient(self)
         self.client2.login(username="user2", password="123")
 
 
@@ -353,7 +353,7 @@ class AuthTests(TwoUserTestCase):
 
     def test_superuser_can_see_all_users(self):
         User.objects.create_user(username="super", password="abc", is_staff=True)
-        staff_client = TestAPIClient(self)
+        staff_client = BalsamAPIClient(self)
         staff_client.login(username="super", password="abc")
         user_list = staff_client.get_data("user-list", check=status.HTTP_200_OK)
         self.assertEqual(len(user_list), 3)
@@ -389,7 +389,7 @@ class AppSharingTests(TwoUserTestCase):
             name="hello world",
             backends=[{"site": site["pk"], "class_name": "Demo.SayHello"}],
             parameters=["name", "N"],
-            users=[1, 2],
+            users=[self.user1.pk, self.user2.pk],
         )
         client1_apps = self.client1.get_data("app-list", check=status.HTTP_200_OK)
         client2_apps = self.client2.get_data("app-list", check=status.HTTP_200_OK)
@@ -414,7 +414,7 @@ class AppSharingTests(TwoUserTestCase):
             name="hello world",
             backends=[backend1],
             parameters=["name", "N"],
-            users=[1, 2],
+            users=[self.user1.pk, self.user2.pk],
         )
         self.client2.post_data(
             "app-list",
@@ -422,7 +422,7 @@ class AppSharingTests(TwoUserTestCase):
             name="hello world",
             backends=[backend2],
             parameters=["name", "N"],
-            users=[1, 2],
+            users=[self.user1.pk, self.user2.pk],
         )
 
         # Client1 can see both apps
@@ -1197,7 +1197,7 @@ class JobTests(
 
     def setUp(self):
         """Called before each test"""
-        self.client = TestAPIClient(self)
+        self.client = BalsamAPIClient(self)
         self.client.login(username="user", password="abc")
         self.site = self.create_site(hostname="site1")
         self.default_app = self.create_app(sites=self.site, cls_names="DemoApp.hello",)

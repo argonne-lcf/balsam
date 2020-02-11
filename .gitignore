@@ -8,6 +8,7 @@ balsam/*/__pycache__*
 !.gitignore
 !.readthedocs.yml
 !.pre-commit-config.yaml
+!.travis.yml
 *.pyc
 
 *_packer.cpython*
