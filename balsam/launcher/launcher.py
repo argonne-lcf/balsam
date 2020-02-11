@@ -436,7 +436,8 @@ def main(args):
     except:
         raise
     finally:
-        if transition_pool is not None: transition_pool.terminate()
+        if transition_pool is not None:
+            transition_pool.terminate()
         logger.info("Exit: Launcher exit graceful\n\n")
 
 
