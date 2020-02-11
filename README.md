@@ -1,3 +1,6 @@
+[![codecov](https://codecov.io/gh/masalim2/balsam2/branch/master/graph/badge.svg?token=38ggCDQrhF)](https://codecov.io/gh/masalim2/balsam2)
+[![Build Status](https://travis-ci.com/masalim2/balsam2.svg?token=yZnPndwLys7xKxFNNhSH&branch=develop)](https://travis-ci.com/masalim2/balsam2)
+
 # Developer Guidelines
 
 1. Install development code with:
