@@ -11,7 +11,7 @@ try:
 except ImportError:
     print("Warning: Django is not installed")
 
-# from balsam.__version__ import __version__
+from balsam.__version__ import __version__  # noqa
 
 
 def setup():
