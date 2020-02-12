@@ -1,4 +1,5 @@
-[![codecov](https://codecov.io/gh/masalim2/balsam2/branch/master/graph/badge.svg?token=38ggCDQrhF)](https://codecov.io/gh/masalim2/balsam2)
+[![codecov](https://codecov.io/gh/balsam-alcf/balsam/branch/master/graph/badge.svg)](https://codecov.io/gh/balsam-alcf/balsam)
+
 [![Build Status](https://travis-ci.com/masalim2/balsam2.svg?token=yZnPndwLys7xKxFNNhSH&branch=develop)](https://travis-ci.com/masalim2/balsam2)
 
 # Developer Guidelines
