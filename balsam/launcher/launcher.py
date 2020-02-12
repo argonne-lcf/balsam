@@ -377,6 +377,8 @@ class SerialLauncher:
             self.app_cmd += f" --wf-name={self.wf_name}"
         if self.gpus_per_node:
             self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
+        if self.is_persistent:
+            self.app_cmd += f" --persistent"
 
     def run(self):
         global EXIT_FLAG

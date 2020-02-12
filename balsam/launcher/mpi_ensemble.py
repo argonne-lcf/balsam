@@ -30,8 +30,8 @@ RANK = comm.Get_rank()
 MSG_BUFSIZE = 2**16
 connections.close_all()
 
-class ResourceManager:
 
+class ResourceManager:
     FETCH_PERIOD = 2.0
     KILLED_REFRESH_PERIOD = 3.0
 
@@ -47,7 +47,7 @@ class ResourceManager:
         self.job_cache = []
         self.killed_pks = []
 
-        self.recv_requests = {i:comm.irecv(MSG_BUFSIZE, source=i) for i in range(1,comm.size)}
+        self.recv_requests = {i: comm.irecv(MSG_BUFSIZE, source=i) for i in range(1,comm.size)}
 
         self.job_source.check_qLaunch()
         if self.job_source.qLaunch is not None:
@@ -74,8 +74,8 @@ class ResourceManager:
             jobquery = self.job_source.get_runnable(
                 max_nodes=1,
                 serial_only=True,
-                order_by=('node_packing_count', # ascending
-                          '-wall_time_minutes') # descending
+                order_by=('node_packing_count',  # ascending
+                          '-wall_time_minutes')  # descending
             )
             self.job_cache = list(jobquery[:10000])
             self.last_job_fetch = now
@@ -102,7 +102,8 @@ class ResourceManager:
     def revert_assign(self, rank, job_pk):
         job_occ = self.job_occupancy[job_pk]
         self.node_occupancy[rank] -= job_occ
-        if self.node_occupancy[rank] < 0.0001: self.node_occupancy[rank] = 0.0
+        if self.node_occupancy[rank] < 0.0001:
+            self.node_occupancy[rank] = 0.0
         del self.job_occupancy[job_pk]
         del self.running_locations[job_pk]
 
@@ -182,13 +183,13 @@ class ResourceManager:
         for rank in self.recv_requests:
             req = self.recv_requests[rank]
             logger.debug(f"calling req.test() on rank {rank}'s request...")
-            done, msg = req.test(status = stat)
+            done, msg = req.test(status=stat)
             logger.debug(f"req.test() call completed:\ndone = {done}\nmsg = {msg}")
             if done:
                 completed_requests.append((stat.source, msg))
                 assert stat.source == rank
 
-        for rank,msg in completed_requests:
+        for rank, msg in completed_requests:
             self.recv_requests[rank] = comm.irecv(MSG_BUFSIZE, source=rank)
         return completed_requests
 
@@ -205,9 +206,12 @@ class ResourceManager:
             done_jobs.extend(msg['done'])
             error_jobs.extend(msg['error'])
 
-        if done_jobs:  self._handle_dones(done_jobs)
-        if error_jobs: self._handle_errors(error_jobs)
-        if killed_pks: self.job_source.release(killed_pks)
+        if done_jobs:
+            self._handle_dones(done_jobs)
+        if error_jobs:
+            self._handle_errors(error_jobs)
+        if killed_pks:
+            self.job_source.release(killed_pks)
         logger.debug("serve_requests: waiting on all isends...")
         MPI.Request.waitall(send_reqs)
         logger.debug("serve_requests: all isends completed.")
@@ -245,7 +249,7 @@ class ResourceManager:
     def _handle_errors(self, error_jobs):
         error_pks = [j[0] for j in error_jobs]
         safe_select(BalsamJob.objects.filter(pk__in=error_pks))
-        for pk,retcode,tail in error_jobs:
+        for pk, retcode, tail in error_jobs:
             rank = self.running_locations[pk]
             self.revert_assign(rank, pk)
             job = BalsamJob.objects.get(pk=pk)
@@ -265,6 +269,7 @@ class ResourceManager:
             reqs.append(req)
         MPI.Request.waitall(reqs)
 
+
 class Master:
     def __init__(self):
         self.MAX_IDLE_TIME = 20.0
@@ -275,6 +280,7 @@ class Master:
         args = self.parse_args()
         comm.bcast(args.gpus_per_node, root=0)
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
+        self.is_persistent = args.persistent
         next(self.remaining_timer)
 
         job_source = BalsamJob.source
@@ -293,6 +299,7 @@ class Master:
         parser.add_argument('--wf-name')
         parser.add_argument('--time-limit-min', type=float, default=72.*60)
         parser.add_argument('--gpus-per-node', type=int, default=0)
+        parser.add_argument('--persistent', action='store_true')
         return parser.parse_args()
 
     def exit(self):
@@ -315,9 +322,10 @@ class Master:
             if self.EXIT_FLAG:
                 logger.info("EXIT_FLAG on; master breaking main loop")
                 break
-            if self.idle_time > self.MAX_IDLE_TIME and not self.manager.running_locations:
-                logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
-                break
+            if not self.is_persistent:
+                if self.idle_time > self.MAX_IDLE_TIME and not self.manager.running_locations:
+                    logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
+                    break
         self.exit()
 
     def _main(self):
@@ -328,13 +336,14 @@ class Master:
         start = time.time()
         got_requests = self.manager.serve_requests()
         elapsed = time.time() - start
-        if got_requests: logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
-
+        if got_requests:
+            logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
         if not (ran_anything or got_requests or self.manager.have_processable()):
             time.sleep(self.DELAY_PERIOD)
             self.idle_time += self.DELAY_PERIOD
         else:
             self.idle_time = 0.0
+
 
 class FailedToStartProcess:
     returncode = 12345
@@ -343,6 +352,7 @@ class FailedToStartProcess:
     def communicate(self, timeout=0): pass
     def terminate(self): pass
     def kill(self): pass
+
 
 class Worker:
     CHECK_PERIOD=10
@@ -415,8 +425,10 @@ class Worker:
         if p.poll() is None:
             p.terminate()
             logger.debug(f"rank {RANK} sent TERM to {self.cuteids[pk]}...waiting on shutdown")
-            try: p.wait(timeout=timeout)
-            except TimeoutExpired: p.kill()
+            try:
+                p.wait(timeout=timeout)
+            except TimeoutExpired:
+                p.kill()
 
     def _launch_proc(self, pk):
         job_spec = self.job_specs[pk]
@@ -450,8 +462,6 @@ class Worker:
 # END TODO
         # Update the affinity:
         self.job_specs[pk]['used_affinity'] = open_affinity[0:required_num_cores]
-
-
 
         out_name = f'{name}.out'
         logger.info(f"{self.log_prefix(pk)} Popen (shell={shell}):\n{args}")
@@ -535,7 +545,8 @@ class Worker:
     def start_jobs(self, msg):
         assert msg['tag'] == 'NEW'
         for pk in msg:
-            if pk == 'tag': continue
+            if pk == 'tag':
+                continue
             job_spec = msg[pk]
             self.job_specs[pk] = job_spec
             self.cuteids[pk] = job_spec['cuteid']
@@ -544,7 +555,8 @@ class Worker:
             self._launch_proc(pk)
 
     def kill_jobs(self, kill_pks):
-        for pk in kill_pks: self._cleanup_proc(pk, timeout=0)
+        for pk in kill_pks:
+            self._cleanup_proc(pk, timeout=0)
 
     def main(self):
         tag = None
@@ -573,6 +585,7 @@ class Worker:
                 comm.send(msg, dest=0)
                 logger.debug(f"rank {RANK} send done")
         self.exit()
+
 
 if __name__ == "__main__":
     if RANK == 0:
