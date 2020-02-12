@@ -49,7 +49,7 @@ The Balsam API enables a variety of scenarios beyond the independent bag-of-task
 - Program dynamic workflows: some tasks spawn or kill other tasks at runtime
 - Remotely submit workflows, track their progress, and coordinate data movement tasks
 
-## **Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
+**Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
 
 ## Existing site-wide installations
 
@@ -98,7 +98,7 @@ that PostgreSQL is in the search `PATH` and the version is up-to-date with:
 $ pg_ctl --version
 ```
 
-It's very easy to [get the PostgreSQL binaries](https://www.enterprisedb.com/download-postgresql-binaries) if you
+It's easy to [get the PostgreSQL binaries](https://www.enterprisedb.com/download-postgresql-binaries) if you
 don't already have them.  Simply adding the PostgreSQL `bin/` to your search
 PATH should be enough to use Balsam without having to bother a system
 administrator.
@@ -120,7 +120,6 @@ $ balsam submit-launch -A MyProject -q DebugQueue -t 5 -n 1 --job-mode=mpi
 $ watch balsam ls   #  follow status in realtime from command-line
 ```
 
-## **Keep reading the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
 
 ## Citing Balsam
 If you are referencing Balsam in a publication, please cite the following paper:
