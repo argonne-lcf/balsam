@@ -63,26 +63,14 @@ There are several optional fields that can be set for each BalsamJob.
 These fields can be set at run-time, during the dynamic creation of
 jobs, which gives a lot of flexibility in the way an application is run.
 
-args
-
-:   Command-line arguments passed to the application
-
-environ\_vars
-
-:   Environment variables to be set for the duration of the application
-    execution
-
-input\_files
-
-:   Which files are "staged-in" from the working directories of parent
+ - **args**:   Command-line arguments passed to the application
+ - **environ\_vars**:  Environment variables to be set for the duration of the application execution
+ - **input\_files**:  Which files are "staged-in" from the working directories of parent
     jobs. This follows the same shell file-pattern format as the
     `stage_out_files` field mentioned above. It is intended to
     facilitate data-flow from parent to child jobs in a DAG, without
     resorting to stage-out functionality.
-
-preprocess and postprocess
-
-:   You can override the default pre- and post-processing scripts which
+ - **preprocess** and **postprocess**:   You can override the default pre- and post-processing scripts which
     run before and after the application is executed. (The default
     processing scripts are defined alongside the application).
 
@@ -92,31 +80,37 @@ I want my program to wait on the completion of a job it created.
 If you need to wait for a job to finish, you can set up a polling
 function like the following:
 
-    from balsam.launcher import dag
-    import time
+```python
+from balsam.launcher import dag
+import time
 
-    def poll_until_state(job, state, timeout_sec=60.0, delay=5.0):
-        start = time.time()
-        while time.time() - start < timeout_sec:
-            time.sleep(delay)
-            job.refresh_from_db()
-            if job.state == state:
-                return True
-        return False
+def poll_until_state(job, state, timeout_sec=60.0, delay=5.0):
+    start = time.time()
+    while time.time() - start < timeout_sec:
+        time.sleep(delay)
+        job.refresh_from_db()
+        if job.state == state:
+            return True
+    return False
+```
 
 Then you can check for any state with a specified maximum waiting time
 and delay. For finished jobs, you can do:
 
+```python
     newjob = dag.add_job( ... )
     success= poll_until_state(newjob, 'JOB_FINISHED')
+```
 
 There is a convenience function for reading files in a job's working
 directory:
 
+```python
     if success:
         output = newjob.read_file_in_workdir(‘output.dat’) # contents of file in a string
+```
 
-Querying the Job database {#FAQ-Querying}
+Querying the Job database
 -------------------------
 
 You can perform complex queries on the BalsamJob database thanks to
@@ -130,40 +124,54 @@ for lots of examples, which directly apply wherever you can replace
 jobs containing "simulation" in their name, but exclude jobs that are
 already finished:
 
-    from balsam.launcher import dag
-    BalsamJob = dag.BalsamJob
-    pending_simulations = BalsamJob.objects.filter(name__contains=“simulation").exclude(state=“JOB_FINISHED”)
+```python
+from balsam.launcher import dag
+BalsamJob = dag.BalsamJob
+pending_simulations = BalsamJob.objects.filter(name__contains=“simulation").exclude(state=“JOB_FINISHED”)
+```
 
 You could count this query:
 
-    num_pending = pending_simulations.count()
+```python
+num_pending = pending_simulations.count()
+```
 
 Or iterate over the pending jobs and kill them:
 
-    for sim in pending_simulations:
-        dag.kill(sim)
+```python
+for sim in pending_simulations:
+    dag.kill(sim)
+```
 
 Useful command lines
 --------------------
 
 Create a dependency between two jobs:
 
-    balsam dep <parent> <child> # where <parent>, <child> are the first few characters of job ID
+```console
+$ balsam dep <parent> <child> # where <parent>, <child> are the first few characters of job ID
 
-    balsam ls --tree # see a tree view showing the dependencies between jobs
+$ balsam ls --tree # see a tree view showing the dependencies between jobs
+```
 
 Reset a failed job state after some changes were made:
 
-    balsam modify jobs b0e --attr state --value CREATED # where b0e is the first few characters of the job id
+```console
+$ balsam modify jobs b0e --attr state --value CREATED # where b0e is the first few characters of the job id
+```
 
 See the state history of your jobs and any error messages that were
 recorded while the job ran:
 
-    balsam ls --hist | less
+```console
+$ balsam ls --hist | less
+```
 
 Remove all jobs with substring "task"
 
-    balsam rm jobs --name task
+```console
+$ balsam rm jobs --name task
+```
 
 Useful Python scripts
 ---------------------
@@ -174,9 +182,11 @@ to **delete** all jobs that contain "master" in their name, but reset
 all jobs that start with "task" to the "CREATED" state, so they may
 run again:
 
-    import balsam.launcher.dag as dag
+```python
+import balsam.launcher.dag as dag
 
-    dag.BalsamJob.objects.filter(name__contains="master").delete()
+dag.BalsamJob.objects.filter(name__contains="master").delete()
 
-    for job in dag.BalsamJob.objects.filter(name__startswith="task"):
-        job.update_state("CREATED")
+for job in dag.BalsamJob.objects.filter(name__startswith="task"):
+    job.update_state("CREATED")
+```

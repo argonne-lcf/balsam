@@ -1,16 +1,14 @@
-NWChem: Parameter Sweep and Pre/Post-processing
-===============================================
+# NWChem: Parameter Sweep and Pre/Post-processing
 
 Even if you are not interested in Chemistry, this tutorial illustrates
 several important Balsam concepts:
 
-> -   Setting up an Application that requires several modules to run
-> -   Pre-processing to generate input files
-> -   Post-processing to parse and store calculation results
-> -   Storing JSON data with PostgreSQL
-> -   Creating a large parameter sweep-type ensemble
-> -   Adding a reduce-type (summary) job using
->     `dag.add_dependency()`{.interpreted-text role="bash"}
+  -   Setting up an Application that requires several modules to run
+  -   Pre-processing to generate input files
+  -   Post-processing to parse and store calculation results
+  -   Storing JSON data with PostgreSQL
+  -   Creating a large parameter sweep-type ensemble
+  -   Adding a reduce-type (summary) job using `dag.add_dependency()`
 
 Water HF/6-31G Potential Energy Scan
 ------------------------------------
