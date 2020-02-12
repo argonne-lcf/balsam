@@ -36,6 +36,9 @@ def config_launcher_subparser(subparser=None):
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--num-transition-threads', type=int, default=None)
     parser.add_argument('--gpus-per-node', type=int, default=None)
+    parser.add_argument('--persistent', action='store_true',
+                        help="Do not shutdown until killed or walltime limit is elapsed "
+                        "(even if there are no runable, running, or transitionable jobs).")
     return parser
 
 

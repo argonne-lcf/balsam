@@ -97,7 +97,7 @@ class MPIRun:
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
-    def __init__(self, wf_name, time_limit_minutes, gpus_per_node):
+    def __init__(self, wf_name, time_limit_minutes, gpus_per_node, persistent):
         self.jobsource = BalsamJob.source
         self.jobsource.workflow = wf_name
         if wf_name:
@@ -113,6 +113,7 @@ class MPILauncher:
         os.environ['BALSAM_JOB_MODE'] = "mpi"
 
         self.timer = remaining_time_minutes(time_limit_minutes)
+        self.is_persistent = persistent
         self.delayer = delay_generator()
         self.last_report = 0
         self.exit_counter = 0
@@ -154,26 +155,27 @@ class MPILauncher:
             EXIT_FLAG = True
             logger.info("Out of time; preparing to exit")
             return
-        if self.is_active:
-            # Reset exit counter whenever jobs are running, runable, or transitionble
-            self.exit_counter = 0
-            logger.debug("Some runs are still active; will not quit")
-            return
-        processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
-        if self.jobsource.workflow:
-            processable = processable.filter(workflow__contains=self.jobsource.workflow)
-        if processable.count() > 0:
-            self.exit_counter = 0
-            logger.debug("Some BalsamJobs are still transitionable; will not quit")
-            return
-        if self.get_runnable().count() > 0:
-            self.exit_counter = 0
-            return
-        else:
-            self.exit_counter += 1
-            logger.info(f"Nothing to do (exit counter {self.exit_counter}/10)")
-        if self.exit_counter == 10:
-            EXIT_FLAG = True
+        if not self.is_persistent:
+            if self.is_active:
+                # Reset exit counter whenever jobs are running, runable, or transitionble
+                self.exit_counter = 0
+                logger.debug("Some runs are still active; will not quit")
+                return
+            processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
+            if self.jobsource.workflow:
+                processable = processable.filter(workflow__contains=self.jobsource.workflow)
+            if processable.count() > 0:
+                self.exit_counter = 0
+                logger.debug("Some BalsamJobs are still transitionable; will not quit")
+                return
+            if self.get_runnable().count() > 0:
+                self.exit_counter = 0
+                return
+            else:
+                self.exit_counter += 1
+                logger.info(f"Nothing to do (exit counter {self.exit_counter}/10)")
+            if self.exit_counter == 10:
+                EXIT_FLAG = True
 
     def check_state(self, run):
         retcode = run.process.poll()
@@ -357,9 +359,10 @@ class MPILauncher:
 class SerialLauncher:
     MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
 
-    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None):
+    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, persistent=False):
         self.wf_name = wf_name
         self.gpus_per_node = gpus_per_node
+        self.is_persistent = persistent
 
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
@@ -370,8 +373,10 @@ class SerialLauncher:
 
         self.app_cmd = f"{sys.executable} {self.MPI_ENSEMBLE_EXE}"
         self.app_cmd += f" --time-limit-min={minutes_left}"
-        if self.wf_name: self.app_cmd += f" --wf-name={self.wf_name}"
-        if self.gpus_per_node: self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
+        if self.wf_name:
+            self.app_cmd += f" --wf-name={self.wf_name}"
+        if self.gpus_per_node:
+            self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
 
     def run(self):
         global EXIT_FLAG
@@ -424,6 +429,7 @@ def main(args):
     wf_filter = args.wf_filter
     job_mode = args.job_mode
     timelimit_min = args.time_limit_minutes
+    persistent = args.persistent
     nthread = (args.num_transition_threads if args.num_transition_threads
                else settings.NUM_TRANSITION_THREADS)
     gpus_per_node = args.gpus_per_node
@@ -435,7 +441,7 @@ def main(args):
             transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
         else:
             transition_pool = None
-        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node)
+        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node, persistent)
         launcher.run()
     except:
         raise
