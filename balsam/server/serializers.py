@@ -315,6 +315,52 @@ class TransferItemSerializer(serializers.ModelSerializer):
     destination = serializers.CharField(write_only=True)
 
 
+class NodeResourceSerializer(serializers.Serializer):
+    """
+    Launchers provide a snapshot of current resources in the call to acquire()
+    new jobs for execution:
+    {
+        "max_jobs_per_node": 1,  # determined by site and job mode
+        "max_wall_time_min": 60,
+        "running_job_counts": [0, 1, 0],
+        "node_occupancies": [0.0, 1.0, 0.0],
+        "idle_cores": [64, 63, 64],
+        "idle_gpus": [1, 0, 1],
+    }
+    """
+
+    max_jobs_per_node = serializers.IntegerField(min_value=1, max_value=256)
+    max_wall_time_min = serializers.IntegerField(min_value=0)
+    running_job_counts = serializers.ListField(
+        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
+    )
+    node_occupancies = serializers.ListField(
+        allow_empty=False, child=serializers.FloatField(min_value=0.0, max_value=1.0)
+    )
+    idle_cores = serializers.ListField(
+        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
+    )
+    idle_gpus = serializers.ListField(
+        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
+    )
+
+    def validate(self, data):
+        num_nodes_set = set(
+            map(
+                len,
+                data["running_job_counts"],
+                data["node_occupancies"],
+                data["idle_cores"],
+                data["idle_gpus"],
+            )
+        )
+        if len(num_nodes_set) != 1:
+            raise ValidationError(
+                "All lists must have the same length equal to the number of nodes."
+            )
+        return data
+
+
 class JobSerializer(BulkModelSerializer):
     class Meta:
         model = Job

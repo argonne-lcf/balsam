@@ -226,8 +226,6 @@ class JobManager(models.Manager):
         lock,
         filter_tags=None,
         max_num_acquire=1000,
-        max_nodes=None,
-        max_time_min=None,
         node_resources=None,
         order_by=(),
     ):
@@ -250,11 +248,6 @@ class JobManager(models.Manager):
             .filter(state__in=states)
             .filter(tags__contains=filter_tags)  # Job.keys contains all k:v pairs
         )
-
-        if max_nodes is not None:
-            qs = qs.filter(num_nodes__lte=max_nodes)
-        if max_time_min is not None:
-            qs = qs.filter(wall_time_min__lte=max_time_min)
 
         if node_resources is None:
             qs = self._lock_for_acquire(qs).order_by(*order_by)[:max_num_acquire]
@@ -280,14 +273,87 @@ class JobManager(models.Manager):
         return queryset
 
     def _pre_assign(self, ordered_qs, node_resources, max_num_acquire):
-        # iterate over qs and pre-assign jobs (a la launcher)
-        # resource constraint includes a max_jobs_per_node
-        # if 1, then cannot pack multiple jobs per node
-        # stop when hitting max_num_acquire
-        node_resources = {
-            "max_jobs_per_node": 1,
-        }
-        return node_resources, ordered_qs
+        """
+        Iterate `ordered_qs` (a la launcher) to pre-assign jobs for
+        execution, according to the launcher client's `node_resources` constraints.
+        A reasonable ordering is: (-num_nodes, -wall_time_minutes, node_packing_count)
+        No more than `max_num_acquire` jobs will be selected.
+        """
+        max_wall_time_min = node_resources.pop("max_wall_time_min")
+        ordered_qs = ordered_qs.filter(wall_time_min__lte=max_wall_time_min)
+
+        resources = NodeResources(**node_resources)
+        max_nodes = resources.num_available_nodes()
+        ordered_qs = ordered_qs.filter(num_nodes__lte=max_nodes)
+        placed_jobs = []
+
+        for job in ordered_qs:
+            assigned_nodes = resources.attempt_assign(job)
+            if assigned_nodes:
+                job.assigned_nodes = assigned_nodes
+                placed_jobs.append(job)
+
+                if len(placed_jobs) >= max_num_acquire:
+                    break
+                if resources.num_available_nodes() < 1:
+                    break
+
+        return placed_jobs
+
+
+class NodeResources(object):
+    def __init__(
+        self,
+        max_jobs_per_node,
+        running_job_counts,
+        node_occupancies,
+        idle_cores,
+        idle_gpus,
+    ):
+        self.max_jobs_per_node = max_jobs_per_node
+        self.running_job_counts = running_job_counts
+        self.node_occupancies = node_occupancies
+        self.idle_cores = idle_cores
+        self.idle_gpus = idle_gpus
+        self.num_nodes = len(self.running_job_counts)
+        assert (
+            self.num_nodes == len(idle_cores) == len(idle_gpus) == len(node_occupancies)
+        )
+
+    def num_available_nodes(self):
+        return sum(
+            bool(node_job_count < self.max_jobs_per_node)
+            for node_job_count in self.running_job_counts
+        )
+
+    def attempt_assign(self, job):
+        required_num_nodes = int(job.num_nodes)
+        num_cores = job.ranks_per_node * job.threads_per_rank / job.threads_per_core
+        num_gpus = job.ranks_per_node * job.gpus_per_rank
+        occ = 1.0 / job.node_packing_count
+
+        eligible_nodes = []
+        for node_idx in range(self.num_nodes):
+            if self.running_job_counts[node_idx] >= self.max_jobs_per_node:
+                continue
+            if self.idle_cores[node_idx] < num_cores:
+                continue
+            if self.idle_gpus[node_idx] < num_gpus:
+                continue
+            if occ + self.node_occupancies[node_idx] > 1.0001:
+                continue
+            eligible_nodes.append(node_idx)
+            if len(eligible_nodes) == required_num_nodes:
+                self._do_assign(self, eligible_nodes, num_cores, num_gpus, occ)
+                return eligible_nodes
+        return []
+
+    def _do_assign(self, node_indices, num_cores, num_gpus, occ):
+        for idx in node_indices:
+            self.running_job_counts[idx] += 1
+            self.idle_cores[idx] -= num_cores
+            self.idle_gpus[idx] -= num_gpus
+            self.node_occupancies[idx] += occ
 
 
 class Job(models.Model):
