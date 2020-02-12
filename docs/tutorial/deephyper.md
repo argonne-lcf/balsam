@@ -16,7 +16,7 @@ benchmark model and MNIST data.
 
 ``` {.bash}
 # Create a new workspace with a Balsam DB
-$ module load deephyper
+$ module load deephyper/0.0.6
 $ rm -r ~/.balsam # reset default settings (for now)
 $ mkdir ~/dh-tutorial
 $ cd ~/dh-tutorial
