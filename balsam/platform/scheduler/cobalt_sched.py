@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 def parse_cobalt_time_minutes(t_str):
     try:
         H, M, S = map(int, t_str.split(":"))
-    except ValueError:
+    except:
         return 0
     else:
         return H * 60 + M + round(S / 60)
@@ -18,7 +18,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     status_exe = "qstat"
     submit_exe = "qsub"
     delete_exe = "qdel"
-    nodelist_exe = "nodelist"
+    backfill_exe = "nodelist"
 
     # maps scheduler states to Balsam states
     job_states = {
@@ -100,7 +100,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             "id": lambda id: int(id),
             "state": CobaltScheduler._node_state_map,
             "queues": lambda x: x.split(":"),
-            "backfill_time": lambda x: parse_cobalt_time_minutes(x),
+            "backfill_time_min": lambda x: parse_cobalt_time_minutes(x),
         }
         return nodelist_field_map.get(balsam_field, lambda x: x)
 
@@ -142,7 +142,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return [self.delete_exe, str(job_id)]
 
     def _render_backfill_args(self):
-        return [self.nodelist_exe]
+        return [self.backfill_exe]
 
     def _parse_submit_output(self, submit_output):
         try:
@@ -156,28 +156,30 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         status_dict = {}
         job_lines = raw_output.split("\n")[2:]
         for line in job_lines:
+            if len(line.strip()) == 0: continue
             job_stat = self._parse_status_line(line)
             if job_stat:
-                id = int(job_stat["id"])
+                id = int(job_stat.id)
                 status_dict[id] = job_stat
         return status_dict
 
     def _parse_status_line(self, line):
-        status = JobStatus()
         fields = line.split()
         if len(fields) != len(self.status_fields):
-            return status
+            return JobStatus()
 
+        status = {}
         for name, value in zip(self.status_fields, fields):
             func = self._status_field_map(name)
             status[name] = func(value)
-        return status
+        return JobStatus(**status)
 
     def _parse_backfill_output(self, stdout):
         raw_lines = stdout.split("\n")
         nodelist = []
         node_lines = raw_lines[2:]
         for line in node_lines:
+            if len(line.strip()) == 0: continue
             line_dict = self._parse_nodelist_line(line)
             if line_dict["backfill_time_min"] > 0 and line_dict["state"] == "idle":
                 nodelist.append(line_dict)
@@ -192,7 +194,6 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         fields = line.split()
         if len(fields) != len(self.nodelist_fields):
             return status
-
         for name, value in zip(self.nodelist_fields, fields):
             func = CobaltScheduler._nodelist_field_map(name)
             status[name] = func(value)
@@ -209,9 +210,10 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             for queue in queues:
                 if queue in windows:
                     found_self = False
-                    for window in windows[queue]:
+                    for i,window in enumerate(windows[queue]):
                         if bf_time >= window.backfill_time_min:
-                            window.nodes += 1
+                            windows[queue][i] = BackfillWindow(num_nodes=window.num_nodes+1,
+                                                               backfill_time_min=window.backfill_time_min)
                         if bf_time == window.backfill_time_min:
                             found_self = True
                     if not found_self:
