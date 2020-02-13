@@ -38,7 +38,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     status_exe = "squeue"
     submit_exe = "sbatch"
     delete_exe = "scancel"
-    nodelist_exe = "sinfo"
+    backfill_exe = "sinfo"
     default_submit_kwargs = {}
     submit_kwargs_flag_map = {}
 
@@ -212,10 +212,10 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _render_delete_args(self, job_id):
         return [self.delete_exe, str(job_id)]
 
-    def _render_nodelist_args(self):
-        return [self.nodelist_exe]
+    def _render_backfill_args(self):
+        return [self.backfill_exe]
 
-    def _parse_submit_output(self, submit_output):
+    def _parse_backfill_output(self, submit_output):
         try:
             scheduler_id = int(submit_output)
         except ValueError:
