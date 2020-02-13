@@ -197,7 +197,7 @@ class JobManager(models.Manager):
                 direction=dat["direction"],
                 source=dat["source"],
                 destination=dat["destination"],
-                job=self,
+                job=job,
             )
 
         job.reset_backend()

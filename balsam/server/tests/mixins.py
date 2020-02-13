@@ -126,4 +126,7 @@ class JobFactoryMixin:
     def create_jobs(self, new_jobs, client=None, check=status.HTTP_201_CREATED):
         if client is None:
             client = self.client
+        if isinstance(new_jobs, dict):
+            new_jobs = [new_jobs]
+            return client.bulk_post_data("job-list", new_jobs, check=check)[0]
         return client.bulk_post_data("job-list", new_jobs, check=check)

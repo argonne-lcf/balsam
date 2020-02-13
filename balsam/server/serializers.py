@@ -377,10 +377,10 @@ class JobSerializer(BulkModelSerializer):
         read_only=True, source="app_exchange.name"
     )
     site = serializers.StringRelatedField(
-        read_only=True, source="app_backend.site.__str__"
+        default=None, allow_null=True, read_only=True, source="app_backend.site.__str__"
     )
     app_class = serializers.StringRelatedField(
-        read_only=True, source="app_backend.class_name"
+        default=None, allow_null=True, read_only=True, source="app_backend.class_name"
     )
 
     transfer_items = TransferItemSerializer(many=True, allow_empty=True)

@@ -1,6 +1,7 @@
 """APIClient-driven tests"""
+import uuid
 from rest_framework import status
-from balsam.server.models import User
+from balsam.server.models import User, Site, AppBackend
 
 from .mixins import (
     SiteFactoryMixin,
@@ -32,14 +33,16 @@ class JobTests(
         self.default_app = self.create_app(sites=self.site, cls_names="DemoApp.hello",)
 
     def assertHistory(self, job, *states):
-        eventlog = self.client.get_data(
+        response = self.client.get_data(
             "job-event-list", uri={"job_id": job["pk"]}, check=status.HTTP_200_OK
         )
-        self.assertEqual(eventlog["count"], len(states) - 1)
+        self.assertEqual(response["count"], len(states) - 1)
+        eventlog = response["results"]
+
         for i, (from_state, to_state) in enumerate(zip(states[:-1], states[1:])):
-            self.assertDictContainsSubset(
-                {"from_state": from_state, "to_state": to_state}, eventlog["results"][i]
-            )
+            expected_dict = {"from_state": from_state, "to_state": to_state}
+            actual = {key: eventlog[i][key] for key in ("from_state", "to_state")}
+            self.assertDictEqual(expected_dict, actual, msg=actual)
 
     def test_add_job(self):
         """One backend, no parents, no transfers: straight to STAGED_IN"""
@@ -75,14 +78,53 @@ class JobTests(
         self.assertIn("missing parameters", str(response))
 
     def test_added_job_with_parents_is_AWAITING(self):
-        pass
+        parent = self.create_jobs(self.job_dict())
+        child = self.create_jobs(self.job_dict(parents=[parent["pk"]]))
+        self.assertEqual(parent["state"], "STAGED_IN")
+        self.assertEqual(child["state"], "AWAITING_PARENTS")
+
+    def test_add_job_with_bad_globus_uuids(self):
+        """Validate stage-in and stage-out items"""
+        job_spec = self.job_dict(
+            transfers=[
+                dict(
+                    source="globus://afaf/path/to/x", destination="./x2", direction="in"
+                )
+            ]
+        )
+        response = self.create_jobs(job_spec, check=status.HTTP_400_BAD_REQUEST)
+        self.assertIn("badly formed hexadecimal UUID string", response)
 
     def test_add_job_with_transfers_is_READY(self):
-        """Validate stage-in and stage-out items"""
-        pass
+        """Ready and bound to backend"""
+        gid = uuid.uuid4()
+        job_spec = self.job_dict(
+            transfers=[
+                dict(
+                    source=f"globus://{gid}/path/to/x",
+                    destination="./x2",
+                    direction="in",
+                )
+            ]
+        )
+        job = self.create_jobs(job_spec, check=status.HTTP_201_CREATED)
+        self.assertEqual(job["state"], "READY")
+        self.assertEqual(job["site"], str(Site.objects.first()))
+        self.assertEqual(job["app_class"], AppBackend.objects.first().class_name)
 
     def test_add_job_with_two_backends_is_READY(self):
-        pass
+        site1 = self.create_site(hostname="siteX")
+        site2 = self.create_site(hostname="siteY")
+        two_backend_app = self.create_app(
+            sites=[site1, site2], cls_names=["demo.Hello", "demo.Hello"], name="Demo"
+        )
+        job_spec = self.job_dict(app=two_backend_app)
+        job = self.create_jobs(job_spec, check=status.HTTP_201_CREATED)
+        self.assertEqual(job["state"], "READY")
+
+        # site & app_class of None signify job is unbound
+        self.assertEqual(job["site"], None)
+        self.assertEqual(job["app_class"], None)
 
     def test_cannot_create_job_with_invalid_resources(self):
         pass
