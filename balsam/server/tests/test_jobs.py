@@ -60,18 +60,16 @@ class JobTests(
         jobs = [
             self.job_dict(
                 app=self.default_app,
-                parameters={"name": "foo", "N": i, "Name1": 99},
-                workdir=f"test/{i}",
+                parameters={"name": "foo", "N": 0, "Name1": 99},
+                workdir=f"test/0",
             )
-            for i in range(1)
         ]
         response = self.create_jobs(jobs, check=status.HTTP_400_BAD_REQUEST)
         self.assertIn("extraneous parameters", str(response))
         jobs = [
             self.job_dict(
-                app=self.default_app, parameters={"name": "foo"}, workdir=f"test/{i}",
+                app=self.default_app, parameters={"name": "foo"}, workdir=f"test/0",
             )
-            for i in range(1)
         ]
         response = self.create_jobs(jobs, check=status.HTTP_400_BAD_REQUEST)
         self.assertIn("missing parameters", str(response))
@@ -109,6 +107,9 @@ class JobTests(
     def test_update_to_running_does_not_release_lock(self):
         pass
 
+    def test_update_to_run_done_releases_lock_but_not_batch_job(self):
+        pass
+
     def test_can_set_data_and_return_code_on_locked_job(self):
         pass
 
@@ -122,10 +123,13 @@ class JobTests(
     def test_tick_heartbeat_extends_expiration(self):
         pass
 
+    def test_tick_heartbeat_clears_expired_locks(self):
+        pass
+
     def test_view_session_list(self):
         pass
 
-    def test_delete_session(self):
+    def test_delete_session_frees_lock_on_all_jobs(self):
         pass
 
     def test_update_transfer_items_on_locked_job(self):
@@ -143,6 +147,9 @@ class JobTests(
         pass
 
     def test_filter_jobs_by_state(self):
+        pass
+
+    def test_can_traverse_dag(self):
         pass
 
     # Viewing State History

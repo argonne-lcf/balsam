@@ -1,3 +1,5 @@
+import os
+from django.test import LiveServerTestCase
 from rest_framework.test import APITestCase, APIClient
 from rest_framework.reverse import reverse
 from .util import pretty_data
@@ -119,3 +121,11 @@ class TwoUserTestCase(APITestCase):
         self.client1.login(username="user1", password="abc")
         self.client2 = BalsamAPIClient(self)
         self.client2.login(username="user2", password="123")
+
+
+class BalsamClientFT(LiveServerTestCase):
+    def setUp(self):
+        return
+        staging_server = os.environ.get("BALSAM_STAGING_SERVER")
+        if staging_server:
+            self.live_server_url = "http://" + staging_server
