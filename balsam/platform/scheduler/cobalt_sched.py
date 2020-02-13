@@ -1,4 +1,4 @@
-from .scheduler import SubprocessSchedulerInterface
+from .scheduler import SubprocessSchedulerInterface, JobStatus, BackfillWindow
 import os
 import logging
 
@@ -60,7 +60,6 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             "time_remaining_min": parse_cobalt_time_minutes,
             "wall_time_min": parse_cobalt_time_minutes,
             "state": CobaltScheduler._job_state_map,
-            "backfill_time": parse_cobalt_time_minutes,
         }
         return status_field_map.get(balsam_field, lambda x: x)
 
@@ -90,7 +89,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         "state": "Status",
         "mem": "MCDRAM",
         "numa": "NUMA",
-        "backfill_time": "Backfill",
+        "backfill_time_min": "Backfill",
     }
 
     # when reading these fields from the scheduler apply
@@ -99,8 +98,8 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     def _nodelist_field_map(balsam_field):
         nodelist_field_map = {
             "id": lambda id: int(id),
-            "queues": lambda q: q.split(":"),
             "state": CobaltScheduler._node_state_map,
+            "queues": lambda x: x.split(":"),
             "backfill_time": lambda x: parse_cobalt_time_minutes(x),
         }
         return nodelist_field_map.get(balsam_field, lambda x: x)
@@ -142,7 +141,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     def _render_delete_args(self, job_id):
         return [self.delete_exe, str(job_id)]
 
-    def _render_nodelist_args(self):
+    def _render_backfill_args(self):
         return [self.nodelist_exe]
 
     def _parse_submit_output(self, submit_output):
@@ -164,7 +163,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return status_dict
 
     def _parse_status_line(self, line):
-        status = {}
+        status = JobStatus()
         fields = line.split()
         if len(fields) != len(self.status_fields):
             return status
@@ -172,19 +171,21 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         for name, value in zip(self.status_fields, fields):
             func = self._status_field_map(name)
             status[name] = func(value)
-
         return status
 
-    def _parse_nodelist_output(self, stdout):
+    def _parse_backfill_output(self, stdout):
         raw_lines = stdout.split("\n")
-        nodelist = {}
+        nodelist = []
         node_lines = raw_lines[2:]
         for line in node_lines:
-            node_stat = self._parse_nodelist_line(line)
-            if node_stat:
-                id = str(node_stat["id"])
-                nodelist[id] = node_stat
-        return nodelist
+            line_dict = self._parse_nodelist_line(line)
+            if line_dict["backfill_time_min"] > 0 and line_dict["state"] == "idle":
+                nodelist.append(line_dict)
+
+        nodelist = sorted(nodelist, key=lambda i: i["backfill_time_min"])
+
+        windows = self._parse_nodelist(nodelist)
+        return windows
 
     def _parse_nodelist_line(self, line):
         status = {}
@@ -197,3 +198,29 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             status[name] = func(value)
 
         return status
+
+    def _parse_nodelist(self, nodelist):
+        windows = {}
+
+        for entry in nodelist:
+            bf_time = entry["backfill_time_min"]
+            queues = entry["queues"]
+
+            for queue in queues:
+                if queue in windows:
+                    found_self = False
+                    for window in windows[queue]:
+                        if bf_time >= window.backfill_time_min:
+                            window.nodes += 1
+                        if bf_time == window.backfill_time_min:
+                            found_self = True
+                    if not found_self:
+                        windows[queue].append(
+                            BackfillWindow(num_nodes=1, backfill_time_min=bf_time)
+                        )
+                else:
+                    windows[queue] = [
+                        BackfillWindow(num_nodes=1, backfill_time_min=bf_time)
+                    ]
+
+        return windows
