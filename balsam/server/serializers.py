@@ -327,6 +327,7 @@ class JobSerializer(BulkModelSerializer):
     class Meta:
         model = Job
         fields = (
+            "pk",
             "workdir",
             "tags",
             "owner",
@@ -406,6 +407,9 @@ class JobSerializer(BulkModelSerializer):
         diff = app_params.difference(params.keys())
         if diff:
             raise ValidationError(f'Job is missing parameters: {", ".join(diff)}')
+        diff = set(params.keys()).difference(app_params)
+        if diff:
+            raise ValidationError(f'Job has extraneous parameters: {", ".join(diff)}')
         return data
 
     def validate_workdir(self, value):

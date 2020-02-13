@@ -257,7 +257,7 @@ class EventList(generics.ListAPIView):
         qs = EventLog.objects.filter(job__owner=self.request.user)
         job_id = self.kwargs.get("job_id")
         if job_id is not None:
-            qs = qs.filter(job=job_id)
+            qs = qs.filter(job=job_id).order_by("timestamp")
         return qs
 
 
