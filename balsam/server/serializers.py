@@ -8,8 +8,10 @@ from balsam.server.models import (
     SiteStatus,
     BatchJob,
     Job,
+    JobLock,
     TransferItem,
     EventLog,
+    JOB_STATE_CHOICES,
 )
 from .bulk_serializer import CachedPrimaryKeyRelatedField, BulkModelSerializer
 
@@ -301,7 +303,14 @@ class EventLogSerializer(serializers.HyperlinkedModelSerializer):
 class TransferItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransferItem
-        fields = ("state", "direction", "task_id", "status_message")
+        fields = (
+            "state",
+            "direction",
+            "task_id",
+            "status_message",
+            "source",
+            "destination",
+        )
         read_only_fields = (
             "protocol",
             "remote_netloc",
@@ -309,56 +318,9 @@ class TransferItemSerializer(serializers.ModelSerializer):
             "destination_path",
             "job",
         )
-        write_only_fields = ("source", "destination")
 
     source = serializers.CharField(write_only=True)
     destination = serializers.CharField(write_only=True)
-
-
-class NodeResourceSerializer(serializers.Serializer):
-    """
-    Launchers provide a snapshot of current resources in the call to acquire()
-    new jobs for execution:
-    {
-        "max_jobs_per_node": 1,  # determined by site and job mode
-        "max_wall_time_min": 60,
-        "running_job_counts": [0, 1, 0],
-        "node_occupancies": [0.0, 1.0, 0.0],
-        "idle_cores": [64, 63, 64],
-        "idle_gpus": [1, 0, 1],
-    }
-    """
-
-    max_jobs_per_node = serializers.IntegerField(min_value=1, max_value=256)
-    max_wall_time_min = serializers.IntegerField(min_value=0)
-    running_job_counts = serializers.ListField(
-        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
-    )
-    node_occupancies = serializers.ListField(
-        allow_empty=False, child=serializers.FloatField(min_value=0.0, max_value=1.0)
-    )
-    idle_cores = serializers.ListField(
-        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
-    )
-    idle_gpus = serializers.ListField(
-        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
-    )
-
-    def validate(self, data):
-        num_nodes_set = set(
-            map(
-                len,
-                data["running_job_counts"],
-                data["node_occupancies"],
-                data["idle_cores"],
-                data["idle_gpus"],
-            )
-        )
-        if len(num_nodes_set) != 1:
-            raise ValidationError(
-                "All lists must have the same length equal to the number of nodes."
-            )
-        return data
 
 
 class JobSerializer(BulkModelSerializer):
@@ -519,3 +481,112 @@ class BatchJobSerializer(BulkModelSerializer):
         if value < 1:
             raise ValidationError("num_nodes must be greater than 0")
         return value
+
+
+class SessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobLock
+        fields = ("heartbeat", "label", "site", "batch_job")
+
+    def create(self, validated_data):
+        return JobLock.objects.create(
+            site=validated_data["site"],
+            label=validated_data["label"],
+            batch_job=validated_data["batch_job"],
+        )
+
+    def update(self, instance, validated_data):
+        """Only ticks lock"""
+        instance.save(update_fields=["heartbeat"])
+        return instance
+
+
+class NodeResourceSerializer(serializers.Serializer):
+    """
+    Launchers provide a snapshot of current resources in the call to acquire()
+    new jobs for execution:
+    {
+        "max_jobs_per_node": 1,  # determined by site and job mode
+        "max_wall_time_min": 60,
+        "running_job_counts": [0, 1, 0],
+        "node_occupancies": [0.0, 1.0, 0.0],
+        "idle_cores": [64, 63, 64],
+        "idle_gpus": [1, 0, 1],
+    }
+    """
+
+    max_jobs_per_node = serializers.IntegerField(min_value=1, max_value=256)
+    max_wall_time_min = serializers.IntegerField(min_value=0)
+    running_job_counts = serializers.ListField(
+        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
+    )
+    node_occupancies = serializers.ListField(
+        allow_empty=False, child=serializers.FloatField(min_value=0.0, max_value=1.0)
+    )
+    idle_cores = serializers.ListField(
+        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
+    )
+    idle_gpus = serializers.ListField(
+        allow_empty=False, child=serializers.IntegerField(min_value=0, max_value=256)
+    )
+
+    def validate(self, data):
+        num_nodes_set = set(
+            map(
+                len,
+                data["running_job_counts"],
+                data["node_occupancies"],
+                data["idle_cores"],
+                data["idle_gpus"],
+            )
+        )
+        if len(num_nodes_set) != 1:
+            raise ValidationError(
+                "All lists must have the same length equal to the number of nodes."
+            )
+        return data
+
+
+class JobAcquireSerializer(serializers.Serializer):
+    acquire_unbound = serializers.BooleanField()
+    states = serializers.MultipleChoiceField(choices=JOB_STATE_CHOICES)
+    max_num_acquire = serializers.IntegerField(min_value=0, max_value=10_000)
+    filter_tags = serializers.DictField(
+        child=serializers.CharField(max_length=32),
+        allow_empty=True,
+        required=False,
+        default=None,
+    )
+    node_resources = NodeResourceSerializer(required=False, default=None)
+    order_by = serializers.ListField(
+        allow_empty=True,
+        child=serializers.CharField(max_length=32),
+        required=False,
+        default=(),
+    )
+
+    def to_representation(self, acquired_jobs):
+        """Re-use JobSerializer for Response: the acquired jobs"""
+        serializer = JobSerializer(
+            acquired_jobs, many=True, context={"request": self.context["request"]}
+        )
+        return serializer.data
+
+    def create(self, validated_data):
+        return Job.objects.acquire(**validated_data)
+
+    def update(self, instance, validated_data):
+        raise NotImplementedError("This serializer is only hit by POST")
+
+    def validate_order_by(self, value):
+        order_fields = [
+            "num_nodes",
+            "node_packing_count",
+            "wall_time_min",
+        ]
+        order_fields.extend("-" + f for f in order_fields)
+        for field in value:
+            if field not in order_fields:
+                raise ValidationError(
+                    f"Invalid order_by field: {field}. Must choose from: {order_fields}"
+                )

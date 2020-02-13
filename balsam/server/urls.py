@@ -17,11 +17,14 @@ from .views.main import (
     JobList,
     JobDetail,
     EventList,
+    SessionList,
+    SessionDetail,
 )
 
 schema_view = get_schema_view(title="Balsam API")
 
 urlpatterns = [
+    # Auth & Users
     path("", api_root, name="api-root"),
     path("schema", schema_view),
     path(r"login", LoginView.as_view(), name="knox-login"),
@@ -30,11 +33,13 @@ urlpatterns = [
     path(r"api-auth/", include("rest_framework.urls")),
     path("users/", UserList.as_view(), name="user-list"),
     path("users/<int:pk>", UserDetail.as_view(), name="user-detail"),
+    # Sites & Apps
     path("sites/", SiteList.as_view(), name="site-list"),
     path("sites/<int:pk>", SiteDetail.as_view(), name="site-detail"),
     path("apps/", AppList.as_view(), name="app-list"),
     path("apps/<int:pk>", AppDetail.as_view(), name="app-detail"),
     path("apps/merge", AppMerge.as_view(), name="app-merge"),
+    # Batch Jobs
     path("batchjobs/", BatchJobList.as_view(), name="batchjob-list"),
     path("batchjobs/<int:pk>", BatchJobDetail.as_view(), name="batchjob-detail"),
     path(
@@ -42,7 +47,12 @@ urlpatterns = [
         JobList.as_view(),
         name="batchjob-ensemble-list",
     ),
+    # Jobs, Associated EventLogs & Tranfsers
     path("jobs/", JobList.as_view(), name="job-list"),
     path("jobs/<int:pk>", JobDetail.as_view(), name="job-detail"),
     path("jobs/<int:job_id>/events", EventList.as_view(), name="job-event-list"),
+    path("events/", EventList.as_view(), name="event-list"),
+    # Job-processing Sessions
+    path("sessions/", SessionList.as_view(), name="session-list"),
+    path("sessions/<int:pk>", SessionDetail.as_view(), name="session-detail"),
 ]

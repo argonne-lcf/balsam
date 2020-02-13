@@ -5,6 +5,8 @@ from rest_framework import generics, permissions
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
+from rest_framework.response import Response
+from rest_framework import status
 from rest_framework import filters as drf_filters
 from rest_framework.authentication import BasicAuthentication
 
@@ -15,7 +17,7 @@ from .bulk import (
     ListSingleCreateBulkUpdateAPIView,
     ListBulkCreateBulkUpdateBulkDestroyAPIView,
 )
-from balsam.server.models import Site, AppExchange, Job, BatchJob, EventLog
+from balsam.server.models import Site, AppExchange, Job, BatchJob, EventLog, JobLock
 
 User = get_user_model()
 
@@ -249,6 +251,7 @@ class EventList(generics.ListAPIView):
     serializer_class = ser.EventLogSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = BalsamPaginator
+    # TODO: enable filters on sites, tags, date ranges
 
     def get_queryset(self):
         qs = EventLog.objects.filter(job__owner=self.request.user)
@@ -256,3 +259,29 @@ class EventList(generics.ListAPIView):
         if job_id is not None:
             qs = qs.filter(job=job_id)
         return qs
+
+
+class SessionList(generics.ListCreateAPIView):
+    queryset = JobLock.objects.all()
+    serializer_class = ser.SessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return JobLock.objects.filter(site__owner=self.request.user)
+
+
+class SessionDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = JobLock.objects.all()
+    serializer_class = ser.SessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return JobLock.objects.filter(site__owner=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        """acquire()"""
+        lock_instance = self.get_object()
+        serializer = ser.JobAcquireSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(lock=lock_instance)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

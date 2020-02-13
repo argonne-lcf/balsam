@@ -84,8 +84,8 @@ class EventLog(models.Model):
 class JobLockManager(models.Manager):
     EXPIRATION_PERIOD = timedelta(minutes=3)
 
-    def create(self, site, label):
-        lock = JobLock(site=site, label=label)
+    def create(self, site, label, batch_job):
+        lock = JobLock(site=site, label=label, batch_job=batch_job)
         lock.save()
         return lock
 
@@ -100,8 +100,11 @@ class JobLockManager(models.Manager):
 class JobLock(models.Model):
     objects = JobLockManager()
     heartbeat = models.DateTimeField(auto_now=True)
-    label = models.CharField(max_length=64)
+    label = models.CharField(blank=True, default="", max_length=64)
     site = models.ForeignKey("Site", on_delete=models.CASCADE)
+    batch_job = models.ForeignKey(
+        "BatchJob", blank=True, null=True, default=None, on_delete=models.SET_NULL
+    )
 
     def tick(self):
         self.save(update_fields=["heartbeat"])
@@ -220,15 +223,15 @@ class JobManager(models.Manager):
     @transaction.atomic
     def acquire(
         self,
-        site,
+        lock,
         acquire_unbound,
         states,
-        lock,
+        max_num_acquire,
         filter_tags=None,
-        max_num_acquire=1000,
         node_resources=None,
         order_by=(),
     ):
+        site = lock.site
         already_bound = Q(app_backend__site=site)
         eligible_to_bind = Q(app_exchange__backends__site=site)
 
@@ -264,8 +267,8 @@ class JobManager(models.Manager):
         """
         for job in queryset:
             job.lock = lock
-            if lock.batch_job is not None:
-                job.batch_job = lock.batch_job
+            if lock.batch_job_id is not None:
+                job.batch_job_id = lock.batch_job_id
             if job.app_backend is None:
                 backend = job.app_exchange.backends.get(site=lock.site)
                 job.app_backend = backend
