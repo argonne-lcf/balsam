@@ -1,9 +1,13 @@
 import shlex
+from pathlib import Path
+import subprocess
+import time
 
 
 class MPIRun(object):
 
     launch_command = "mpiexec"
+    START_DELAY = 0.01
 
     def __init__(
         self,
@@ -52,6 +56,50 @@ class MPIRun(object):
     def render_args(self):
         launch_args = [str(a) for a in self.get_launch_args()]
         return [self.launch_command] + launch_args + self.app_args
+
+    def start(self, cwd, outfile):
+        cwd = Path(cwd)
+        outfile = cwd.joinpath(outfile)
+        if not cwd.is_dir():
+            raise ValueError(f"{cwd} is not a valid working directory")
+
+        args = self.render_args()
+        self._outfile = open(outfile, "wb")
+        self._process = subprocess.Popen(
+            args,
+            shell=False,
+            stdout=self._outfile,
+            stderr=subprocess.STDOUT,
+            env=self.env,
+            cwd=cwd,
+        )
+        time.sleep(self.START_DELAY)
+
+    def poll(self):
+        return self._process.poll()
+
+    def terminate(self):
+        """Send SIGTERM"""
+        self._process.terminate()
+
+    def kill(self):
+        """Send SIGKILL and close outfile"""
+        self._process.kill()
+        self._outfile.close()
+
+    def wait(self, timeout=None):
+        """
+        Wait up to `timeout` seconds for process to end.
+        If ended, close outfile and return return_code.
+        Otherwise, leave outfile open and return None
+        """
+        try:
+            return_code = self._process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return None
+        else:
+            self._outfile.close()
+            return return_code
 
     def get_launch_args(self):
         return []

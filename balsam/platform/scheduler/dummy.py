@@ -1,4 +1,4 @@
-from .scheduler import SubprocessSchedulerInterface
+from .scheduler import SubprocessSchedulerInterface, JobStatus, BackfillWindow
 
 
 def parse_time_minutes(t_str):
@@ -24,7 +24,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
     status_exe = "echo"
     submit_exe = "bash"
     delete_exe = "echo"
-    nodelist_exe = "echo"
+    backfill_exe = "echo"
 
     # maps scheduler states to Balsam states
     # the keys of this dictionary should
@@ -69,7 +69,6 @@ class DummyScheduler(SubprocessSchedulerInterface):
             "time_remaining_min": parse_time_minutes,
             "wall_time_min": parse_time_minutes,
             "state": DummyScheduler._job_state_map,
-            "backfill_time": lambda x: parse_backfill_time(x),
         }
         return status_field_map.get(balsam_field, lambda x: x)
 
@@ -173,21 +172,21 @@ class DummyScheduler(SubprocessSchedulerInterface):
         for line in job_lines:
             job_stat = self._parse_status_line(line)
             if job_stat:
-                id = int(job_stat["id"])
+                id = int(job_stat.id)
                 status_dict[id] = job_stat
         return status_dict
 
     def _parse_status_line(self, line):
-        status = {}
         fields = line.split()
         if len(fields) != len(self.status_fields):
-            return status
+            return JobStatus()
 
+        status = {}
         for name, value in zip(self.status_fields, fields):
             func = DummyScheduler._status_field_map(name)
             status[name] = func(value)
 
-        return status
+        return JobStatus(**status)
 
     def _render_delete_args(self, job_id):
         args = [
@@ -197,32 +196,25 @@ class DummyScheduler(SubprocessSchedulerInterface):
 
         return args
 
-    def _render_nodelist_args(self):
+    def _render_backfill_args(self):
         args = [
-            self.nodelist_exe,
+            self.backfill_exe,
             self._nodelist_output,
         ]
         return args
 
-    def _parse_nodelist_output(self, stdout):
-        raw_lines = stdout.split("\n")
-        nodelist = {}
-        node_lines = raw_lines[2:]
-        for line in node_lines:
-            node_stat = self._parse_nodelist_line(line)
-            if node_stat:
-                id = str(node_stat["id"])
-                nodelist[id] = node_stat
-        return nodelist
+    def _parse_backfill_output(self, stdout):
+        # parse stdout here
 
-    def _parse_nodelist_line(self, line):
-        status = {}
-        fields = line.split()
-        if len(fields) != len(self.nodelist_fields):
-            return status
-
-        for name, value in zip(self.nodelist_fields, fields):
-            func = DummyScheduler._nodelist_field_map(name)
-            status[name] = func(value)
-
-        return status
+        # build example output dictionary
+        windows = {
+            "default_queue": [
+                BackfillWindow(num_nodes=5, backfill_time_min=60),
+                BackfillWindow(num_nodes=15, backfill_time_min=45),
+            ],
+            "debug_queue": [
+                BackfillWindow(num_nodes=1, backfill_time_min=60),
+                BackfillWindow(num_nodes=3, backfill_time_min=20),
+            ],
+        }
+        return windows

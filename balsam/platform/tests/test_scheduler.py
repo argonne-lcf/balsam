@@ -11,7 +11,7 @@ from balsam.platform.scheduler.dummy import DummyScheduler
 class SchedulerTestMixin(object):
     def assertInPath(self, exe):
         which_exe = shutil.which(exe)
-        self.assertTrue(which_exe is not None)
+        self.assertTrue(which_exe is not None, f"'{exe}' not in PATH")
 
     def test_submit(self):
 
@@ -53,14 +53,14 @@ class SchedulerTestMixin(object):
         # check that all states are expected
         balsam_job_states = self.scheduler.job_states.values()
         for id, job_status in stat_dict.items():
-            self.assertIsInstance(job_status["project"], str)
-            self.assertIsInstance(job_status["queue"], str)
-            self.assertIsInstance(job_status["nodes"], int)
-            self.assertIsInstance(job_status["wall_time_min"], int)
+            self.assertIsInstance(job_status.project, str)
+            self.assertIsInstance(job_status.queue, str)
+            self.assertIsInstance(job_status.nodes, int)
+            self.assertIsInstance(job_status.wall_time_min, int)
 
-            self.assertIn(job_status["state"], balsam_job_states)
-            self.assertGreaterEqual(job_status["wall_time_min"], 0)
-            self.assertGreater(job_status["nodes"], 0)
+            self.assertIn(job_status.state, balsam_job_states)
+            self.assertGreaterEqual(job_status.wall_time_min, 0)
+            self.assertGreater(job_status.nodes, 0)
 
         # clean up after this test, delete job, wait for delete to be complete
         self.scheduler.delete_job(job_id)
@@ -76,20 +76,19 @@ class SchedulerTestMixin(object):
         # validate output
         self.assertIsInstance(stdout, str)
 
-    def test_get_site_nodelist(self):
+    def test_get_backfill_windows(self):
         # verify nodelist command is in path
-        self.assertInPath(self.scheduler.nodelist_exe)
+        self.assertInPath(self.scheduler.backfill_exe)
 
-        nodelist = self.scheduler.get_site_nodelist()
-        self.assertIsInstance(nodelist, dict)
-        self.assertGreater(len(nodelist), 0)
+        windows = self.scheduler.get_backfill_windows()
+        self.assertIsInstance(windows, dict)
+        self.assertGreaterEqual(len(windows), 0)
 
         # verify that nodelist has expected output
-        node_states = self.scheduler.node_states.values()
-        for id, node_status in nodelist.items():
-            self.assertIsInstance(node_status["state"], str)
-            self.assertIsInstance(node_status["queues"], list)
-            self.assertIn(node_status["state"], node_states)
+        for queue, windows in windows.items():
+            for window in windows:
+                self.assertIsInstance(window.num_nodes, int)
+                self.assertIsInstance(window.backfill_time_min, int)
 
 
 class DummyTest(SchedulerTestMixin, unittest.TestCase):
