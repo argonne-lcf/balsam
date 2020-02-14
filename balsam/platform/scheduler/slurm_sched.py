@@ -1,4 +1,4 @@
-from .scheduler import SubprocessSchedulerInterface
+from .scheduler import SubprocessSchedulerInterface, JobStatus, BackfillWindow
 import os
 import logging
 
@@ -87,7 +87,6 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             "wall_time_min": parse_time_minutes,
             "nodes": lambda n: int(n),
             "time_remaining_min": parse_time_minutes,
-            "backfill_time": parse_time_minutes,
         }
         return status_field_map.get(balsam_field, lambda x: x)
 
@@ -154,7 +153,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     # when reading these fields from the scheduler apply
     # these maps to the string extracted from the output
     @staticmethod
-    def _nodelist_field_map(balsam_field):
+    def _backfill_field_map(balsam_field):
         nodelist_field_map = {
             "queues": lambda q: q.split(":"),
             "state": SlurmScheduler._node_state_map,
@@ -215,7 +214,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _render_backfill_args(self):
         return [self.backfill_exe]
 
-    def _parse_backfill_output(self, submit_output):
+    def _parse_submit_output(self, submit_output):
         try:
             scheduler_id = int(submit_output)
         except ValueError:
@@ -228,41 +227,41 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         print("stdout:", raw_output)
         job_lines = raw_output.strip().split("\n")[1:]
         for line in job_lines:
-            print("line:", line)
             job_stat = self._parse_status_line(line)
-            print("stat:", job_stat)
             if job_stat:
-                id = int(job_stat["id"])
-                status_dict[id] = job_stat
+                status_dict[job_stat.id] = job_stat
         return status_dict
 
     def _parse_status_line(self, line):
-        status = {}
         fields = line.split()
-        print(len(fields), len(self.status_fields))
         if len(fields) != len(self.status_fields):
-            return status
-
+            return JobStatus()
+        status = {}
         for name, value in zip(self.status_fields, fields):
             func = self._status_field_map(name)
             status[name] = func(value)
-        print(status)
-        return status
 
-    def _parse_nodelist_output(self, stdout):
+        return JobStatus(**status)
+
+    def _parse_backfill_output(self, stdout):
+        # TODO: waiting for feedback from NERSC
+        # TODO: to extract backfill information
+        return {}
+
         raw_lines = stdout.split("\n")
-        nodelist = {}
-        node_lines = raw_lines[1:]
-        for line in node_lines:
-            self._parse_nodelist_line(line, nodelist)
+        windows = {}
+        sinfo_lines = raw_lines[1:]
+        for line in sinfo_lines:
+            self._parse_sinfo_line(line, nodelist)
         return nodelist
 
-    def _parse_nodelist_line(self, line, nodelist):
+    def _parse_sinfo_line(self, line, nodelist):
         fields = line.split()
         if len(fields) != len(self.nodelist_fields):
             return
 
         node_ids = self._parse_node_field(fields[0])
+        num_nodes = len(node_ids)
 
         queue = fields[1]
         status = self._node_state_map(fields[2])
