@@ -130,3 +130,31 @@ class JobFactoryMixin:
             new_jobs = [new_jobs]
             return client.bulk_post_data("job-list", new_jobs, check=check)[0]
         return client.bulk_post_data("job-list", new_jobs, check=check)
+
+    def acquire_jobs(
+        self,
+        session,
+        acquire_unbound,
+        states,
+        max_num_acquire,
+        filter_tags={},
+        node_resources=None,
+        order_by=None,
+        client=None,
+        check=status.HTTP_200_OK,
+    ):
+        if client is None:
+            client = self.client
+
+        acquired_jobs = client.post_data(
+            "session-detail",
+            uri={"pk": session["pk"]},
+            acquire_unbound=acquire_unbound,
+            states=states,
+            max_num_acquire=max_num_acquire,
+            filter_tags=filter_tags,
+            node_resources=node_resources,
+            order_by=order_by,
+            check=check,
+        )["acquired_jobs"]
+        return acquired_jobs

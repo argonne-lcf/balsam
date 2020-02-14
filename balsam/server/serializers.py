@@ -355,19 +355,12 @@ class JobSerializer(BulkModelSerializer):
             "wall_time_min",
         )
 
-    def __init__(self, *args, **kwargs):
-        show_events = kwargs.pop("show_events", False)
-        super().__init__(*args, **kwargs)
-        if show_events:
-            self.fields["events"] = EventLogSerializer(many=True, read_only=True)
-        else:
-            self.fields["events"] = serializers.HyperlinkedIdentityField(
-                read_only=True,
-                view_name="job-event-list",
-                lookup_field="pk",
-                lookup_url_kwarg="job_id",
-            )
-
+    events = serializers.HyperlinkedIdentityField(
+        read_only=True,
+        view_name="job-event-list",
+        lookup_field="pk",
+        lookup_url_kwarg="job_id",
+    )
     tags = serializers.DictField(child=serializers.CharField(max_length=32))
     batch_job = OwnedBatchJobPrimaryKeyRelatedField(required=False)
 
@@ -390,27 +383,13 @@ class JobSerializer(BulkModelSerializer):
     state_timestamp = serializers.DateTimeField(write_only=True, required=False)
     state_message = serializers.CharField(write_only=True, required=False)
 
+    num_nodes = serializers.IntegerField(min_value=1)
+
     def create(self, validated_data):
         return Job.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
         return instance.update(**validated_data)
-
-    def validate(self, data):
-        # TODO: validate that params match App requirements on create/update
-        """
-        On create, we need to fetch the existing Apps first
-        On update, we can just prefetch-related Apps and access them
-        """
-        app_params = set(data["app_exchange"].parameters)
-        params = data["parameters"]
-        diff = app_params.difference(params.keys())
-        if diff:
-            raise ValidationError(f'Job is missing parameters: {", ".join(diff)}')
-        diff = set(params.keys()).difference(app_params)
-        if diff:
-            raise ValidationError(f'Job has extraneous parameters: {", ".join(diff)}')
-        return data
 
     def validate_workdir(self, value):
         path = Path(value)
@@ -490,7 +469,7 @@ class BatchJobSerializer(BulkModelSerializer):
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobLock
-        fields = ("heartbeat", "label", "site", "batch_job")
+        fields = ("pk", "heartbeat", "label", "site", "batch_job")
 
     def create(self, validated_data):
         return JobLock.objects.create(
@@ -561,11 +540,14 @@ class JobAcquireSerializer(serializers.Serializer):
         required=False,
         default=None,
     )
-    node_resources = NodeResourceSerializer(required=False, default=None)
+    node_resources = NodeResourceSerializer(
+        required=False, allow_null=True, default=None
+    )
     order_by = serializers.ListField(
         allow_empty=True,
         child=serializers.CharField(max_length=32),
         required=False,
+        allow_null=True,
         default=(),
     )
 
@@ -574,7 +556,7 @@ class JobAcquireSerializer(serializers.Serializer):
         serializer = JobSerializer(
             acquired_jobs, many=True, context={"request": self.context["request"]}
         )
-        return serializer.data
+        return {"acquired_jobs": serializer.data}
 
     def create(self, validated_data):
         return Job.objects.acquire(**validated_data)
@@ -583,12 +565,14 @@ class JobAcquireSerializer(serializers.Serializer):
         raise NotImplementedError("This serializer is only hit by POST")
 
     def validate_order_by(self, value):
+        if not value:
+            return []
         order_fields = [
             "num_nodes",
             "node_packing_count",
             "wall_time_min",
         ]
-        order_fields.extend("-" + f for f in order_fields)
+        order_fields.extend("-" + f for f in order_fields[:])
         for field in value:
             if field not in order_fields:
                 raise ValidationError(

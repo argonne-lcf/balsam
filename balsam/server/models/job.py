@@ -118,13 +118,10 @@ class JobManager(models.Manager):
     def chain_prefetch_for_update(self, qs):
         """Prefetch related items that would be hit in a big list view"""
         return qs.select_related(
-            "lock",
-            "app_exchange",
-            "app_backend",
-            "app_backend__site",
-            "batch_job",
-            "parents",
-        ).prefetch_related("app_exchange__backends", "transfer_items", "events")
+            "lock", "app_exchange", "app_backend", "app_backend__site", "batch_job",
+        ).prefetch_related(
+            "parents", "app_exchange__backends", "transfer_items", "events"
+        )
 
     @transaction.atomic
     def bulk_create(self, job_list):
@@ -190,6 +187,7 @@ class JobManager(models.Manager):
             node_packing_count=node_packing_count,
             wall_time_min=wall_time_min,
         )
+        job.validate_parameters(raise_exception=True)
         job.save()
         job.parents.set(parents)
         for dat in transfer_items:
@@ -215,8 +213,13 @@ class JobManager(models.Manager):
         # Using filter(lock=None).select_for_update(skip_locked=False)
         # should do the right thing and serialize access to pre-selected rows
         # skip_locked=True would improve concurrency only if a small LIMIT was used
+        lock_pks = list(queryset.values_list("pk", flat=True))
         locked_pks = list(
-            queryset.order_by("pk").select_for_update().values_list("pk", flat=True)
+            self.get_queryset()
+            .filter(pk__in=lock_pks)
+            .order_by("pk")
+            .select_for_update()
+            .values_list("pk", flat=True)
         )
         return self.get_queryset().filter(pk__in=locked_pks)
 
@@ -416,7 +419,7 @@ class Job(models.Model):
     state = models.CharField(
         max_length=32,
         default="CREATED",
-        editable=False,
+        editable=True,
         db_index=True,
         choices=STATE_CHOICES,
     )
@@ -445,11 +448,6 @@ class Job(models.Model):
     node_packing_count = models.IntegerField(default=1)
     wall_time_min = models.IntegerField(default=0)
 
-    # Not Directly Updateable fields:
-    # parents, app_exchange, owner: set at creation
-    # app_backend: set in reset_backend() or acquire()
-    # lock: set by acquire(); unset in update_state()
-    # batchjob: set in acquire() when from a launcher context
     def update(
         self,
         tags=None,
@@ -470,21 +468,7 @@ class Job(models.Model):
         node_packing_count=None,
         wall_time_min=None,
     ):
-        update_kwargs = dict(
-            tags=tags,
-            workdir=workdir,
-            parameters=parameters,
-            num_nodes=num_nodes,
-            ranks_per_node=ranks_per_node,
-            threads_per_rank=threads_per_rank,
-            threads_per_core=threads_per_core,
-            cpu_affinity=cpu_affinity,
-            gpus_per_rank=gpus_per_rank,
-            node_packing_count=node_packing_count,
-            wall_time_min=wall_time_min,
-        )
-        update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None}
-
+        # These fields can always be updated:
         if return_code is not None:
             self.return_code = return_code
 
@@ -494,18 +478,56 @@ class Job(models.Model):
 
         self.update_transfer_status(transfer_items)
 
+        # These fields can only update when job is not being processed:
         if not self.is_locked():
+            update_kwargs = dict(
+                tags=tags,
+                workdir=workdir,
+                parameters=parameters,
+                num_nodes=num_nodes,
+                ranks_per_node=ranks_per_node,
+                threads_per_rank=threads_per_rank,
+                threads_per_core=threads_per_core,
+                cpu_affinity=cpu_affinity,
+                gpus_per_rank=gpus_per_rank,
+                node_packing_count=node_packing_count,
+                wall_time_min=wall_time_min,
+            )
+            update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None}
             for kwarg, new_value in update_kwargs.items():
-                old_value = getattr(self, kwarg)
-                setattr(self, kwarg, new_value)
-                EventLog.objects.log_update(
-                    self, f"{kwarg.capitalize()} changed: {old_value} -> {new_value}"
-                )
+                self.update_field(kwarg, new_value)
 
         if state is not None:
             self.update_state(state, message=state_message, timestamp=state_timestamp)
         else:
             self.save()
+
+    def update_field(self, field_name, new_value):
+        old_value = getattr(self, field_name)
+        setattr(self, field_name, new_value)
+        validator = getattr(self, "validate_" + field_name, None)
+
+        if callable(validator):
+            validator(raise_exception=True)
+
+        EventLog.objects.log_update(
+            self, f"{field_name.capitalize()} changed: {old_value} -> {new_value}"
+        )
+
+    def validate_parameters(self, raise_exception=True):
+        app_params = set(self.app_exchange.parameters)
+        params = set(self.parameters.keys())
+        missing_params = app_params.difference(params)
+        extra_params = params.difference(app_params)
+        if missing_params and raise_exception:
+            raise ValidationError(
+                f'Job is missing parameters: {", ".join(missing_params)}'
+            )
+        if extra_params and raise_exception:
+            raise ValidationError(
+                f'Job has extraneous parameters: {", ".join(extra_params)}'
+            )
+        return not (missing_params or extra_params)
 
     def update_transfer_status(self, transfer_status_updates):
         if transfer_status_updates is None:

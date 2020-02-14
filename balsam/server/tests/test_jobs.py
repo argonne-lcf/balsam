@@ -1,5 +1,6 @@
 """APIClient-driven tests"""
 import uuid
+from datetime import datetime
 from rest_framework import status
 from balsam.server.models import User, Site, AppBackend
 
@@ -43,6 +44,35 @@ class JobTests(
             expected_dict = {"from_state": from_state, "to_state": to_state}
             actual = {key: eventlog[i][key] for key in ("from_state", "to_state")}
             self.assertDictEqual(expected_dict, actual, msg=actual)
+
+    def setup_two_site_scenario(self, num_jobs):
+        self.site1 = self.create_site(hostname="siteX")
+        self.site2 = self.create_site(hostname="siteY")
+        self.session1 = self.client.post_data(
+            "session-list",
+            site=self.site1["pk"],
+            label="Site 1 session",
+            batch_job=None,
+            check=status.HTTP_201_CREATED,
+        )
+        self.session2 = self.client.post_data(
+            "session-list",
+            site=self.site2["pk"],
+            label="Site 2 session",
+            batch_job=None,
+            check=status.HTTP_201_CREATED,
+        )
+        self.dual_site_app = self.create_app(
+            sites=[self.site1, self.site2],
+            cls_names=["demo.Hello", "demo.Hello"],
+            name="Demo",
+        )
+        specs = [
+            self.job_dict(app=self.dual_site_app, workdir=f"./test/{i}")
+            for i in range(num_jobs)
+        ]
+        jobs = self.create_jobs(specs, check=status.HTTP_201_CREATED)
+        return jobs
 
     def test_add_job(self):
         """One backend, no parents, no transfers: straight to STAGED_IN"""
@@ -112,7 +142,7 @@ class JobTests(
         self.assertEqual(job["site"], str(Site.objects.first()))
         self.assertEqual(job["app_class"], AppBackend.objects.first().class_name)
 
-    def test_add_job_with_two_backends_is_READY(self):
+    def test_added_job_with_two_backends_is_READY_but_unbound(self):
         site1 = self.create_site(hostname="siteX")
         site2 = self.create_site(hostname="siteY")
         two_backend_app = self.create_app(
@@ -127,13 +157,58 @@ class JobTests(
         self.assertEqual(job["app_class"], None)
 
     def test_cannot_create_job_with_invalid_resources(self):
-        pass
+        # num_nodes at least 1
+        self.create_jobs(self.job_dict(num_nodes=0), check=status.HTTP_400_BAD_REQUEST)
+        # wall_time_min of 0 is ok
+        self.create_jobs(self.job_dict(wall_time_min=0), check=status.HTTP_201_CREATED)
 
     def test_acquire_unbound_for_stage_in(self):
-        pass
+        all_jobs = self.setup_two_site_scenario(num_jobs=100)
+        self.assertEqual(len(all_jobs), 100)
+
+        # session1 acquires up to 20 jobs
+        sess_1_acquired = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=20,
+        )
+        self.assertEqual(len(sess_1_acquired), 20)
+        self.assertSetEqual(set(["READY"]), set(j["state"] for j in sess_1_acquired))
+
+        # session2 acquires up to 500 jobs; can only get the 80 unlocked
+        sess_2_acquired = self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=500,
+        )
+        self.assertEqual(len(sess_2_acquired), 80)
+        self.assertSetEqual(set(["READY"]), set(j["state"] for j in sess_2_acquired))
 
     def test_acquire_unbound_sorts_already_bound_jobs_first(self):
-        pass
+        self.setup_two_site_scenario(num_jobs=100)
+        sess_1_acquired = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=50,
+        )
+        updates = [
+            {
+                "pk": j["pk"],
+                "state": "STAGED_IN",
+                "state_timestamp": datetime.utcnow(),
+                "state_message": "Skipped Stage-In: nothing to do.",
+            }
+            for j in sess_1_acquired[:10]
+        ]
+        resp = self.client.bulk_patch_data(
+            "job-list", updates, check=status.HTTP_200_OK
+        )
+        from .util import pretty_data
+
+        print(pretty_data(resp))
 
     def test_acquire_bound_for_transitions(self):
         pass
@@ -147,6 +222,12 @@ class JobTests(
         pass
 
     def test_update_to_running_does_not_release_lock(self):
+        pass
+
+    def test_bulk_update_based_on_tags_filter_via_put(self):
+        pass
+
+    def test_bulk_status_update_via_patch(self):
         pass
 
     def test_update_to_run_done_releases_lock_but_not_batch_job(self):

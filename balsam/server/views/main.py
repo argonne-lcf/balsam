@@ -281,7 +281,9 @@ class SessionDetail(generics.RetrieveUpdateDestroyAPIView):
     def post(self, request, *args, **kwargs):
         """acquire()"""
         lock_instance = self.get_object()
-        serializer = ser.JobAcquireSerializer(data=request.data)
+        serializer = ser.JobAcquireSerializer(
+            data=request.data, many=False, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save(lock=lock_instance)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_200_OK)
