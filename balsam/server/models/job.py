@@ -349,7 +349,7 @@ class NodeResources(object):
                 continue
             eligible_nodes.append(node_idx)
             if len(eligible_nodes) == required_num_nodes:
-                self._do_assign(self, eligible_nodes, num_cores, num_gpus, occ)
+                self._do_assign(eligible_nodes, num_cores, num_gpus, occ)
                 return eligible_nodes
         return []
 

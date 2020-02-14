@@ -517,10 +517,12 @@ class NodeResourceSerializer(serializers.Serializer):
         num_nodes_set = set(
             map(
                 len,
-                data["running_job_counts"],
-                data["node_occupancies"],
-                data["idle_cores"],
-                data["idle_gpus"],
+                [
+                    data["running_job_counts"],
+                    data["node_occupancies"],
+                    data["idle_cores"],
+                    data["idle_gpus"],
+                ],
             )
         )
         if len(num_nodes_set) != 1:

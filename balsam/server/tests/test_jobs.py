@@ -1,8 +1,10 @@
 """APIClient-driven tests"""
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz
+import random
 from rest_framework import status
-from balsam.server.models import User, Site, AppBackend, Job
+from balsam.server.models import User, Site, AppBackend, Job, BatchJob, EventLog
 
 from .mixins import (
     SiteFactoryMixin,
@@ -69,6 +71,66 @@ class JobTests(
         ]
         jobs = self.create_jobs(specs, check=status.HTTP_201_CREATED)
         return jobs
+
+    def setup_one_site_two_launcher_scenario(self, num_jobs):
+        site = Site.objects.get(pk=self.site["pk"])
+        self.bjob1, self.bjob2 = [
+            BatchJob.objects.create(
+                site,
+                project="datascience",
+                queue="default",
+                num_nodes=128,
+                wall_time_min=30,
+                job_mode="mpi",
+                filter_tags={},
+            )
+            for i in range(2)
+        ]
+        self.session1 = self.create_session(
+            self.site, label="Launcher 1", batch_job=self.bjob1.pk
+        )
+        self.session2 = self.create_session(
+            self.site, label="Launcher 2", batch_job=self.bjob2.pk
+        )
+        specs = [
+            self.job_dict(app=self.default_app, workdir=f"./test/{i}")
+            for i in range(num_jobs)
+        ]
+        jobs = self.create_jobs(specs, check=status.HTTP_201_CREATED)
+        return jobs
+
+    def setup_varying_resources_scenario(self, *specs):
+        """Create many runnable jobs with varying resource requirements"""
+        site = Site.objects.get(pk=self.site["pk"])
+        self.bjob = BatchJob.objects.create(
+            site,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+            filter_tags={},
+        )
+        self.session = self.create_session(
+            self.site, label="Launcher 1", batch_job=self.bjob.pk
+        )
+        jobs = []
+        for count, spec in specs:
+            d = self.job_dict(
+                num_nodes=spec.get("num_nodes", 1),
+                ranks_per_node=spec.get("ranks_per_node", 1),
+                threads_per_rank=spec.get("threads_per_rank", 1),
+                threads_per_core=spec.get("threads_per_core", 1),
+                gpus_per_rank=spec.get("gpus_per_rank", 0),
+                node_packing_count=spec.get("node_packing_count", 1),
+                wall_time_min=spec.get("wall_time_min", 0),
+            )
+            jobs += count * [d]
+        jobs = self.create_jobs(jobs)
+        Job.objects.bulk_update(
+            [{"pk": j["pk"], "state": "PREPROCESSED"} for j in jobs]
+        )
+        return
 
     def test_add_job(self):
         """One backend, no parents, no transfers: straight to STAGED_IN"""
@@ -264,18 +326,193 @@ class JobTests(
         )
         self.assertEqual(len(sess_2_acquired), 37)
 
-    def test_acquire_bound_for_transitions(self):
-        pass
+    def test_acquire_bound_only_for_transitions(self):
+        self.setup_two_site_scenario(num_jobs=10)
+
+        # Nothing can be acquired for pre/post-processing, because it's unbound:
+        acquired = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=False,
+            states=["STAGED_IN", "RUN_DONE", "RUN_ERROR", "RESTART_READY"],
+            max_num_acquire=20,
+        )
+        self.assertEqual(len(acquired), 0)
+
+        # Acquire unbound & Update to STAGED_IN
+        acquired = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=20,
+        )
+        self.assertEqual(len(acquired), 10)
+        updates = [{"pk": j["pk"], "state": "STAGED_IN"} for j in acquired]
+        self.client.bulk_patch_data("job-list", updates, check=status.HTTP_200_OK)
+
+        # Now the preprocess module can acquire all the jobs:
+        acquired = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=False,
+            states=["STAGED_IN", "RUN_DONE", "RUN_ERROR", "RESTART_READY"],
+            max_num_acquire=20,
+        )
+        self.assertEqual(len(acquired), 10)
+
+    def test_acquire_validates_state_list(self):
+        """Cannot provide an invalid state to acquire"""
+        self.setup_two_site_scenario(num_jobs=2)
+        acquired_jobs = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY", "GOOF"],
+            max_num_acquire=100,
+            check=status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(acquired_jobs, None)
 
     def test_acquire_for_launch(self):
         """Jobs become associated with BatchJob"""
-        pass
+        jobs = self.setup_one_site_two_launcher_scenario(num_jobs=10)
 
-    def test_acquire_for_launch_with_node_constraints(self):
-        """Jobs become associated with BatchJob"""
-        pass
+        # At first, the jobs have no batch_job because they're not running yet
+        for job in jobs:
+            self.assertEqual(job["state"], "STAGED_IN")
+            self.assertEqual(job["batch_job"], None)
+
+        # Mark jobs PREPROCESSED and ready to run
+        pks = [j["pk"] for j in jobs]
+        Job.objects.bulk_update([{"pk": pk, "state": "PREPROCESSED"} for pk in pks])
+
+        # Launcher1 acquires 2 runnable jobs:
+        acquired1 = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=2,
+        )
+
+        # Launcher2 asks for up to 1000 and gets all the rest:
+        acquired2 = self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=1000,
+        )
+
+        # These jobs are now associated with the BatchJob that launcher1 runs under
+        for job in acquired1:
+            self.assertEqual(job["batch_job"], self.bjob1.pk)
+
+        for job in acquired2:
+            self.assertEqual(job["batch_job"], self.bjob2.pk)
 
     def test_update_to_running_does_not_release_lock(self):
+        jobs = self.setup_one_site_two_launcher_scenario(num_jobs=10)
+
+        # Mark jobs PREPROCESSED
+        pks = [j["pk"] for j in jobs]
+        Job.objects.bulk_update([{"pk": pk, "state": "PREPROCESSED"} for pk in pks])
+
+        # Launcher1 acquires all of them
+        acquired = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=10,
+        )
+
+        # Behind the scenes, the acquired jobs are locked:
+        for job in Job.objects.all():
+            self.assertEqual(job.lock_id, self.session1["pk"])
+
+        # The jobs start running in a staggered fashion; a bulk status update is made
+        run_start_times = [
+            (datetime.utcnow() + timedelta(seconds=random.randint(0, 20))).replace(
+                tzinfo=pytz.UTC
+            )
+            for i in range(len(acquired))
+        ]
+        updates = [
+            {
+                "pk": j["pk"],
+                "state": "RUNNING",
+                "state_timestamp": ts,
+                "state_message": "Running on Theta nid00139",
+            }
+            for j, ts in zip(acquired, run_start_times)
+        ]
+        jobs = self.client.bulk_patch_data(
+            "job-list", updates, check=status.HTTP_200_OK
+        )
+
+        # The jobs are associated to batchjob and have the expected history:
+        for job in jobs:
+            self.assertEqual(job["batch_job"], self.bjob1.pk)
+            self.assertHistory(
+                job, "CREATED", "READY", "STAGED_IN", "PREPROCESSED", "RUNNING"
+            )
+
+        # Behind the scenes, the acquired jobs have changed state and are still locked:
+        for job in Job.objects.all():
+            self.assertEqual(job.lock_id, self.session1["pk"])
+
+        # The EventLogs were correctly recorded:
+        time_stamps = list(
+            EventLog.objects.filter(to_state="RUNNING").values_list(
+                "timestamp", flat=True
+            )
+        )
+        self.assertSetEqual(set(run_start_times), set(time_stamps))
+
+    def test_acquire_for_launch_with_node_constraints(self):
+        # DB has:
+        self.setup_varying_resources_scenario(
+            (2, dict(num_nodes=3, wall_time_min=0)),
+            (5, dict(num_nodes=1, wall_time_min=0)),
+            (5, dict(num_nodes=1, wall_time_min=30)),
+        )
+
+        # Scenario: 7 idle nodes & 20 minutes left
+        resources = {
+            "max_jobs_per_node": 1,
+            "max_wall_time_min": 20,
+            "running_job_counts": [1, 1] + 7 * [0] + [1, 1, 1],
+            "node_occupancies": [1, 1] + 7 * [0] + [1, 1, 1],
+            "idle_cores": [63, 63] + 7 * [64] + [63, 63, 63],
+            "idle_gpus": [0] * 12,
+        }
+
+        # Expected behavior: 2 3-node jobs & 1 1-node job are acquired: in *That* order
+        acquired = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=7,
+            node_resources=resources,
+            order_by=["-num_nodes", "-wall_time_min"],
+        )
+        self.assertEqual(len(acquired), 3)
+        self.assertEqual(acquired[0]["num_nodes"], 3)
+        self.assertEqual(acquired[1]["num_nodes"], 3)
+        self.assertEqual(acquired[2]["num_nodes"], 1)
+        self.assertListEqual([j["wall_time_min"] for j in acquired], 3 * [0])
+
+    def test_acquire_for_launch_respects_provided_ordering(self):
+        pass
+
+    def test_acquire_for_launch_respects_idle_core_limits(self):
+        pass
+
+    def test_acquire_for_launch_respects_node_packing_counts(self):
+        pass
+
+    def test_acquire_for_launch_respects_gpu_limits(self):
+        pass
+
+    def test_acquire_for_launch_can_pack_one_MPI_task_across_all_nodes_with_single_node_tasks(
+        self,
+    ):
+        """First job: 1 rpn, 128 nodes, packing_count=64.  2048 jobs: 1-node, single-rank, packing_count=2 and using 1 GPU"""
         pass
 
     def test_bulk_update_based_on_tags_filter_via_put(self):
@@ -348,6 +585,9 @@ class JobTests(
     def test_can_delete_unlocked_job(self):
         pass
 
+    def test_delete_recursively_deletes_children(self):
+        pass
+
     def test_disallow_invalid_transition(self):
         pass
 
@@ -355,6 +595,7 @@ class JobTests(
         pass
 
     def test_cannot_acquire_with_another_lock_id(self):
+        """Passing a lock id that belongs to another user results in acquire() error"""
         pass
 
     def test_finished_job_triggers_children_ready_and_unbound(self):

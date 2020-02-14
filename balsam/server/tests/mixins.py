@@ -158,7 +158,7 @@ class JobFactoryMixin:
         if client is None:
             client = self.client
 
-        acquired_jobs = client.post_data(
+        response = client.post_data(
             "session-detail",
             uri={"pk": session["pk"]},
             acquire_unbound=acquire_unbound,
@@ -168,5 +168,7 @@ class JobFactoryMixin:
             node_resources=node_resources,
             order_by=order_by,
             check=check,
-        )["acquired_jobs"]
-        return acquired_jobs
+        )
+        if check == status.HTTP_200_OK:
+            return response["acquired_jobs"]
+        return None
