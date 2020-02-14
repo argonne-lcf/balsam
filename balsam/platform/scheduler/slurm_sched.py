@@ -1,4 +1,4 @@
-from .scheduler import SubprocessSchedulerInterface, JobStatus, BackfillWindow
+from .scheduler import SubprocessSchedulerInterface, JobStatus
 import os
 import logging
 
@@ -248,44 +248,44 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         # TODO: to extract backfill information
         return {}
 
-        raw_lines = stdout.split("\n")
-        windows = {}
-        sinfo_lines = raw_lines[1:]
-        for line in sinfo_lines:
-            self._parse_sinfo_line(line, nodelist)
-        return nodelist
+        # raw_lines = stdout.split("\n")
+        # windows = {}
+        # sinfo_lines = raw_lines[1:]
+        # for line in sinfo_lines:
+        #     self._parse_sinfo_line(line, nodelist)
+        # return nodelist
 
-    def _parse_sinfo_line(self, line, nodelist):
-        fields = line.split()
-        if len(fields) != len(self.nodelist_fields):
-            return
-
-        node_ids = self._parse_node_field(fields[0])
-        num_nodes = len(node_ids)
-
-        queue = fields[1]
-        status = self._node_state_map(fields[2])
-
-        for node_id in node_ids:
-            if node_id in nodelist:
-                nodelist[node_id]["queues"].append(queue)
-                nodelist[node_id]["state"] = status
-            else:
-                nodelist[node_id] = {"queues": [queue], "state": status}
-
-    @staticmethod
-    def _parse_node_field(nodes_str):
-        node_numbers_str = nodes_str[len("nid[") : -1]
-        node_ranges = node_numbers_str.split(",")
-        node_ids = []
-        for node_range in node_ranges:
-            if "-" in node_range:
-                parts = node_range.split("-")
-                min = int(parts[0])
-                max = int(parts[1])
-                for i in range(min, max + 1):
-                    node_ids.append(i)
-            else:
-                node_ids.append(int(node_range))
-
-        return node_ids
+    # def _parse_sinfo_line(self, line, nodelist):
+    #     fields = line.split()
+    #     if len(fields) != len(self.nodelist_fields):
+    #         return
+    #
+    #     node_ids = self._parse_node_field(fields[0])
+    #     num_nodes = len(node_ids)
+    #
+    #     queue = fields[1]
+    #     status = self._node_state_map(fields[2])
+    #
+    #     for node_id in node_ids:
+    #         if node_id in nodelist:
+    #             nodelist[node_id]["queues"].append(queue)
+    #             nodelist[node_id]["state"] = status
+    #         else:
+    #             nodelist[node_id] = {"queues": [queue], "state": status}
+    #
+    # @staticmethod
+    # def _parse_node_field(nodes_str):
+    #     node_numbers_str = nodes_str[len("nid[") : -1]
+    #     node_ranges = node_numbers_str.split(",")
+    #     node_ids = []
+    #     for node_range in node_ranges:
+    #         if "-" in node_range:
+    #             parts = node_range.split("-")
+    #             min = int(parts[0])
+    #             max = int(parts[1])
+    #             for i in range(min, max + 1):
+    #                 node_ids.append(i)
+    #         else:
+    #             node_ids.append(int(node_range))
+    #
+    #     return node_ids

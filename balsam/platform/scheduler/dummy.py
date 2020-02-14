@@ -208,13 +208,13 @@ class DummyScheduler(SubprocessSchedulerInterface):
 
         # build example output dictionary
         windows = {
-            'default_queue': [
-                BackfillWindow(num_nodes=5,backfill_time_min=60),
-                BackfillWindow(num_nodes=15,backfill_time_min=45)
+            "default_queue": [
+                BackfillWindow(num_nodes=5, backfill_time_min=60),
+                BackfillWindow(num_nodes=15, backfill_time_min=45),
             ],
-            'debug_queue': [
-                BackfillWindow(num_nodes=1,backfill_time_min=60),
-                BackfillWindow(num_nodes=3,backfill_time_min=20)
-            ]
+            "debug_queue": [
+                BackfillWindow(num_nodes=1, backfill_time_min=60),
+                BackfillWindow(num_nodes=3, backfill_time_min=20),
+            ],
         }
         return windows

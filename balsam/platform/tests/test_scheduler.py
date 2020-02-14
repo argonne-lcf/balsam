@@ -85,7 +85,6 @@ class SchedulerTestMixin(object):
         self.assertGreaterEqual(len(windows), 0)
 
         # verify that nodelist has expected output
-        node_states = self.scheduler.node_states.values()
         for queue, windows in windows.items():
             for window in windows:
                 self.assertIsInstance(window.num_nodes, int)

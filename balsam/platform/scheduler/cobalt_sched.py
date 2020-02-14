@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 def parse_cobalt_time_minutes(t_str):
     try:
         H, M, S = map(int, t_str.split(":"))
-    except:
+    except ValueError:
         return 0
     else:
         return H * 60 + M + round(S / 60)
@@ -156,7 +156,8 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         status_dict = {}
         job_lines = raw_output.split("\n")[2:]
         for line in job_lines:
-            if len(line.strip()) == 0: continue
+            if len(line.strip()) == 0:
+                continue
             job_stat = self._parse_status_line(line)
             if job_stat:
                 id = int(job_stat.id)
@@ -179,7 +180,8 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         nodelist = []
         node_lines = raw_lines[2:]
         for line in node_lines:
-            if len(line.strip()) == 0: continue
+            if len(line.strip()) == 0:
+                continue
             line_dict = self._parse_nodelist_line(line)
             if line_dict["backfill_time_min"] > 0 and line_dict["state"] == "idle":
                 nodelist.append(line_dict)
@@ -210,10 +212,12 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             for queue in queues:
                 if queue in windows:
                     found_self = False
-                    for i,window in enumerate(windows[queue]):
+                    for i, window in enumerate(windows[queue]):
                         if bf_time >= window.backfill_time_min:
-                            windows[queue][i] = BackfillWindow(num_nodes=window.num_nodes+1,
-                                                               backfill_time_min=window.backfill_time_min)
+                            windows[queue][i] = BackfillWindow(
+                                num_nodes=window.num_nodes + 1,
+                                backfill_time_min=window.backfill_time_min,
+                            )
                         if bf_time == window.backfill_time_min:
                             found_self = True
                     if not found_self:
