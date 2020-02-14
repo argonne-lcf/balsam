@@ -140,7 +140,8 @@ class JobManager(models.Manager):
 
         qs = self.get_queryset().filter(pk__in=patch_map)
         qs = self.chain_prefetch_for_update(qs)
-        for job in qs.order_by("pk").select_for_update():
+        locking_qs = qs.order_by("pk").select_for_update(of=("self",))
+        for job in locking_qs:
             patch = patch_map[job.pk]
             job.update(**patch)
         return qs
@@ -213,12 +214,10 @@ class JobManager(models.Manager):
         # Using filter(lock=None).select_for_update(skip_locked=False)
         # should do the right thing and serialize access to pre-selected rows
         # skip_locked=True would improve concurrency only if a small LIMIT was used
-        lock_pks = list(queryset.values_list("pk", flat=True))
+        # lock_pks = list(queryset.values_list("pk", flat=True))
         locked_pks = list(
-            self.get_queryset()
-            .filter(pk__in=lock_pks)
-            .order_by("pk")
-            .select_for_update()
+            queryset.order_by("pk")
+            .select_for_update(of=("self",))
             .values_list("pk", flat=True)
         )
         return self.get_queryset().filter(pk__in=locked_pks)
@@ -604,7 +603,7 @@ class Job(models.Model):
 
     @transaction.atomic
     def on_JOB_FINISHED(self, *args, timestamp=None, **kwargs):
-        qs = self.children.order_by("pk").select_for_update()
+        qs = self.children.order_by("pk").select_for_update(of=("self",))
         qs = qs.annotate(num_parents=Count("parents", distinct=True))
         qs = qs.annotate(
             finished_parents=Count(
