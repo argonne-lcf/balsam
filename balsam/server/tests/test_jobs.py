@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 from rest_framework import status
-from balsam.server.models import User, Site, AppBackend
+from balsam.server.models import User, Site, AppBackend, Job
 
 from .mixins import (
     SiteFactoryMixin,
@@ -33,35 +33,31 @@ class JobTests(
         self.site = self.create_site(hostname="site1")
         self.default_app = self.create_app(sites=self.site, cls_names="DemoApp.hello",)
 
-    def assertHistory(self, job, *states):
+    def assertHistory(self, job, *states, **expected_messages):
+        """
+        Assert that `job` went through the sequence of `states` in order.
+        For each state:str pair in `expected_messages`, verify the str is contained
+        in the transition log message.
+        """
         response = self.client.get_data(
             "job-event-list", uri={"job_id": job["pk"]}, check=status.HTTP_200_OK
         )
         self.assertEqual(response["count"], len(states) - 1)
-        eventlog = response["results"]
+        eventlogs = response["results"]
 
         for i, (from_state, to_state) in enumerate(zip(states[:-1], states[1:])):
             expected_dict = {"from_state": from_state, "to_state": to_state}
-            actual = {key: eventlog[i][key] for key in ("from_state", "to_state")}
+            event = eventlogs[i]
+            actual = {key: event[key] for key in ("from_state", "to_state")}
             self.assertDictEqual(expected_dict, actual, msg=actual)
+            if to_state in expected_messages:
+                self.assertIn(expected_messages.pop(to_state), event["message"])
 
     def setup_two_site_scenario(self, num_jobs):
         self.site1 = self.create_site(hostname="siteX")
         self.site2 = self.create_site(hostname="siteY")
-        self.session1 = self.client.post_data(
-            "session-list",
-            site=self.site1["pk"],
-            label="Site 1 session",
-            batch_job=None,
-            check=status.HTTP_201_CREATED,
-        )
-        self.session2 = self.client.post_data(
-            "session-list",
-            site=self.site2["pk"],
-            label="Site 2 session",
-            batch_job=None,
-            check=status.HTTP_201_CREATED,
-        )
+        self.session1 = self.create_session(self.site1, label="Site 1 session")
+        self.session2 = self.create_session(self.site2, label="Site 2 session")
         self.dual_site_app = self.create_app(
             sites=[self.site1, self.site2],
             cls_names=["demo.Hello", "demo.Hello"],
@@ -188,12 +184,16 @@ class JobTests(
 
     def test_acquire_unbound_sorts_already_bound_jobs_first(self):
         self.setup_two_site_scenario(num_jobs=100)
+
+        # Session1 acquires 50 unbound jobs
         sess_1_acquired = self.acquire_jobs(
             session=self.session1,
             acquire_unbound=True,
             states=["READY"],
             max_num_acquire=50,
         )
+
+        # The first 3 are updated to STAGED_IN: nothing to do.
         updates = [
             {
                 "pk": j["pk"],
@@ -201,14 +201,68 @@ class JobTests(
                 "state_timestamp": datetime.utcnow(),
                 "state_message": "Skipped Stage-In: nothing to do.",
             }
-            for j in sess_1_acquired[:10]
+            for j in sess_1_acquired[:3]
         ]
-        resp = self.client.bulk_patch_data(
-            "job-list", updates, check=status.HTTP_200_OK
-        )
-        from .util import pretty_data
+        self.client.bulk_patch_data("job-list", updates, check=status.HTTP_200_OK)
 
-        print(pretty_data(resp))
+        # the event log looks correct:
+        for job in sess_1_acquired[:3]:
+            self.assertHistory(
+                job, "CREATED", "READY", "STAGED_IN", STAGED_IN="nothing to do"
+            )
+
+        # the remaining 47 jobs are still locked, while the first 3 unlocked:
+        locked_pks = [j["pk"] for j in sess_1_acquired[3:]]
+        for job in Job.objects.all():
+            if job.pk in locked_pks:
+                self.assertNotEqual(job.lock, None)
+            else:
+                self.assertEqual(job.lock, None)
+
+        # Then Session1 is suddenly over:
+        self.client.delete_data(
+            "session-detail",
+            uri={"pk": self.session1["pk"]},
+            check=status.HTTP_204_NO_CONTENT,
+        )
+
+        # All jobs are unlocked now
+        # But the 50 that were acquired remain bound to site1
+        acquired_pks = [j["pk"] for j in sess_1_acquired]
+        for job in Job.objects.all():
+            self.assertEqual(job.lock, None)
+            if job.pk in acquired_pks:
+                self.assertEqual(job.app_backend.site.pk, self.site1["pk"])
+
+        # Site1 starts up another session and acquires 60 jobs:
+        sess1_restarted = self.create_session(self.site1)
+        sess_1_acquired = self.acquire_jobs(
+            session=sess1_restarted,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=60,
+            order_by=["-wall_time_min"],
+        )
+
+        # Accounting for the 100 jobs:
+        # The first 47 READY jobs are the already-acquired ones (order matters!)
+        # 3 (not acquired in this query) are STAGED_IN
+        # 13 are newly acquired
+        # The last 37 are still unbound
+        for job in sess_1_acquired[:47]:
+            self.assertIn(job["pk"], acquired_pks)
+        for job in sess_1_acquired[47:]:
+            self.assertNotIn(job["pk"], acquired_pks)
+        self.assertEqual(Job.objects.filter(app_backend__isnull=True).count(), 37)
+
+        # When session2 tries to acquire 1000 jobs, it therefore only gets 37:
+        sess_2_acquired = self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=1000,
+        )
+        self.assertEqual(len(sess_2_acquired), 37)
 
     def test_acquire_bound_for_transitions(self):
         pass

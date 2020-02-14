@@ -131,6 +131,18 @@ class JobFactoryMixin:
             return client.bulk_post_data("job-list", new_jobs, check=check)[0]
         return client.bulk_post_data("job-list", new_jobs, check=check)
 
+    def create_session(self, site, label="", batch_job=None, client=None):
+        if client is None:
+            client = self.client
+
+        return client.post_data(
+            "session-list",
+            site=site["pk"],
+            label=label,
+            batch_job=batch_job,
+            check=status.HTTP_201_CREATED,
+        )
+
     def acquire_jobs(
         self,
         session,

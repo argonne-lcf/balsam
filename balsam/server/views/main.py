@@ -287,3 +287,6 @@ class SessionDetail(generics.RetrieveUpdateDestroyAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(lock=lock_instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def perform_destroy(self, job_lock_instance):
+        job_lock_instance.release()

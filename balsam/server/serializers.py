@@ -480,7 +480,7 @@ class SessionSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Only ticks lock"""
-        instance.save(update_fields=["heartbeat"])
+        instance.tick()
         return instance
 
 
@@ -578,3 +578,4 @@ class JobAcquireSerializer(serializers.Serializer):
                 raise ValidationError(
                     f"Invalid order_by field: {field}. Must choose from: {order_fields}"
                 )
+        return value
