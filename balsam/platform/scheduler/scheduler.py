@@ -11,14 +11,21 @@ class SchedulerNonZeroReturnCode(Exception):
 """ JobStatus contains the status of a pending or running job """
 JobStatus = collections.namedtuple(
     "JobStatus",
-    ["id", "state", "queue", "nodes", "wall_time_min", "project", "time_remaining_min"],
-    defaults=[None, None, None, None, None, None, None],
+    [
+        "id",
+        "state",
+        "queue",
+        "num_nodes",
+        "wall_time_min",
+        "project",
+        "time_remaining_min",
+    ],
 )
 
 
 """ BackfillWindow contains a number of nodes which are free for some available time """
 BackfillWindow = collections.namedtuple(
-    "BackfillWindow", ["num_nodes", "backfill_time_min"], defaults=[None, None]
+    "BackfillWindow", ["num_nodes", "backfill_time_min"]
 )
 
 

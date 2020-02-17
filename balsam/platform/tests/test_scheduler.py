@@ -55,7 +55,7 @@ class SchedulerTestMixin(object):
         for id, job_status in stat_dict.items():
             self.assertIsInstance(job_status.project, str)
             self.assertIsInstance(job_status.queue, str)
-            self.assertIsInstance(job_status.nodes, int)
+            self.assertIsInstance(job_status.num_nodes, int)
             self.assertIsInstance(job_status.wall_time_min, int)
 
             self.assertIn(job_status.state, balsam_job_states)
@@ -212,6 +212,10 @@ echo [$SECONDS] All Done! Great Test!
             os.remove(log_base + ".error")
         if os.path.exists(log_base + ".cobaltlog"):
             os.remove(log_base + ".cobaltlog")
+
+    def test_get_backfill_windows(self):
+        with self.assertRaises(NotImplementedError):
+            self.scheduler.get_backfill_windows()
 
 
 class LsfTest(SchedulerTestMixin, unittest.TestCase):

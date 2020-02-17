@@ -54,7 +54,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
         "state": "state",
         "wall_time_min": "wall_time",
         "queue": "queue_name",
-        "nodes": "nodes",
+        "num_nodes": "nodes",
         "project": "project",
         "time_remaining_min": "time_left",
     }
@@ -65,7 +65,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
     def _status_field_map(balsam_field):
         status_field_map = {
             "id": lambda id: int(id),
-            "nodes": lambda n: int(n),
+            "num_nodes": lambda n: int(n),
             "time_remaining_min": parse_time_minutes,
             "wall_time_min": parse_time_minutes,
             "state": DummyScheduler._job_state_map,
