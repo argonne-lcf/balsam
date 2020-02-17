@@ -72,7 +72,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         "state": "state",
         "wall_time_min": "timelimit",
         "queue": "partition",
-        "nodes": "numnodes",
+        "num_nodes": "numnodes",
         "project": "account",
         "time_remaining_min": "timeleft",
     }
@@ -85,7 +85,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             "id": lambda id: int(id),
             "state": SlurmScheduler._job_state_map,
             "wall_time_min": parse_time_minutes,
-            "nodes": lambda n: int(n),
+            "num_nodes": lambda n: int(n),
             "time_remaining_min": parse_time_minutes,
         }
         return status_field_map.get(balsam_field, lambda x: x)
@@ -224,18 +224,26 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _parse_status_output(self, raw_output):
         # TODO: this can be much more efficient with a compiled regex findall()
         status_dict = {}
-        print("stdout:", raw_output)
         job_lines = raw_output.strip().split("\n")[1:]
         for line in job_lines:
-            job_stat = self._parse_status_line(line)
-            if job_stat:
+            try:
+                job_stat = self._parse_status_line(line)
+            except (ValueError, TypeError):
+                logger.debug(f"Cannot parse job status: {line}")
+                continue
+            else:
                 status_dict[job_stat.id] = job_stat
         return status_dict
 
     def _parse_status_line(self, line):
         fields = line.split()
-        if len(fields) != len(self.status_fields):
-            return JobStatus()
+        actual = len(fields)
+        expected = len(self.status_fields)
+        if actual != expected:
+            raise ValueError(
+                f"Line has {actual} columns: expected {expected}:\n{fields}"
+            )
+
         status = {}
         for name, value in zip(self.status_fields, fields):
             func = self._status_field_map(name)
@@ -246,7 +254,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _parse_backfill_output(self, stdout):
         # TODO: waiting for feedback from NERSC
         # TODO: to extract backfill information
-        return {}
+        raise NotImplementedError
 
         # raw_lines = stdout.split("\n")
         # windows = {}
