@@ -1,4 +1,4 @@
-from .scheduler import SubprocessSchedulerInterface
+from .scheduler import SubprocessSchedulerInterface, JobStatus
 import os
 import logging
 
@@ -38,7 +38,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     status_exe = "squeue"
     submit_exe = "sbatch"
     delete_exe = "scancel"
-    nodelist_exe = "sinfo"
+    backfill_exe = "sinfo"
     default_submit_kwargs = {}
     submit_kwargs_flag_map = {}
 
@@ -72,7 +72,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         "state": "state",
         "wall_time_min": "timelimit",
         "queue": "partition",
-        "nodes": "numnodes",
+        "num_nodes": "numnodes",
         "project": "account",
         "time_remaining_min": "timeleft",
     }
@@ -85,9 +85,8 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             "id": lambda id: int(id),
             "state": SlurmScheduler._job_state_map,
             "wall_time_min": parse_time_minutes,
-            "nodes": lambda n: int(n),
+            "num_nodes": lambda n: int(n),
             "time_remaining_min": parse_time_minutes,
-            "backfill_time": parse_time_minutes,
         }
         return status_field_map.get(balsam_field, lambda x: x)
 
@@ -154,7 +153,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     # when reading these fields from the scheduler apply
     # these maps to the string extracted from the output
     @staticmethod
-    def _nodelist_field_map(balsam_field):
+    def _backfill_field_map(balsam_field):
         nodelist_field_map = {
             "queues": lambda q: q.split(":"),
             "state": SlurmScheduler._node_state_map,
@@ -212,8 +211,8 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _render_delete_args(self, job_id):
         return [self.delete_exe, str(job_id)]
 
-    def _render_nodelist_args(self):
-        return [self.nodelist_exe]
+    def _render_backfill_args(self):
+        return [self.backfill_exe]
 
     def _parse_submit_output(self, submit_output):
         try:
@@ -225,68 +224,76 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     def _parse_status_output(self, raw_output):
         # TODO: this can be much more efficient with a compiled regex findall()
         status_dict = {}
-        print("stdout:", raw_output)
         job_lines = raw_output.strip().split("\n")[1:]
         for line in job_lines:
-            print("line:", line)
-            job_stat = self._parse_status_line(line)
-            print("stat:", job_stat)
-            if job_stat:
-                id = int(job_stat["id"])
-                status_dict[id] = job_stat
+            try:
+                job_stat = self._parse_status_line(line)
+            except (ValueError, TypeError):
+                logger.debug(f"Cannot parse job status: {line}")
+                continue
+            else:
+                status_dict[job_stat.id] = job_stat
         return status_dict
 
     def _parse_status_line(self, line):
-        status = {}
         fields = line.split()
-        print(len(fields), len(self.status_fields))
-        if len(fields) != len(self.status_fields):
-            return status
+        actual = len(fields)
+        expected = len(self.status_fields)
+        if actual != expected:
+            raise ValueError(
+                f"Line has {actual} columns: expected {expected}:\n{fields}"
+            )
 
+        status = {}
         for name, value in zip(self.status_fields, fields):
             func = self._status_field_map(name)
             status[name] = func(value)
-        print(status)
-        return status
 
-    def _parse_nodelist_output(self, stdout):
-        raw_lines = stdout.split("\n")
-        nodelist = {}
-        node_lines = raw_lines[1:]
-        for line in node_lines:
-            self._parse_nodelist_line(line, nodelist)
-        return nodelist
+        return JobStatus(**status)
 
-    def _parse_nodelist_line(self, line, nodelist):
-        fields = line.split()
-        if len(fields) != len(self.nodelist_fields):
-            return
+    def _parse_backfill_output(self, stdout):
+        # TODO: waiting for feedback from NERSC
+        # TODO: to extract backfill information
+        raise NotImplementedError
 
-        node_ids = self._parse_node_field(fields[0])
+        # raw_lines = stdout.split("\n")
+        # windows = {}
+        # sinfo_lines = raw_lines[1:]
+        # for line in sinfo_lines:
+        #     self._parse_sinfo_line(line, nodelist)
+        # return nodelist
 
-        queue = fields[1]
-        status = self._node_state_map(fields[2])
-
-        for node_id in node_ids:
-            if node_id in nodelist:
-                nodelist[node_id]["queues"].append(queue)
-                nodelist[node_id]["state"] = status
-            else:
-                nodelist[node_id] = {"queues": [queue], "state": status}
-
-    @staticmethod
-    def _parse_node_field(nodes_str):
-        node_numbers_str = nodes_str[len("nid[") : -1]
-        node_ranges = node_numbers_str.split(",")
-        node_ids = []
-        for node_range in node_ranges:
-            if "-" in node_range:
-                parts = node_range.split("-")
-                min = int(parts[0])
-                max = int(parts[1])
-                for i in range(min, max + 1):
-                    node_ids.append(i)
-            else:
-                node_ids.append(int(node_range))
-
-        return node_ids
+    # def _parse_sinfo_line(self, line, nodelist):
+    #     fields = line.split()
+    #     if len(fields) != len(self.nodelist_fields):
+    #         return
+    #
+    #     node_ids = self._parse_node_field(fields[0])
+    #     num_nodes = len(node_ids)
+    #
+    #     queue = fields[1]
+    #     status = self._node_state_map(fields[2])
+    #
+    #     for node_id in node_ids:
+    #         if node_id in nodelist:
+    #             nodelist[node_id]["queues"].append(queue)
+    #             nodelist[node_id]["state"] = status
+    #         else:
+    #             nodelist[node_id] = {"queues": [queue], "state": status}
+    #
+    # @staticmethod
+    # def _parse_node_field(nodes_str):
+    #     node_numbers_str = nodes_str[len("nid[") : -1]
+    #     node_ranges = node_numbers_str.split(",")
+    #     node_ids = []
+    #     for node_range in node_ranges:
+    #         if "-" in node_range:
+    #             parts = node_range.split("-")
+    #             min = int(parts[0])
+    #             max = int(parts[1])
+    #             for i in range(min, max + 1):
+    #                 node_ids.append(i)
+    #         else:
+    #             node_ids.append(int(node_range))
+    #
+    #     return node_ids

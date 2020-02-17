@@ -1,10 +1,32 @@
 from getpass import getuser
 import subprocess
 import os
+import collections
 
 
 class SchedulerNonZeroReturnCode(Exception):
     pass
+
+
+""" JobStatus contains the status of a pending or running job """
+JobStatus = collections.namedtuple(
+    "JobStatus",
+    [
+        "id",
+        "state",
+        "queue",
+        "num_nodes",
+        "wall_time_min",
+        "project",
+        "time_remaining_min",
+    ],
+)
+
+
+""" BackfillWindow contains a number of nodes which are free for some available time """
+BackfillWindow = collections.namedtuple(
+    "BackfillWindow", ["num_nodes", "backfill_time_min"]
+)
 
 
 def scheduler_subproc(args, cwd=None):
@@ -43,7 +65,8 @@ class SchedulerInterface(object):
 
     def get_statuses(self, project=None, user=None, queue=None):
         """
-        Returns list of JobStatus for each job belonging to current user
+        Returns dictionary keyed on scheduler job id and a value of JobStatus for each
+          job belonging to current user, project, and/or queue
         """
         raise NotImplementedError
 
@@ -53,9 +76,10 @@ class SchedulerInterface(object):
         """
         raise NotImplementedError
 
-    def get_site_nodelist(self):
+    def get_backfill_windows(self):
         """
-        Returns a list of NodeWindows on the system
+        Returns a dictionary keyed on queue name and a value of list of
+          BackfillWindow on the system for available scheduling windows
         """
         raise NotImplementedError
 
@@ -64,7 +88,6 @@ class SubprocessSchedulerInterface(SchedulerInterface):
     def submit(
         self, script_path, project, queue, num_nodes, time_minutes, cwd=None, **kwargs
     ):
-
         submit_args = self._render_submit_args(
             script_path, project, queue, num_nodes, time_minutes, **kwargs
         )
@@ -83,11 +106,8 @@ class SubprocessSchedulerInterface(SchedulerInterface):
         stdout = scheduler_subproc(delete_args)
         return stdout
 
-    def get_site_nodelist(self):
-        """
-        Get available compute nodes system-wide
-        """
-        nodelist_args = self._render_nodelist_args()
-        stdout = scheduler_subproc(nodelist_args)
-        nodelist = self._parse_nodelist_output(stdout)
-        return nodelist
+    def get_backfill_windows(self):
+        backfill_args = self._render_backfill_args()
+        stdout = scheduler_subproc(backfill_args)
+        backfill_windows = self._parse_backfill_output(stdout)
+        return backfill_windows
