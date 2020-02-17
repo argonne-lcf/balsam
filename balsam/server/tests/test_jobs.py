@@ -498,7 +498,40 @@ class JobTests(
         self.assertListEqual([j["wall_time_min"] for j in acquired], 3 * [0])
 
     def test_acquire_for_launch_respects_provided_ordering(self):
-        pass
+        self.setup_varying_resources_scenario(
+            *[
+                (
+                    1,
+                    dict(
+                        num_nodes=random.randint(1, 4),
+                        wall_time_min=random.randint(0, 60),
+                    ),
+                )
+                for i in range(100)
+            ]
+        )
+
+        resources = {
+            "max_jobs_per_node": 1,
+            "max_wall_time_min": 20,
+            "running_job_counts": 128 * [0],
+            "node_occupancies": 128 * [0],
+            "idle_cores": 128 * [1],
+            "idle_gpus": 128 * [0],
+        }
+
+        acquired = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=128,
+            node_resources=resources,
+            order_by=["-num_nodes", "-wall_time_min"],
+        )
+        nodes_minutes = [(job["num_nodes"], job["wall_time_min"]) for job in acquired]
+        self.assertEqual(nodes_minutes, sorted(nodes_minutes, reverse=True))
+        self.assertLessEqual(max(n[1] for n in nodes_minutes), 20)
+        self.assertLessEqual(sum(n[0] for n in nodes_minutes), 128)
 
     def test_acquire_for_launch_respects_idle_core_limits(self):
         pass
