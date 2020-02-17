@@ -1,4 +1,5 @@
-from .scheduler import SubprocessSchedulerInterface
+from collections import defaultdict, Counter
+from .scheduler import SubprocessSchedulerInterface, JobStatus, BackfillWindow
 import os
 import logging
 
@@ -18,7 +19,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     status_exe = "qstat"
     submit_exe = "qsub"
     delete_exe = "qdel"
-    nodelist_exe = "nodelist"
+    backfill_exe = "nodelist"
 
     # maps scheduler states to Balsam states
     job_states = {
@@ -45,7 +46,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         "state": "State",
         "wall_time_min": "WallTime",
         "queue": "Queue",
-        "nodes": "Nodes",
+        "num_nodes": "Nodes",
         "project": "Project",
         "time_remaining_min": "TimeRemaining",
     }
@@ -56,11 +57,10 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     def _status_field_map(balsam_field):
         status_field_map = {
             "id": lambda id: int(id),
-            "nodes": lambda n: int(n),
+            "num_nodes": lambda n: int(n),
             "time_remaining_min": parse_cobalt_time_minutes,
             "wall_time_min": parse_cobalt_time_minutes,
             "state": CobaltScheduler._job_state_map,
-            "backfill_time": parse_cobalt_time_minutes,
         }
         return status_field_map.get(balsam_field, lambda x: x)
 
@@ -90,7 +90,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         "state": "Status",
         "mem": "MCDRAM",
         "numa": "NUMA",
-        "backfill_time": "Backfill",
+        "backfill_time_min": "Backfill",
     }
 
     # when reading these fields from the scheduler apply
@@ -99,9 +99,9 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     def _nodelist_field_map(balsam_field):
         nodelist_field_map = {
             "id": lambda id: int(id),
-            "queues": lambda q: q.split(":"),
             "state": CobaltScheduler._node_state_map,
-            "backfill_time": lambda x: parse_cobalt_time_minutes(x),
+            "queues": lambda x: x.split(":"),
+            "backfill_time_min": lambda x: parse_cobalt_time_minutes(x),
         }
         return nodelist_field_map.get(balsam_field, lambda x: x)
 
@@ -142,8 +142,8 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     def _render_delete_args(self, job_id):
         return [self.delete_exe, str(job_id)]
 
-    def _render_nodelist_args(self):
-        return [self.nodelist_exe]
+    def _render_backfill_args(self):
+        return [self.backfill_exe]
 
     def _parse_submit_output(self, submit_output):
         try:
@@ -157,43 +157,82 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         status_dict = {}
         job_lines = raw_output.split("\n")[2:]
         for line in job_lines:
-            job_stat = self._parse_status_line(line)
-            if job_stat:
-                id = int(job_stat["id"])
-                status_dict[id] = job_stat
+            try:
+                job_stat = self._parse_status_line(line)
+            except (ValueError, TypeError):
+                logger.debug(f"Cannot parse job status: {line}")
+                continue
+            else:
+                status_dict[job_stat.id] = job_stat
         return status_dict
 
     def _parse_status_line(self, line):
-        status = {}
         fields = line.split()
-        if len(fields) != len(self.status_fields):
-            return status
+        actual = len(fields)
+        expected = len(self.status_fields)
+        if actual != expected:
+            raise ValueError(
+                f"Line has {actual} columns: expected {expected}:\n{fields}"
+            )
 
+        status = {}
         for name, value in zip(self.status_fields, fields):
             func = self._status_field_map(name)
             status[name] = func(value)
+        return JobStatus(**status)
 
-        return status
-
-    def _parse_nodelist_output(self, stdout):
+    def _parse_backfill_output(self, stdout):
         raw_lines = stdout.split("\n")
-        nodelist = {}
+        nodelist = []
         node_lines = raw_lines[2:]
         for line in node_lines:
-            node_stat = self._parse_nodelist_line(line)
-            if node_stat:
-                id = str(node_stat["id"])
-                nodelist[id] = node_stat
-        return nodelist
+            try:
+                line_dict = self._parse_nodelist_line(line)
+            except (ValueError, TypeError):
+                logger.debug(f"Cannot parse nodelist line: {line}")
+            else:
+                if line_dict["backfill_time_min"] > 0 and line_dict["state"] == "idle":
+                    nodelist.append(line_dict)
+
+        windows = self._nodelist_to_backfill(nodelist)
+        return windows
 
     def _parse_nodelist_line(self, line):
-        status = {}
         fields = line.split()
-        if len(fields) != len(self.nodelist_fields):
-            return status
+        actual = len(fields)
+        expected = len(self.nodelist_fields)
 
+        if actual != expected:
+            raise ValueError(
+                f"Line has {actual} columns: expected {expected}:\n{fields}"
+            )
+
+        status = {}
         for name, value in zip(self.nodelist_fields, fields):
             func = CobaltScheduler._nodelist_field_map(name)
             status[name] = func(value)
-
         return status
+
+    def _nodelist_to_backfill(self, nodelist):
+        queue_bf_times = defaultdict(list)
+        windows = defaultdict(list)
+
+        for entry in nodelist:
+            bf_time = entry["backfill_time_min"]
+            queues = entry["queues"]
+            for queue in queues:
+                queue_bf_times[queue].append(bf_time)
+
+        for queue, bf_times in queue_bf_times.items():
+            bf_counter = Counter(bf_times)  # mapping {bf_time: num_nodes}
+            bf_counter = sorted(bf_counter.items(), reverse=True)  # longer times first
+            queue_bf_times[queue] = bf_counter
+
+        for queue, bf_counter in queue_bf_times.items():
+            running_total = 0
+            for bf_time, num_nodes in bf_counter:
+                running_total += num_nodes
+                windows[queue].append(
+                    BackfillWindow(num_nodes=running_total, backfill_time_min=bf_time)
+                )
+        return windows
