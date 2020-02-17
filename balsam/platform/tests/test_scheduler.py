@@ -60,7 +60,7 @@ class SchedulerTestMixin(object):
 
             self.assertIn(job_status.state, balsam_job_states)
             self.assertGreaterEqual(job_status.wall_time_min, 0)
-            self.assertGreater(job_status.nodes, 0)
+            self.assertGreaterEqual(job_status.nodes, 0)
 
         # clean up after this test, delete job, wait for delete to be complete
         self.scheduler.delete_job(job_id)
