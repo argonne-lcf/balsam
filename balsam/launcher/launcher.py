@@ -30,6 +30,7 @@ from balsam.launcher import worker
 from balsam.launcher.util import (
     remaining_time_minutes, delay_generator, get_tail
     )
+from balsam.service.schedulers import JobEnv
 from balsam.scripts.cli import config_launcher_subparser
 from balsam.core import models
 
@@ -359,7 +360,9 @@ class MPILauncher:
 class SerialLauncher:
     MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
 
-    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, persistent=False):
+    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None,
+                 persistent=False):
+        self.jobsource = BalsamJob.source
         self.wf_name = wf_name
         self.gpus_per_node = gpus_per_node
         self.is_persistent = persistent
@@ -400,12 +403,9 @@ class SerialLauncher:
         logger.info(f'Starting MPI Fork ensemble process:\n{mpi_str}')
 
         self.outfile = open(os.path.join(settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
-        self.process = subprocess.Popen(
-            args=shlex.split(mpi_str),
-            bufsize=1,
-            stdout=self.outfile,
-            stderr=subprocess.STDOUT,
-            shell=False)
+        self.process = subprocess.Popen(args=shlex.split(mpi_str), bufsize=1,
+                                        stdout=self.outfile, stderr=subprocess.STDOUT,
+                                        shell=False)
 
         while not EXIT_FLAG:
             try:
@@ -415,13 +415,33 @@ class SerialLauncher:
             else:
                 logger.info(f'ensemble pull subprocess returned {retcode}')
                 break
+        logger.debug("EXIT_FLAG has been flipped!")
 
-        self.process.terminate()
-        try:
-            self.process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
+        # do not directly kill a srun job step (would only kill srun; task continues to run)
+        if settings.SCHEDULER_CLASS == "SlurmScheduler":
+            # Use scancel insteak of pkill, kill, etc.
+            sched_id = JobEnv.current_scheduler_id
+            term_str = f"scancel --signal=TERM {sched_id}.0"
+            logger.debug(f"Invoking Slurm scancel for mpi_ensemble job step: \"{term_str}\"")
+            # TODO(KGF): calling scancel here may not be necessary, since "scancel --batch JOB_ID"
+            # might already correctly call scancel on srun steps after the parent batch script
+            # finishes handling the original/explicit SIGTERM here
+            subprocess.Popen(args=shlex.split(term_str), bufsize=1,
+                             stdout=self.outfile, stderr=subprocess.STDOUT,
+                             shell=False)
+            # TODO(KGF): consider sending SIGKILL via Slurm daemon if 1st scancel fails
+        else:
+            logger.debug(f"Sending SIGTERM to mpi_ensemble (pid={self.process.pid})")
+            self.process.terminate()
+            try:
+                logger.debug("Waiting on mpi_ensemble to stop...")
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                logger.debug("No response in 10 seconds! Sending SIGKILL!")
+                self.process.kill()
+            logger.debug(f"Child mpi_ensemble process return code={self.process.returncode}")
         self.outfile.close()
+        logger.info("ensemble.out file closed.")
 
 
 def main(args):
