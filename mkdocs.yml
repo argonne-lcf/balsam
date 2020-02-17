@@ -1,0 +1,46 @@
+site_name: Balsam
+nav:
+  - Home: README.md 
+  - User Guide:
+      - "Getting Started": userguide/getting-started.md
+      - "Configuration": userguide/configuration.md
+      - "The Database": userguide/db.md
+      - "Defining Applications": userguide/app.md
+      - "Submitting Jobs": userguide/submit.md
+      - "Command Line Interface": userguide/cli.md
+      - "Multi-user Collaboration": userguide/multi-user.md
+  - Application Tutorials:
+    - "DeepHyper": tutorial/deephyper.md
+    - "NWChem: Parameter Sweep": tutorial/nwchem.md
+    - "Containerizing Single-node MPI Applications": tutorial/nwcontainer.md
+  - "FAQs & Common Recipes":
+      - Hyperparameter Optimization: faq/dl-hps.md
+      - Frequently Asked Questions: faq/recipes.md
+
+       
+  - License: LICENSE.md
+
+
+theme:
+  name: 'material'
+  language: 'en'
+  palette:
+    primary: 'teal'
+    accent: 'amber'
+
+markdown_extensions:
+  - admonition
+
+extra_css: [extra.css]
+
+repo_name: 'balsam-alcf/balsam'
+repo_url: 'https://github.com/balsam-alcf/balsam'
+
+extra:
+  social:
+    - type: 'github'
+      link: 'https://github.com/balsam-alcf'
+
+plugins:
+  - mkdocs-jupyter
+  - search
