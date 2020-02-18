@@ -83,6 +83,8 @@ class EventLog(models.Model):
 
 class JobLockManager(models.Manager):
     EXPIRATION_PERIOD = timedelta(minutes=3)
+    SWEEP_PERIOD = timedelta(seconds=10)
+    last_sweep = timezone.now() - SWEEP_PERIOD
 
     def create(self, site, label, batch_job):
         lock = JobLock(site=site, label=label, batch_job=batch_job)
@@ -90,7 +92,12 @@ class JobLockManager(models.Manager):
         return lock
 
     def clear_stale(self):
-        expiry_time = timezone.now() - self.EXPIRATION_PERIOD
+        now = timezone.now()
+        if now - JobLockManager.last_sweep < self.SWEEP_PERIOD:
+            return
+
+        JobLockManager.last_sweep = now
+        expiry_time = now - self.EXPIRATION_PERIOD
         qs = self.get_queryset()
         expired_locks = qs.filter(heartbeat__lte=expiry_time)
         num_deleted, _ = expired_locks.delete()
@@ -275,6 +282,7 @@ class JobManager(models.Manager):
                 backend = job.app_exchange.backends.get(site=lock.site)
                 job.app_backend = backend
             job.save()
+        lock.tick()
         return queryset
 
     def _pre_assign(self, ordered_qs, node_resources, max_num_acquire):
@@ -386,6 +394,7 @@ class Job(models.Model):
         on_delete=models.SET_NULL,
         db_index=True,
         editable=False,
+        related_name="jobs",
     )
     owner = models.ForeignKey(
         "User",
@@ -631,7 +640,12 @@ class Job(models.Model):
             self.app_backend = None
 
     def is_locked(self):
-        return self.lock is not None
+        return self.lock_id is not None
+
+    def get_lock_status(self):
+        if not self.is_locked():
+            return "Unlocked"
+        return LOCKED_STATUS.get(self.state, "Unknown")
 
     def release_lock(self):
         self.lock = None

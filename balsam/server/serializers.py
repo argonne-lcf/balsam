@@ -338,6 +338,8 @@ class JobSerializer(BulkModelSerializer):
             "app_class",
             "events",
             "transfer_items",
+            "return_code",
+            "lock_status",
             "state",
             "state_timestamp",
             "state_message",
@@ -380,6 +382,7 @@ class JobSerializer(BulkModelSerializer):
     parents = OwnedJobPrimaryKeyRelatedField(many=True)
     parameters = serializers.DictField(child=serializers.CharField(max_length=128))
     data = serializers.DictField()
+    lock_status = serializers.CharField(read_only=True, source="get_lock_status")
     state_timestamp = serializers.DateTimeField(write_only=True, required=False)
     state_message = serializers.CharField(write_only=True, required=False)
 
@@ -481,6 +484,7 @@ class SessionSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Only ticks lock"""
         instance.tick()
+        JobLock.objects.clear_stale()
         return instance
 
 

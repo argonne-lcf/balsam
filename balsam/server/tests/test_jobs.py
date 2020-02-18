@@ -5,7 +5,15 @@ import time
 import pytz
 import random
 from rest_framework import status
-from balsam.server.models import User, Site, AppBackend, Job, BatchJob, EventLog
+from balsam.server.models import (
+    User,
+    Site,
+    AppBackend,
+    Job,
+    BatchJob,
+    EventLog,
+    JobLock,
+)
 
 from .mixins import (
     SiteFactoryMixin,
@@ -45,7 +53,11 @@ class JobTests(
         response = self.client.get_data(
             "job-event-list", uri={"job_id": job["pk"]}, check=status.HTTP_200_OK
         )
-        self.assertEqual(response["count"], len(states) - 1)
+        fail_msg = "\n".join(
+            f'{i}) {e["from_state"]} ->  {e["to_state"]} ({e["message"]})'
+            for i, e in enumerate(response["results"])
+        )
+        self.assertEqual(response["count"], len(states) - 1, msg="\n" + fail_msg)
         eventlogs = response["results"]
 
         for i, (from_state, to_state) in enumerate(zip(states[:-1], states[1:])):
@@ -815,21 +827,182 @@ class JobTests(
         self.assertEqual(jobs["count"], 1)
         self.assertEqual(jobs["results"][0]["workdir"], "B")
 
+    def test_filter_jobs_by_state(self):
+        specs = [
+            self.job_dict(workdir="A"),
+            self.job_dict(workdir="B"),
+        ]
+        A, B = self.create_jobs(specs)
+
+        # Job A bumped to "PREPROCESSED"
+        Job.objects.get(pk=A["pk"]).update(state="PREPROCESSED")
+
+        # Query should only match B now
+        jobs = self.client.get_data(
+            "job-list", state="STAGED_IN", check=status.HTTP_200_OK,
+        )
+        self.assertEqual(jobs["count"], 1)
+        self.assertEqual(jobs["results"][0]["workdir"], "B")
+
+        # Do not allow invalid state choice in query
+        res = self.client.get_data(
+            "job-list", state="NONSENSE", check=status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn("invalid", str(res))
+
     def test_update_to_run_done_releases_lock_but_not_batch_job(self):
-        pass
+        self.setup_varying_resources_scenario((5, {}))  # 5 generic jobs
+
+        # Before acqusition: no locks, no batchjobs assigned
+        for job in Job.objects.all():
+            self.assertEqual(job.lock, None)
+            self.assertEqual(job.batch_job, None)
+
+        # Acquisition
+        acquired = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=5,
+        )
+        self.assertEqual(len(acquired), 5)
+
+        # After acqusition: locks & batchjob assigned
+        for job in Job.objects.all():
+            self.assertEqual(job.lock_id, self.session["pk"])
+            self.assertEqual(job.batch_job_id, self.bjob.pk)
+
+        # Update to RUNNING
+        self.client.bulk_put_data(
+            "job-list", {"state": "RUNNING"}, check=status.HTTP_200_OK
+        )
+
+        # After RUNNING: locks & batchjob assigned
+        for job in Job.objects.all():
+            self.assertEqual(job.state, "RUNNING")
+            self.assertEqual(job.lock_id, self.session["pk"])
+            self.assertEqual(job.batch_job_id, self.bjob.pk)
+
+        # Update to RUN_DONE
+        self.client.bulk_put_data(
+            "job-list", {"state": "RUN_DONE"}, check=status.HTTP_200_OK
+        )
+
+        # After RUN_DONE: locks freed; batchjob remains
+        for job in Job.objects.all():
+            self.assertEqual(job.state, "RUN_DONE")
+            self.assertEqual(job.lock_id, None)
+            self.assertEqual(job.batch_job_id, self.bjob.pk)
 
     def test_can_set_data_and_return_code_on_locked_job(self):
-        pass
+        self.setup_varying_resources_scenario((5, {}))  # 5 generic jobs
+        jobs = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=5,
+        )
+        # Jobs RUNNING and locked
+        for job in Job.objects.all():
+            job.update(state="RUNNING")
+            self.assertEqual(job.lock_id, self.session["pk"])
+
+        # Client updates data mid-run
+        patches = [dict(pk=job["pk"], data={"foo": 1234, "bar": "12"}) for job in jobs]
+        self.client.bulk_patch_data(
+            "job-list", list_data=patches, check=status.HTTP_200_OK
+        )
+
+        # Data was updated; job still locked
+        for job in Job.objects.all():
+            self.assertEqual(job.data["foo"], 1234)
+            self.assertEqual(job.data["bar"], "12")
+            self.assertEqual(job.lock_id, self.session["pk"])
+            self.assertEqual(job.return_code, None)
+
+        # Client updates return_code, jobs marked RUN_DONE
+        patches = [dict(pk=job["pk"], return_code=1, state="RUN_ERROR") for job in jobs]
+        self.client.bulk_patch_data(
+            "job-list", list_data=patches, check=status.HTTP_200_OK
+        )
+
+        # Now Jobs unlocked, in state RUN_ERROR, with return_code set
+        for job in Job.objects.all():
+            self.assertEqual(job.state, "RUN_ERROR")
+            self.assertEqual(job.return_code, 1)
+            self.assertEqual(job.lock_id, None)
+
+        for job in jobs:
+            self.assertHistory(
+                job,
+                "CREATED",
+                "READY",
+                "STAGED_IN",
+                "PREPROCESSED",
+                "RUNNING",
+                "RUNNING",
+                "RUN_ERROR",
+            )
 
     def test_can_read_locked_status(self):
-        """read-only LOCKED_STATUS appears on Jobs when locked"""
-        pass
+        """Read-only lock_status details current action when locked"""
+        self.setup_varying_resources_scenario((2, {}))
+        for job in self.client.get_data("job-list")["results"]:
+            self.assertEqual(job["lock_status"], "Unlocked")
+
+        for job in self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=5,
+        ):
+            self.assertEqual(job["lock_status"], "Acquired by launcher")
+
+        for job in Job.objects.all():
+            job.update(state="RUNNING")
+            self.assertEqual(job.lock_id, self.session["pk"])
+
+        for job in self.client.get_data("job-list")["results"]:
+            self.assertEqual(job["lock_status"], "Running")
+
+        for job in Job.objects.all():
+            job.update(state="RUN_DONE", return_code=0)
+            self.assertEqual(job.lock_id, None)
+
+        for job in self.client.get_data("job-list")["results"]:
+            self.assertEqual(job["lock_status"], "Unlocked")
 
     def test_concurrent_acquires_for_launch(self):
         pass
 
     def test_tick_heartbeat_extends_expiration(self):
-        pass
+        before_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
+        self.setup_two_site_scenario(num_jobs=5)  # lock is created here
+
+        for job in Job.objects.all():
+            self.assertEqual(job.lock, None)
+
+        self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=20,
+        )
+
+        lock = JobLock.objects.first()
+        after_acquire = lock.heartbeat
+        self.assertEqual(lock.jobs.count(), 5)
+        self.assertLess(before_acquire, after_acquire)
+
+        time.sleep(0.15)
+
+        self.client.patch_data(
+            "session-detail", uri={"pk": self.session1["pk"]}, check=status.HTTP_200_OK
+        )
+
+        lock = JobLock.objects.first()
+        after_tick = lock.heartbeat
+        self.assertGreater(after_tick - after_acquire, timedelta(seconds=0.1))
 
     def test_tick_heartbeat_clears_expired_locks(self):
         pass
@@ -845,16 +1018,6 @@ class JobTests(
         pass
 
     def test_cannot_alter_transfer_item_source_or_dest(self):
-        pass
-
-    # List & Filtering Jobs
-    def test_filter_jobs_by_data(self):
-        pass
-
-    def test_filter_jobs_by_tags(self):
-        pass
-
-    def test_filter_jobs_by_state(self):
         pass
 
     def test_can_traverse_dag(self):
