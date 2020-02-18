@@ -388,13 +388,17 @@ class SerialLauncher:
         workers = self.worker_group
         if self.total_nodes == 1:
             logger.warning("Running Serial job mode with only one node. Typically, "
-            "there is only one rank per node, and Balsam master occupies the first node.\n"
-            "Assuming you are testing; will run 4 ranks (1 master; 3 workers) on the node.\n"
-            "This will cause heavy oversubscription with production workloads."
+            "this Balsam job mode is invoked with only one rank per node, and the "
+            "master process occupies the entire first node.\n"
+            "For a single node, launching 2 ranks (1 master; 1 ensemble worker) on the node.\n"
             )
-            num_ranks = 4
-            rpn = 4
+            num_ranks = 2
+            rpn = 2
         else:
+            # TODO(KGF): Ideally, one node should have 2 ranks (one extra for the Master process)
+            # and the remaining nodes should each have 1 rank. Could likely change rpn=2,
+            # num_ranks=2*self.total_nodes here for the srun step, and ignore the second rank
+            # for most nodes within the mpi_ensemble.py launching of worker processes
             num_ranks = self.total_nodes
             rpn = 1
         mpi_str = workers.mpi_cmd(

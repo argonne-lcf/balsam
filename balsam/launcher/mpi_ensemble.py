@@ -116,7 +116,8 @@ class ResourceManager:
         min_packing_count = 1
 
         for job in self.job_cache:
-            if job.node_packing_count < min_packing_count: continue
+            if job.node_packing_count < min_packing_count:
+                continue
             job_occ = 1.0 / job.node_packing_count
 
             free_ranks = (i for i in range(1, comm.size)
@@ -130,7 +131,8 @@ class ResourceManager:
                 pre_assignments[rank].append(job)
                 self.pre_assign(rank, job)
 
-        if len(pre_assignments) == 0: return False
+        if len(pre_assignments) == 0:
+            return False
 
         to_acquire = [job.pk for rank in pre_assignments
                       for job in pre_assignments[rank]]
@@ -355,7 +357,7 @@ class FailedToStartProcess:
 
 
 class Worker:
-    CHECK_PERIOD=10
+    CHECK_PERIOD = 10
     RETRY_WINDOW = 20
     RETRY_CODES = [-11, 1, 255, 12345]
     MAX_RETRY = 3
@@ -415,7 +417,7 @@ class Worker:
             if elapsed < self.RETRY_WINDOW and retry_count <= self.MAX_RETRY:
                 logmsg = self.log_prefix(pk)
                 logmsg += (f'can retry task (err occured after {elapsed:.2f} sec; '
-                          f'attempt {self.retry_counts[pk]}/{self.MAX_RETRY})')
+                           f'attempt {self.retry_counts[pk]}/{self.MAX_RETRY})')
                 logger.error(logmsg)
                 return True
         return False
@@ -454,7 +456,7 @@ class Worker:
 
         # Set the affinity for this process:
 
-        open_affinity = [ cpu for cpu in self.all_affinity if cpu not in self.used_affinity ]
+        open_affinity = [cpu for cpu in self.all_affinity if cpu not in self.used_affinity ]
 #TODO: Should this check occur?
         # if len(open_cpus) < required_num_cores:
         #     raise Exception("Not enough available cpus")
@@ -466,7 +468,8 @@ class Worker:
         out_name = f'{name}.out'
         logger.info(f"{self.log_prefix(pk)} Popen (shell={shell}):\n{args}")
 
-        if not os.path.exists(workdir): os.makedirs(workdir)
+        if not os.path.exists(workdir):
+            os.makedirs(workdir)
         outfile = open(os.path.join(workdir, out_name), 'wb')
         self.outfiles[pk] = outfile
         try:
@@ -501,17 +504,18 @@ class Worker:
 
     def log_prefix(self, pk=None):
         prefix = f'rank {RANK} '
-        if pk: prefix += f'{self.cuteids[pk]} '
+        if pk:
+            prefix += f'{self.cuteids[pk]} '
         return prefix
 
     def write_message(self, job_statuses):
-        msg = {'ask' : [], 'done' : [], 'error': []}
+        msg = {'ask': [], 'done': [], 'error': []}
         num_jobs = len(job_statuses)
         num_errors = len([
             s for s in job_statuses.values()
-            if s not in ["running","done"]
+            if s not in ["running", "done"]
         ])
-        max_tail = (MSG_BUFSIZE - 110*num_jobs) // max(1,num_errors)
+        max_tail = (MSG_BUFSIZE - 110*num_jobs) // max(1, num_errors)
         for pk, status in job_statuses.items():
             if status == 'running':
                 msg['ask'].append(pk)
