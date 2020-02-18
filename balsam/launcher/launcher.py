@@ -47,6 +47,15 @@ def sig_handler(signum, stack):
 class MPIRun:
     RUN_DELAY = 0.10  # 1000 jobs / 100 sec
 
+    # TODO(KGF): extend to encapsulate scheduler-dependent quirks of starting/signaling/etc.
+    # an application (e.g. do not directly kill app in Slurm; use scancel).
+    # The goal is to encapsulate every platform-specific detail in a separate cluster
+    # interface class, so that launcher.py can be written as generically as possible
+    #
+    # mpirun.start() # launch the process
+    # mpirun.poll()  # check status
+    # mpirun.terminate() # send friendly term signal
+    # mpirun.force_kill()  # send force-kill signal
     def __init__(self, job, workers):
         self.job = job
         self.workers = workers
@@ -422,6 +431,7 @@ class SerialLauncher:
         logger.debug("EXIT_FLAG has been flipped!")
 
         # do not directly kill a srun job step (would only kill srun; task continues to run)
+        # TODO(KGF): see above comments about encapsulating within MPIRun derived class
         if settings.SCHEDULER_CLASS == "SlurmScheduler":
             # Use scancel insteak of pkill, kill, etc.
             sched_id = JobEnv.current_scheduler_id
