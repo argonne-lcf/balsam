@@ -387,10 +387,10 @@ class SerialLauncher:
         global EXIT_FLAG
         workers = self.worker_group
         if self.total_nodes == 1:
-            logger.warning("Running Serial job mode with only one node. Typically, "
+            logger.warning("Running Serial job mode with only one node.\nTypically, "
             "this Balsam job mode is invoked with only one rank per node, and the "
             "master process occupies the entire first node.\n"
-            "For a single node, launching 2 ranks (1 master; 1 ensemble worker) on the node.\n"
+            "For a single node, launching 2 ranks (1 master; 1 ensemble worker) on the node."
             )
             num_ranks = 2
             rpn = 2

@@ -234,7 +234,7 @@ class ResourceManager:
 
         if response['tag'] == 'KILL':
             logger.info(f"Sent KILL to rank {rank} for {response['kill_pks']}\n"
-                         f"occupancy is now {self.node_occupancy[rank]}")
+                        f"occupancy is now {self.node_occupancy[rank]}")
 
         return response['kill_pks'], req
 
@@ -338,10 +338,10 @@ class Master:
         start = time.time()
         got_requests = self.manager.serve_requests()
         elapsed = time.time() - start
+        time.sleep(self.DELAY_PERIOD)
         if got_requests:
             logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
         if not (ran_anything or got_requests or self.manager.have_processable()):
-            time.sleep(self.DELAY_PERIOD)
             self.idle_time += self.DELAY_PERIOD
         else:
             self.idle_time = 0.0
@@ -453,11 +453,11 @@ class Worker:
             gpu_device = idx % self.gpus_per_node
             envs['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
             envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
+            logger.info(f"{self.log_prefix(pk)} index {idx} setting CUDA_VISIBLE_DEVICES={gpu_device}")
 
         # Set the affinity for this process:
-
         open_affinity = [cpu for cpu in self.all_affinity if cpu not in self.used_affinity ]
-#TODO: Should this check occur?
+# TODO: Should this check occur?
         # if len(open_cpus) < required_num_cores:
         #     raise Exception("Not enough available cpus")
         # else:
