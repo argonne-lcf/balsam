@@ -201,7 +201,9 @@ class JobList(ListBulkCreateBulkUpdateBulkDestroyAPIView):
         batch_job_id = self.kwargs.get("batch_job_id")
         if batch_job_id is not None:
             qs = qs.filter(batch_job=batch_job_id)
-        qs = qs.select_related("site", "owner", "app_exchange", "app_backend")
+        qs = qs.select_related(
+            "app_backend__site", "owner", "app_exchange", "app_backend"
+        )
         return qs
 
     def perform_create(self, serializer):

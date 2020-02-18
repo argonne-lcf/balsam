@@ -1,6 +1,7 @@
 """APIClient-driven tests"""
 import uuid
 from datetime import datetime, timedelta
+import time
 import pytz
 import random
 from rest_framework import status
@@ -670,19 +671,149 @@ class JobTests(
                 self.assertEqual(j.num_nodes, 128)
 
     def test_can_filter_on_parameters(self):
-        pass
+        specs = [
+            self.job_dict(parameters={"name": "Ed", "N": "50"}),
+            self.job_dict(parameters={"name": "Ed", "N": "40"}),
+            self.job_dict(parameters={"name": "World", "N": "60"}, ranks_per_node=31),
+            self.job_dict(parameters={"name": "World", "N": "70"}),
+        ]
+        self.create_jobs(specs)
+        jobs = self.client.get_data(
+            "job-list",
+            check=status.HTTP_200_OK,
+            parameters__name="World",
+            parameters__N="60",
+        )
+        self.assertEqual(jobs["count"], 1)
+        self.assertEqual(jobs["results"][0]["ranks_per_node"], 31)
 
     def test_can_filter_on_data(self):
-        pass
+        specs = [
+            self.job_dict(data={"energy": -40}),
+            self.job_dict(data={"energy": -50}),
+            self.job_dict(data={"energy": -60}),
+            self.job_dict(data={}),
+        ]
+        self.create_jobs(specs)
+        jobs = self.client.get_data(
+            "job-list", check=status.HTTP_200_OK, data__has_key="energy"
+        )
+        self.assertEqual(jobs["count"], 3)
 
-    def test_can_filter_on_parents__in(self):
-        pass
+    def test_can_filter_on_pk(self):
+        specs = [
+            self.job_dict(workdir="A"),
+            self.job_dict(workdir="B"),
+            self.job_dict(workdir="C"),
+        ]
+        A, B, C = self.create_jobs(specs)
+        res = self.client.get_data(
+            "job-list",
+            check=status.HTTP_200_OK,
+            pk=[B["pk"], C["pk"]],
+            ordering="workdir",
+        )
+        self.assertEqual(res["count"], 2)
+        workdirs = [job["workdir"] for job in res["results"]]
+        self.assertListEqual(workdirs, ["B", "C"])
+
+    def test_can_filter_on_parents(self):
+        specs = [
+            self.job_dict(workdir="A"),
+            self.job_dict(workdir="B"),
+        ]
+        parentA, parentB = self.create_jobs(specs)
+
+        child_specs = [
+            self.job_dict(workdir="A1", parents=[parentA["pk"]]),
+            self.job_dict(workdir="A2", parents=[parentA["pk"]]),
+            self.job_dict(workdir="B1", parents=[parentB["pk"]]),
+            self.job_dict(workdir="B2", parents=[parentB["pk"]]),
+            self.job_dict(workdir="B3", parents=[parentB["pk"]]),
+            self.job_dict(workdir="C1", parents=[parentA["pk"], parentB["pk"]]),
+        ]
+        self.create_jobs(child_specs)
+
+        children_of_B = self.client.get_data(
+            "job-list",
+            check=status.HTTP_200_OK,
+            parents=[parentB["pk"]],
+            ordering="workdir",
+        )
+        self.assertEqual(children_of_B["count"], 4)
+        workdirs = [job["workdir"] for job in children_of_B["results"]]
+        self.assertListEqual(workdirs, ["B1", "B2", "B3", "C1"])
+
+        children = self.client.get_data(
+            "job-list",
+            check=status.HTTP_200_OK,
+            parents=[parentA["pk"], parentB["pk"]],
+            ordering="workdir",
+        )
+        self.assertEqual(children["count"], 6)
+        workdirs = [job["workdir"] for job in children["results"]]
+        self.assertListEqual(workdirs, ["A1", "A2", "B1", "B2", "B3", "C1"])
 
     def test_can_filter_on_app_name(self):
-        pass
+        app1 = self.create_app(sites=self.site, cls_names="chem.sim", name="Chem")
+        app2 = self.create_app(sites=self.site, cls_names="math.sim", name="Math")
+        specs = [
+            self.job_dict(workdir="A", app=app1),
+            self.job_dict(workdir="B", app=app2),
+        ]
+        self.create_jobs(specs)
+        empty = self.client.get_data(
+            "job-list", check=status.HTTP_200_OK, app_name="foo"
+        )
+        self.assertEqual(empty["count"], 0)
+        res = self.client.get_data(
+            "job-list", check=status.HTTP_200_OK, app_name="Math"
+        )
+        self.assertEqual(res["count"], 1)
+
+    def test_can_filter_on_site_path(self):
+        site1 = self.create_site(hostname="theta", path="/projects/foo")
+        site2 = self.create_site(hostname="theta", path="/projects/bar")
+        app1 = self.create_app(sites=site1, cls_names="chem.sim", name="Chem")
+        app2 = self.create_app(sites=site2, cls_names="math.sim", name="Math")
+        specs = [
+            self.job_dict(workdir="A1", app=app1),
+            self.job_dict(workdir="A2", app=app1),
+            self.job_dict(workdir="B1", app=app2),
+            self.job_dict(workdir="B2", app=app2),
+        ]
+        self.create_jobs(specs)
+        res = self.client.get_data(
+            "job-list", check=status.HTTP_200_OK, site_path="/projects/bar"
+        )
+        self.assertEqual(res["count"], 2)
 
     def test_can_filter_on_last_update(self):
-        pass
+        specs = [
+            self.job_dict(workdir="A"),
+            self.job_dict(workdir="B"),
+        ]
+        A, B = self.create_jobs(specs)
+        creation_time = datetime.utcnow()  # IMPORTANT! all times in UTC
+
+        time.sleep(0.1)
+        self.client.bulk_patch_data(
+            "job-list", [{"pk": B["pk"], "state": "PREPROCESSED"}]
+        )
+
+        # Before the creation_timestamp: only A
+        jobs = self.client.get_data(
+            "job-list", last_update_before=creation_time, check=status.HTTP_200_OK,
+        )
+        self.assertEqual(jobs["count"], 1)
+        self.assertEqual(jobs["results"][0]["workdir"], "A")
+
+        # After the creation_timestamp: only B
+        jobs = self.client.get_data(
+            "job-list", last_update_after=creation_time, check=status.HTTP_200_OK,
+        )
+        self.assertEqual(jobs["count"], 1)
+        self.assertEqual(jobs["results"][0]["workdir"], "B")
 
     def test_update_to_run_done_releases_lock_but_not_batch_job(self):
         pass

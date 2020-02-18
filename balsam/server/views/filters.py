@@ -62,38 +62,40 @@ class EventFilter(django_filters.FilterSet):
         ]
 
 
-class PkInFilter(django_filters.BaseInFilter, django_filters.NumberFilter):
-    pass
+def jobs_qs(request):
+    if request is not None:
+        return Job.objects.filter(owner=request.user)
+    return Job.objects.none()
 
 
 class JobFilter(django_filters.FilterSet):
-    pk__in = PkInFilter(field_name="pk", lookup_expr="in")
+    pk = django_filters.AllValuesMultipleFilter(field_name="pk")
     app_id = django_filters.NumberFilter(field_name="app_exchange", lookup_expr="pk")
-    app_name = django_filters.NumberFilter(
-        field_name="app_exchange", lookup_expr="name"
-    )
-    app_class = django_filters.NumberFilter(
+    app_name = django_filters.CharFilter(field_name="app_exchange", lookup_expr="name")
+    app_class = django_filters.CharFilter(
         field_name="app_backend", lookup_expr="class_name"
     )
     site_id = django_filters.NumberFilter(
         field_name="app_backend", lookup_expr="site_id"
     )
-    site_hostname = django_filters.NumberFilter(
+    site_hostname = django_filters.CharFilter(
         field_name="app_backend", lookup_expr="site__hostname"
     )
-    site_path = django_filters.NumberFilter(
+    site_path = django_filters.CharFilter(
         field_name="app_backend", lookup_expr="site__path"
     )
     batch_job_id = django_filters.NumberFilter(
         field_name="batch_job", lookup_expr="scheduler_id"
     )
     last_update = django_filters.IsoDateTimeFromToRangeFilter()
-    parents__in = PkInFilter(field_name="parents", lookup_expr="in")
+    parents = django_filters.ModelMultipleChoiceFilter(
+        field_name="parents", queryset=jobs_qs
+    )
 
     class Meta:
         model = Job
         fields = [
-            "pk__in",
+            "pk",
             "workdir",
             "app_id",
             "app_name",
