@@ -384,19 +384,15 @@ class Worker:
             del d[pk]
 
     def _check_retcode(self, proc, timeout):
-        try:
-            retcode = proc.wait(timeout=timeout)
-        except TimeoutExpired:
-            retcode = None
-        return retcode
+        return proc.poll()
 
     def _check_retcodes(self):
-        start = time.time()
+        # start = time.time()
         pk_retcodes = []
         for pk, proc in self.processes.items():
-            elapsed = time.time() - start
-            timeout = max(0, self.CHECK_PERIOD - elapsed)
-            retcode = self._check_retcode(proc, timeout)
+            # elapsed = time.time() - start
+            # timeout = max(0, self.CHECK_PERIOD - elapsed)
+            retcode = self._check_retcode(proc, None)  # timeout)
             pk_retcodes.append((pk, retcode))
         return pk_retcodes
 
@@ -464,6 +460,8 @@ class Worker:
 # END TODO
         # Update the affinity:
         self.job_specs[pk]['used_affinity'] = open_affinity[0:required_num_cores]
+        # logger.info(f"{self.log_prefix(pk)} open_affinity = {open_affinity}")
+        logger.info(f"{self.log_prefix(pk)} used_affinity = {self.job_specs[pk]['used_affinity']}")
 
         out_name = f'{name}.out'
         logger.info(f"{self.log_prefix(pk)} Popen (shell={shell}):\n{args}")
