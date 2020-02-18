@@ -33,7 +33,7 @@ class SchedulerTestMixin(object):
             time.sleep(1)
             stats = self.scheduler.get_statuses(**self.status_params)
             if count > 30:
-                break
+                raise Exception("waited too long for job to be deleted")
             count += 1
 
     def test_get_statuses(self):
@@ -53,14 +53,16 @@ class SchedulerTestMixin(object):
         # check that all states are expected
         balsam_job_states = self.scheduler.job_states.values()
         for id, job_status in stat_dict.items():
-            self.assertIsInstance(job_status.project, str)
+            self.assertIsInstance(job_status.id, int)
+            self.assertIn(job_status.state, balsam_job_states)
             self.assertIsInstance(job_status.queue, str)
             self.assertIsInstance(job_status.num_nodes, int)
+            self.assertGreaterEqual(job_status.num_nodes, 0)
             self.assertIsInstance(job_status.wall_time_min, int)
-
-            self.assertIn(job_status.state, balsam_job_states)
             self.assertGreaterEqual(job_status.wall_time_min, 0)
-            self.assertGreaterEqual(job_status.nodes, 0)
+            self.assertIsInstance(job_status.time_remaining_min, int)
+            self.assertGreaterEqual(job_status.time_remaining_min, 0)
+            self.assertIsInstance(job_status.project, str)
 
         # clean up after this test, delete job, wait for delete to be complete
         self.scheduler.delete_job(job_id)
