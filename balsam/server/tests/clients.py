@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlencode
 from django.test import LiveServerTestCase
 from rest_framework.test import APITestCase, APIClient
 from rest_framework.reverse import reverse
@@ -42,8 +43,11 @@ class BalsamAPIClient(APIClient):
         self.check_stat(check, response)
         return response.data
 
-    def bulk_put_data(self, view_name, list_data, uri=None, check=None):
+    def bulk_put_data(self, view_name, list_data, uri=None, check=None, query=None):
         url = reverse(view_name, kwargs=uri)
+        if query is not None:
+            params = urlencode(query)
+            url += f"?{params}"
         response = self.put(url, list_data)
         self.check_stat(check, response)
         return response.data

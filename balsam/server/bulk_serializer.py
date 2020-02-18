@@ -78,7 +78,7 @@ class BulkListSerializer(serializers.ListSerializer):
             )
         patch_list = list(instance.values("pk"))
         for patch in patch_list:
-            patch.update(validated_data)
+            patch.update(validated_data[0])
         ModelClass = self.child.Meta.model
         res = ModelClass.objects.bulk_update(patch_list)
         return res

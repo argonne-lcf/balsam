@@ -649,7 +649,25 @@ class JobTests(
         self.assertEqual(acquired[0]["num_nodes"], job_size)
 
     def test_bulk_update_based_on_tags_filter_via_put(self):
-        pass
+        specs = [
+            self.job_dict(tags={"mass": 1.0}, num_nodes=1),
+            self.job_dict(tags={"mass": 1.0}, num_nodes=1),
+            self.job_dict(tags={"mass": 2.0}, num_nodes=1),
+            self.job_dict(tags={"mass": 2.0}, num_nodes=1),
+        ]
+        self.create_jobs(specs)
+        self.client.bulk_put_data(
+            "job-list",
+            {"num_nodes": 128},
+            query={"tags__mass": "2.0"},
+            check=status.HTTP_200_OK,
+        )
+        for j in Job.objects.all():
+            if j.tags["mass"] == "1.0":
+                self.assertEqual(j.num_nodes, 1)
+            else:
+                self.assertEqual(j.tags["mass"], "2.0")
+                self.assertEqual(j.num_nodes, 128)
 
     def test_can_filter_on_parameters(self):
         pass
