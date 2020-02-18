@@ -7,15 +7,22 @@ from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework import filters as drf_filters
 from rest_framework.authentication import BasicAuthentication
 
-import django_filters.rest_framework as django_filters
 from knox.views import LoginView as KnoxLoginView
 from balsam.server import serializers as ser
 from .bulk import (
     ListSingleCreateBulkUpdateAPIView,
     ListBulkCreateBulkUpdateBulkDestroyAPIView,
+)
+from .filters import (
+    JSONFilter,
+    BatchJobFilter,
+    JobFilter,
+    EventFilter,
+    DjangoFilterBackend,
+    SearchFilter,
+    OrderingFilter,
 )
 from balsam.server.models import Site, AppExchange, Job, BatchJob, EventLog, JobLock
 
@@ -57,28 +64,6 @@ class BalsamPaginator(LimitOffsetPagination):
     max_limit = 5000
     limit_query_param = "limit"
     offset_query_param = "offset"
-
-
-class JSONFilter(drf_filters.BaseFilterBackend):
-    """
-    View must define `json_filter_field` and `json_filter_type`
-    Passes through any supported JSON lookup:
-        tags__has_key="foo"
-        tags__foo__icontains="x"
-        tags__foo="x"
-    All query params are strings unless the view sets
-    `json_filter_value_type` to a callable like `json.loads`
-    """
-
-    def filter_queryset(self, request, queryset, view):
-        param = view.json_filter_field + "__"
-        decoder = getattr(view, "json_filter_type", str)
-        tags = {
-            k: decoder(v)
-            for k, v in request.query_params.items()
-            if k.startswith(param)
-        }
-        return queryset.filter(**tags)
 
 
 class LoginView(KnoxLoginView):
@@ -162,40 +147,18 @@ class AppMerge(generics.CreateAPIView):
         serializer.save(owner=self.request.user)
 
 
-class BatchJobFilter(django_filters.FilterSet):
-    start_time = django_filters.IsoDateTimeFromToRangeFilter()
-    end_time = django_filters.IsoDateTimeFromToRangeFilter()
-
-    class Meta:
-        model = BatchJob
-        fields = [
-            "site",
-            "scheduler_id",
-            "project",
-            "queue",
-            "num_nodes",
-            "wall_time_min",
-            "job_mode",
-            "start_time",
-            "end_time",
-            "state",
-            "scheduler_id",
-        ]
-
-
 class BatchJobList(ListSingleCreateBulkUpdateAPIView):
     serializer_class = ser.BatchJobSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = BalsamPaginator
     filter_backends = [
-        django_filters.DjangoFilterBackend,
-        drf_filters.SearchFilter,
-        drf_filters.OrderingFilter,
+        DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter,
         JSONFilter,
     ]
     filterset_class = BatchJobFilter
-    json_filter_field = "filter_tags"
-    json_filter_type = str
+    json_filter_fields = ["filter_tags"]
     ordering_fields = ["start_time", "end_time", "state"]  # ?ordering=-end_time,state
     search_fields = ["site__hostname", "site__path"]  # partial matching across fields
 
@@ -219,6 +182,19 @@ class JobList(ListBulkCreateBulkUpdateBulkDestroyAPIView):
     serializer_class = ser.JobSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = BalsamPaginator
+    filter_backends = [
+        DjangoFilterBackend,
+        OrderingFilter,
+        JSONFilter,
+    ]
+    filterset_class = JobFilter
+    json_filter_fields = ["tags", "parameters", "data"]
+    ordering_fields = [
+        "last_update",
+        "pk",
+        "workdir",
+        "state",
+    ]
 
     def get_queryset(self):
         qs = self.request.user.jobs.all()
@@ -251,7 +227,16 @@ class EventList(generics.ListAPIView):
     serializer_class = ser.EventLogSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = BalsamPaginator
-    # TODO: enable filters on sites, tags, date ranges
+    filter_backends = [
+        DjangoFilterBackend,
+        OrderingFilter,
+        SearchFilter,
+        JSONFilter,
+    ]
+    filterset_class = EventFilter
+    json_filter_fields = ["job__tags"]
+    ordering_fields = ["timestamp"]
+    search_fields = ["message"]
 
     def get_queryset(self):
         qs = EventLog.objects.filter(job__owner=self.request.user)

@@ -534,24 +534,136 @@ class JobTests(
         self.assertLessEqual(sum(n[0] for n in nodes_minutes), 128)
 
     def test_acquire_for_launch_respects_idle_core_limits(self):
-        pass
+        resources = {
+            "max_jobs_per_node": 16,
+            "max_wall_time_min": 20,
+            "running_job_counts": [2, 1],
+            "node_occupancies": [2.0 / 16, 1.0 / 16],
+            "idle_cores": [5, 7],
+            "idle_gpus": [0, 0],
+        }
+        self.setup_varying_resources_scenario(
+            (
+                2,
+                dict(
+                    num_nodes=1,
+                    threads_per_rank=2,
+                    threads_per_core=1,
+                    node_packing_count=16,
+                ),
+            ),
+            (
+                8,
+                dict(
+                    num_nodes=1,
+                    threads_per_rank=4,
+                    threads_per_core=2,
+                    node_packing_count=8,
+                ),
+            ),
+        )
+        acquired = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=128,
+            node_resources=resources,
+            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
+        )
+        packing_counts = [job["node_packing_count"] for job in acquired]
+        self.assertEqual(len(acquired), 5)
+        self.assertListEqual(packing_counts, 5 * [8])
 
     def test_acquire_for_launch_respects_node_packing_counts(self):
-        pass
+        resources = {
+            "max_jobs_per_node": 16,
+            "max_wall_time_min": 20,
+            "running_job_counts": [0, 0, 0],
+            "node_occupancies": [0, 0, 0],
+            "idle_cores": [8, 8, 8],
+            "idle_gpus": [0, 0, 0],
+        }
+        self.setup_varying_resources_scenario(
+            (8, dict(num_nodes=1, node_packing_count=4)),
+            (4, dict(num_nodes=1, node_packing_count=2)),
+        )
+        acquired = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=128,
+            node_resources=resources,
+            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
+        )
+        packing_counts = [job["node_packing_count"] for job in acquired]
+        self.assertEqual(len(acquired), 8)
+        self.assertListEqual(packing_counts, 4 * [2] + 4 * [4])
 
     def test_acquire_for_launch_respects_gpu_limits(self):
-        pass
+        resources = {
+            "max_jobs_per_node": 16,
+            "max_wall_time_min": 20,
+            "running_job_counts": [0, 0, 0],
+            "node_occupancies": [0, 0, 0],
+            "idle_cores": [8, 8, 8],
+            "idle_gpus": [1, 1, 1],
+        }
+        self.setup_varying_resources_scenario(
+            (10, dict(num_nodes=1, node_packing_count=16, gpus_per_rank=1)),
+        )
+        acquired = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=128,
+            node_resources=resources,
+            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
+        )
+        self.assertEqual(len(acquired), 3)
 
-    def test_acquire_for_launch_can_pack_one_MPI_task_across_all_nodes_with_single_node_tasks(
-        self,
-    ):
+    def test_acquire_for_launch_colocates_MPI_and_single_node_tasks(self):
         """First job: 1 rpn, 128 nodes, packing_count=64.  2048 jobs: 1-node, single-rank, packing_count=2 and using 1 GPU"""
-        pass
+        job_size = 16
+        resources = {
+            "max_jobs_per_node": 2,
+            "max_wall_time_min": 30,
+            "running_job_counts": job_size * [0],
+            "node_occupancies": job_size * [0],
+            "idle_cores": job_size * [64],
+            "idle_gpus": job_size * [6],
+        }
+
+        self.setup_varying_resources_scenario(
+            (1, dict(num_nodes=job_size, node_packing_count=64, gpus_per_rank=0)),
+            (2 * job_size, dict(num_nodes=1, node_packing_count=2, gpus_per_rank=1),),
+        )
+        acquired = self.acquire_jobs(
+            session=self.session,
+            acquire_unbound=False,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=1024,
+            node_resources=resources,
+            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
+        )
+        self.assertEqual(len(acquired), 1 + job_size)
+        self.assertEqual(acquired[0]["num_nodes"], job_size)
 
     def test_bulk_update_based_on_tags_filter_via_put(self):
         pass
 
-    def test_bulk_status_update_via_patch(self):
+    def test_can_filter_on_parameters(self):
+        pass
+
+    def test_can_filter_on_data(self):
+        pass
+
+    def test_can_filter_on_parents__in(self):
+        pass
+
+    def test_can_filter_on_app_name(self):
+        pass
+
+    def test_can_filter_on_last_update(self):
         pass
 
     def test_update_to_run_done_releases_lock_but_not_batch_job(self):
