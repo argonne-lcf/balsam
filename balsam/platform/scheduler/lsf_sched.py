@@ -37,6 +37,8 @@ class LsfScheduler(SubprocessSchedulerInterface):
     default_submit_kwargs = {}
     submit_kwargs_flag_map = {}
 
+    _queue_name = "batch"
+
     # maps scheduler states to Balsam states
     job_states = {
         "PEND": "queued",
@@ -250,12 +252,14 @@ class LsfScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _parse_backfill_output(stdout):
         raw_lines = stdout.split("\n")
-        windows = {"batch": []}
+        windows = {LsfScheduler._queue_name: []}
         node_lines = raw_lines[1:]
         for line in node_lines:
             if len(line.strip()) == 0:
                 continue
-            windows["batch"].append(LsfScheduler._parse_bslots_line(line))
+            windows[LsfScheduler._queue_name].append(
+                LsfScheduler._parse_bslots_line(line)
+            )
         return windows
 
     @staticmethod
