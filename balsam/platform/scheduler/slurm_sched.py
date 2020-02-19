@@ -264,6 +264,5 @@ class SlurmScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _parse_backfill_output(stdout):
-        # TODO: waiting for feedback from NERSC
-        # TODO: to extract backfill information
-        raise NotImplementedError
+        # NERSC currently does not provide this kind of information
+        return {}
