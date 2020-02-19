@@ -181,8 +181,8 @@ echo [$SECONDS] All Done! Great Test!
 
     def setUp(self):
         self.scheduler = SlurmScheduler()
-        self.scheduler.default_submit_kwargs = {"constraint": "haswell"}
-        self.scheduler.submit_kwargs_flag_map = {"constraint": "-C"}
+        SlurmScheduler.default_submit_kwargs = {"constraint": "haswell"}
+        SlurmScheduler.submit_kwargs_flag_map = {"constraint": "-C"}
 
         self.script_path = os.path.join(os.getcwd(), self.submit_script_fn)
         script = open(self.script_path, "w")
