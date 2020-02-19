@@ -11,6 +11,7 @@ import shlex
 import signal
 import time
 import psutil
+import itertools
 
 from mpi4py import MPI
 from django.db import transaction, connections
@@ -96,6 +97,8 @@ class ResourceManager:
     def pre_assign(self, rank, job):
         job_occ = 1.0 / job.node_packing_count
         self.node_occupancy[rank] += job_occ
+        logger.debug(f"Pre-assigning job with node_packing_count={job.node_packing_count} "
+                     f"to rank={rank};\nincreasing node occupancy by {job_occ} to {self.node_occupancy[rank]}")
         self.job_occupancy[job.pk] = job_occ
         self.running_locations[job.pk] = rank
 
@@ -121,7 +124,9 @@ class ResourceManager:
             job_occ = 1.0 / job.node_packing_count
 
             free_ranks = (i for i in range(1, comm.size)
-                          if self.node_occupancy[i]+job_occ < 1.0001)
+                          if self.node_occupancy[i] + job_occ < 1.0001)
+            free_ranks, free_ranks_debug = itertools.tee(free_ranks)
+            logger.debug(f"Allocating next {job.cute_id}; free ranks = {list(free_ranks_debug)}")
             rank = next(free_ranks, None)
 
             if rank is None:
