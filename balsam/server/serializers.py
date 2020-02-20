@@ -304,6 +304,7 @@ class TransferItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransferItem
         fields = (
+            "pk",
             "state",
             "direction",
             "task_id",
@@ -326,6 +327,7 @@ class TransferItemSerializer(serializers.ModelSerializer):
 class JobSerializer(BulkModelSerializer):
     class Meta:
         model = Job
+        nested_update_fields = ["transfer_items"]
         fields = (
             "pk",
             "workdir",
@@ -484,7 +486,6 @@ class SessionSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Only ticks lock"""
         instance.tick()
-        JobLock.objects.clear_stale()
         return instance
 
 

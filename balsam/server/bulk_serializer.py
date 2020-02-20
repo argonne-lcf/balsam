@@ -30,6 +30,15 @@ class BulkListSerializer(serializers.ListSerializer):
         if self.pk_patches:
             self.child.fields["pk"] = serializers.IntegerField(required=True)
 
+            names = getattr(self.child.Meta, "nested_update_fields", [])
+            for name in names:
+                nested_serializer = self.child.fields[name]
+                if isinstance(nested_serializer, serializers.ListSerializer):
+                    child = nested_serializer.child
+                else:
+                    child = nested_serializer
+                child.fields["pk"] = serializers.IntegerField(required=True)
+
         if getattr(self, "initial_data", None):
             cache_fields = [
                 f

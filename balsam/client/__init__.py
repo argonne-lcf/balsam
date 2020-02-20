@@ -6,8 +6,14 @@ API: client-facing base models (use Pydantic?)
 """
 
 from .client import ClientAPI
-from .rest_client import RESTClient
+from .rest_client import RequestsClient
 from .orm_client import DjangoORMClient
 from .postgres_client import PostgresDjangoORMClient
 
-__all__ = ["ClientAPI", "RESTClient", "DjangoORMClient", "PostgresDjangoORMClient"]
+__all__ = [
+    "ClientAPI",
+    "RESTClient",
+    "DjangoORMClient",
+    "PostgresDjangoORMClient",
+    "RequestsClient",
+]

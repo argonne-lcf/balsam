@@ -1,6 +1,7 @@
 """APIClient-driven tests"""
 import uuid
 from datetime import datetime, timedelta
+from dateutil.parser import isoparse
 import time
 import pytz
 import random
@@ -977,11 +978,12 @@ class JobTests(
 
     def test_tick_heartbeat_extends_expiration(self):
         before_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
-        self.setup_two_site_scenario(num_jobs=5)  # lock is created here
+        self.setup_two_site_scenario(num_jobs=5)  # Session lock is created here
 
         for job in Job.objects.all():
             self.assertEqual(job.lock, None)
 
+        # Acquire session1 lock on all jobs
         self.acquire_jobs(
             session=self.session1,
             acquire_unbound=True,
@@ -994,6 +996,7 @@ class JobTests(
         self.assertEqual(lock.jobs.count(), 5)
         self.assertLess(before_acquire, after_acquire)
 
+        # Tick lock some time later
         time.sleep(0.15)
 
         self.client.patch_data(
@@ -1005,17 +1008,160 @@ class JobTests(
         self.assertGreater(after_tick - after_acquire, timedelta(seconds=0.1))
 
     def test_tick_heartbeat_clears_expired_locks(self):
-        pass
+        from balsam.server.models.job import JobLockManager
+
+        old_expiry = JobLockManager.EXPIRATION_PERIOD
+        old_sweep = JobLockManager.SWEEP_PERIOD
+        try:
+            JobLockManager.EXPIRATION_PERIOD = timedelta(seconds=0.6)
+            JobLockManager.SWEEP_PERIOD = timedelta(seconds=0.1)
+            self.run_expired_locks_test(expiration_period=0.6)
+        finally:
+            JobLockManager.EXPIRATION_PERIOD = old_expiry
+            JobLockManager.SWEEP_PERIOD = old_sweep
+
+    def run_expired_locks_test(self, expiration_period):
+        self.setup_two_site_scenario(num_jobs=10)
+
+        # Session1 acquires 5 jobs
+        self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=5,
+        )
+
+        # Session2 acquires the other 5
+        self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=5,
+        )
+
+        # All are locked
+        self.assertEqual(Job.objects.filter(lock_id=self.session1["pk"]).count(), 5)
+        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
+
+        time.sleep(expiration_period / 2)
+
+        # Session2 ticks
+        self.client.patch_data(
+            "session-detail", uri={"pk": self.session2["pk"]}, check=status.HTTP_200_OK
+        )
+
+        time.sleep(expiration_period / 2)
+
+        # Session2 ticks again
+        self.client.patch_data(
+            "session-detail", uri={"pk": self.session2["pk"]}, check=status.HTTP_200_OK
+        )
+
+        # By now, session1 is cleared because it expired
+        self.assertEqual(Job.objects.filter(lock_id=self.session1["pk"]).count(), 0)
+        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
+        self.assertEqual(JobLock.objects.count(), 1)
+
+        # If session1 tries to tick at this point, it will get a 404: lock is gone
+        self.client.patch_data(
+            "session-detail",
+            uri={"pk": self.session1["pk"]},
+            check=status.HTTP_404_NOT_FOUND,
+        )
 
     def test_view_session_list(self):
-        pass
+        self.setup_one_site_two_launcher_scenario(num_jobs=10)
+
+        before_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
+        # Session1 acquires 5 jobs
+        self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=5,
+        )
+        after_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
+        sessions = self.client.get_data("session-list", check=status.HTTP_200_OK)
+        self.assertEqual(len(sessions), 2)
+        sess = sessions[0] if sessions[0]["pk"] == self.session1["pk"] else sessions[1]
+        self.assertEqual(sess["pk"], self.session1["pk"])
+        self.assertEqual(sess["batch_job"], self.bjob1.pk)
+        self.assertEqual(sess["site"], self.bjob1.site_id)
+        self.assertGreater(isoparse(sess["heartbeat"]), before_acquire)
+        self.assertLess(isoparse(sess["heartbeat"]), after_acquire)
 
     def test_delete_session_frees_lock_on_all_jobs(self):
-        pass
+        self.setup_two_site_scenario(num_jobs=10)
+        # Session1 acquires 5 jobs
+        self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=5,
+        )
+        # Session2 acquires 5 jobs
+        self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=5,
+        )
+        self.assertEqual(Job.objects.filter(lock_id=self.session1["pk"]).count(), 5)
+        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
+
+        # Session1 is deleted, leaving its jobs unlocked
+        self.client.delete_data(
+            "session-detail",
+            uri={"pk": self.session1["pk"]},
+            check=status.HTTP_204_NO_CONTENT,
+        )
+        self.assertEqual(Job.objects.filter(lock_id__isnull=True).count(), 5)
+        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
 
     def test_update_transfer_items_on_locked_job(self):
         """Can update state, status_message, task_id"""
-        pass
+        # Create a job with a Globus stage-in task
+        gid = uuid.uuid4()
+        job_spec = self.job_dict(
+            transfers=[
+                dict(
+                    source=f"globus://{gid}/path/to/x",
+                    destination="./x2",
+                    direction="in",
+                )
+            ]
+        )
+        job = self.create_jobs(job_spec, check=status.HTTP_201_CREATED)
+
+        # Acquire the job
+        session = self.create_session(self.site, label="Session")
+        acquired = self.acquire_jobs(
+            session=session,
+            acquire_unbound=True,
+            states=["READY", "STAGED_IN"],
+            max_num_acquire=50,
+        )
+        self.assertEqual(len(acquired), 1)
+        job = acquired[0]
+        transfer_item = job["transfer_items"][0]
+        self.assertIn("pk", transfer_item)
+        self.assertEqual(transfer_item["state"], "pending")
+        self.assertEqual(transfer_item["task_id"], "")
+
+        # Update state and task id
+        transfer_pk = transfer_item["pk"]
+        new_globus_task_id = uuid.uuid4().hex
+        transfer_patch = dict(
+            pk=transfer_pk, state="active", task_id=new_globus_task_id
+        )
+        patch = {"pk": job["pk"], "transfer_items": [transfer_patch]}
+        self.client.bulk_patch_data("job-list", [patch], check=status.HTTP_200_OK)
+
+        # TransferItem is indeed updated, and job remains locked
+        job = Job.objects.first()
+        transfer = job.transfer_items.first()
+        self.assertEqual(transfer.state, "active")
+        self.assertEqual(transfer.task_id, new_globus_task_id)
 
     def test_cannot_alter_transfer_item_source_or_dest(self):
         pass

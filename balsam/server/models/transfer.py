@@ -137,7 +137,7 @@ class TransferItem(models.Model):
         update_kwargs = ["state", "status_message", "task_id"]
         for k, v in kwargs.items():
             if k not in update_kwargs:
-                raise ValueError(f"Unexpected update kwarg {k}")
+                raise ValidationError(f"Unexpected update kwarg {k}")
             if v is not None:
                 setattr(self, k, v)
         self.save()

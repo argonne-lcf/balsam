@@ -115,6 +115,7 @@ class JobLock(models.Model):
 
     def tick(self):
         self.save(update_fields=["heartbeat"])
+        JobLock.objects.clear_stale()
 
     def release(self):
         logger.info(f"Released lock {self.pk}")
