@@ -8,6 +8,7 @@ from balsam.django_config.serverinfo import ServerInfo
 home_dir = os.path.expanduser('~')
 BALSAM_HOME = os.path.join(home_dir, '.balsam')
 
+
 def bootstrap():
     if not os.path.exists(BALSAM_HOME):
         os.makedirs(BALSAM_HOME, mode=0o755)
@@ -38,7 +39,8 @@ def bootstrap():
             fp.write('\n')
     try:
         user_settings = json.load(open(user_settings_path))
-        for key in default_settings: assert key in user_settings
+        for key in default_settings:
+            assert key in user_settings
     except (AssertionError, json.decoder.JSONDecodeError):
         print(f"Detected invalid settings in {user_settings_path}; replacing with defaults!")
         shutil.copy(default_settings_path, user_settings_path)
@@ -48,9 +50,11 @@ def bootstrap():
     for k, v in user_settings.items():
         setattr(thismodule, k, v)
 
+
 def resolve_db_path():
     path = os.environ.get('BALSAM_DB_PATH', '')
-    if path: path = os.path.abspath(os.path.expanduser(path))
+    if path:
+        path = os.path.abspath(os.path.expanduser(path))
     if not os.path.isdir(path):
         sys.stderr.write(f"Please use `source balsamactivate` to set BALSAM_DB_PATH to a valid location\n")
         sys.stderr.write(f"  --> `balsam which --list` recalls visited DBs in the filesystem\n")
@@ -58,6 +62,7 @@ def resolve_db_path():
         sys.exit(1)
     os.environ['BALSAM_DB_PATH'] = path
     return path
+
 
 if os.environ.get('BALSAM_SPHINX_DOC_BUILD_ONLY', False):
     tempdir = tempfile.TemporaryDirectory()
@@ -72,13 +77,13 @@ DATABASES = ServerInfo(BALSAM_PATH).django_db_config()
 # SUBDIRECTORY SETUP
 # ------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOGGING_DIRECTORY = os.path.join(BALSAM_PATH , 'log') 
-DATA_PATH = os.path.join(BALSAM_PATH ,'data')
-SERVICE_PATH = os.path.join(BALSAM_PATH ,'qsubmit')
+LOGGING_DIRECTORY = os.path.join(BALSAM_PATH, 'log')
+DATA_PATH = os.path.join(BALSAM_PATH, 'data')
+SERVICE_PATH = os.path.join(BALSAM_PATH, 'qsubmit')
 BALSAM_WORK_DIRECTORY = DATA_PATH
 
 for d in [
-      BALSAM_PATH ,
+      BALSAM_PATH,
       DATA_PATH,
       LOGGING_DIRECTORY,
       SERVICE_PATH
@@ -125,7 +130,7 @@ ROOT_URLCONF = 'balsam.django_config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['django_config/templates','core/templates'],
+        'DIRS': ['django_config/templates', 'core/templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
