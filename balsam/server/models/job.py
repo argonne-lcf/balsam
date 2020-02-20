@@ -553,6 +553,8 @@ class Job(models.Model):
             status = LOCKED_STATUS.get(self.state)
             msg = f"Can't delete active Job {self.pk}: currently {status}"
             raise ValidationError(msg)
+        for child in self.children.all():
+            child.delete(*args, **kwargs)
         super().delete(*args, **kwargs)
 
     def update_state(self, new_state, message="", timestamp=None):
