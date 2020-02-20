@@ -2,6 +2,7 @@
 the Launcher detects a specific host type, the appropriate MPICommand class is
 automatically used.  Otherwise, the DEFAULTMPICommand class is assigned at
 module-load time, testing for MPICH or OpenMPI'''
+import sys
 from balsam import settings
 import logging
 logger = logging.getLogger(__name__)
@@ -184,4 +185,4 @@ class SlurmMPICommand(MPICommand):
 
 # TODO(KGF): currently, user must supply exact name of class in this file. Add parsing of
 # srun/mpirun/aprun and rename setting to MPIRUN_EXE?
-MPIcmd = settings.MPIRUN_CLASS
+MPIcmd = getattr(sys.modules[__name__], settings.MPIRUN_CLASS)
