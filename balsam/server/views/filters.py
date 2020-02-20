@@ -52,6 +52,12 @@ class BatchJobFilter(django_filters.FilterSet):
 
 class EventFilter(django_filters.FilterSet):
     timestamp = django_filters.IsoDateTimeFromToRangeFilter()
+    batch_job_id = django_filters.NumberFilter(
+        field_name="job", lookup_expr="batch_job_id"
+    )
+    scheduler_id = django_filters.NumberFilter(
+        field_name="job", lookup_expr="batch_job__scheduler_id"
+    )
 
     class Meta:
         model = EventLog
@@ -59,6 +65,8 @@ class EventFilter(django_filters.FilterSet):
             "from_state",
             "to_state",
             "timestamp",
+            "batch_job_id",
+            "scheduler_id",
         ]
 
 
@@ -84,7 +92,8 @@ class JobFilter(django_filters.FilterSet):
     site_path = django_filters.CharFilter(
         field_name="app_backend", lookup_expr="site__path"
     )
-    batch_job_id = django_filters.NumberFilter(
+    batch_job_id = django_filters.NumberFilter(field_name="batch_job_id")
+    scheduler_id = django_filters.NumberFilter(
         field_name="batch_job", lookup_expr="scheduler_id"
     )
     last_update = django_filters.IsoDateTimeFromToRangeFilter()
@@ -104,7 +113,8 @@ class JobFilter(django_filters.FilterSet):
             "site_hostname",
             "site_path",
             "state",
-            "batch_job_id",
+            "batch_job_id",  # the unique PK stored in BalsamDB
+            "scheduler_id",  # the job's local Scheduler ID
             "last_update",
             "last_error",
             "parents",

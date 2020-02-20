@@ -70,6 +70,14 @@ class BalsamAPIClient(APIClient):
         self.check_stat(check, response)
         return response.data
 
+    def bulk_delete_data(self, view_name, check=None, **kwargs):
+        url = reverse(view_name)
+        if kwargs:
+            url += "?" + urlencode(kwargs)
+        response = self.delete(url)
+        self.check_stat(check, response)
+        return response.data
+
     def get_data(self, view_name, uri=None, check=None, follow=False, **kwargs):
         """GET kwargs become URL query parameters (e.g. /?site=3)"""
         url = reverse(view_name, kwargs=uri)

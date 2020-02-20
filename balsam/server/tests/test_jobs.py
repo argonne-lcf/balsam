@@ -146,6 +146,12 @@ class JobTests(
         )
         return
 
+    def prepare_linear_dag(self):
+        A = self.create_jobs(self.job_dict(tags={"step": "A"}))
+        B = self.create_jobs(self.job_dict(tags={"step": "B"}, parents=[A["pk"]]))
+        C = self.create_jobs(self.job_dict(tags={"step": "C"}, parents=[B["pk"]]))
+        return A, B, C
+
     def test_add_job(self):
         """One backend, no parents, no transfers: straight to STAGED_IN"""
         jobs = [
@@ -973,9 +979,6 @@ class JobTests(
         for job in self.client.get_data("job-list")["results"]:
             self.assertEqual(job["lock_status"], "Unlocked")
 
-    def test_concurrent_acquires_for_launch(self):
-        pass
-
     def test_tick_heartbeat_extends_expiration(self):
         before_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
         self.setup_two_site_scenario(num_jobs=5)  # Session lock is created here
@@ -1162,37 +1165,244 @@ class JobTests(
         transfer = job.transfer_items.first()
         self.assertEqual(transfer.state, "active")
         self.assertEqual(transfer.task_id, new_globus_task_id)
+        self.assertEqual(job.lock_id, session["pk"])
 
     def test_cannot_alter_transfer_item_source_or_dest(self):
-        pass
+        gid = uuid.uuid4()
+        job_spec = self.job_dict(
+            transfers=[
+                dict(
+                    source=f"globus://{gid}/path/to/x",
+                    destination="./x2",
+                    direction="in",
+                )
+            ]
+        )
+        jobs = self.create_jobs([job_spec], check=status.HTTP_201_CREATED)
+        job = jobs[0]
 
-    def test_can_traverse_dag(self):
-        pass
+        transfer_item = job["transfer_items"][0]
+        transfer_pk = transfer_item["pk"]
+
+        transfer_patch = dict(pk=transfer_pk, destination="./x3")
+        patch = {"pk": job["pk"], "transfer_items": [transfer_patch]}
+        resp = self.client.bulk_patch_data(
+            "job-list", [patch], check=status.HTTP_400_BAD_REQUEST
+        )
+        self.assertIn("Unexpected update kwarg destination", str(resp))
 
     # Viewing State History
     def test_aggregated_state_history(self):
-        pass
+        self.setup_two_site_scenario(20)
+        self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=10,
+        )
+        self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=10,
+        )
+
+        self.client.bulk_put_data(
+            "job-list", {"state": "STAGED_IN"}, check=status.HTTP_200_OK
+        )
+        self.client.bulk_put_data(
+            "job-list", {"state": "PREPROCESSED"}, check=status.HTTP_200_OK
+        )
+
+        events = self.client.get_data("event-list", check=status.HTTP_200_OK)
+        self.assertEqual(events["count"], 20 * 3)
 
     def test_aggregated_state_history_by_batch_job(self):
-        pass
+        self.setup_one_site_two_launcher_scenario(20)
+
+        # Batch Job 1 started and acquired all jobs:
+        self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY", "STAGED_IN"],
+            max_num_acquire=20,
+        )
+        for job in Job.objects.all():
+            self.assertEqual(job.lock_id, self.session1["pk"])
+            self.assertEqual(job.batch_job_id, self.bjob1.pk)
+
+        # Status updates:
+        self.client.bulk_put_data(
+            "job-list", {"state": "PREPROCESSED"}, check=status.HTTP_200_OK
+        )
+        self.client.patch_data(
+            "batchjob-detail",
+            uri={"pk": self.bjob1.pk},
+            scheduler_id=31415,
+            check=status.HTTP_200_OK,
+        )
+        self.client.bulk_put_data(
+            "job-list", {"state": "RUNNING"}, check=status.HTTP_200_OK
+        )
+
+        # Batch Job 1 now has scheduler_id associated
+        self.assertEqual(BatchJob.objects.get(pk=self.bjob1.pk).scheduler_id, 31415)
+        self.assertEqual(BatchJob.objects.get(pk=self.bjob2.pk).scheduler_id, None)
+
+        # Can look up events by scheduler id
+        events1 = self.client.get_data(
+            "event-list", scheduler_id=31415, check=status.HTTP_200_OK
+        )
+        self.assertEqual(events1["count"], 20 * 4)
+
+        # Or by batch_job PK
+        events1_by_bjob_pk = self.client.get_data(
+            "event-list", batch_job_id=self.bjob1.pk, check=status.HTTP_200_OK
+        )
+        self.assertEqual(events1_by_bjob_pk["count"], 20 * 4)
+
+        # Batch Job 2 has no associated events
+        events2 = self.client.get_data(
+            "event-list", batch_job_id=self.bjob2.pk, check=status.HTTP_200_OK
+        )
+        self.assertEqual(events2["count"], 0)
 
     def test_aggregated_state_history_by_tags(self):
-        pass
+        specs = []
+        for i in range(3):
+            d = self.job_dict(tags={"foo": f"x{i}"})
+            specs.append(d)
+            d = self.job_dict(tags={})
+            specs.append(d)
+        self.create_jobs(specs)
+
+        for i in range(3):
+            events = self.client.get_data(
+                "event-list", job__tags__foo=f"x{i}", check=status.HTTP_200_OK
+            )
+            self.assertEqual(events["count"], 2)
+
+        events = self.client.get_data("event-list", check=status.HTTP_200_OK)
+        self.assertEqual(events["count"], 2 * 6)
 
     def test_aggregated_state_history_by_date_range(self):
-        pass
+        before_create = datetime.utcnow().isoformat() + "Z"
+        self.create_jobs([self.job_dict() for i in range(10)])
+        time.sleep(0.1)
+        after_create = datetime.utcnow().isoformat() + "Z"
+
+        events = self.client.get_data(
+            "event-list", timestamp_before=before_create, check=status.HTTP_200_OK
+        )
+        self.assertEqual(events["count"], 0)
+
+        events = self.client.get_data(
+            "event-list", timestamp_after=after_create, check=status.HTTP_200_OK
+        )
+        self.assertEqual(events["count"], 0)
+
+        events = self.client.get_data(
+            "event-list",
+            to_state="STAGED_IN",
+            timestamp_after=before_create,
+            timestamp_before=after_create,
+            check=status.HTTP_200_OK,
+        )
+        self.assertEqual(events["count"], 10)
 
     def test_cannot_delete_locked_job(self):
-        pass
+        self.setup_one_site_two_launcher_scenario(2)
+        jobs = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY", "STAGED_IN"],
+            max_num_acquire=20,
+        )
+        acquired_job = jobs[0]
+
+        # Cannot delete the job by hitting DELETE on detail URI
+        resp = self.client.delete_data(
+            "job-detail",
+            uri={"pk": acquired_job["pk"]},
+            check=status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn("Can't delete active Job", str(resp))
+
+        # Bulk delete (Via query params) doesnt work either
+        resp = self.client.bulk_delete_data(
+            "job-list", check=status.HTTP_400_BAD_REQUEST, pk=acquired_job["pk"]
+        )
+        self.assertIn("Can't delete active Job", str(resp))
 
     def test_can_delete_unlocked_job(self):
-        pass
+        # Create 4 jobs: 2 PREPROCESSED, 2 STAGED_IN
+        self.setup_one_site_two_launcher_scenario(4)
+        for job in Job.objects.all()[:2]:
+            job.update(state="PREPROCESSED")
+        self.assertEqual(Job.objects.all().count(), 4)
+
+        # Bulk-Delete the STAGED_IN
+        self.client.bulk_delete_data(
+            "job-list", check=status.HTTP_204_NO_CONTENT, state="STAGED_IN"
+        )
+        self.assertEqual(Job.objects.all().count(), 2)
+        for job in Job.objects.all():
+            self.assertEqual(job.state, "PREPROCESSED")
+
+    def test_can_do_multiple_lookup_by_pk(self):
+        A, B, C = self.prepare_linear_dag()
+        pks = [j["pk"] for j in (A, C)]
+        jobs = self.client.get_data("job-list", pk=pks, check=status.HTTP_200_OK)
+        self.assertEqual(jobs["count"], 2)
+
+    def test_can_traverse_dag(self):
+        A, B, C = self.prepare_linear_dag()
+
+        # Retrieve A: has B as child
+        Aret = self.client.get_data(
+            "job-list", tags__step="A", check=status.HTTP_200_OK
+        )
+        Aret = Aret["results"][0]
+        self.assertEqual(Aret["parents"], [])
+        self.assertEqual(Aret["children"], [B["pk"]])
+
+        # Retrieve B: has A as parent and C as child
+        Bret = self.client.get_data(
+            "job-list", tags__step="B", check=status.HTTP_200_OK
+        )
+        Bret = Bret["results"][0]
+        self.assertEqual(Bret["parents"], [A["pk"]])
+        self.assertEqual(Bret["children"], [C["pk"]])
+
+        # Retrieve C: has B as parent
+        Cret = self.client.get_data(
+            "job-list", tags__step="C", check=status.HTTP_200_OK
+        )
+        Cret = Cret["results"][0]
+        self.assertEqual(Cret["parents"], [B["pk"]])
+        self.assertEqual(Cret["children"], [])
 
     def test_delete_recursively_deletes_children(self):
-        pass
+        A, B, C = self.prepare_linear_dag()
+        self.assertEqual(Job.objects.count(), 3)
+        self.client.delete_data(
+            "job-detail", uri={"pk": A["pk"]}, check=status.HTTP_204_NO_CONTENT
+        )
+        self.assertEqual(Job.objects.count(), 0)
+
+        A, B, C = self.prepare_linear_dag()
+        self.assertEqual(Job.objects.count(), 3)
+        self.client.delete_data(
+            "job-detail", uri={"pk": B["pk"]}, check=status.HTTP_204_NO_CONTENT
+        )
+        self.assertEqual(Job.objects.count(), 1)
 
     def test_disallow_invalid_transition(self):
-        pass
+        A, B, C = self.prepare_linear_dag()
+        resp = self.client.bulk_put_data(
+            "job-list", {"state": "JOB_FINISHED"}, check=status.HTTP_400_BAD_REQUEST
+        )
+        self.assertIn("Cannot transition from STAGED_IN to JOB_FINISHED", str(resp))
 
     def test_resource_change_records_provenance_event_log(self):
         pass

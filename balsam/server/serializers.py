@@ -349,6 +349,7 @@ class JobSerializer(BulkModelSerializer):
             "data",
             "last_update",
             "parents",
+            "children",
             "num_nodes",
             "ranks_per_node",
             "threads_per_rank",
@@ -382,6 +383,7 @@ class JobSerializer(BulkModelSerializer):
 
     transfer_items = TransferItemSerializer(many=True, allow_empty=True)
     parents = OwnedJobPrimaryKeyRelatedField(many=True)
+    children = OwnedJobPrimaryKeyRelatedField(many=True, read_only=True)
     parameters = serializers.DictField(child=serializers.CharField(max_length=128))
     data = serializers.DictField()
     lock_status = serializers.CharField(read_only=True, source="get_lock_status")
