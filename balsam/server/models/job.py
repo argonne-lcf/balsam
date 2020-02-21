@@ -27,6 +27,11 @@ ALLOWED_TRANSITIONS = {
     "RESET": ("AWAITING_PARENTS", "READY",),
 }
 
+NO_OP_TRANSITIONS = {
+    "AWAITING_PARENTS": ("RESET",),
+    "READY": ("RESET",),
+}
+
 # Lock signifies something is working on the job
 LOCKED_STATUS = {
     "READY": "Staging in",
@@ -558,6 +563,10 @@ class Job(models.Model):
         super().delete(*args, **kwargs)
 
     def update_state(self, new_state, message="", timestamp=None):
+        if new_state == self.state or new_state in NO_OP_TRANSITIONS.get(
+            self.state, []
+        ):
+            return
         if new_state not in ALLOWED_TRANSITIONS[self.state]:
             raise InvalidStateError(
                 f"Cannot transition from {self.state} to {new_state}"
@@ -608,6 +617,10 @@ class Job(models.Model):
             )
         else:
             self.update_state("READY", timestamp=timestamp)
+        for child in self.children.all().order_by("pk"):
+            child.update_state(
+                "RESET", timestamp=timestamp, message="Parent was reset (recursive)"
+            )
 
     def on_POSTPROCESSED(self, *args, timestamp=None, **kwargs):
         if self.transfer_items.filter(direction="out").count() == 0:
@@ -628,6 +641,7 @@ class Job(models.Model):
                 )
             )
             .filter(parents=self.pk)
+            .order_by("pk")
         )
         for child in children:
             if child.num_parents == child.num_finished_parents:

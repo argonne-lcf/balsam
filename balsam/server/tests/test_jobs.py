@@ -1577,23 +1577,21 @@ class JobTests(
         C = Job.objects.get(tags__step="C")
         self.assertEqual(B.parents.count(), 0)
         self.assertEqual(C.parents.count(), 2)
-        A.refresh_from_db()
-        B.refresh_from_db()
-        C.refresh_from_db()
 
         A.update(state="PREPROCESSED")
         A.update(state="RUNNING")
         A.update(state="RUN_DONE")
         A.update(state="POSTPROCESSED")
 
-        # C is still waiting because B is not processed yet
+        # POSTPROCESSED Job cascades to JOB_FINISHED
         A.refresh_from_db()
+        self.assertEqual(A.state, "JOB_FINISHED")
+
+        # C is still waiting because B is not processed yet
         B = Job.objects.get(tags__step="B")
         C = Job.objects.get(tags__step="C")
         self.assertEqual(C.parents.count(), 2)
         self.assertEqual(C.parents.filter(state="JOB_FINISHED").count(), 1)
-
-        self.assertEqual(A.state, "JOB_FINISHED")
         self.assertEqual(B.state, "STAGED_IN")
         self.assertEqual(C.state, "AWAITING_PARENTS")
 
@@ -1607,25 +1605,175 @@ class JobTests(
         self.assertEqual(B.state, "JOB_FINISHED")
         self.assertEqual(C.state, "STAGED_IN")
 
-    def test_child_with_two_parents_ready_when_both_finished(self):
-        pass
-
-    def test_postprocessed_job_cascades_to_finished(self):
-        """POSTPROCESSED job without stage-outs goes to FINISHED"""
-        pass
-
     def test_postprocessed_job_with_stage_outs(self):
         """POSTPROCESSED job is acquired for stage-out before marking FINISHED"""
-        pass
+        # Dag A->B->C
+        self.prepare_linear_dag()
 
-    def test_reset_job_with_parents_goes_to_awaiting(self):
-        pass
+        # Add a stage-out step to Job A
+        A = Job.objects.get(tags__step="A")
+        TransferItem.objects.create(
+            direction="out",
+            source="./results.hdf5",
+            destination=f"globus://{uuid.uuid4()}/path/to/result_dir",
+            job=A,
+        )
+
+        # Process A
+        A.update(state="PREPROCESSED")
+        A.update(state="RUNNING")
+        A.update(state="RUN_DONE")
+        A.update(state="POSTPROCESSED")
+        A.refresh_from_db()
+
+        # Since A has a stage-out task, it is not automatically marked as FINISHED
+        self.assertEqual(A.state, "POSTPROCESSED")
+
+        session = self.create_session(self.site, label="Stageout module")
+        acquired = self.acquire_jobs(
+            session=session,
+            acquire_unbound=False,
+            states=["POSTPROCESSED"],
+            max_num_acquire=20,
+        )
+        self.assertEqual(len(acquired), 1)
+        job = acquired[0]
+        self.assertEqual(job["lock_status"], "Staging out")
+
+    def test_reset_job_with_finished_parents(self):
+        # Dag A->B->C
+        self.prepare_linear_dag()
+        A = Job.objects.get(tags__step="A")
+        A.update(state="PREPROCESSED")
+        A.update(state="RUNNING")
+        A.update(state="RUN_DONE")
+        A.update(state="POSTPROCESSED")
+
+        # B fails in preprocessing; user fixes issue and does RESET
+        B = Job.objects.get(tags__step="B")
+        B.update(state="FAILED")
+        self.assertEqual(B.state, "FAILED")
+        self.client.bulk_patch_data(
+            "job-list", [{"pk": B.pk, "state": "RESET"}], check=status.HTTP_200_OK
+        )
+
+        # Now B is back to STAGED_IN
+        B.refresh_from_db()
+        self.assertEqual(B.state, "STAGED_IN")
+
+    def test_reset_parent_recursively_resets_children(self):
+        # Dag A->B->C
+        self.prepare_linear_dag()
+        A = Job.objects.get(tags__step="A")
+        A.update(state="PREPROCESSED")
+        A.update(state="RUNNING")
+        A.update(state="RUN_DONE")
+        A.update(state="POSTPROCESSED")
+
+        # B fails in preprocessing; user fixes the issue and does RESET on the whole DAG (A)
+        B = Job.objects.get(tags__step="B")
+        B.update(state="FAILED")
+        self.assertEqual(B.state, "FAILED")
+        self.client.bulk_patch_data(
+            "job-list", [{"pk": A.pk, "state": "RESET"}], check=status.HTTP_200_OK
+        )
+
+        # Now B is back to STAGED_IN
+        A.refresh_from_db()
+        B.refresh_from_db()
+        C = Job.objects.get(tags__step="C")
+        self.assertEqual(A.state, "STAGED_IN")
+        self.assertEqual(B.state, "AWAITING_PARENTS")
+        self.assertEqual(C.state, "AWAITING_PARENTS")
 
     def test_reset_job_with_transfers_goes_to_ready(self):
-        pass
+        self.prepare_linear_dag()
+
+        # Add a stage-in task to B
+        A = Job.objects.get(tags__step="A")
+        TransferItem.objects.create(
+            direction="in",
+            source=f"globus://{uuid.uuid4()}/path/to/data",
+            destination="./input.dat",
+            job=A,
+        )
+        A.update(state="FAILED")
+        self.client.bulk_patch_data(
+            "job-list", [{"pk": A.pk, "state": "RESET"}], check=status.HTTP_200_OK
+        )
+        A.refresh_from_db()
+        self.assertEqual(A.state, "READY")
 
     def test_reset_job_with_two_backends_becomes_unbound(self):
-        pass
+        self.setup_two_site_scenario(1)
+
+        # Job is acquired by Site2
+        job = self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=20,
+        )[0]
+        self.assertEqual(Job.objects.count(), 1)
+        self.assertEqual(Job.objects.first().lock_id, self.session2["pk"])
+
+        # Job fails in preprocess
+        self.client.bulk_patch_data(
+            "job-list",
+            [{"pk": job["pk"], "state": "STAGED_IN"}],
+            check=status.HTTP_200_OK,
+        )
+        self.client.bulk_patch_data(
+            "job-list", [{"pk": job["pk"], "state": "FAILED"}], check=status.HTTP_200_OK
+        )
+
+        # The job is FAILED and bound to Site2
+        job = Job.objects.first()
+        self.assertEqual(job.state, "FAILED")
+        self.assertEqual(job.app_backend.site_id, self.site2["pk"])
+
+        # Client resets the job: now it is READY and unbound
+        self.client.bulk_patch_data(
+            "job-list", [{"pk": job.pk, "state": "RESET"}], check=status.HTTP_200_OK
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.state, "READY")
+        self.assertEqual(job.app_backend, None)
 
     def test_run_error__update_releases_lock_and_records_last_error(self):
-        pass
+        self.setup_two_site_scenario(1)
+
+        job = Job.objects.first()
+        job.update(state="STAGED_IN")
+        job.update(state="PREPROCESSED")
+
+        # Job is acquired by a launcher for running
+        self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["PREPROCESSED", "RESTART_READY"],
+            max_num_acquire=20,
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.lock_id, self.session2["pk"])
+        job.update(state="RUNNING")
+        job.refresh_from_db()
+        self.assertEqual(job.state, "RUNNING")
+        self.assertEqual(job.lock_id, self.session2["pk"])
+
+        # RUN_ERROR update causes lock to be released
+        job.update(
+            state="RUN_ERROR",
+            return_code=123,
+            state_message="this is the error message & traceback",
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.lock_id, None)
+
+        # Also, the "last_error" attribute stores the most recent error
+        job = self.client.get_data(
+            "job-detail", uri={"pk": job.pk}, check=status.HTTP_200_OK
+        )
+        self.assertIn("this is the error message", job["last_error"])
+        self.assertEqual(job["return_code"], 123)
+        self.assertEqual(job["state"], "RUN_ERROR")

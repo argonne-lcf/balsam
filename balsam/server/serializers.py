@@ -341,6 +341,7 @@ class JobSerializer(BulkModelSerializer):
             "events",
             "transfer_items",
             "return_code",
+            "last_error",
             "lock_status",
             "state",
             "state_timestamp",
