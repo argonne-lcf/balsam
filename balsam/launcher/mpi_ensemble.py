@@ -12,6 +12,7 @@ import signal
 import time
 import psutil
 import itertools
+from math import ceil
 
 from mpi4py import MPI
 from django.db import transaction, connections
@@ -440,7 +441,10 @@ class Worker:
         cmd = job_spec['cmd']
         envs = job_spec['envs']
         envscript = job_spec['envscript']
-        required_num_cores = job_spec['required_num_cores']
+        # TODO(KGF): type cast via ceil() may be too aggressive and prohibit sharing fractions
+        # of cores in this job mode. Slurm, e.g., can handle job w/ tpc=4, rpn=1, tpr=2 ---> 0.5 cores
+        # (rpn>1 prohibited in serial job mode). Could cause issues if input is 2.000...1
+        required_num_cores = int(job_spec['required_num_cores'])
 
         if envscript:
             args = ' '.join(['source', envscript, '&&', cmd])

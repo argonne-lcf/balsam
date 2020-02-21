@@ -463,17 +463,20 @@ class BalsamJob(models.Model):
 
     input_files = models.TextField(
         'Input File Patterns',
-        help_text="Space-delimited filename patterns that will be searched in the parents'"\
-        "working directories. Every matching file will be made available in this"\
-        "job's working directory (symlinks for local Balsam jobs, file transfer for"\
+        help_text="Space-delimited filename patterns that will be searched in the parents'"
+        "working directories. Every matching file will be made available in this"
+        "job's working directory (symlinks for local Balsam jobs, file transfer for"
         "remote Balsam jobs). Default: all files from parent jobs are made available.",
         default='*')
     stage_in_url = models.TextField(
-        'External stage in files or folders', help_text="A list of URLs for external data to be staged in prior to job processing. Job dataflow from parents to children is NOT handled here; see `input_files` field instead.",
+        'External stage in files or folders',
+        help_text="A list of URLs for external data to be staged in prior to job processing."
+        " Job dataflow from parents to children is NOT handled here; see `input_files` field instead.",
         default='')
     stage_out_files = models.TextField(
         'External stage out files or folders',
-        help_text="A string of filename patterns. Matches will be transferred to the stage_out_url. Default: no files are staged out",
+        help_text="A string of filename patterns. Matches will be transferred to the stage_out_url."
+        " Default: no files are staged out",
         default='')
     stage_out_url = models.TextField(
         'Stage Out URL',
@@ -515,9 +518,6 @@ class BalsamJob(models.Model):
         'For serial (non-MPI) jobs only. How many to run concurrently on a node.',
         help_text='Setting this field at 2 means two serial jobs will run at a '
         'time on a node. This field is ignored for MPI jobs.',
-        default=1)
-    required_num_cores = models.IntegerField(
-        'For serial (non-MPI) jobs only.  How many CPUs to use for this job.  Default is 1.',
         default=1)
     environ_vars = models.TextField(
         'Environment variables specific to this job',
@@ -627,6 +627,17 @@ class BalsamJob(models.Model):
     @property
     def num_ranks(self):
         return self.num_nodes * self.ranks_per_node
+
+    @property
+    def required_num_cores(self):
+        # Used only in --job-mode=serial; type cast to int via ceil operation in mpi_ensemble.py
+        # for setting CPU core affinity
+        return self.ranks_per_node * self.threads_per_rank / self.threads_per_core
+
+    @required_num_cores.setter
+    def required_num_cores(self, value):
+        raise AttributeError("required_num_cores is determined by ranks_per_node, threads_per_rank, and threads_per_core."
+                             " Please set those values directly.")
 
     @property
     def cute_id(self):
