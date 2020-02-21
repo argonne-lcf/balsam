@@ -1405,11 +1405,54 @@ class JobTests(
         self.assertIn("Cannot transition from STAGED_IN to JOB_FINISHED", str(resp))
 
     def test_resource_change_records_provenance_event_log(self):
-        pass
+        A, B, C = self.prepare_linear_dag()
+        self.client.bulk_patch_data(
+            "job-list",
+            [{"pk": A["pk"], "num_nodes": 4096, "data": {"a": 1, "b": 2}}],
+            check=status.HTTP_200_OK,
+        )
+        events = self.client.get_data(
+            "job-event-list", uri={"job_id": A["pk"]}, check=status.HTTP_200_OK
+        )
+        last_two = events["results"][-2:]
+        messages = last_two[0]["message"] + last_two[1]["message"]
+        self.assertIn("Set data", messages)
+        self.assertIn("num_nodes changed", messages)
 
     def test_cannot_acquire_with_another_lock_id(self):
         """Passing a lock id that belongs to another user results in acquire() error"""
-        pass
+        # self.user (via self.client) has 10 jobs
+        self.setup_one_site_two_launcher_scenario(10)
+
+        # User 2 calls acquire() with User1's session ID
+        User.objects.create_user(username="user2", email="user@aol.com", password="xyz")
+        client2 = BalsamAPIClient(self)
+        client2.login(username="user2", password="xyz")
+
+        self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY", "STAGED_IN"],
+            max_num_acquire=100,
+            client=client2,
+            check=status.HTTP_404_NOT_FOUND,
+        )
+        self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY", "STAGED_IN"],
+            max_num_acquire=100,
+            client=client2,
+            check=status.HTTP_404_NOT_FOUND,
+        )
+        self.acquire_jobs(
+            session=self.session2,
+            acquire_unbound=True,
+            states=["READY", "STAGED_IN"],
+            max_num_acquire=100,
+            client=self.client,
+            check=status.HTTP_200_OK,
+        )
 
     def test_finished_job_triggers_children_ready_and_unbound(self):
         """Job with one child FINISHED; child is READY but unbound (has 2 backends)"""

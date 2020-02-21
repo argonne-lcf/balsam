@@ -520,7 +520,7 @@ class Job(models.Model):
             validator(raise_exception=True)
 
         EventLog.objects.log_update(
-            self, f"{field_name.capitalize()} changed: {old_value} -> {new_value}"
+            self, f"{field_name} changed: {old_value} -> {new_value}"
         )
 
     def validate_parameters(self, raise_exception=True):
