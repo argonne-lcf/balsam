@@ -417,7 +417,7 @@ class Worker:
             retry_count = self.retry_counts[pk]
             if elapsed < self.RETRY_WINDOW and retry_count <= self.MAX_RETRY:
                 logmsg = self.log_prefix(pk)
-                logmsg += (f'can retry task (err occured after {elapsed:.2f} sec; '
+                logmsg += (f'can retry task (err occurred after {elapsed:.2f} sec; '
                            f'attempt {self.retry_counts[pk]}/{self.MAX_RETRY})')
                 logger.error(logmsg)
                 return True
