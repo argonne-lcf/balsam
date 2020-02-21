@@ -11,6 +11,7 @@ from balsam.server.models import (
     Site,
     AppBackend,
     Job,
+    TransferItem,
     BatchJob,
     EventLog,
     JobLock,
@@ -150,6 +151,20 @@ class JobTests(
         A = self.create_jobs(self.job_dict(tags={"step": "A"}))
         B = self.create_jobs(self.job_dict(tags={"step": "B"}, parents=[A["pk"]]))
         C = self.create_jobs(self.job_dict(tags={"step": "C"}, parents=[B["pk"]]))
+        return A, B, C
+
+    def prepare_fanout_dag(self):
+        A = self.create_jobs(self.job_dict(tags={"step": "A"}))
+        B = self.create_jobs(self.job_dict(tags={"step": "B"}, parents=[A["pk"]]))
+        C = self.create_jobs(self.job_dict(tags={"step": "C"}, parents=[A["pk"]]))
+        return A, B, C
+
+    def prepare_reduce_dag(self):
+        A = self.create_jobs(self.job_dict(tags={"step": "A"}))
+        B = self.create_jobs(self.job_dict(tags={"step": "B"}))
+        C = self.create_jobs(
+            self.job_dict(tags={"step": "C"}, parents=[A["pk"], B["pk"]])
+        )
         return A, B, C
 
     def test_add_job(self):
@@ -1456,18 +1471,141 @@ class JobTests(
 
     def test_finished_job_triggers_children_ready_and_unbound(self):
         """Job with one child FINISHED; child is READY but unbound (has 2 backends)"""
-        pass
+        A = self.setup_two_site_scenario(1)[0]
+        B = self.create_jobs(self.job_dict(app=self.dual_site_app, parents=[A["pk"]]))
+
+        # A is ready; B is waiting
+        self.assertEqual(A["state"], "READY")
+        self.assertEqual(B["state"], "AWAITING_PARENTS")
+
+        # Acquire A & process until JOB_FINISHED
+        acquired = self.acquire_jobs(
+            session=self.session1,
+            acquire_unbound=True,
+            states=["READY"],
+            max_num_acquire=20,
+        )
+        self.assertEqual(len(acquired), 1)
+        self.client.bulk_patch_data(
+            "job-list",
+            [{"pk": A["pk"], "state": "STAGED_IN"}],
+            check=status.HTTP_200_OK,
+        )
+        self.client.bulk_patch_data(
+            "job-list",
+            [{"pk": A["pk"], "state": "PREPROCESSED"}],
+            check=status.HTTP_200_OK,
+        )
+        self.client.bulk_patch_data(
+            "job-list", [{"pk": A["pk"], "state": "RUNNING"}], check=status.HTTP_200_OK,
+        )
+        self.client.bulk_patch_data(
+            "job-list",
+            [{"pk": A["pk"], "state": "RUN_DONE"}],
+            check=status.HTTP_200_OK,
+        )
+        self.client.bulk_patch_data(
+            "job-list",
+            [{"pk": A["pk"], "state": "POSTPROCESSED"}],
+            check=status.HTTP_200_OK,
+        )
+
+        # Now A should be JOB_FINISHED
+        A = self.client.get_data("job-detail", uri={"pk": A["pk"]})
+        self.assertEqual(A["state"], "JOB_FINISHED")
+
+        # B should be READY but unbound
+        B = self.client.get_data("job-detail", uri={"pk": B["pk"]})
+        self.assertEqual(B["state"], "READY")
+        self.assertEqual(Job.objects.get(pk=B["pk"]).app_backend_id, None)
 
     def test_finished_job_triggers_children_staged_in(self):
         """Job with one child FINISHED; child goes all the way to STAGED_IN"""
-        pass
+        self.prepare_linear_dag()
+        A = Job.objects.get(tags__step="A")
+        A.update(state="PREPROCESSED")
+        A.update(state="RUNNING")
+        A.update(state="RUN_DONE")
+        A.update(state="POSTPROCESSED")
+
+        B = Job.objects.get(tags__step="B")
+        C = Job.objects.get(tags__step="C")
+        self.assertEqual(B.state, "STAGED_IN")
+        self.assertEqual(C.state, "AWAITING_PARENTS")
+
+    def test_finished_job_triggers_children_staged_in_fanout(self):
+        """Job with two children FINISHED; both children go all the way to STAGED_IN"""
+        self.prepare_fanout_dag()
+        A = Job.objects.get(tags__step="A")
+        A.update(state="PREPROCESSED")
+        A.update(state="RUNNING")
+        A.update(state="RUN_DONE")
+        A.update(state="POSTPROCESSED")
+
+        B = Job.objects.get(tags__step="B")
+        C = Job.objects.get(tags__step="C")
+        self.assertEqual(B.state, "STAGED_IN")
+        self.assertEqual(C.state, "STAGED_IN")
 
     def test_finished_job_triggers_children_ready(self):
         """Job with one child FINISHED; child goes to READY because it has transfers"""
-        pass
+        self.prepare_linear_dag()
+
+        # Add a stage-in task to B
+        B = Job.objects.get(tags__step="B")
+        TransferItem.objects.create(
+            direction="in",
+            source=f"globus://{uuid.uuid4()}/path/to/data",
+            destination="./input.dat",
+            job=B,
+        )
+        A = Job.objects.get(tags__step="A")
+        A.update(state="PREPROCESSED")
+        A.update(state="RUNNING")
+        A.update(state="RUN_DONE")
+        A.update(state="POSTPROCESSED")
+        B.refresh_from_db()
+        self.assertEqual(B.state, "READY")
 
     def test_child_with_two_parents_still_waiting_when_one_parent_finished(self):
-        pass
+        """Job C has two parents A and B"""
+        self.prepare_reduce_dag()
+
+        # Process A to completion
+        A = Job.objects.get(tags__step="A")
+        B = Job.objects.get(tags__step="B")
+        C = Job.objects.get(tags__step="C")
+        self.assertEqual(B.parents.count(), 0)
+        self.assertEqual(C.parents.count(), 2)
+        A.refresh_from_db()
+        B.refresh_from_db()
+        C.refresh_from_db()
+
+        A.update(state="PREPROCESSED")
+        A.update(state="RUNNING")
+        A.update(state="RUN_DONE")
+        A.update(state="POSTPROCESSED")
+
+        # C is still waiting because B is not processed yet
+        A.refresh_from_db()
+        B = Job.objects.get(tags__step="B")
+        C = Job.objects.get(tags__step="C")
+        self.assertEqual(C.parents.count(), 2)
+        self.assertEqual(C.parents.filter(state="JOB_FINISHED").count(), 1)
+
+        self.assertEqual(A.state, "JOB_FINISHED")
+        self.assertEqual(B.state, "STAGED_IN")
+        self.assertEqual(C.state, "AWAITING_PARENTS")
+
+        # Process B to completion
+        B.update(state="PREPROCESSED")
+        B.update(state="RUNNING")
+        B.update(state="RUN_DONE")
+        B.update(state="POSTPROCESSED")
+        B.refresh_from_db()
+        C.refresh_from_db()
+        self.assertEqual(B.state, "JOB_FINISHED")
+        self.assertEqual(C.state, "STAGED_IN")
 
     def test_child_with_two_parents_ready_when_both_finished(self):
         pass

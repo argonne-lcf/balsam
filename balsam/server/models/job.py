@@ -615,15 +615,22 @@ class Job(models.Model):
 
     @transaction.atomic
     def on_JOB_FINISHED(self, *args, timestamp=None, **kwargs):
-        qs = self.children.order_by("pk").select_for_update(of=("self",))
-        qs = qs.annotate(num_parents=Count("parents", distinct=True))
-        qs = qs.annotate(
-            finished_parents=Count(
-                "parents", distinct=True, filter=Q(parents__state="JOB_FINISHED")
+        # WARNING! Order of annotate() and filter() is important!
+        # You need to annotate on all() before applying filters!
+        # Using self.children.annotate(..) is subtly INCORRECT
+        # https://docs.djangoproject.com/en/3.0/topics/db/aggregation/#order-of-annotate-and-filter-clauses
+        children = (
+            Job.objects.filter(owner=self.owner)
+            .annotate(num_parents=Count("parents", distinct=True))
+            .annotate(
+                num_finished_parents=Count(
+                    "parents", distinct=True, filter=Q(parents__state="JOB_FINISHED")
+                )
             )
+            .filter(parents=self.pk)
         )
-        for child in qs:
-            if child.num_parents == child.finished_parents:
+        for child in children:
+            if child.num_parents == child.num_finished_parents:
                 child.update_state(
                     "READY", message="All parents finished", timestamp=timestamp
                 )
