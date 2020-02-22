@@ -1,6 +1,4 @@
 import click
-from pathlib import Path
-from balsam import banner
 
 
 @click.group()
@@ -34,36 +32,4 @@ def db(path, migrate):
 
         $ balsam init db --migrate PATH
     """
-    from balsam.client import PostgresDjangoORMClient
-    from balsam.util import postgres as pg
-
-    site_path = path
-    site_path = Path(site_path)
-    pre_init_site(site_path)
-
-    if migrate:
-        client = PostgresDjangoORMClient.ensure_connection(site_path)
-        verb = "migrated"
-    else:
-        pw_dict = pg.create_new_db(site_path)
-        client = PostgresDjangoORMClient(**pw_dict)
-        client.dump_yaml()
-        verb = "created"
-
-    client.run_migrations()
-    banner(
-        f"""
-        Successfully {verb} Balsam DB at: {site_path}
-        Use `balsam activate {site_path.name}` to begin working.
-        """
-    )
-    post_init_site(site_path)
-
-
-def pre_init_site(site_path):
-    pass
-
-
-def post_init_site(site_path):
-    # site.bootstrap_settings(site_path)
     pass

@@ -5,7 +5,9 @@ import tempfile
 from pathlib import Path
 import logging
 import psycopg2
+import os
 import re
+import sys
 import socket
 import yaml
 from balsam import banner
@@ -46,41 +48,72 @@ def identify_hostport():
     return (host, port)
 
 
-def create_new_db(
-    site_path, rel_db_path="balsamdb", db_name="balsam", pwfile="client.yml"
-):
+def create_new_db(db_path="balsamdb", db_name="balsam", pwfile="client.yml"):
     """
-    Create & start a new PostgresDB cluster inside `site_path.joinpath(rel_db_path)`
+    Create & start a new PostgresDB cluster inside `db_path`
     A DB named `db_name` is created. If `pwfile` given, write DB credentials to
-    `site_path/pwfile`.  Returns a dict containing credentials/connection
+    `db_path/pwfile`.  Returns a dict containing credentials/connection
     info.
     """
     version_check()
-
-    site_path = Path(site_path).absolute()
-    db_path = site_path / rel_db_path
 
     superuser, password = init_db_cluster(db_path)
     host, port = identify_hostport()
     mutate_conf_port(db_path, port)
 
-    pw_dict = dict(
-        user=superuser,
-        password=password,
-        site_id=0,
-        site_path=site_path,
-        host=host,
-        port=port,
-        rel_db_path=rel_db_path,
-    )
+    pw_dict = dict(user=superuser, password=password, host=host, port=port,)
 
     if pwfile:
-        with open(site_path.joinpath(pwfile), "w") as fp:
+        with open(db_path.joinpath(pwfile), "w") as fp:
             yaml.dump(pw_dict, fp)
 
     start_db(db_path)
     create_database(new_dbname=db_name, **pw_dict)
     return pw_dict
+
+
+def configure_django_database(
+    user,
+    passwd,
+    host,
+    port,
+    db_name="balsam",
+    engine="django.db.backends.postgresql",
+    conn_max_age=60,
+    db_options={
+        "connect_timeout": 30,
+        "client_encoding": "UTF8",
+        "default_transaction_isolation": "read committed",
+        "timezone": "UTC",
+    },
+):
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "balsam.server.conf.settings")
+    import django
+    from django.conf import settings
+    from django import db
+
+    new_db = dict(
+        ENGINE=engine,
+        NAME=db_name,
+        OPTIONS=db_options,
+        USER=user,
+        PASSWORD=passwd,
+        HOST=host,
+        PORT=port,
+        CONN_MAX_AGE=conn_max_age,
+    )
+    settings.DATABASES = {"default": new_db}
+    if not settings.configured:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "balsam.server.conf.db_only")
+        django.setup()
+    db.connections.close_all()
+
+
+def run_django_migrations():
+    from django.core.management import call_command
+
+    isatty = sys.stdout.isatty()
+    call_command("migrate", interactive=isatty, verbosity=2)
 
 
 # *******************************
@@ -160,6 +193,15 @@ def start_db(db_path: str) -> None:
     start_cmd = f"pg_ctl -w start -D {db_path} -l {log_path} --mode=smart"
     logger.info(start_cmd)
     subprocess.run(start_cmd, shell=True, check=True)
+
+
+def auto_restart_db(db_path: str) -> None:
+    """
+    Identify (host, port) and restart DB
+    """
+    host, port = identify_hostport()
+    mutate_conf_port(db_path, port)
+    start_db(db_path)
 
 
 def stop_db(db_path: str) -> None:

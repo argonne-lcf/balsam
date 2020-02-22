@@ -1,85 +1,93 @@
-from pathlib import Path
-import yaml
-from balsam import banner
-from balsam.util import DirLock
+from urllib.parse import urlencode, urljoin
 
 
-class ClientAPI:
+class Client:
+    API_SERVER = "http://localhost:8000"
+    API_VERSION_ROOT = "api"
 
-    INFO_FILENAME = Path("client.yml")
+    def __init__(self):
+        self.API_VERSION_ROOT = self.API_VERSION_ROOT.strip("/")
+        self.jobs = JobResource(self, "jobs/")
 
-    _class_registry = {}
+    def build_url(self, url, **query_params):
+        result = urljoin(self.API_SERVER, self.API_VERSION_ROOT + "/" + url.lstrip("/"))
+        if query_params:
+            result += "?" + urlencode(query_params)
+        return result
 
-    def list(
-        self,
-        model,
-        filters=None,
-        excludes=None,
-        order_by=None,
-        limit=None,
-        offset=None,
-        fields=None,
-    ):
+    def interactive_login(self):
+        """Initiate interactive login flow"""
         raise NotImplementedError
 
-    def create(self, instances):
-        raise NotImplementedError
-
-    def update(self, instances, fields):
-        raise NotImplementedError
-
-    def delete(self, instances):
-        raise NotImplementedError
-
-    def subscribe(self, model, filters=None, excludes=None):
-        raise NotImplementedError
-
-    def acquire_jobs(self, launch_context):
-        raise NotImplementedError
-
-    def dict_config(self):
-        raise NotImplementedError
-
-    def dump_yaml(self):
-        fpath = self.site_path / self.INFO_FILENAME
-        dat = self.dict_config()
-        dat["client_type"] = self.__class__.__name__
-        with open(fpath, "w") as fp:
-            yaml.dump(self.dict_config(), fp)
-
-    @classmethod
-    def from_yaml(cls, site_path):
-        fname = Path(site_path) / ClientAPI.INFO_FILENAME
-        with open(fname) as fp:
-            dat = yaml.safe_load(fp)
-        dat["site_path"] = site_path
-
-        cls_name = dat.pop("client_type", cls.__name__)
-        if cls_name not in ClientAPI._class_registry:
-            raise TypeError(f"Unregistered Client type: {cls_name}")
-
-        ClientClass = ClientAPI._class_registry[cls_name]
-        if not issubclass(ClientClass, cls):
-            raise TypeError(f"{cls_name} is not a subclass of {cls.__name__}")
-
-        return ClientClass(**dat)
-
-    @classmethod
-    def ensure_connection(cls, site_path):
+    def refresh_auth(self):
         """
-        Start the DB under `site_path` if it's not already running
-        Concurrency-safe: uses DirLock for atomic check-and-start
-        Returns client
+        Reload credentials if stored/not expired.
+        Set appropriate Auth headers on HTTP session.
         """
-        site_path = Path(site_path)
-        if not site_path.is_dir():
-            raise FileNotFoundError(f"No site directory exists at {site_path}")
+        raise NotImplementedError
 
-        with DirLock(site_path, "db"):
-            client = cls.from_yaml(site_path)
-            if client.test_connection():
-                banner("Connected to already running Balsam DB server!")
-            else:
-                client.establish_connection()
-                client.test_connection(raises=True)
-        return client
+    def request(self, absolute_url, http_method, payload=None):
+        """
+        Supports timeout retry, auto re-authentication, accepting DUPLICATE status
+        Raises helfpul errors on 4**, 5**, TimeoutErrors, AuthErrors
+        """
+        raise NotImplementedError
+
+    def extract_data(self, response):
+        """Returns dict or list of Python primitive datatypes"""
+        raise NotImplementedError
+
+
+class Resource:
+    def __init__(self, client, path):
+        self.client = client
+        self.collection_path = path
+
+    def list(self, **query_params):
+        url = self.client.build_url(self.collection_path, **query_params)
+        response = self.client.request(url, "GET")
+        return self.client.extract_data(response)
+
+    def detail(self, uri, **query_params):
+        url = self.client.build_url(f"{self.collection_path}/{uri}", **query_params)
+        response = self.client.request(url, "GET")
+        return self.client.extract_data(response)
+
+    def create(self, **payload):
+        url = self.client.build_url(self.collection_path)
+        response = self.client.request(url, "POST", payload=payload)
+        return self.client.extract_data(response)
+
+    def update(self, uri, payload, partial=False, **query_params):
+        url = self.client.build_url(f"{self.collection_path}/{uri}", **query_params)
+        method = "PATCH" if partial else "PUT"
+        response = self.client.request(url, method, payload=payload)
+        return self.client.extract_data(response)
+
+    def bulk_create(self, list_payload):
+        url = self.client.build_url(self.collection_path)
+        response = self.client.request(url, "POST", payload=list_payload)
+        return self.client.extract_data(response)
+
+    def bulk_update(self, payload, partial=False, **query_params):
+        url = self.client.build_url(self.collection_path, **query_params)
+        method = "PATCH" if partial else "PUT"
+        response = self.client.request(url, method, payload=payload)
+        return self.client.extract_data(response)
+
+    def destroy(self, uri, **query_params):
+        url = self.client.build_url(f"{self.collection_path}/{uri}", **query_params)
+        self.client.request(url, "DELETE")
+        return
+
+    def bulk_destroy(self, **query_params):
+        url = self.client.build_url(self.collection_path, **query_params)
+        self.client.request(url, "DELETE")
+        return
+
+
+class JobResource(Resource):
+    def history(self, uri):
+        url = self.client.build_url(f"{self.collection_path}/{uri}/events")
+        response = self.client.request(url, "GET")
+        return self.client.extract_data(response)
