@@ -7,7 +7,13 @@ class Client:
 
     def __init__(self):
         self.API_VERSION_ROOT = self.API_VERSION_ROOT.strip("/")
+        self.users = Resource(self, "users/")
+        self.sites = Resource(self, "sites/")
+        self.apps = AppResource(self, "apps/")
+        self.batch_jobs = BatchJobResource(self, "batchjobs/")
         self.jobs = JobResource(self, "jobs/")
+        self.events = Resource(self, "events/")
+        self.sessions = SessionResource(self, "sessions/")
 
     def build_url(self, url, **query_params):
         result = urljoin(self.API_SERVER, self.API_VERSION_ROOT + "/" + url.lstrip("/"))
@@ -90,4 +96,27 @@ class JobResource(Resource):
     def history(self, uri):
         url = self.client.build_url(f"{self.collection_path}/{uri}/events")
         response = self.client.request(url, "GET")
+        return self.client.extract_data(response)
+
+
+class AppResource(Resource):
+    def merge(self, **payload):
+        url = self.client.build_url(f"{self.collection_path}/merge")
+        response = self.client.request(url, "POST", payload=payload)
+        return self.client.extract_data(response)
+
+
+class BatchJobResource(Resource):
+    def list_jobs(self, uri, **query_params):
+        url = self.client.build_url(
+            f"{self.collection_path}/{uri}/jobs", **query_params
+        )
+        response = self.client.request(url, "GET")
+        return self.client.extract_data(response)
+
+
+class SessionResource(Resource):
+    def acquire_jobs(self, uri, **payload):
+        url = self.client.build_url(f"{self.collection_path}/{uri}")
+        response = self.client.request(url, "POST", payload=payload)
         return self.client.extract_data(response)
