@@ -6,41 +6,23 @@ from json import JSONDecodeError
 from .rest_base_client import RESTClient
 
 
-class BasicAuthForTokenMixin:
-    def refresh_auth(self):
-        # Login with HTTPBasic Auth to get a token:
-        self._session.auth = ("misha", "f")
-        login_url = self.build_url("login")
-        resp = self._session.post(login_url)
-        token = resp.json()["token"]
-
-        # Unset BasicAuth; set Token Authorization header
-        self._session.auth = None
-        self._session.headers["Authorization"] = f"Token {token}"
-
-    def interactive_login(self):
-        """Initiate interactive login flow"""
-        raise NotImplementedError
-
-
-class RequestsClient(BasicAuthForTokenMixin, RESTClient):
-    CONNECT_TIMEOUT = 3.1
-    READ_TIMEOUT = 5
-    RETRY_COUNT = 3
-
-    def __init__(self):
-        super().__init__()
+class RequestsClient(RESTClient):
+    def __init__(self, api_root, connect_timeout=3.1, read_timeout=5, retry_count=3):
+        super().__init__(api_root)
+        self.connect_timeout = connect_timeout
+        self.read_timeout = read_timeout
+        self.retry_count = retry_count
         self._session = requests.Session()
 
     def request(self, absolute_url, http_method, payload=None):
         attempt = 0
         tried_reauth = False
-        while attempt < self.RETRY_COUNT:
+        while attempt < self.retry_count:
             try:
                 response = self._do_request(absolute_url, http_method, payload)
             except requests.Timeout as exc:
                 attempt += 1
-                if attempt == self.RETRY_COUNT:
+                if attempt == self.retry_count:
                     raise requests.Timeout(f"Timed-out {attempt} times.") from exc
             except requests.HTTPError as exc:
                 if (
@@ -58,7 +40,7 @@ class RequestsClient(BasicAuthForTokenMixin, RESTClient):
             http_method,
             url=absolute_url,
             json=payload,
-            timeout=(self.CONNECT_TIMEOUT, self.READ_TIMEOUT),
+            timeout=(self.connect_timeout, self.read_timeout),
         )
         if response.status_code >= 400:
             self._raise_with_explanation(response)

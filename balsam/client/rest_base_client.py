@@ -1,12 +1,9 @@
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 
 
 class RESTClient:
-    API_SERVER = "http://localhost:8000"
-    API_VERSION_ROOT = "api"
-
-    def __init__(self):
-        self.API_VERSION_ROOT = self.API_VERSION_ROOT.strip("/")
+    def __init__(self, api_root):
+        self.api_root = api_root.rstrip("/")
         self.users = Resource(self, "users/")
         self.sites = Resource(self, "sites/")
         self.apps = AppResource(self, "apps/")
@@ -16,7 +13,7 @@ class RESTClient:
         self.sessions = SessionResource(self, "sessions/")
 
     def build_url(self, url, **query_params):
-        result = urljoin(self.API_SERVER, self.API_VERSION_ROOT + "/" + url.lstrip("/"))
+        result = self.api_root + "/" + url.lstrip("/")
         if query_params:
             result += "?" + urlencode(query_params)
         return result

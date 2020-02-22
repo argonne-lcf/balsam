@@ -1,4 +1,4 @@
-from .config import SiteConfiguration
+from .config import BalsamComponentFactory
 
-conf = SiteConfiguration()
+conf = BalsamComponentFactory()
 __all__ = ["conf"]
