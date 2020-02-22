@@ -3,7 +3,7 @@ from rest_framework import status
 from pprint import pformat
 from json import JSONDecodeError
 
-from .client import Client
+from .rest_base_client import RESTClient
 
 
 class BasicAuthForTokenMixin:
@@ -23,7 +23,7 @@ class BasicAuthForTokenMixin:
         raise NotImplementedError
 
 
-class RequestsClient(BasicAuthForTokenMixin, Client):
+class RequestsClient(BasicAuthForTokenMixin, RESTClient):
     CONNECT_TIMEOUT = 3.1
     READ_TIMEOUT = 5
     RETRY_COUNT = 3

@@ -2,15 +2,28 @@ import os
 from pathlib import Path
 import importlib.util
 
-from pydantic import BaseSettings, FilePath, PostgresDsn
+from pydantic import BaseSettings, FilePath, PostgresDsn, HttpUrl, Union
 
 
-class PostgresClient(BaseSettings):
+class StaticHostedPostgresClient(BaseSettings):
     address: PostgresDsn
+
+
+class AutoHostedPostgresClient(BaseSettings):
+    address: PostgresDsn
+
+
+class RequestsClient(BaseSettings):
+    api_server: HttpUrl = "http://localhost:8000"
+    api_version_root: str = "api"
+    connect_timeout: float = 3.1
+    read_timeout: float = 5.0
+    retry_count: int = 3
 
 
 class Settings(BaseSettings):
     credentials_file: FilePath = "~/.balsam/credentials"
+    client: Union[StaticHostedPostgresClient, AutoHostedPostgresClient, RequestsClient]
 
 
 class SiteConfiguration:

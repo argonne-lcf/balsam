@@ -1,7 +1,7 @@
 from urllib.parse import urlencode, urljoin
 
 
-class Client:
+class RESTClient:
     API_SERVER = "http://localhost:8000"
     API_VERSION_ROOT = "api"
 
