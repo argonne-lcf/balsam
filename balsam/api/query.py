@@ -1,6 +1,67 @@
-from balsam.site import conf
-
 REPR_OUTPUT_SIZE = 20
+
+
+class Manager:
+    model_class = None
+    unique_field = None
+    list_is_paginated = True
+
+    def __init__(self, client_resource, model_class, unique_field="pk"):
+        self._resource = client_resource
+        self._model = model_class
+        self._unique_field = unique_field
+
+    def all(self):
+        return Query(manager=self)
+
+    def filter(self, **kwargs):
+        return Query(manager=self).filter(**kwargs)
+
+    def get(self, **kwargs):
+        return Query(manager=self).get(**kwargs)
+
+    def bulk_create(self, instances):
+        """Returns a list of newly created instances"""
+        if not isinstance(instances, list):
+            raise TypeError(
+                f"instances must be a list of {self._model.__name__} instances"
+            )
+
+        assert all(
+            isinstance(obj, self._model) for obj in instances
+        ), f"bulk_create requires all items to be instances of {self._model.__name__}"
+
+        data_list = [self.to_dict(obj) for obj in instances]
+        response_data = self._resource.bulk_create(data_list)
+        return [self.from_dict(dat) for dat in response_data]
+
+    def bulk_update(self, instances, update_fields):
+        """
+        Perform a bulk patch of instances from the modified `instances` list and set of
+        `update_fields`. Modifies the instances list in-place and returns None.
+        """
+        data_list = [self.to_dict(obj) for obj in instances]
+        patch_list = [{key: d[key] for key in update_fields} for d in data_list]
+        response_data = self._resource.bulk_update_patch(patch_list)
+
+        response_map = {item[self._unique_field]: item for item in response_data}
+
+        # Use response_map to update instances in-place
+        for i, obj in enumerate(instances):
+            pk = getattr(obj, self._unique_field)
+            updated_instance = self.from_dict(response_map[pk])
+            instances[i] = updated_instance
+
+        return None
+
+    def to_dict(self, instance):
+        return instance.dict()
+
+    def from_dict(self, data):
+        return self._model.construct(**data)
+
+    def unpack_list_response(self, list_response):
+        pass
 
 
 class BaseIterable:
@@ -9,7 +70,7 @@ class BaseIterable:
 
     def __iter__(self):
         query = self.query
-        results = conf.client.list(
+        results = self._resource.list(
             query.model_class.__name__,
             {"pk", *query.model_class._field_names},
             filters=query._filters,
@@ -29,17 +90,6 @@ class ModelIterable(BaseIterable):
     def _iter_results(self, results):
         for row in results:
             yield self.query.model_class(**row)
-
-
-class ValuesIterable(BaseIterable):
-    def _iter_results(self, results):
-        yield from results
-
-
-class ValuesListIterable(BaseIterable):
-    def _iter_results(self, results):
-        for r in results:
-            yield list(r.values())
 
 
 class Query:
@@ -159,16 +209,6 @@ class Query:
         clone._order_fields = tuple(fields)
         return clone
 
-    def values(self, *fields):
-        clone = self._clone()
-        clone._iterable_class = ValuesIterable
-        return clone
-
-    def values_list(self, *fields, flat=False):
-        clone = self._clone()
-        clone._iterable_class = ValuesListIterable
-        return clone
-
     # Methods that do not return a Query
     # **********************************
     def get(self, **kwargs):
@@ -184,12 +224,12 @@ class Query:
 
     def count(self):
         if self._count is None:
-            results = conf.client.list(
+            results = self._resource.list(
                 self.model_class,
                 filters=self._filters,
                 excludes=self._excludes,
                 order_by=None,
-                limit=self._limit,
+                limit=0,
                 offset=self._offset,
                 count_only=True,
             )

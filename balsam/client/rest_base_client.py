@@ -72,10 +72,15 @@ class Resource:
         response = self.client.request(url, "POST", payload=list_payload)
         return self.client.extract_data(response)
 
-    def bulk_update(self, payload, partial=False, **query_params):
+    def bulk_update_query(self, patch, **query_params):
+        """Apply the same patch_payload to every item selected by query_params"""
         url = self.client.build_url(self.collection_path, **query_params)
-        method = "PATCH" if partial else "PUT"
-        response = self.client.request(url, method, payload=payload)
+        response = self.client.request(url, "PUT", payload=patch)
+        return self.client.extract_data(response)
+
+    def bulk_update_patch(self, patch_list):
+        url = self.client.build_url(self.collection_path)
+        response = self.client.request(url, "PATCH", payload=patch_list)
         return self.client.extract_data(response)
 
     def destroy(self, uri, **query_params):
