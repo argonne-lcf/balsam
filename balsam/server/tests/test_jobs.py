@@ -1099,8 +1099,9 @@ class JobTests(
             max_num_acquire=5,
         )
         after_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
-        sessions = self.client.get_data("session-list", check=status.HTTP_200_OK)
-        self.assertEqual(len(sessions), 2)
+        sessions_resp = self.client.get_data("session-list", check=status.HTTP_200_OK)
+        self.assertEqual(sessions_resp["count"], 2)
+        sessions = sessions_resp["results"]
         sess = sessions[0] if sessions[0]["pk"] == self.session1["pk"] else sessions[1]
         self.assertEqual(sess["pk"], self.session1["pk"])
         self.assertEqual(sess["batch_job"], self.bjob1.pk)

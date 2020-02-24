@@ -32,4 +32,4 @@ class AuthTests(TwoUserTestCase):
         staff_client = BalsamAPIClient(self)
         staff_client.login(username="super", password="abc")
         user_list = staff_client.get_data("user-list", check=status.HTTP_200_OK)
-        self.assertEqual(len(user_list), 3)
+        self.assertEqual(user_list["count"], 3)

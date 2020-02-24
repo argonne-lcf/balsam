@@ -17,8 +17,8 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
 
         # Retrieve the app list; ensure the App shows up
         app_list = self.client.get_data("app-list", check=status.HTTP_200_OK)
-        self.assertEqual(len(app_list), 1)
-        self.assertDictEqual(app_list[0], app)
+        self.assertEqual(app_list["count"], 1)
+        self.assertDictEqual(app_list["results"][0], app)
 
     def test_created_app_appears_on_site_detail(self):
         site = self.create_site()
@@ -95,7 +95,7 @@ class AppTests(TestCase, SiteFactoryMixin, AppFactoryMixin):
             "app-detail", uri={"pk": app_shared["pk"]}, check=status.HTTP_204_NO_CONTENT
         )
         self.assertEqual(AppBackend.objects.count(), 1)
-        sites = self.client.get_data("site-list")
+        sites = self.client.get_data("site-list")["results"]
         sites = {s["pk"]: s for s in sites}
         self.assertEqual(sites[site1["pk"]]["apps"], ["Foo.bar"])
         self.assertEqual(sites[site2["pk"]]["apps"], [])
@@ -139,10 +139,10 @@ class AppSharingTests(TwoUserTestCase):
             parameters=["name", "N"],
         )
         client1_apps = self.client1.get_data("app-list", check=status.HTTP_200_OK)
-        self.assertEqual(len(client1_apps), 1)
-        self.assertDictEqual(app, client1_apps[0])
+        self.assertEqual(client1_apps["count"], 1)
+        self.assertDictEqual(app, client1_apps["results"][0])
         client2_apps = self.client2.get_data("app-list", check=status.HTTP_200_OK)
-        self.assertEqual(len(client2_apps), 0)
+        self.assertEqual(client2_apps["count"], 0)
 
     def test_shared_app(self):
         """If client1 shares his app with client2, then client2 can see it"""
@@ -159,7 +159,7 @@ class AppSharingTests(TwoUserTestCase):
         )
         client1_apps = self.client1.get_data("app-list", check=status.HTTP_200_OK)
         client2_apps = self.client2.get_data("app-list", check=status.HTTP_200_OK)
-        self.assertListEqual(client1_apps, client2_apps)
+        self.assertListEqual(client1_apps["results"], client2_apps["results"])
 
     def test_cannot_add_other_users_backend_to_app(self):
         site1 = self.client1.post_data(
@@ -193,7 +193,7 @@ class AppSharingTests(TwoUserTestCase):
 
         # Client1 can see both apps
         list1 = self.client1.get_data("app-list", check=status.HTTP_200_OK)
-        self.assertEqual(len(list1), 2)
+        self.assertEqual(list1["count"], 2)
 
         # But Client1 cannot add a backend that doesn't belong to them
         app1["backends"].append({"site": site2["pk"], "class_name": "Demo.SayHello"})

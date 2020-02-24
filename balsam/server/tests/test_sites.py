@@ -22,7 +22,7 @@ class SiteTests(TestCase, SiteFactoryMixin):
     def test_created_site_in_list_view(self):
         site = self.create_site()
         site_list = self.client.get_data("site-list", check=status.HTTP_200_OK)
-        self.assertEqual(site["hostname"], site_list[0]["hostname"])
+        self.assertEqual(site["hostname"], site_list["results"][0]["hostname"])
 
     def test_detail_view(self):
         created_site = self.create_site()

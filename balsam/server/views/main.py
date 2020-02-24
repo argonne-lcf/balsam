@@ -74,6 +74,7 @@ class UserList(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = ser.UserSerializer
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = BalsamPaginator
 
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -86,6 +87,7 @@ class SiteList(generics.ListCreateAPIView):
     queryset = Site.objects.all()
     serializer_class = ser.SiteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = BalsamPaginator
 
     def get_queryset(self):
         user = self.request.user
@@ -112,6 +114,7 @@ class AppList(generics.ListCreateAPIView):
     queryset = AppExchange.objects.all()
     serializer_class = ser.AppSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = BalsamPaginator
 
     def get_queryset(self):
         user = self.request.user
@@ -250,6 +253,7 @@ class EventList(generics.ListAPIView):
 
 class SessionList(generics.ListCreateAPIView):
     queryset = JobLock.objects.all()
+    pagination_class = BalsamPaginator
     serializer_class = ser.SessionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
