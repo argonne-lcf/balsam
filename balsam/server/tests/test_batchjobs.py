@@ -454,9 +454,9 @@ class BatchJobPrivacyTests(TwoUserTestCase, SiteFactoryMixin, BatchJobFactoryMix
     def test_no_shared_batchjobs_in_list_view(self):
         """client2 cannot see client1's batchjobs"""
         site1 = self.create_site(hostname="site1", client=self.client1)
-        site2 = self.create_site(hostname="site2", client=self.client2)
-        self.assertEqual(site1["owner"], self.user1.pk)
-        self.assertEqual(site2["owner"], self.user2.pk)
+        self.create_site(hostname="site2", client=self.client2)
+        self.assertEqual(Site.objects.get(hostname="site1").owner_id, self.user1.pk)
+        self.assertEqual(Site.objects.get(hostname="site2").owner_id, self.user2.pk)
 
         # client1 adds batchjob to site1
         self.create_batchjob(site1, client=self.client1)

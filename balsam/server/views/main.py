@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
+from django.utils.translation import gettext_lazy
 
 from rest_framework import generics, permissions
 from rest_framework.pagination import LimitOffsetPagination
@@ -10,6 +11,7 @@ from rest_framework import status
 from rest_framework.authentication import BasicAuthentication
 
 from knox.views import LoginView as KnoxLoginView
+from knox import auth
 from balsam.server import serializers as ser
 from .bulk import (
     ListSingleCreateBulkUpdateAPIView,
@@ -26,6 +28,7 @@ from .filters import (
 )
 from balsam.server.models import Site, AppExchange, Job, BatchJob, EventLog, JobLock
 
+auth._ = gettext_lazy  # Monkeypatch to avoid a Django deprecation warning
 User = get_user_model()
 
 

@@ -3,103 +3,134 @@ REPR_OUTPUT_SIZE = 20
 
 class Manager:
     model_class = None
-    unique_field = None
-    list_is_paginated = True
+    pk_field = "pk"
+    bulk_create_enabled = True
+    bulk_update_enabled = True
 
-    def __init__(self, client_resource, model_class, unique_field="pk"):
-        self._resource = client_resource
-        self._model = model_class
-        self._unique_field = unique_field
+    @classmethod
+    def register_client(cls, client_resource):
+        """
+        Link to a Client resource and make Manager
+        accessible as `Model.objects`
+        """
+        cls.resource = client_resource
+        cls.model_class.objects = cls
 
-    def all(self):
-        return Query(manager=self)
+    @classmethod
+    def all(cls):
+        return Query(manager=cls)
 
-    def filter(self, **kwargs):
-        return Query(manager=self).filter(**kwargs)
+    @classmethod
+    def filter(cls, **kwargs):
+        # TODO: kwargs should expand to filterable fields
+        return Query(manager=cls).filter(**kwargs)
 
-    def get(self, **kwargs):
-        return Query(manager=self).get(**kwargs)
+    @classmethod
+    def get(cls, **kwargs):
+        # TODO: kwargs should expand to filterable fields
+        return Query(manager=cls).get(**kwargs)
 
-    def bulk_create(self, instances):
+    @classmethod
+    def bulk_create(cls, instances):
         """Returns a list of newly created instances"""
         if not isinstance(instances, list):
             raise TypeError(
-                f"instances must be a list of {self._model.__name__} instances"
+                f"instances must be a list of {cls.model_class.__name__} instances"
             )
 
         assert all(
-            isinstance(obj, self._model) for obj in instances
-        ), f"bulk_create requires all items to be instances of {self._model.__name__}"
+            isinstance(obj, cls.model_class) for obj in instances
+        ), f"bulk_create requires all items to be instances of {cls.model_class.__name__}"
 
-        data_list = [self.to_dict(obj) for obj in instances]
-        response_data = self._resource.bulk_create(data_list)
-        return [self.from_dict(dat) for dat in response_data]
+        data_list = [cls._to_dict(obj) for obj in instances]
+        response_data = cls.resource.bulk_create(data_list)
+        return [cls._from_dict(dat) for dat in response_data]
 
-    def bulk_update(self, instances, update_fields):
+    @classmethod
+    def bulk_update(cls, instances, update_fields):
         """
         Perform a bulk patch of instances from the modified `instances` list and set of
         `update_fields`. Modifies the instances list in-place and returns None.
         """
-        data_list = [self.to_dict(obj) for obj in instances]
+        # TODO: validate update_fields
+        data_list = [cls._to_dict(obj) for obj in instances]
         patch_list = [{key: d[key] for key in update_fields} for d in data_list]
-        response_data = self._resource.bulk_update_patch(patch_list)
+        response_data = cls.resource.bulk_update_patch(patch_list)
 
-        response_map = {item[self._unique_field]: item for item in response_data}
+        response_map = {item[cls.pk_field]: item for item in response_data}
 
         # Use response_map to update instances in-place
         for i, obj in enumerate(instances):
-            pk = getattr(obj, self._unique_field)
-            updated_instance = self.from_dict(response_map[pk])
+            pk = getattr(obj, cls.pk_field)
+            updated_instance = cls._from_dict(response_map[pk])
             instances[i] = updated_instance
 
         return None
 
-    def to_dict(self, instance):
+    @classmethod
+    def _instance_update(cls, instance):
+        response_data = cls._resource.update(
+            uri=getattr(instance, cls.pk_field),
+            payload=cls._to_dict(instance),
+            partial=True,
+        )
+        for k, v in response_data.items():
+            if k in instance.__fields__:
+                setattr(instance, k, v)
+
+    @classmethod
+    def _to_dict(cls, instance):
         return instance.dict()
 
-    def from_dict(self, data):
-        return self._model.construct(**data)
+    @classmethod
+    def _from_dict(cls, data):
+        return cls.model_class.construct(**data)
 
-    def unpack_list_response(self, list_response):
-        pass
+    @classmethod
+    def _unpack_list_response(cls, list_response):
+        return [cls._from_dict(dat) for dat in list_response]
 
+    @classmethod
+    def _build_query_params(cls, filters, ordering, limit, offset):
+        d = {}
+        d.update(filters)
+        if ordering:
+            d.update(ordering=ordering)
+        if limit:
+            d.update(limit=limit)
+        if offset:
+            d.update(offset=offset)
+        return d
 
-class BaseIterable:
-    def __init__(self, query):
-        self.query = query
+    @classmethod
+    def _get_list(cls, filters, ordering, limit, offset):
+        instances = []
+        count = 0
+        query_params = cls._build_query_params(filters, ordering, limit, offset)
+        response_data = cls.resource.list(**query_params)
+        count = response_data["count"]
+        instances = cls._unpack_list_response(response_data["results"])
+        return instances, count
 
-    def __iter__(self):
-        query = self.query
-        results = self._resource.list(
-            query.model_class.__name__,
-            {"pk", *query.model_class._field_names},
-            filters=query._filters,
-            excludes=query._excludes,
-            order_by=query._order_fields,
-            limit=query._limit,
-            offset=query._offset,
-        )
-        query._count = results["count"]
-        return self._iter_results(results["rows"])
+    @classmethod
+    def _do_update_query(cls, patch, filters):
+        query_params = cls._build_query_params(filters)
+        response_data = cls.resource.bulk_update_query(patch, **query_params)
+        return cls._unpack_list_response(response_data)
 
-    def _iter_results(self, results):
-        raise NotImplementedError
-
-
-class ModelIterable(BaseIterable):
-    def _iter_results(self, results):
-        for row in results:
-            yield self.query.model_class(**row)
+    @classmethod
+    def _do_bulk_delete(cls, filters):
+        query_params = cls._build_query_params(filters)
+        response_data = cls.resource.bulk_destroy(**query_params)
+        return response_data["deleted_count"]
 
 
 class Query:
-    def __init__(self, model_class=None):
-        self.model_class = model_class
+    def __init__(self, manager):
+        self._manager = manager
         self._result_cache = None
         self._filters = {}
-        self._excludes = {}
         self._order_fields = []
-        self._iterable_class = ModelIterable
         self._count = None
         self._limit = None
         self._offset = None
@@ -164,45 +195,47 @@ class Query:
         return self._limit is None or self._offset is None
 
     def _clone(self):
-        clone = Query(self.model_class)
+        clone = Query(manager=self._manager)
         clone._filters = self._filters.copy()
-        clone._excludes = self._excludes.copy()
         clone._order_fields = self._order_fields.copy()
-        clone._iterable_class = self._iterable_class
         clone._limit = self._limit
         clone._offset = self._offset
         return clone
 
     def _set_limits(self, start, stop):
+        if start is None:
+            start = 0
         self._offset = start
         self._limit = stop - start
-
-    def _fetch_cache(self):
-        if self._result_cache is None:
-            self._result_cache = list(self._query_iterator())
-
-    def _query_iterator(self):
-        return iter(self._iterable_class(self))
 
     def __iter__(self):
         self._fetch_cache()
         return iter(self._result_cache)
 
+    def _fetch_cache(self):
+        if self._result_cache is not None:
+            return
+
+        instances, count = self._manager._get_list(
+            filters=self._filters,
+            ordering=self._order_fields,
+            limit=self._limit,
+            offset=self._offset,
+        )
+        if count is not None:
+            self._count = count
+        self._result_cache = instances
+
     def filter(self, **kwargs):
+        # TODO: kwargs should expand to the set of filterable model fields
         if self.is_sliced:
             return AttributeError("Cannot filter a sliced Query")
         clone = self._clone()
         clone._filters.update(kwargs)
         return clone
 
-    def exclude(self, **kwargs):
-        if self.is_sliced:
-            return AttributeError("Cannot filter a sliced Query")
-        clone = self._clone()
-        clone._excludes.update(kwargs)
-        return clone
-
     def order_by(self, *fields):
+        # TODO: should validate that only order-able fields are accepted
         if self.is_sliced:
             return AttributeError("Cannot re-order a sliced Query")
         clone = self._clone()
@@ -212,50 +245,28 @@ class Query:
     # Methods that do not return a Query
     # **********************************
     def get(self, **kwargs):
+        # TODO: kwargs should expand to the set of filterable model fields
         clone = self.filter(**kwargs)
         results = list(clone)
         nobj = len(results)
         if nobj == 1:
             return results[0]
         elif nobj == 0:
-            raise self.model_class.DoesNotExist
+            raise self._manager.model_class.DoesNotExist
         else:
-            raise self.model_class.MultipleObjectsReturned(nobj)
+            raise self._manager.model_class.MultipleObjectsReturned(nobj)
 
     def count(self):
         if self._count is None:
-            results = self._resource.list(
-                self.model_class,
-                filters=self._filters,
-                excludes=self._excludes,
-                order_by=None,
-                limit=0,
-                offset=self._offset,
-                count_only=True,
+            _, count = self._manager._get_list(
+                filters=self._filters, limit=0, offset=0,
             )
-            self._count = results["count"]
+            self._count = count
         return self._count
 
     def update(self, **kwargs):
-        pass
+        # TODO: kwargs should expand to a set of allowed update_fields
+        return self._manager._do_update_query(patch=kwargs, filters=self._filters)
 
     def delete(self):
-        pass
-
-    def get_or_create(self, defaults=None, **kwargs):
-        pass
-
-    def update_or_create(self, defaults=None, **kwargs):
-        pass
-
-    def bulk_update(self, objs, fields):
-        pass
-
-    def bulk_create(self, objs):
-        pass
-
-    def create(self, **kwargs):
-        pass
-
-    def save(self):
-        pass
+        return self._manager._do_bulk_delete(filters=self._filters)

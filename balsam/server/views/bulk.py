@@ -72,7 +72,9 @@ class BulkDestroyModelMixin(DestroyModelMixin):
 
         if filtered_count < full_count or destroy_ok:
             self.perform_destroy(qs)
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                {"deleted_count": filtered_count}, status=status.HTTP_204_NO_CONTENT
+            )
 
         msg = (
             "It's dangerous to delete all items. "

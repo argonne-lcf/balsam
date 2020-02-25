@@ -1,22 +1,59 @@
-from .base_model import BalsamModel, PydanticModel, validator
 import jinja2
 import jinja2.meta
 import shlex
-import subprocess
+
+import pathlib
+from datetime import datetime
+from typing import Union, List, Tuple
+from pydantic import validator
+from .base_model import BalsamModel
+from .query import Manager
+
+
+class Job(BalsamModel):
+    name: str
+    workflow: str
+    num_nodes: int
+    cpu_affinity = "depth"
+
+
+class JobManager(Manager):
+    model_class = Job
+
+
+class SiteStatus(BalsamModel):
+    num_nodes: int = 0
+    num_idle_nodes: int = 0
+    num_busy_nodes: int = 0
+    num_down_nodes: int = 0
+    backfill_windows: List[Tuple[int, int]] = [(0, 0)]
+    queued_jobs: List[Tuple[int, int, str]] = [(0, 0, "")]
+
+
+class Site(BalsamModel):
+    pk: Union[int, None] = None
+    hostname: str
+    path: pathlib.Path
+    last_refresh: datetime = datetime.utcnow
+    status: SiteStatus
+    apps: List[str] = [""]
+
+
+class SiteManager(Manager):
+    model_class = Site
 
 
 class App(BalsamModel):
-    class DataClass(PydanticModel):
-        command_template: str = "echo Hello, {{name}}!"
+    command_template: str = "echo Hello, {{name}}!"
 
-        @validator("command_template")
-        def exec_exists(cls, v):
-            split_cmd = v.strip().split()
-            cmd = " ".join(split_cmd)
-            exe = split_cmd[0]
-            if not exe.isalnum():
-                raise RuntimeError("invalid")
-            return cmd
+    @validator("command_template")
+    def exec_exists(cls, v):
+        split_cmd = v.strip().split()
+        cmd = " ".join(split_cmd)
+        exe = split_cmd[0]
+        if not exe.isalnum():
+            raise RuntimeError("invalid")
+        return cmd
 
     def __init__(self):
         self.command_template = " ".join(self.command_template.strip().split())
@@ -55,10 +92,3 @@ class App(BalsamModel):
 
     def handle_error(self):
         self.job.fail()
-
-
-if __name__ == "__main__":
-    app = App()
-    cmd_str = app.render_command({"name": ";'world", "baz": ""})
-    print("cmd_str:", cmd_str)
-    subprocess.run(cmd_str, shell=True, executable="/bin/bash")

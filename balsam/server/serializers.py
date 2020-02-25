@@ -130,23 +130,16 @@ class SiteStatusSerializer(serializers.HyperlinkedModelSerializer):
 class SiteSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Site
-        read_only_fields = ["owner", "owner_url"]
         fields = [
             "pk",
             "url",
             "hostname",
             "path",
             "last_refresh",
-            "owner",
-            "owner_url",
             "status",
             "apps",
         ]
 
-    owner = serializers.PrimaryKeyRelatedField(read_only=True)
-    owner_url = serializers.HyperlinkedRelatedField(
-        source="owner", read_only=True, view_name="user-detail",
-    )
     status = SiteStatusSerializer(required=False)
     apps = serializers.StringRelatedField(
         many=True, source="registered_app_backends", read_only=True
@@ -332,7 +325,6 @@ class JobSerializer(BulkModelSerializer):
             "pk",
             "workdir",
             "tags",
-            "owner",
             "batch_job",
             "app",
             "app_name",

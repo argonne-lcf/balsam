@@ -2,12 +2,13 @@ from rest_framework import status
 from dateutil.parser import isoparse
 from .clients import TestCase
 from .mixins import SiteFactoryMixin
+from balsam.server.models import Site
 
 
 class SiteTests(TestCase, SiteFactoryMixin):
     def test_can_create_site(self):
-        site = self.create_site()
-        self.assertEqual(site["owner"], self.user.pk)
+        created_site = self.create_site()
+        self.assertEqual(Site.objects.get(pk=created_site["pk"]).owner_id, self.user.pk)
 
     def test_cannot_create_duplicate_site(self):
         self.create_site(
@@ -62,8 +63,7 @@ class SiteTests(TestCase, SiteFactoryMixin):
             check=status.HTTP_200_OK,
             **patch_dict,
         )
-        self.assertEqual(updated_site["owner"], self.user.pk)
-        self.assertNotEqual(updated_site["owner"], 2)
+        self.assertEqual(Site.objects.get(pk=updated_site["pk"]).owner_id, self.user.pk)
 
     def test_can_partial_update_status(self):
         # Create a hypothetical site with 118 busy nodes, 10 idle nodes
