@@ -206,13 +206,13 @@ def run(param_dict):
 Launch an Experiment
 --------------------
 
-The deephyper Theta module has a convenience script included for quick
-generation of DeepHyper Async Bayesian Model Search (AMBS) search jobs.
-Simply pass the paths to the **mnist\_mlp\_dh.py** script (containing
-the **run()** function) and the **problem.py** file as follows:
+We need to define a job based on the Asynchronous Model-Based Search (AMBS) algorithm in
+DeepHyper.  Simply pass the paths to the **mnist\_mlp\_dh.py** script (containing the
+**run()** function) and the **problem.py** file as follows:
 
 ```console
-$ deephyper-ambs  mnist_mlp_dh.py problem.py
+$ balsam app --name AMBS --exec "$(which python) -m deephyper.search.hps.ambs"
+$ balsam job --name mnist --application AMBS --workflow MNIST --args '--evaluator balsam --problem problem.py --run mnist_mlp_dh.py
 ```
 
 You will see the details of the created Balsam job to run the DeepHyper
