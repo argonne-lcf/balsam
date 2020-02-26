@@ -15,7 +15,13 @@ class RESTClient:
     def build_url(self, url, **query_params):
         result = self.api_root + "/" + url.lstrip("/")
         if query_params:
-            result += "?" + urlencode(query_params)
+            query_seq = []
+            for k, v in query_params.items():
+                if isinstance(v, (list, tuple)):
+                    query_seq.extend((k, item) for item in v)
+                else:
+                    query_seq.append((k, v))
+            result += "?" + urlencode(query_seq)
         return result
 
     def interactive_login(self):
@@ -52,7 +58,7 @@ class Resource:
         return self.client.extract_data(response)
 
     def detail(self, uri, **query_params):
-        url = self.client.build_url(f"{self.collection_path}/{uri}", **query_params)
+        url = self.client.build_url(f"{self.collection_path}{uri}", **query_params)
         response = self.client.request(url, "GET")
         return self.client.extract_data(response)
 
@@ -62,7 +68,7 @@ class Resource:
         return self.client.extract_data(response)
 
     def update(self, uri, payload, partial=False, **query_params):
-        url = self.client.build_url(f"{self.collection_path}/{uri}", **query_params)
+        url = self.client.build_url(f"{self.collection_path}{uri}", **query_params)
         method = "PATCH" if partial else "PUT"
         response = self.client.request(url, method, payload=payload)
         return self.client.extract_data(response)
@@ -84,7 +90,7 @@ class Resource:
         return self.client.extract_data(response)
 
     def destroy(self, uri, **query_params):
-        url = self.client.build_url(f"{self.collection_path}/{uri}", **query_params)
+        url = self.client.build_url(f"{self.collection_path}{uri}", **query_params)
         self.client.request(url, "DELETE")
         return
 
@@ -96,29 +102,27 @@ class Resource:
 
 class JobResource(Resource):
     def history(self, uri):
-        url = self.client.build_url(f"{self.collection_path}/{uri}/events")
+        url = self.client.build_url(f"{self.collection_path}{uri}/events")
         response = self.client.request(url, "GET")
         return self.client.extract_data(response)
 
 
 class AppResource(Resource):
     def merge(self, **payload):
-        url = self.client.build_url(f"{self.collection_path}/merge")
+        url = self.client.build_url(f"{self.collection_path}merge")
         response = self.client.request(url, "POST", payload=payload)
         return self.client.extract_data(response)
 
 
 class BatchJobResource(Resource):
     def list_jobs(self, uri, **query_params):
-        url = self.client.build_url(
-            f"{self.collection_path}/{uri}/jobs", **query_params
-        )
+        url = self.client.build_url(f"{self.collection_path}{uri}/jobs", **query_params)
         response = self.client.request(url, "GET")
         return self.client.extract_data(response)
 
 
 class SessionResource(Resource):
     def acquire_jobs(self, uri, **payload):
-        url = self.client.build_url(f"{self.collection_path}/{uri}")
+        url = self.client.build_url(f"{self.collection_path}{uri}")
         response = self.client.request(url, "POST", payload=payload)
         return self.client.extract_data(response)

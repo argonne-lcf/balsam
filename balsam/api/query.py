@@ -1,11 +1,38 @@
+import pathlib
+from datetime import datetime
+from .base_model import BalsamModel
+
 REPR_OUTPUT_SIZE = 20
 
 
-class Manager:
+class ManagerMeta(type):
+    def __new__(mcls, name, bases, attrs):
+        super_new = super().__new__
+
+        # Base Manager class created normally
+        if not bases:
+            return super_new(mcls, name, bases, attrs)
+
+        # Subclasses double-checked for required class attrs; registered
+        mcls.validate_manager_class(attrs)
+        cls = super_new(mcls, name, bases, attrs)
+        Manager._registry.append(cls)
+        cls.model_class.objects = cls
+        return cls
+
+    def validate_manager_class(attrs):
+        model_class = attrs["model_class"]
+        assert issubclass(model_class, BalsamModel)
+
+
+class Manager(metaclass=ManagerMeta):
+    _registry = []
     model_class = None
+    resource = None
     pk_field = "pk"
     bulk_create_enabled = True
     bulk_update_enabled = True
+    bulk_delete_enabled = True
 
     @classmethod
     def register_client(cls, client_resource):
@@ -14,7 +41,6 @@ class Manager:
         accessible as `Model.objects`
         """
         cls.resource = client_resource
-        cls.model_class.objects = cls
 
     @classmethod
     def all(cls):
@@ -31,8 +57,25 @@ class Manager:
         return Query(manager=cls).get(**kwargs)
 
     @classmethod
+    def create(cls, **data):
+        if cls.bulk_create_enabled:
+            instance = cls.model_class(**data)
+            created = cls.bulk_create([instance])
+            created = created[0]
+        else:
+            data = cls._make_encodable(data)
+            created = cls.resource.create(**data)
+            created = cls._from_dict(created)
+        return created
+
+    @classmethod
     def bulk_create(cls, instances):
         """Returns a list of newly created instances"""
+        if not cls.bulk_create_enabled:
+            raise NotImplementedError(
+                "The {cls.model_class.__name__} API does not offer bulk_create"
+            )
+
         if not isinstance(instances, list):
             raise TypeError(
                 f"instances must be a list of {cls.model_class.__name__} instances"
@@ -53,6 +96,11 @@ class Manager:
         `update_fields`. Modifies the instances list in-place and returns None.
         """
         # TODO: validate update_fields
+        if not cls.bulk_update_enabled:
+            raise NotImplementedError(
+                "The {cls.model_class.__name__} API does not offer bulk_update"
+            )
+
         data_list = [cls._to_dict(obj) for obj in instances]
         patch_list = [{key: d[key] for key in update_fields} for d in data_list]
         response_data = cls.resource.bulk_update_patch(patch_list)
@@ -68,37 +116,36 @@ class Manager:
         return None
 
     @classmethod
-    def _instance_update(cls, instance):
-        response_data = cls._resource.update(
-            uri=getattr(instance, cls.pk_field),
-            payload=cls._to_dict(instance),
-            partial=True,
-        )
-        for k, v in response_data.items():
-            if k in instance.__fields__:
-                setattr(instance, k, v)
-
-    @classmethod
     def _to_dict(cls, instance):
-        return instance.dict()
+        d = instance.dict()
+        return cls._make_encodable(d)
+
+    @staticmethod
+    def _make_encodable(data):
+        for key, val in data.items():
+            if isinstance(val, pathlib.Path):
+                data[key] = val.as_posix()
+            elif isinstance(val, datetime):
+                data[key] = val.isoformat()
+        return data
 
     @classmethod
     def _from_dict(cls, data):
-        return cls.model_class.construct(**data)
+        return cls.model_class(**data)
 
     @classmethod
     def _unpack_list_response(cls, list_response):
         return [cls._from_dict(dat) for dat in list_response]
 
     @classmethod
-    def _build_query_params(cls, filters, ordering, limit, offset):
+    def _build_query_params(cls, filters, ordering=None, limit=None, offset=None):
         d = {}
         d.update(filters)
-        if ordering:
+        if ordering is not None:
             d.update(ordering=ordering)
-        if limit:
+        if limit is not None:
             d.update(limit=limit)
-        if offset:
+        if offset is not None:
             d.update(offset=offset)
         return d
 
@@ -113,13 +160,38 @@ class Manager:
         return instances, count
 
     @classmethod
-    def _do_update_query(cls, patch, filters):
+    def _do_update(cls, instance):
+        response_data = cls.resource.update(
+            uri=getattr(instance, cls.pk_field),
+            payload=cls._to_dict(instance),
+            partial=True,
+        )
+        for k, v in response_data.items():
+            if k in instance.__fields__:
+                setattr(instance, k, v)
+
+    @classmethod
+    def _do_bulk_update_query(cls, patch, filters):
+        if not cls.bulk_update_enabled:
+            raise NotImplementedError(
+                "The {cls.model_class.__name__} API does not offer bulk updates"
+            )
+
         query_params = cls._build_query_params(filters)
         response_data = cls.resource.bulk_update_query(patch, **query_params)
         return cls._unpack_list_response(response_data)
 
     @classmethod
+    def _do_delete(cls, instance):
+        cls.resource.destroy(uri=getattr(instance, cls.pk_field))
+
+    @classmethod
     def _do_bulk_delete(cls, filters):
+        if not cls.bulk_delete_enabled:
+            raise NotImplementedError(
+                "The {cls.model_class.__name__} API does not offer bulk deletes"
+            )
+
         query_params = cls._build_query_params(filters)
         response_data = cls.resource.bulk_destroy(**query_params)
         return response_data["deleted_count"]
@@ -192,12 +264,12 @@ class Query:
 
     @property
     def is_sliced(self):
-        return self._limit is None or self._offset is None
+        return not (self._limit is None and self._offset is None)
 
     def _clone(self):
         clone = Query(manager=self._manager)
         clone._filters = self._filters.copy()
-        clone._order_fields = self._order_fields.copy()
+        clone._order_fields = self._order_fields
         clone._limit = self._limit
         clone._offset = self._offset
         return clone
@@ -229,7 +301,7 @@ class Query:
     def filter(self, **kwargs):
         # TODO: kwargs should expand to the set of filterable model fields
         if self.is_sliced:
-            return AttributeError("Cannot filter a sliced Query")
+            raise AttributeError("Cannot filter a sliced Query")
         clone = self._clone()
         clone._filters.update(kwargs)
         return clone
@@ -237,7 +309,7 @@ class Query:
     def order_by(self, *fields):
         # TODO: should validate that only order-able fields are accepted
         if self.is_sliced:
-            return AttributeError("Cannot re-order a sliced Query")
+            raise AttributeError("Cannot re-order a sliced Query")
         clone = self._clone()
         clone._order_fields = tuple(fields)
         return clone
@@ -258,15 +330,15 @@ class Query:
 
     def count(self):
         if self._count is None:
-            _, count = self._manager._get_list(
-                filters=self._filters, limit=0, offset=0,
+            _, _count = self._manager._get_list(
+                filters=self._filters, limit=0, offset=0, ordering=None
             )
-            self._count = count
+            self._count = _count
         return self._count
 
     def update(self, **kwargs):
         # TODO: kwargs should expand to a set of allowed update_fields
-        return self._manager._do_update_query(patch=kwargs, filters=self._filters)
+        return self._manager._do_bulk_update_query(patch=kwargs, filters=self._filters)
 
     def delete(self):
         return self._manager._do_bulk_delete(filters=self._filters)

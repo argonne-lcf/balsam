@@ -4,10 +4,15 @@ import shlex
 
 import pathlib
 from datetime import datetime
+import pytz
 from typing import Union, List, Tuple
 from pydantic import validator
 from .base_model import BalsamModel
 from .query import Manager
+
+
+def utc_datetime():
+    return datetime.utcnow().replace(tzinfo=pytz.UTC)
 
 
 class Job(BalsamModel):
@@ -34,13 +39,19 @@ class Site(BalsamModel):
     pk: Union[int, None] = None
     hostname: str
     path: pathlib.Path
-    last_refresh: datetime = datetime.utcnow
-    status: SiteStatus
+    last_refresh: datetime = None
+    status: SiteStatus = SiteStatus
     apps: List[str] = [""]
+
+    @validator("last_refresh", pre=True, always=True)
+    def default_refresh(cls, v):
+        return v or utc_datetime()
 
 
 class SiteManager(Manager):
     model_class = Site
+    bulk_create_enabled = False
+    bulk_update_enabled = False
 
 
 class App(BalsamModel):

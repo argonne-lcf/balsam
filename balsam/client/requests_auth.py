@@ -14,6 +14,7 @@ class BasicAuthRequestsClient(RequestsClient):
         super().__init__(api_root, connect_timeout=3.1, read_timeout=5, retry_count=3)
         self.username = username
         self.password = password
+        self.refresh_auth()
 
     def refresh_auth(self):
         # Login with HTTPBasic Auth to get a token:

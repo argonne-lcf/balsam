@@ -21,6 +21,7 @@ from .filters import (
     JSONFilter,
     BatchJobFilter,
     JobFilter,
+    SiteFilter,
     EventFilter,
     DjangoFilterBackend,
     SearchFilter,
@@ -91,6 +92,13 @@ class SiteList(generics.ListCreateAPIView):
     serializer_class = ser.SiteSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = BalsamPaginator
+    filterset_class = SiteFilter
+    filter_backends = [
+        DjangoFilterBackend,
+        OrderingFilter,
+        JSONFilter,
+    ]
+    ordering_fields = ["hostname", "path"]
 
     def get_queryset(self):
         user = self.request.user

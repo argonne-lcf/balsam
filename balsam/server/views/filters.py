@@ -2,7 +2,7 @@ from rest_framework import filters as drf_filters
 from rest_framework.filters import SearchFilter, OrderingFilter  # noqa
 import django_filters.rest_framework as django_filters
 from django_filters.rest_framework import DjangoFilterBackend  # noqa
-from balsam.server.models import BatchJob, Job, EventLog
+from balsam.server.models import BatchJob, Job, EventLog, Site
 
 
 class JSONFilter(drf_filters.BaseFilterBackend):
@@ -27,6 +27,17 @@ class JSONFilter(drf_filters.BaseFilterBackend):
                 }
             )
         return queryset.filter(**kwargs) if kwargs else queryset
+
+
+class SiteFilter(django_filters.FilterSet):
+    pk = django_filters.AllValuesMultipleFilter(field_name="pk")
+    path__contains = django_filters.CharFilter(
+        field_name="path", lookup_expr="icontains"
+    )
+
+    class Meta:
+        model = Site
+        fields = ["pk", "hostname", "path", "path__contains"]
 
 
 class BatchJobFilter(django_filters.FilterSet):
