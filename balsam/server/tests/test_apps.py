@@ -155,7 +155,7 @@ class AppSharingTests(TwoUserTestCase):
             name="hello world",
             backends=[{"site": site["pk"], "class_name": "Demo.SayHello"}],
             parameters=["name", "N"],
-            users=[self.user1.pk, self.user2.pk],
+            users=[self.user1.username, self.user2.username],
         )
         client1_apps = self.client1.get_data("app-list", check=status.HTTP_200_OK)
         client2_apps = self.client2.get_data("app-list", check=status.HTTP_200_OK)
@@ -180,7 +180,7 @@ class AppSharingTests(TwoUserTestCase):
             name="hello world",
             backends=[backend1],
             parameters=["name", "N"],
-            users=[self.user1.pk, self.user2.pk],
+            users=[self.user1.username, self.user2.username],
         )
         self.client2.post_data(
             "app-list",
@@ -188,7 +188,7 @@ class AppSharingTests(TwoUserTestCase):
             name="hello world",
             backends=[backend2],
             parameters=["name", "N"],
-            users=[self.user1.pk, self.user2.pk],
+            users=[self.user1.username, self.user2.username],
         )
 
         # Client1 can see both apps

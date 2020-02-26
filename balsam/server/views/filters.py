@@ -2,7 +2,7 @@ from rest_framework import filters as drf_filters
 from rest_framework.filters import SearchFilter, OrderingFilter  # noqa
 import django_filters.rest_framework as django_filters
 from django_filters.rest_framework import DjangoFilterBackend  # noqa
-from balsam.server.models import BatchJob, Job, EventLog, Site
+from balsam.server.models import BatchJob, Job, EventLog, Site, AppExchange
 
 
 class JSONFilter(drf_filters.BaseFilterBackend):
@@ -38,6 +38,33 @@ class SiteFilter(django_filters.FilterSet):
     class Meta:
         model = Site
         fields = ["pk", "hostname", "path", "path__contains"]
+
+
+class AppFilter(django_filters.FilterSet):
+    pk = django_filters.AllValuesMultipleFilter(field_name="pk")
+    owner = django_filters.CharFilter(field_name="owner", lookup_expr="username")
+    site = django_filters.NumberFilter(field_name="backends", lookup_expr="site_id")
+    site_hostname = django_filters.CharFilter(
+        field_name="backends", lookup_expr="site__hostname"
+    )
+    site_path = django_filters.CharFilter(
+        field_name="backends", lookup_expr="site__path"
+    )
+    class_name = django_filters.CharFilter(
+        field_name="backends", lookup_expr="class_name"
+    )
+
+    class Meta:
+        model = AppExchange
+        fields = [
+            "pk",
+            "name",
+            "owner",
+            "site",
+            "site_hostname",
+            "site_path",
+            "class_name",
+        ]
 
 
 class BatchJobFilter(django_filters.FilterSet):

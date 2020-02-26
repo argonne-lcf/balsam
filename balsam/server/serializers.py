@@ -176,16 +176,12 @@ class AppBackendSerializer(serializers.HyperlinkedModelSerializer):
         validators = []
         fields = (
             "site",
-            "site_url",
             "site_hostname",
             "site_path",
             "class_name",
         )
 
     site = OwnedSitePrimaryKeyRelatedField()
-    site_url = serializers.HyperlinkedRelatedField(
-        source="site", read_only=True, view_name="site-detail"
-    )
     site_hostname = serializers.CharField(source="site.hostname", read_only=True)
     site_path = serializers.CharField(source="site.path", read_only=True)
     class_name = serializers.CharField(
@@ -212,23 +208,15 @@ class AppSerializer(serializers.HyperlinkedModelSerializer):
             "description",
             "parameters",
             "owner",
-            "owner_url",
             "users",
-            "user_urls",
             "backends",
         )
 
     backends = AppBackendSerializer(many=True)
     parameters = serializers.ListField(child=serializers.CharField(max_length=128))
-    owner = serializers.PrimaryKeyRelatedField(read_only=True)
-    owner_url = serializers.HyperlinkedRelatedField(
-        source="owner", read_only=True, view_name="user-detail",
-    )
-    users = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=User.objects.all(), required=False
-    )
-    user_urls = serializers.HyperlinkedRelatedField(
-        source="users", read_only=True, view_name="user-detail", many=True
+    owner = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    users = serializers.SlugRelatedField(
+        slug_field="username", many=True, queryset=User.objects.all(), required=False
     )
 
     def validate_backends(self, value):

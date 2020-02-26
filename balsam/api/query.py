@@ -1,6 +1,6 @@
 import pathlib
 from datetime import datetime
-from .base_model import BalsamModel
+from .base_model import BalsamModel, BaseModel
 
 REPR_OUTPUT_SIZE = 20
 
@@ -120,14 +120,22 @@ class Manager(metaclass=ManagerMeta):
         d = instance.dict()
         return cls._make_encodable(d)
 
-    @staticmethod
-    def _make_encodable(data):
-        for key, val in data.items():
-            if isinstance(val, pathlib.Path):
-                data[key] = val.as_posix()
-            elif isinstance(val, datetime):
-                data[key] = val.isoformat()
-        return data
+    @classmethod
+    def _make_encodable(cls, data):
+        if isinstance(data, BaseModel):
+            return cls._make_encodable(data.dict())
+        elif isinstance(data, dict):
+            return {k: cls._make_encodable(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return list(map(cls._make_encodable, data))
+        elif isinstance(data, tuple):
+            return tuple(map(cls._make_encodable, data))
+        elif isinstance(data, pathlib.Path):
+            return data.as_posix()
+        elif isinstance(data, datetime):
+            return data.isoformat()
+        else:
+            return data
 
     @classmethod
     def _from_dict(cls, data):

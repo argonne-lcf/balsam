@@ -1,12 +1,8 @@
-import jinja2
-import jinja2.meta
-import shlex
-
-import pathlib
 from datetime import datetime
+import pathlib
 import pytz
 from typing import Union, List, Tuple
-from pydantic import validator
+from pydantic import validator, root_validator
 from .base_model import BalsamModel
 from .query import Manager
 
@@ -52,54 +48,43 @@ class SiteManager(Manager):
     model_class = Site
     bulk_create_enabled = False
     bulk_update_enabled = False
+    bulk_delete_enabled = False
+
+
+class AppBackend(BalsamModel):
+    site_hostname: str
+    site_path: pathlib.Path
+    site: Union[Site, int]
+    class_name: str
+
+    @root_validator(pre=True)
+    def validate_site(cls, values):
+        site = values["site"]
+        if isinstance(site, Site):
+            values["site_hostname"] = site.hostname
+            values["site_path"] = site.path
+            values["site"] = site.pk
+        return values
 
 
 class App(BalsamModel):
-    command_template: str = "echo Hello, {{name}}!"
+    pk: Union[int, None] = None
+    name: str
+    description: str = ""
+    parameters: List[str] = []
+    owner: str = ""
+    users: List[str] = []
+    backends: List[AppBackend]
 
-    @validator("command_template")
-    def exec_exists(cls, v):
-        split_cmd = v.strip().split()
-        cmd = " ".join(split_cmd)
-        exe = split_cmd[0]
-        if not exe.isalnum():
-            raise RuntimeError("invalid")
-        return cmd
+    @validator("backends")
+    def validate_backends(cls, v):
+        if not isinstance(v, list):
+            v = [v]
+        return v
 
-    def __init__(self):
-        self.command_template = " ".join(self.command_template.strip().split())
-        ctx = jinja2.Environment().parse(self.command_template)
-        self.parameters = jinja2.meta.find_undeclared_variables(ctx)
 
-    def render_command(self, arg_dict):
-        """
-        Args:
-            - arg_dict: value for each required parameter
-        Returns:
-            - str: shell command with safely-escaped parameters
-            Use shlex.split() to split the result into args list.
-            Do *NOT* use string.join on the split list: unsafe!
-        """
-        diff = self.parameters.difference(arg_dict.keys())
-        if diff:
-            raise ValueError(f"Missing required args: {diff}")
-
-        sanitized_args = {
-            key: shlex.quote(str(arg_dict[key])) for key in self.parameters
-        }
-        return jinja2.Template(self.command_template).render(sanitized_args)
-
-    def preprocess(self):
-        pass
-
-    def postprocess(self):
-        pass
-
-    def shell_preamble(self):
-        pass
-
-    def handle_timeout(self):
-        self.job.rerun()
-
-    def handle_error(self):
-        self.job.fail()
+class AppManager(Manager):
+    model_class = App
+    bulk_create_enabled = False
+    bulk_update_enabled = False
+    bulk_delete_enabled = False

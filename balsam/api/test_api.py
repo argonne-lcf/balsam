@@ -1,6 +1,6 @@
 import pytest
 from balsam.client import BasicAuthRequestsClient
-from balsam.api.models import Site, SiteManager
+from balsam.api.models import Site, SiteManager, App, AppBackend, AppManager
 
 
 @pytest.yield_fixture(scope="session")
@@ -46,6 +46,7 @@ def client(live_server):
         )
     client = BasicAuthRequestsClient(api_root=url, username="user", password="f")
     SiteManager.register_client(client.sites)
+    AppManager.register_client(client.apps)
     yield client
 
 
@@ -172,3 +173,41 @@ class TestSite:
         Site.objects.create(hostname="theta", path="/home/bar")
         assert Site.objects.filter(path__contains="projects").count() == 3
         assert Site.objects.filter(path__contains="home").count() == 1
+
+
+class TestApps:
+    def test_create_and_list(self, client):
+        assert len(App.objects.all()) == 0
+
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
+        App.objects.create(
+            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
+        )
+        assert len(App.objects.all()) == 1
+
+    def test_get_by_pk(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
+        new_app = App.objects.create(
+            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
+        )
+        assert App.objects.get(pk=new_app.pk) == new_app
+
+    def test_filter_by_owners_username(self, client):
+        pass
+
+    def test_filter_by_site_id(self, client):
+        pass
+
+    def test_filter_by_site_hostname(self, client):
+        pass
+
+    def test_update_parameters(self, client):
+        pass
+
+    def test_update_backends(self, client):
+        pass
+
+    def test_app_merge(self, client):
+        pass

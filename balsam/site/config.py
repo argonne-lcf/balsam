@@ -45,6 +45,7 @@ class ClientSettings(BaseSettings):
 class Settings(BaseSettings):
     credentials_file: FilePath = "~/.balsam/credentials"
     client: ClientSettings
+    site_id: int
 
 
 class BalsamComponentFactory:
