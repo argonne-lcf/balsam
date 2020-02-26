@@ -138,4 +138,4 @@ def remaining_time_minutes(time_limit_minutes=0.0):
         if remaining_min > 0:
             yield remaining_min
         else:
-            raise StopIteration
+            return
