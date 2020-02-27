@@ -1,5 +1,5 @@
 import pytest
-from balsam.client import BasicAuthRequestsClient
+from balsam.client import BasicAuthRequestsClient, DirectAPIClient
 from balsam.api.models import Site, SiteManager, App, AppBackend, AppManager
 
 
@@ -30,7 +30,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
 
 
 @pytest.fixture(scope="function")
-def client(live_server):
+def requests_client(live_server):
     url = live_server.url.rstrip("/") + "/api"
     from balsam.server.models import User
 
@@ -45,9 +45,41 @@ def client(live_server):
             is_superuser=True,
         )
     client = BasicAuthRequestsClient(api_root=url, username="user", password="f")
-    SiteManager(client.sites)
-    AppManager(client.apps)
     yield client
+
+
+@pytest.fixture(scope="function")
+def direct_client(transactional_db):
+    url = "/api"
+    from balsam.server.models import User
+
+    try:
+        User.objects.get(username="user")
+    except User.DoesNotExist:
+        User.objects.create_user(
+            username="user",
+            email="f@f.net",
+            password="f",
+            is_staff=True,
+            is_superuser=True,
+        )
+    client = DirectAPIClient(api_root=url, username="user", password="f")
+    yield client
+
+
+@pytest.fixture(scope="function", params=["requests_client", "direct_client"])
+def client(requests_client, direct_client, request):
+    """
+    Run each test twice:
+      1) Live server and real Requests Client
+      2) Without server; using rest_framework.test.APIClient
+    """
+    test_client = (
+        requests_client if request.param == "requests_client" else direct_client
+    )
+    SiteManager(test_client.sites)
+    AppManager(test_client.apps)
+    yield test_client
 
 
 class TestSite:
