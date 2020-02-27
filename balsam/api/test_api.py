@@ -45,8 +45,8 @@ def client(live_server):
             is_superuser=True,
         )
     client = BasicAuthRequestsClient(api_root=url, username="user", password="f")
-    SiteManager.register_client(client.sites)
-    AppManager.register_client(client.apps)
+    SiteManager(client.sites)
+    AppManager(client.apps)
     yield client
 
 
@@ -70,6 +70,11 @@ class TestSite:
         assert newsite.pk is None
         newsite.save()
         assert newsite.pk is not None
+
+    def test_cannot_access_manager_from_instance(self, client):
+        newsite = Site.objects.create(hostname="theta", path="/projects/foo")
+        with pytest.raises(AttributeError):
+            newsite.objects.count()
 
     def test_update_nested_status(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
@@ -195,19 +200,85 @@ class TestApps:
         assert App.objects.get(pk=new_app.pk) == new_app
 
     def test_filter_by_owners_username(self, client):
-        pass
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
+        App.objects.create(
+            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
+        )
+        assert App.objects.filter(owner="user2").count() == 0
+        assert App.objects.filter(owner="user1").count() == 0
 
     def test_filter_by_site_id(self, client):
-        pass
+        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        site2 = Site.objects.create(hostname="summit", path="/projects/bar")
+        backend1 = AppBackend(site=site1, class_name="nwchem.GeomOpt")
+        backend2 = AppBackend(site=site2, class_name="nwchem.GeomOpt")
+        App.objects.create(
+            name="dual_site", backends=[backend1, backend2], parameters=["geometry"]
+        )
+        App.objects.create(name="app1", backends=[backend1], parameters=["geometry"])
+        App.objects.create(name="app2", backends=[backend2], parameters=["geometry"])
+        app_names = set(a.name for a in App.objects.filter(site=site1.pk))
+        assert app_names == {"dual_site", "app1"}
+        app_names = set(a.name for a in App.objects.filter(site=site2.pk))
+        assert app_names == {"dual_site", "app2"}
 
     def test_filter_by_site_hostname(self, client):
-        pass
+        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        site2 = Site.objects.create(hostname="summit", path="/projects/bar")
+        backend1 = AppBackend(site=site1, class_name="nwchem.GeomOpt")
+        backend2 = AppBackend(site=site2, class_name="nwchem.GeomOpt")
+        App.objects.create(
+            name="dual_site", backends=[backend1, backend2], parameters=["geometry"]
+        )
+        App.objects.create(name="app1", backends=[backend1], parameters=["geometry"])
+        App.objects.create(name="app2", backends=[backend2], parameters=["geometry"])
+        app_names = set(a.name for a in App.objects.filter(site_hostname="theta"))
+        assert app_names == {"dual_site", "app1"}
+        app_names = set(a.name for a in App.objects.filter(site_hostname="summit"))
+        assert app_names == {"dual_site", "app2"}
 
     def test_update_parameters(self, client):
-        pass
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
+        a = App.objects.create(
+            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
+        )
+        a.parameters = ["foo", "N", "w", "x"]
+        a.save()
+
+        assert App.objects.all().count() == 1
+        retrieved = App.objects.get(pk=a.pk)
+        assert retrieved.parameters == ["foo", "N", "w", "x"]
 
     def test_update_backends(self, client):
-        pass
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        backend1 = AppBackend(site=site, class_name="nwchem.GeomOpt")
+        app = App.objects.create(
+            name="nw-opt", backends=[backend1], parameters=["geometry", "method"]
+        )
+
+        backend1.class_name = "NWCHEM.gopt"
+        site2 = Site.objects.create(hostname="cori", path="/projects/foo")
+        backend2 = AppBackend(site=site2, class_name="NW.optimizer")
+        app.backends = [backend1, backend2]
+        app.save()
+
+        retrieved = App.objects.get(pk=app.pk)
+        assert retrieved.backends == [backend1, backend2]
+        assert retrieved.backends[1].site_hostname == "cori"
+        assert retrieved.backends[1].site_path.as_posix() == "/projects/foo"
 
     def test_app_merge(self, client):
-        pass
+        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        site2 = Site.objects.create(hostname="summit", path="/projects/bar")
+        backend1 = AppBackend(site=site1, class_name="nwchem.GeomOpt")
+        backend2 = AppBackend(site=site2, class_name="nwchem.GeomOpt")
+        app1 = App.objects.create(
+            name="app1", backends=[backend1], parameters=["geometry"]
+        )
+        app2 = App.objects.create(
+            name="app2", backends=[backend2], parameters=["geometry"]
+        )
+        merged = App.objects.merge([app1, app2], name="dual_site")
+        assert merged.backends == [backend1, backend2]

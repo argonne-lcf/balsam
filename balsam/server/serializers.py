@@ -275,10 +275,12 @@ class AppMergeSerializer(serializers.Serializer):
 
 # JOB
 # ----
-class EventLogSerializer(serializers.HyperlinkedModelSerializer):
+class EventLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventLog
-        fields = ("job", "from_state", "to_state", "timestamp", "message")
+        fields = ("job_id", "from_state", "to_state", "timestamp", "message")
+
+    job_id = OwnedJobPrimaryKeyRelatedField(read_only=True)
 
 
 class TransferItemSerializer(serializers.ModelSerializer):
@@ -393,9 +395,7 @@ class BatchJobSerializer(BulkModelSerializer):
         model = BatchJob
         fields = (
             "pk",
-            "url",
             "site",
-            "site_url",
             "scheduler_id",
             "project",
             "queue",
@@ -407,23 +407,12 @@ class BatchJobSerializer(BulkModelSerializer):
             "status_message",
             "start_time",
             "end_time",
-            "jobs",
             "revert",
         )
 
     revert = serializers.BooleanField(required=False, default=False, write_only=True)
     site = OwnedSitePrimaryKeyRelatedField()
-    site_url = serializers.HyperlinkedRelatedField(
-        source="site", read_only=True, view_name="site-detail"
-    )
     filter_tags = serializers.DictField(child=serializers.CharField(max_length=32))
-    # Including job URLs may result in fetching millions of rows
-    # Instead, provide a nested URL to access the Job collection:
-    jobs = serializers.HyperlinkedIdentityField(
-        view_name="batchjob-ensemble-list",
-        lookup_field="pk",
-        lookup_url_kwarg="batch_job_id",
-    )
 
     def create(self, validated_data):
         dat = validated_data

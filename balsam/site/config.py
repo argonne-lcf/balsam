@@ -50,7 +50,6 @@ class Settings(BaseSettings):
 
 class BalsamComponentFactory:
     """
-    Loads BALSAM_SITE_PATH/settings.py or settings.yml
     This class plays the role of Dependency Injector
         https://en.wikipedia.org/wiki/Dependency_injection
     Uses validated settings to build components and provide dependencies:
@@ -65,12 +64,14 @@ class BalsamComponentFactory:
             - App Watchdog
             - Acquisition & Stage-in module
             - Transitions Module
-    Minimize cross-component dependencies
-    NO Component should ever refer to global settings or construct its own dependencies
-    Instead, this class builds and injects needed settings/dependencies into components at runtime
+    NO Component should refer to external settings or set its own dependencies
+    Instead, this class builds and injects needed settings/dependencies at runtime
     """
 
     def __init__(self, site_path=None, settings=None):
+        """
+        Load Settings from BALSAM_SITE_PATH/settings.py or settings.yml
+        """
         self.site_path = self.resolve_site_path(site_path)
 
         if settings is not None:

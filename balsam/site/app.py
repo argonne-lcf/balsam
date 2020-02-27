@@ -8,16 +8,94 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ApplicationDefinition(object):
+class ApplicationDefinitionMeta(type):
+    def __new__(mcls, name, bases, attrs):
+        super_new = super().__new__
+        cls = super_new(mcls, name, bases, attrs)
+        if not bases:
+            return cls
+
+        if "parameters" in attrs:
+            raise AttributeError(
+                "Do not set `parameters` directly on the ApplicationDefinition. "
+                "They are inferred from `command_template`."
+            )
+        if "command_template" not in attrs or not isinstance(
+            attrs["command_template"], str
+        ):
+            raise AttributeError(
+                "ApplicationDefiniton must define a `command_template` string."
+            )
+
+        cls.command_template = " ".join(cls.command_template.strip().split())
+        ctx = jinja2.Environment().parse(cls.command_template)
+        cls.parameters = jinja2.meta.find_undeclared_variables(ctx)
+        return cls
+
+
+class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     class ModuleLoadError(Exception):
         pass
 
     _loaded_apps = {}
+    environment_variables = {}
+    command_template = ""
+
+    def __init__(self, job):
+        self.job = job
+
+    @property
+    def arg_str(self):
+        return self._render_command(self.job.parameters)
+
+    @property
+    def arg_list(self):
+        return shlex.split(self.arg_str)
+
+    def _render_command(self, arg_dict):
+        """
+        Args:
+            - arg_dict: value for each required parameter
+        Returns:
+            - str: shell command with safely-escaped parameters
+            Use shlex.split() to split the result into args list.
+            Do *NOT* use string.join on the split list: unsafe!
+        """
+        diff = self.parameters.difference(arg_dict.keys())
+        if diff:
+            raise ValueError(f"Missing required args: {diff}")
+
+        sanitized_args = {
+            key: shlex.quote(str(arg_dict[key])) for key in self.parameters
+        }
+        return jinja2.Template(self.command_template).render(sanitized_args)
+
+    def preprocess(self):
+        pass
+
+    def postprocess(self):
+        pass
+
+    def shell_preamble(self):
+        pass
+
+    def handle_timeout(self):
+        pass
+
+    def handle_error(self):
+        pass
 
     @classmethod
     def load_app_class(cls, app_path, class_name):
+        """
+        Load the ApplicationDefinition subclass located in directory app_path
+        """
         if class_name in cls._loaded_apps:
             return cls._loaded_apps[class_name]
+
+        app_path = pathlib.Path(app_path)
+        if not app_path.is_directory():
+            raise FileNotFoundError(f"No such directory {app_path}")
 
         filename, *module_attr = class_name.split(".")
         module_attr = ".".join(module_attr)
@@ -32,7 +110,7 @@ class ApplicationDefinition(object):
                 f"{class_name} must refer to a Python class with the form Module.Class"
             )
 
-        fpath = pathlib.Path(app_path).joinpath(filename)
+        fpath = app_path.joinpath(filename)
         if not fpath.is_file():
             raise FileNotFoundError(f"Could not find App definition file {fpath}")
 
@@ -64,48 +142,8 @@ class ApplicationDefinition(object):
         cls._loaded_apps[class_name] = app_class
         return app_class
 
-    def exec_exists(cls, v):
-        split_cmd = v.strip().split()
-        cmd = " ".join(split_cmd)
-        exe = split_cmd[0]
-        if not exe.isalnum():
-            raise RuntimeError("invalid")
-        return cmd
-
-    def __init__(self):
-        self.command_template = " ".join(self.command_template.strip().split())
-        ctx = jinja2.Environment().parse(self.command_template)
-        self.parameters = jinja2.meta.find_undeclared_variables(ctx)
-
-    def render_command(self, arg_dict):
-        """
-        Args:
-            - arg_dict: value for each required parameter
-        Returns:
-            - str: shell command with safely-escaped parameters
-            Use shlex.split() to split the result into args list.
-            Do *NOT* use string.join on the split list: unsafe!
-        """
-        diff = self.parameters.difference(arg_dict.keys())
-        if diff:
-            raise ValueError(f"Missing required args: {diff}")
-
-        sanitized_args = {
-            key: shlex.quote(str(arg_dict[key])) for key in self.parameters
-        }
-        return jinja2.Template(self.command_template).render(sanitized_args)
-
-    def preprocess(self):
-        pass
-
-    def postprocess(self):
-        pass
-
-    def shell_preamble(self):
-        pass
-
-    def handle_timeout(self):
-        self.job.rerun()
-
-    def handle_error(self):
-        self.job.fail()
+    @classmethod
+    def as_dict(cls):
+        return dict(
+            name=cls.__name__, description=cls.__doc__, parameters=cls.parameters,
+        )
