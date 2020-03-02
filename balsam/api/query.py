@@ -67,12 +67,13 @@ class Manager(metaclass=ManagerMeta):
         return Query(manager=self).get(**kwargs)
 
     def create(self, **data):
+        # We want to pass through the BaseModel constructor for validation
+        instance = self.model_class(**data)
         if self.bulk_create_enabled:
-            instance = self.model_class(**data)
             created = self.bulk_create([instance])
             created = created[0]
         else:
-            data = self._make_encodable(data)
+            data = self._to_dict(instance)
             created = self.resource.create(**data)
             created = self._from_dict(created)
         return created
@@ -107,6 +108,9 @@ class Manager(metaclass=ManagerMeta):
             raise NotImplementedError(
                 "The {self.model_class.__name__} API does not offer bulk_update"
             )
+
+        update_fields = set(update_fields)
+        update_fields.add(self.pk_field)
 
         data_list = [self._to_dict(obj) for obj in instances]
         patch_list = [{key: d[key] for key in update_fields} for d in data_list]
@@ -181,7 +185,7 @@ class Manager(metaclass=ManagerMeta):
     def _do_bulk_update_query(self, patch, filters):
         if not self.bulk_update_enabled:
             raise NotImplementedError(
-                "The {self.model_class.__name__} API does not offer bulk updates"
+                f"The {self.model_class.__name__} API does not offer bulk updates"
             )
 
         query_params = self._build_query_params(filters)
@@ -194,7 +198,7 @@ class Manager(metaclass=ManagerMeta):
     def _do_bulk_delete(self, filters):
         if not self.bulk_delete_enabled:
             raise NotImplementedError(
-                "The {self.model_class.__name__} API does not offer bulk deletes"
+                f"The {self.model_class.__name__} API does not offer bulk deletes"
             )
 
         query_params = self._build_query_params(filters)
@@ -232,6 +236,15 @@ class Query:
     def __bool__(self):
         self._fetch_cache()
         return bool(self._result_cache)
+
+    def __setitem__(self, k, v):
+        if not isinstance(k, int):
+            raise TypeError("Item assignment only support for int index")
+
+        if self._result_cache is None:
+            self._fetch_cache()
+
+        self._result_cache[k] = v
 
     def __getitem__(self, k):
         """

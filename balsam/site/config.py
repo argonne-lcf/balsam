@@ -10,10 +10,11 @@ from pydantic import (
     FilePath,
     PostgresDsn,
     AnyHttpUrl,
+    AnyUrl,
     validator,
     ValidationError,
 )
-from typing import Union
+from typing import Union, List
 from balsam.client import RESTClient, RequestsClient
 
 
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
     credentials_file: FilePath = "~/.balsam/credentials"
     client: ClientSettings
     site_id: int
+    trusted_data_sources: List[AnyUrl] = []
 
 
 class BalsamComponentFactory:

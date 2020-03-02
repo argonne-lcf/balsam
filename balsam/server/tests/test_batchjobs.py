@@ -22,6 +22,21 @@ class BatchJobTests(TestCase, SiteFactoryMixin, BatchJobFactoryMixin):
         self.assertIn("scheduler_id", batch_job)
         self.assertEqual(batch_job["state"], "pending-submission", msg=batch_job)
 
+    def test_create_with_nested_site_causes_400(self):
+        site = self.create_site()
+        resp = self.client.post_data(
+            "batchjob-list",
+            site=site,  # Mistake here: site should be PK int
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=60,
+            job_mode="mpi",
+            filter_tags={},
+            check=status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn("site must be an integer", str(resp))
+
     def test_list_batchjobs_spanning_sites(self):
         site1 = self.create_site(hostname="1")
         site2 = self.create_site(hostname="2")

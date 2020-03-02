@@ -457,7 +457,7 @@ class Job(models.Model):
     ranks_per_node = models.IntegerField(default=1)
     threads_per_rank = models.IntegerField(default=1)
     threads_per_core = models.IntegerField(default=1)
-    cpu_affinity = models.CharField(max_length=32, default="depth")
+    cpu_affinity = models.CharField(max_length=32, default="depth", blank=True)
     gpus_per_rank = models.IntegerField(default=0)
     node_packing_count = models.IntegerField(default=1)
     wall_time_min = models.IntegerField(default=0)

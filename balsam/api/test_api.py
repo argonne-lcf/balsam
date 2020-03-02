@@ -1,6 +1,29 @@
 import pytest
+from requests import HTTPError
 from balsam.client import BasicAuthRequestsClient, DirectAPIClient
-from balsam.api.models import Site, SiteManager, App, AppBackend, AppManager
+from .models import (  # noqa
+    TransferState,
+    TransferItem,
+    JobState,
+    Job,
+    SiteStatus,
+    Site,
+    AppBackend,
+    App,
+    BatchState,
+    BatchJob,
+    NodeResources,
+    Session,
+    EventLog,
+)
+from .managers import (
+    JobManager,
+    SiteManager,
+    AppManager,
+    BatchJobManager,
+    SessionManager,
+    EventLogManager,
+)
 
 
 @pytest.yield_fixture(scope="session")
@@ -79,6 +102,10 @@ def client(requests_client, direct_client, request):
     )
     SiteManager(test_client.sites)
     AppManager(test_client.apps)
+    JobManager(test_client.jobs)
+    BatchJobManager(test_client.batch_jobs)
+    SessionManager(test_client.sessions)
+    EventLogManager(test_client.events)
     yield test_client
 
 
@@ -314,3 +341,217 @@ class TestApps:
         )
         merged = App.objects.merge([app1, app2], name="dual_site")
         assert merged.backends == [backend1, backend2]
+
+
+class TestJobs:
+    """Jobs and TransferItems"""
+
+    def test_create(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
+        app = App.objects.create(
+            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
+        )
+
+        job = Job(
+            "test/say-hello",
+            app,
+            {"geometry": "test.xyz", "method": "hf/sto-3g"},
+            ranks_per_node=64,
+        )
+        assert job.pk is None
+        job.save()
+        assert job.pk is not None
+        assert job.state == JobState.staged_in == "STAGED_IN"
+        assert job.lock_status == ""
+
+    def test_bulk_update(self, client):
+        pass
+
+    def test_bulk_create(self, client):
+        pass
+
+    def test_can_view_history(self, client):
+        pass
+
+
+class TestEvents:
+    def test_filter_by_job(self, client):
+        pass
+
+    def test_filter_by_to_state(self, client):
+        pass
+
+    def test_filter_by_from_state(self, client):
+        pass
+
+    def test_filter_by_to_and_from_state(self, client):
+        pass
+
+    def test_filter_by_message(self, client):
+        pass
+
+    def test_filter_by_timestamp_range(self, client):
+        pass
+
+    def test_cannot_create_or_update(self, client):
+        pass
+
+
+class TestBatchJobs:
+    def test_create(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        bjob = BatchJob.objects.create(
+            site=site,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+            filter_tags={"system": "H2O", "calc_type": "energy"},
+        )
+        assert bjob.state == BatchState.pending_submission
+        assert bjob.pk is not None
+
+    def test_bulk_update(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        for i in range(3):
+            BatchJob.objects.create(
+                site=site,
+                project="datascience",
+                queue="default",
+                num_nodes=128,
+                wall_time_min=30,
+                job_mode="mpi",
+                filter_tags={"system": "H2O", "calc_type": "energy"},
+            )
+
+        assert BatchJob.objects.count() == 3
+
+        bjobs = BatchJob.objects.filter(site=site.pk)
+        for job, sched_id in zip(bjobs, [123, 124, 125]):
+            job.state = BatchState.queued
+            job.scheduler_id = sched_id
+        BatchJob.objects.bulk_update(bjobs, ["state", "scheduler_id"])
+
+        after_update = list(BatchJob.objects.filter(site=site.pk))
+        assert after_update == list(bjobs)
+
+    def test_bulk_update_with_revert(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        for i in range(3):
+            BatchJob.objects.create(
+                site=site,
+                project="datascience",
+                queue="default",
+                num_nodes=128,
+                wall_time_min=30,
+                job_mode="mpi",
+                filter_tags={"system": "H2O", "calc_type": "energy"},
+            )
+
+        # Jobs are queued
+        updated = BatchJob.objects.all().update(state=BatchState.queued)
+        assert all(job.state == BatchState.queued for job in updated)
+
+        # Client updates wall_time
+        BatchJob.objects.all().update(wall_time_min=45)
+
+        # The job had already started running
+        jobs = BatchJob.objects.filter(site=site.pk)
+        for job in jobs:
+            job.state = BatchState.running
+
+        BatchJob.objects.bulk_update(jobs, ["state"])
+
+        # Revert wall time
+        jobs = BatchJob.objects.filter(site=site.pk)
+        for job in jobs:
+            assert job.wall_time_min == 45
+            job.wall_time_min = 30
+
+        # Without revert, update fails:
+        with pytest.raises(HTTPError):
+            BatchJob.objects.bulk_update(jobs, ["wall_time_min"])
+
+        for job in jobs:
+            assert job.wall_time_min == 30
+            job.revert = True
+        BatchJob.objects.bulk_update(jobs, ["wall_time_min", "revert"])
+
+        # Update worked:
+        assert all(job.wall_time_min == 30 for job in BatchJob.objects.all())
+
+    def test_delete(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        for i in range(3):
+            BatchJob.objects.create(
+                site=site,
+                project="datascience",
+                queue="default",
+                num_nodes=128,
+                wall_time_min=30,
+                job_mode="mpi",
+                filter_tags={"system": "H2O", "calc_type": "energy"},
+            )
+        assert BatchJob.objects.count() == 3
+
+        with pytest.raises(NotImplementedError):
+            BatchJob.objects.filter(site=site.pk).delete()
+
+        for job in BatchJob.objects.all():
+            job.delete()
+            assert job.pk is None
+        assert BatchJob.objects.count() == 0
+
+    def test_filter_by_tags(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        for system in ["H2O", "D2O", "NH3", "CH2O"]:
+            BatchJob.objects.create(
+                site=site,
+                project="datascience",
+                queue="default",
+                num_nodes=128,
+                wall_time_min=30,
+                job_mode="mpi",
+                filter_tags={"system": system, "calc_type": "energy"},
+            )
+
+        assert BatchJob.objects.filter(filter_tags__system="NH3").count() == 1
+
+    def test_get_by_scheduler_id(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        job = BatchJob.objects.create(
+            site=site,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+            filter_tags={"system": "H2O", "calc_type": "energy"},
+        )
+        job.scheduler_id = 1234
+        job.state = "queued"
+        job.save()
+        job = BatchJob.objects.get(scheduler_id=1234)
+        assert job.num_nodes == 128
+
+    def test_fetch_associated_jobs(self, client):
+        pass
+
+
+class TestSessions:
+    def test_create(self, client):
+        pass
+
+    def test_acquire(self, client):
+        pass
+
+    def test_acquire_with_node_resources(self, client):
+        pass
+
+    def test_tick(self, client):
+        pass
+
+    def test_delete(self, client):
+        pass

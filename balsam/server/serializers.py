@@ -350,7 +350,7 @@ class JobSerializer(BulkModelSerializer):
         lookup_url_kwarg="job_id",
     )
     tags = serializers.DictField(child=serializers.CharField(max_length=32))
-    batch_job = OwnedBatchJobPrimaryKeyRelatedField(required=False)
+    batch_job = OwnedBatchJobPrimaryKeyRelatedField(read_only=True, required=False)
 
     # Read/Write: app pk. Read-only: name, backend-site, backend-class
     app = SharedAppPrimaryKeyRelatedField(source="app_exchange")
@@ -370,8 +370,15 @@ class JobSerializer(BulkModelSerializer):
     parameters = serializers.DictField(child=serializers.CharField(max_length=128))
     data = serializers.DictField()
     lock_status = serializers.CharField(read_only=True, source="get_lock_status")
-    state_timestamp = serializers.DateTimeField(write_only=True, required=False)
-    state_message = serializers.CharField(write_only=True, required=False)
+    state_timestamp = serializers.DateTimeField(
+        write_only=True, allow_null=True, required=False
+    )
+    state_message = serializers.CharField(
+        write_only=True, allow_blank=True, required=False
+    )
+    cpu_affinity = serializers.CharField(
+        max_length=32, allow_blank=True, default="depth", required=False
+    )
 
     num_nodes = serializers.IntegerField(min_value=1)
 
