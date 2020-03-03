@@ -4,7 +4,7 @@ import logging
 import shutil
 import unittest
 import time
-from balsam.platform.mpirun import MPIRun
+from balsam.platform.mpirun import MPIRun,ThetaAprun
 
 
 class MpirunTestMixin(object):
@@ -36,14 +36,15 @@ class MpirunTestMixin(object):
 
         retval = self.mpirun.poll()
         counter = 0
+        count_limit = 100
         while retval is None:
-            time.sleep(1)
+            time.sleep(0.2)
             retval = self.mpirun.poll()
             counter += 1
-            if counter > 100:
+            if counter > count_limit:
                 break
 
-        self.assertLessEqual(counter,self.sleep_sec+1)
+        self.assertLessEqual(counter,count_limit)
 
     def test_terminate(self):
         self.assertInPath(self.mpirun.launch_command)
@@ -102,6 +103,58 @@ time.sleep({1})
         ranks_per_node = self.ranks_per_node
         env = os.environ
         self.mpirun = MPIRun(app_args,node_list,num_ranks,ranks_per_node,env=env)
+        self.mpirun.get_launch_args = lambda: ['-n',num_ranks]
+
+    @staticmethod
+    def parse_output(output_fn):
+
+        ranks = []
+        sizes = []
+        with open(output_fn) as file:
+            for line in file:
+                if line.startswith('rank'):
+                    rank,size = re.findall('\d+',line)
+                    ranks.append(int(rank))
+                    sizes.append(int(size))
+                elif line.startswith('reduce'):
+                    reduce = re.findall('\d+',line)
+
+        return len(set(ranks)),tuple(set(sizes))[0],int(reduce[0])
+
+    def tearDown(self):
+        os.remove(self.script_fn)
+        os.remove(self.script_output)
+
+
+class ThetaAprunTest(MpirunTestMixin, unittest.TestCase):
+    reduce_val = 5
+    sleep_sec = 2
+    test_script = """from mpi4py import MPI
+import time
+c = MPI.COMM_WORLD
+print('rank',c.Get_rank(),'of',c.Get_size())
+x = {0}
+y = c.allreduce(x,MPI.SUM)
+print('reduce ',y)
+time.sleep({1})
+""".format(reduce_val,sleep_sec)
+    script_fn = "temp.py"
+    script_output = "temp.txt"
+
+    ranks = 4
+    ranks_per_node = 2
+
+    python_exe = '/soft/datascience/conda/miniconda3/latest/bin/python'
+
+    def setUp(self):
+        with open(self.script_fn,'w') as file:
+            file.write(self.test_script)
+        app_args = [self.python_exe,self.script_fn]
+        node_list = ['nodeA','nodeB']
+        num_ranks = self.ranks
+        ranks_per_node = self.ranks_per_node
+        env = os.environ
+        self.mpirun = ThetaAprun(app_args,node_list,num_ranks,ranks_per_node,env=env)
         self.mpirun.get_launch_args = lambda: ['-n',num_ranks]
 
     @staticmethod
