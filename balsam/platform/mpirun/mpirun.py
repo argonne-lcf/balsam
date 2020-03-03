@@ -76,7 +76,10 @@ class MPIRun(object):
         time.sleep(self.START_DELAY)
 
     def poll(self):
-        return self._process.poll()
+        retval = self._process.poll()
+        if retval is not None and not self._outfile.closed:
+            self._outfile.close()
+        return retval
 
     def terminate(self):
         """Send SIGTERM"""
