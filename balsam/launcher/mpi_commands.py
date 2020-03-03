@@ -2,7 +2,8 @@
 the Launcher detects a specific host type, the appropriate MPICommand class is
 automatically used.  Otherwise, the DEFAULTMPICommand class is assigned at
 module-load time, testing for MPICH or OpenMPI'''
-
+import sys
+from balsam import settings
 import logging
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class MPICommand(object):
         return result
 
 
-class OPENMPICommand(MPICommand):
+class OpenMPICommand(MPICommand):
     '''Single node OpenMPI: ppn == num_ranks'''
     def __init__(self):
         self.mpi = 'mpirun'
@@ -103,7 +104,7 @@ class BGQMPICommand(MPICommand):
         return f"--shape {shape} --block {block} --corner {corner} "
 
 
-class THETAMPICommand(MPICommand):
+class ThetaMPICommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'aprun'
@@ -144,7 +145,7 @@ class MPICHCommand(MPICommand):
         return ""
 
 
-class COOLEYMPICommand(MPICommand):
+class CooleyMPICommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'mpirun'
@@ -161,7 +162,7 @@ class COOLEYMPICommand(MPICommand):
         return f"--hosts {','.join(str(worker.id) for worker in workers)} "
 
 
-class SLURMMPICommand(MPICommand):
+class SlurmMPICommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'srun'
@@ -182,4 +183,6 @@ class SLURMMPICommand(MPICommand):
         return f"--nodelist {','.join(str(worker.id) for worker in workers)} --nodes {num} "
 
 
-MPIcmd = SLURMMPICommand
+# TODO(KGF): currently, user must supply exact name of class in this file. Add parsing of
+# srun/mpirun/aprun and rename setting to MPIRUN_EXE?
+MPIcmd = getattr(sys.modules[__name__], settings.MPIRUN_CLASS)

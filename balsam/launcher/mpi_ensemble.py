@@ -11,6 +11,8 @@ import shlex
 import signal
 import time
 import psutil
+import itertools
+from math import ceil
 
 from mpi4py import MPI
 from django.db import transaction, connections
@@ -30,8 +32,8 @@ RANK = comm.Get_rank()
 MSG_BUFSIZE = 2**16
 connections.close_all()
 
-class ResourceManager:
 
+class ResourceManager:
     FETCH_PERIOD = 2.0
     KILLED_REFRESH_PERIOD = 3.0
 
@@ -47,7 +49,7 @@ class ResourceManager:
         self.job_cache = []
         self.killed_pks = []
 
-        self.recv_requests = {i:comm.irecv(MSG_BUFSIZE, source=i) for i in range(1,comm.size)}
+        self.recv_requests = {i: comm.irecv(MSG_BUFSIZE, source=i) for i in range(1,comm.size)}
 
         self.job_source.check_qLaunch()
         if self.job_source.qLaunch is not None:
@@ -74,8 +76,8 @@ class ResourceManager:
             jobquery = self.job_source.get_runnable(
                 max_nodes=1,
                 serial_only=True,
-                order_by=('node_packing_count', # ascending
-                          '-wall_time_minutes') # descending
+                order_by=('node_packing_count',  # ascending
+                          '-wall_time_minutes')  # descending
             )
             self.job_cache = list(jobquery[:10000])
             self.last_job_fetch = now
@@ -96,13 +98,16 @@ class ResourceManager:
     def pre_assign(self, rank, job):
         job_occ = 1.0 / job.node_packing_count
         self.node_occupancy[rank] += job_occ
+        logger.debug(f"Pre-assigning job with node_packing_count={job.node_packing_count} "
+                     f"to rank={rank};\nincreasing node occupancy by {job_occ} to {self.node_occupancy[rank]}")
         self.job_occupancy[job.pk] = job_occ
         self.running_locations[job.pk] = rank
 
     def revert_assign(self, rank, job_pk):
         job_occ = self.job_occupancy[job_pk]
         self.node_occupancy[rank] -= job_occ
-        if self.node_occupancy[rank] < 0.0001: self.node_occupancy[rank] = 0.0
+        if self.node_occupancy[rank] < 0.0001:
+            self.node_occupancy[rank] = 0.0
         del self.job_occupancy[job_pk]
         del self.running_locations[job_pk]
 
@@ -115,11 +120,14 @@ class ResourceManager:
         min_packing_count = 1
 
         for job in self.job_cache:
-            if job.node_packing_count < min_packing_count: continue
+            if job.node_packing_count < min_packing_count:
+                continue
             job_occ = 1.0 / job.node_packing_count
 
             free_ranks = (i for i in range(1, comm.size)
-                          if self.node_occupancy[i]+job_occ < 1.0001)
+                          if self.node_occupancy[i] + job_occ < 1.0001)
+            free_ranks, free_ranks_debug = itertools.tee(free_ranks)
+            logger.debug(f"Allocating next {job.cute_id}; free ranks = {list(free_ranks_debug)}")
             rank = next(free_ranks, None)
 
             if rank is None:
@@ -129,7 +137,8 @@ class ResourceManager:
                 pre_assignments[rank].append(job)
                 self.pre_assign(rank, job)
 
-        if len(pre_assignments) == 0: return False
+        if len(pre_assignments) == 0:
+            return False
 
         to_acquire = [job.pk for rank in pre_assignments
                       for job in pre_assignments[rank]]
@@ -182,13 +191,13 @@ class ResourceManager:
         for rank in self.recv_requests:
             req = self.recv_requests[rank]
             logger.debug(f"calling req.test() on rank {rank}'s request...")
-            done, msg = req.test(status = stat)
+            done, msg = req.test(status=stat)
             logger.debug(f"req.test() call completed:\ndone = {done}\nmsg = {msg}")
             if done:
                 completed_requests.append((stat.source, msg))
                 assert stat.source == rank
 
-        for rank,msg in completed_requests:
+        for rank, msg in completed_requests:
             self.recv_requests[rank] = comm.irecv(MSG_BUFSIZE, source=rank)
         return completed_requests
 
@@ -205,9 +214,12 @@ class ResourceManager:
             done_jobs.extend(msg['done'])
             error_jobs.extend(msg['error'])
 
-        if done_jobs:  self._handle_dones(done_jobs)
-        if error_jobs: self._handle_errors(error_jobs)
-        if killed_pks: self.job_source.release(killed_pks)
+        if done_jobs:
+            self._handle_dones(done_jobs)
+        if error_jobs:
+            self._handle_errors(error_jobs)
+        if killed_pks:
+            self.job_source.release(killed_pks)
         logger.debug("serve_requests: waiting on all isends...")
         MPI.Request.waitall(send_reqs)
         logger.debug("serve_requests: all isends completed.")
@@ -228,7 +240,7 @@ class ResourceManager:
 
         if response['tag'] == 'KILL':
             logger.info(f"Sent KILL to rank {rank} for {response['kill_pks']}\n"
-                         f"occupancy is now {self.node_occupancy[rank]}")
+                        f"occupancy is now {self.node_occupancy[rank]}")
 
         return response['kill_pks'], req
 
@@ -245,7 +257,7 @@ class ResourceManager:
     def _handle_errors(self, error_jobs):
         error_pks = [j[0] for j in error_jobs]
         safe_select(BalsamJob.objects.filter(pk__in=error_pks))
-        for pk,retcode,tail in error_jobs:
+        for pk, retcode, tail in error_jobs:
             rank = self.running_locations[pk]
             self.revert_assign(rank, pk)
             job = BalsamJob.objects.get(pk=pk)
@@ -265,6 +277,7 @@ class ResourceManager:
             reqs.append(req)
         MPI.Request.waitall(reqs)
 
+
 class Master:
     def __init__(self):
         self.MAX_IDLE_TIME = 20.0
@@ -275,6 +288,7 @@ class Master:
         args = self.parse_args()
         comm.bcast(args.gpus_per_node, root=0)
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
+        self.is_persistent = args.persistent
         next(self.remaining_timer)
 
         job_source = BalsamJob.source
@@ -293,6 +307,7 @@ class Master:
         parser.add_argument('--wf-name')
         parser.add_argument('--time-limit-min', type=float, default=72.*60)
         parser.add_argument('--gpus-per-node', type=int, default=0)
+        parser.add_argument('--persistent', action='store_true')
         return parser.parse_args()
 
     def exit(self):
@@ -315,9 +330,10 @@ class Master:
             if self.EXIT_FLAG:
                 logger.info("EXIT_FLAG on; master breaking main loop")
                 break
-            if self.idle_time > self.MAX_IDLE_TIME and not self.manager.running_locations:
-                logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
-                break
+            if not self.is_persistent:
+                if self.idle_time > self.MAX_IDLE_TIME and not self.manager.running_locations:
+                    logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
+                    break
         self.exit()
 
     def _main(self):
@@ -328,13 +344,14 @@ class Master:
         start = time.time()
         got_requests = self.manager.serve_requests()
         elapsed = time.time() - start
-        if got_requests: logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
-
+        time.sleep(self.DELAY_PERIOD)
+        if got_requests:
+            logger.debug(f"Served {got_requests} requests in {elapsed:.3f} seconds")
         if not (ran_anything or got_requests or self.manager.have_processable()):
-            time.sleep(self.DELAY_PERIOD)
             self.idle_time += self.DELAY_PERIOD
         else:
             self.idle_time = 0.0
+
 
 class FailedToStartProcess:
     returncode = 12345
@@ -344,8 +361,9 @@ class FailedToStartProcess:
     def terminate(self): pass
     def kill(self): pass
 
+
 class Worker:
-    CHECK_PERIOD=10
+    CHECK_PERIOD = 10
     RETRY_WINDOW = 20
     RETRY_CODES = [-11, 1, 255, 12345]
     MAX_RETRY = 3
@@ -372,19 +390,15 @@ class Worker:
             del d[pk]
 
     def _check_retcode(self, proc, timeout):
-        try:
-            retcode = proc.wait(timeout=timeout)
-        except TimeoutExpired:
-            retcode = None
-        return retcode
+        return proc.poll()
 
     def _check_retcodes(self):
-        start = time.time()
+        # start = time.time()
         pk_retcodes = []
         for pk, proc in self.processes.items():
-            elapsed = time.time() - start
-            timeout = max(0, self.CHECK_PERIOD - elapsed)
-            retcode = self._check_retcode(proc, timeout)
+            # elapsed = time.time() - start
+            # timeout = max(0, self.CHECK_PERIOD - elapsed)
+            retcode = self._check_retcode(proc, None)  # timeout)
             pk_retcodes.append((pk, retcode))
         return pk_retcodes
 
@@ -404,8 +418,8 @@ class Worker:
             retry_count = self.retry_counts[pk]
             if elapsed < self.RETRY_WINDOW and retry_count <= self.MAX_RETRY:
                 logmsg = self.log_prefix(pk)
-                logmsg += (f'can retry task (err occured after {elapsed:.2f} sec; '
-                          f'attempt {self.retry_counts[pk]}/{self.MAX_RETRY})')
+                logmsg += (f'can retry task (err occurred after {elapsed:.2f} sec; '
+                           f'attempt {self.retry_counts[pk]}/{self.MAX_RETRY})')
                 logger.error(logmsg)
                 return True
         return False
@@ -415,8 +429,10 @@ class Worker:
         if p.poll() is None:
             p.terminate()
             logger.debug(f"rank {RANK} sent TERM to {self.cuteids[pk]}...waiting on shutdown")
-            try: p.wait(timeout=timeout)
-            except TimeoutExpired: p.kill()
+            try:
+                p.wait(timeout=timeout)
+            except TimeoutExpired:
+                p.kill()
 
     def _launch_proc(self, pk):
         job_spec = self.job_specs[pk]
@@ -425,7 +441,10 @@ class Worker:
         cmd = job_spec['cmd']
         envs = job_spec['envs']
         envscript = job_spec['envscript']
-        required_num_cores = job_spec['required_num_cores']
+        # TODO(KGF): type cast via ceil() may be too aggressive and prohibit sharing fractions
+        # of cores in this job mode. Slurm, e.g., can handle job w/ tpc=4, rpn=1, tpr=2 ---> 0.5 cores
+        # (rpn>1 prohibited in serial job mode). Could cause issues if input is 2.000...1
+        required_num_cores = int(job_spec['required_num_cores'])
 
         if envscript:
             args = ' '.join(['source', envscript, '&&', cmd])
@@ -439,24 +458,25 @@ class Worker:
             gpu_device = idx % self.gpus_per_node
             envs['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
             envs['CUDA_VISIBLE_DEVICES'] = str(gpu_device)
+            logger.info(f"{self.log_prefix(pk)} index {idx} setting CUDA_VISIBLE_DEVICES={gpu_device}")
 
         # Set the affinity for this process:
-
-        open_affinity = [ cpu for cpu in self.all_affinity if cpu not in self.used_affinity ]
-#TODO: Should this check occur?
+        open_affinity = [cpu for cpu in self.all_affinity if cpu not in self.used_affinity ]
+# TODO: Should this check occur?
         # if len(open_cpus) < required_num_cores:
         #     raise Exception("Not enough available cpus")
         # else:
 # END TODO
         # Update the affinity:
         self.job_specs[pk]['used_affinity'] = open_affinity[0:required_num_cores]
-
-
+        # logger.info(f"{self.log_prefix(pk)} open_affinity = {open_affinity}")
+        logger.info(f"{self.log_prefix(pk)} used_affinity = {self.job_specs[pk]['used_affinity']}")
 
         out_name = f'{name}.out'
         logger.info(f"{self.log_prefix(pk)} Popen (shell={shell}):\n{args}")
 
-        if not os.path.exists(workdir): os.makedirs(workdir)
+        if not os.path.exists(workdir):
+            os.makedirs(workdir)
         outfile = open(os.path.join(workdir, out_name), 'wb')
         self.outfiles[pk] = outfile
         try:
@@ -491,17 +511,18 @@ class Worker:
 
     def log_prefix(self, pk=None):
         prefix = f'rank {RANK} '
-        if pk: prefix += f'{self.cuteids[pk]} '
+        if pk:
+            prefix += f'{self.cuteids[pk]} '
         return prefix
 
     def write_message(self, job_statuses):
-        msg = {'ask' : [], 'done' : [], 'error': []}
+        msg = {'ask': [], 'done': [], 'error': []}
         num_jobs = len(job_statuses)
         num_errors = len([
             s for s in job_statuses.values()
-            if s not in ["running","done"]
+            if s not in ["running", "done"]
         ])
-        max_tail = (MSG_BUFSIZE - 110*num_jobs) // max(1,num_errors)
+        max_tail = (MSG_BUFSIZE - 110*num_jobs) // max(1, num_errors)
         for pk, status in job_statuses.items():
             if status == 'running':
                 msg['ask'].append(pk)
@@ -535,7 +556,8 @@ class Worker:
     def start_jobs(self, msg):
         assert msg['tag'] == 'NEW'
         for pk in msg:
-            if pk == 'tag': continue
+            if pk == 'tag':
+                continue
             job_spec = msg[pk]
             self.job_specs[pk] = job_spec
             self.cuteids[pk] = job_spec['cuteid']
@@ -544,7 +566,8 @@ class Worker:
             self._launch_proc(pk)
 
     def kill_jobs(self, kill_pks):
-        for pk in kill_pks: self._cleanup_proc(pk, timeout=0)
+        for pk in kill_pks:
+            self._cleanup_proc(pk, timeout=0)
 
     def main(self):
         tag = None
@@ -573,6 +596,7 @@ class Worker:
                 comm.send(msg, dest=0)
                 logger.debug(f"rank {RANK} send done")
         self.exit()
+
 
 if __name__ == "__main__":
     if RANK == 0:

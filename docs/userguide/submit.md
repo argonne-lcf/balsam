@@ -42,12 +42,13 @@ $ balsam submit-launch -A Project -q Queue -t 15 -n 5 --job-mode=mpi
 The only required argument that is unique to Balsam is the
 **\--job-mode**, explained below.
 
-### MPI job mode
+### MPI job mode (default)
 
 For `--job-mode=mpi`{.interpreted-text role="bash"}, the Balsam launcher
 runs as a pilot job on the head node of the allocated resources. From
 this head node, it issues MPI launch commands (**mpirun** or equivalent)
-to launch jobs against the available resources.
+to launch jobs against the available resources. Each node can only execute
+a single job at a time
 
 This job mode maps very closely to the traditional \"ensemble job\"
 script that you may be accustomed to thinking about and can run any kind
@@ -76,10 +77,18 @@ on 4000 nodes, without overburdening the head node with 4000 **mpirun**
 background processes.
 
 The [\--job-mode=serial]{.title-ref} option solves both of these
-problems by launching a single forker process on each compute node.
-These processes then run isolated tasks on the single nodes. This job
+problems by calling a single MPI run command (**mpirun** or equivalent) 
+at the start of a Balsam launcher. This starts a single forker `Worker` 
+process  on each compute node, save for the first node, which runs the 
+`Master` process responsible for orchestrating the ensemble. The `Worker` 
+processes then run isolated tasks on the single nodes. This job
 mode **will not** process any tasks that have specified the use of
 multiple MPI ranks.
+
+Note, in the edge case of this job mode launched with only a single node, 
+the `Master` and a single `Worker` process will share the node. The `Master`
+will not contribute to the job occupancy calcuations of `Worker` defined by
+the `--node-packing-count` value of each `balsam job` executing on the worker.
 
 ### Filtering jobs by workflow tag
 
@@ -145,7 +154,7 @@ role="bash"} option overrides the default sending of
 `SIGKILL`{.interpreted-text role="bash"} to the batch step.
 
 If you want to kill a **particular task** while it\'s running inside a
-launcher, you can use the `balsam kill <jobid>`{.interpreted-text
+launcher, you can use the `balsam kill --id <jobid>`{.interpreted-text
 role="bash"} command (see `BalsamCLI`{.interpreted-text role="ref"}).
 The killed task will stop in near-realtime and be replaced by the next
 eligible task to run.
