@@ -16,33 +16,56 @@ class JobManager(Manager):
     bulk_delete_enabled = True
 
     def _to_dict(self, instance):
-        exclude_keys = [
+        exclude_keys = {
             "job",
             "protocol",
             "remote_netloc",
             "source_path",
             "destination_path",
-        ]
+        }
 
-        # BUG: the exclude functionality in Pydantic 1.4
-        # prevents nested exclude from working correctly,
-        # so we do the exclusion ourselves here:
+        transfer_item_excludes = {
+            idx: exclude_keys for idx in range(len(instance.transfer_items))
+        }
         d = instance.dict(
             exclude={
-                "_children"
-                "_batch_job"
-                "_app_name"
-                "_site"
-                "_app_class"
-                "_lock_status"
-                "_last_update"
+                "_children": ...,
+                "_batch_job": ...,
+                "_app_name": ...,
+                "_site": ...,
+                "_app_class": ...,
+                "_lock_status": ...,
+                "_last_update": ...,
+                "transfer_items": transfer_item_excludes,
             }
         )
-        for transfer_item in d["transfer_items"]:
-            for key in exclude_keys:
-                del transfer_item[key]
 
         return self._make_encodable(d)
+
+    def create(
+        self,
+        workdir,
+        app,
+        parameters,
+        parents=None,
+        transfer_items=None,
+        tags=None,
+        data=None,
+        num_nodes=1,
+        ranks_per_node=1,
+        threads_per_rank=1,
+        threads_per_core=1,
+        cpu_affinity="",
+        gpus_per_rank=0,
+        node_packing_count=1,
+        wall_time_min=0,
+        **kwargs,
+    ):
+        d = {k: v for k, v in locals().items() if v is not None and k != "self"}
+        for k, v in kwargs.items():
+            if v is not None:
+                d[k] = v
+        return super().create(**d)
 
 
 class SiteManager(Manager):
@@ -70,7 +93,8 @@ class SessionManager(Manager):
 
     def _do_acquire(self, instance, **kwargs):
         acquired_raw = self.resource.acquire_jobs(uri=instance.pk, **kwargs)
-        return Job.objects._unpack_list_response(acquired_raw)
+        acquired_job_list = acquired_raw["acquired_jobs"]
+        return Job.objects._unpack_list_response(acquired_job_list)
 
 
 class EventLogManager(Manager):

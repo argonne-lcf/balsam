@@ -173,15 +173,10 @@ class JobState(str, Enum):
     reset = "RESET"
 
 
-def rm_leading_underscore(s: str) -> str:
-    return s.lstrip("_")
-
-
 class Job(BalsamModel):
     class Config:
         extra = "ignore"
         validate_assignment = True
-        alias_generator = rm_leading_underscore
 
     pk: Union[int, None]
     workdir: pathlib.Path
@@ -192,24 +187,23 @@ class Job(BalsamModel):
     tags: Dict[str, str] = {}
     data: Dict = {}
 
-    parents: List[int] = []
+    parents: List[Union["Job", int]] = []
 
-    # These hidden fields are read-only at the REST-API level
-    # Add properties to enforce read-only access by users
-    _children: List[int] = []
-    _batch_job: Union[int, None] = None
-    _app_name: str = None
-    _site: str = None
-    _app_class: str = None
+    # These attributes cannot be directly set:
+    children: List[int] = []  # Set parents instead
+    batch_job: Union[int, None] = None  # Set on acquire
+    app_name: str = None  # Set via app
+    site: str = None  # Set when bound to app backend
+    app_class: str = None  # Set when bound to app backend
 
     # Status
     return_code: Union[int, None] = None
     last_error: str = ""
-    _lock_status: str = ""
+    lock_status: str = ""
     state: JobState = JobState.created
     state_timestamp: Union[datetime, None] = None
     state_message: str = ""
-    _last_update: Union[datetime, None] = None
+    last_update: Union[datetime, None] = None
 
     # Resources
     num_nodes: int = 1
@@ -224,6 +218,12 @@ class Job(BalsamModel):
     @validator("app")
     def app_id(cls, v):
         if isinstance(v, App):
+            return v.pk
+        return v
+
+    @validator("parents", each_item=True)
+    def parent_id(cls, v):
+        if isinstance(v, Job):
             return v.pk
         return v
 
@@ -249,42 +249,17 @@ class Job(BalsamModel):
         wall_time_min=0,
         **kwargs,
     ):
-        d = locals()
-        d.pop("kwargs")
-        d.update(kwargs)
-        d = {k: v for k, v in d.items() if v is not None}
+        d = {k: v for k, v in locals().items() if v is not None}
+        for k, v in kwargs.items():
+            if v is not None:
+                d[k] = v
         return super().__init__(**d)
 
     def history(self):
         return EventLog.objects.filter(job=self.pk)
 
-    @property
-    def children(self):
-        return getattr(self, "_children")
 
-    @property
-    def batch_job(self):
-        return getattr(self, "_batch_job")
-
-    @property
-    def app_name(self):
-        return getattr(self, "_app_name")
-
-    @property
-    def site(self):
-        return getattr(self, "_site")
-
-    @property
-    def app_class(self):
-        return getattr(self, "_app_class")
-
-    @property
-    def lock_status(self):
-        return getattr(self, "_lock_status")
-
-    @property
-    def last_update(self):
-        return getattr(self, "_last_update")
+Job.update_forward_refs()
 
 
 class BatchState(str, Enum):
@@ -377,6 +352,8 @@ class Session(BalsamModel):
                 if isinstance(node_resources, NodeResources)
                 else NodeResources(**node_resources).dict()
             )
+        if filter_tags is None:
+            filter_tags = {}
         return self.__class__.objects._do_acquire(
             self,
             acquire_unbound=acquire_unbound,
