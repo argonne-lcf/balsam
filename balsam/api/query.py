@@ -195,15 +195,17 @@ class Manager(metaclass=ManagerMeta):
     def _do_delete(self, instance):
         self.resource.destroy(uri=getattr(instance, self.pk_field))
 
-    def _do_bulk_delete(self, filters):
+    def _do_bulk_delete(self, filters, allow_delete_all=False):
         if not self.bulk_delete_enabled:
             raise NotImplementedError(
                 f"The {self.model_class.__name__} API does not offer bulk deletes"
             )
 
         query_params = self._build_query_params(filters)
-        response_data = self.resource.bulk_destroy(**query_params)
-        return response_data["deleted_count"]
+        if allow_delete_all:
+            query_params["destroy_all"] = "yes"
+        self.resource.bulk_destroy(**query_params)
+        return
 
 
 class Query:
@@ -362,5 +364,7 @@ class Query:
         # TODO: kwargs should expand to a set of allowed update_fields
         return self._manager._do_bulk_update_query(patch=kwargs, filters=self._filters)
 
-    def delete(self):
-        return self._manager._do_bulk_delete(filters=self._filters)
+    def delete(self, allow_delete_all=False):
+        return self._manager._do_bulk_delete(
+            filters=self._filters, allow_delete_all=allow_delete_all
+        )

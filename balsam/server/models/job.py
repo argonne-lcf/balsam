@@ -481,12 +481,13 @@ class Job(models.Model):
         gpus_per_rank=None,
         node_packing_count=None,
         wall_time_min=None,
+        **kwargs,
     ):
         # These fields can always be updated:
         if return_code is not None:
             self.return_code = return_code
 
-        if data is not None:
+        if data:
             self.data.update(data)
             EventLog.objects.log_update(self, f"Set data {data.keys()}")
 
@@ -513,11 +514,14 @@ class Job(models.Model):
 
         if state is not None:
             self.update_state(state, message=state_message, timestamp=state_timestamp)
-        else:
-            self.save()
+        self.save()
+        return self
 
     def update_field(self, field_name, new_value):
         old_value = getattr(self, field_name)
+        if old_value == new_value:
+            return
+
         setattr(self, field_name, new_value)
         validator = getattr(self, "validate_" + field_name, None)
 

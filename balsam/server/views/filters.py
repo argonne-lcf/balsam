@@ -93,8 +93,12 @@ class EventFilter(django_filters.FilterSet):
     batch_job_id = django_filters.NumberFilter(
         field_name="job", lookup_expr="batch_job_id"
     )
+    job_id = django_filters.NumberFilter(field_name="job_id")
     scheduler_id = django_filters.NumberFilter(
         field_name="job", lookup_expr="batch_job__scheduler_id"
+    )
+    message__contains = django_filters.CharFilter(
+        field_name="message", lookup_expr="icontains"
     )
 
     class Meta:
@@ -104,7 +108,9 @@ class EventFilter(django_filters.FilterSet):
             "to_state",
             "timestamp",
             "batch_job_id",
+            "job_id",
             "scheduler_id",
+            "message__contains",
         ]
 
 
@@ -120,6 +126,9 @@ class JobFilter(django_filters.FilterSet):
     app_name = django_filters.CharFilter(field_name="app_exchange", lookup_expr="name")
     app_class = django_filters.CharFilter(
         field_name="app_backend", lookup_expr="class_name"
+    )
+    workdir__contains = django_filters.CharFilter(
+        field_name="workdir", lookup_expr="contains"
     )
     site_id = django_filters.NumberFilter(
         field_name="app_backend", lookup_expr="site_id"
@@ -138,12 +147,14 @@ class JobFilter(django_filters.FilterSet):
     parents = django_filters.ModelMultipleChoiceFilter(
         field_name="parents", queryset=jobs_qs
     )
+    state__ne = django_filters.CharFilter(field_name="state", exclude=True)
 
     class Meta:
         model = Job
         fields = [
             "pk",
             "workdir",
+            "workdir__contains",
             "app_id",
             "app_name",
             "app_class",
@@ -151,6 +162,7 @@ class JobFilter(django_filters.FilterSet):
             "site_hostname",
             "site_path",
             "state",
+            "state__ne",
             "batch_job_id",  # the unique PK stored in BalsamDB
             "scheduler_id",  # the job's local Scheduler ID
             "last_update",

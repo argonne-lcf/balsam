@@ -1,9 +1,12 @@
+import logging
 import requests
 from rest_framework import status
 from pprint import pformat
 from json import JSONDecodeError
 
 from .rest_base_client import RESTClient
+
+logger = logging.getLogger(__name__)
 
 
 class RequestsClient(RESTClient):
@@ -69,4 +72,5 @@ class RequestsClient(RESTClient):
         """
         Return response payload
         """
+        logger.debug(f"Response: {response.json()}")
         return response.json()

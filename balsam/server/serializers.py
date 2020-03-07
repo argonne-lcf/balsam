@@ -376,6 +376,7 @@ class JobSerializer(BulkModelSerializer):
     state_message = serializers.CharField(
         write_only=True, allow_blank=True, required=False
     )
+    last_update = serializers.DateTimeField(read_only=True)
     cpu_affinity = serializers.CharField(
         max_length=32, allow_blank=True, default="depth", required=False
     )
