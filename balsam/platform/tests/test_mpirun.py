@@ -3,7 +3,7 @@ import re
 import shutil
 import unittest
 import time
-from balsam.platform.mpirun import MPIRun, ThetaAprun, SlurmRun
+from balsam.platform.mpirun import MPIRun, ThetaAprun, SlurmRun, SummitJsrun
 
 
 class MpirunTestMixin(object):
@@ -215,6 +215,68 @@ time.sleep({1})
         ranks_per_node = self.ranks_per_node
         env = os.environ
         self.mpirun = SlurmRun(app_args, node_list, num_ranks, ranks_per_node, env=env)
+        self.mpirun.get_launch_args = lambda: ["-n", num_ranks]
+
+    @staticmethod
+    def parse_output(output_fn):
+
+        ranks = []
+        sizes = []
+        with open(output_fn) as file:
+            for line in file:
+                if line.startswith("rank"):
+                    rank, size = re.findall(r"\d+", line)
+                    ranks.append(int(rank))
+                    sizes.append(int(size))
+                elif line.startswith("reduce"):
+                    reduce = re.findall(r"\d+", line)
+
+        return len(set(ranks)), tuple(set(sizes))[0], int(reduce[0])
+
+    def tearDown(self):
+        os.remove(self.script_fn)
+        os.remove(self.script_output)
+
+
+class SummitJsrunTest(MpirunTestMixin, unittest.TestCase):
+    reduce_val = 5
+    sleep_sec = 2
+    test_script = """from mpi4py import MPI
+import time
+c = MPI.COMM_WORLD
+print('rank',c.Get_rank(),'of',c.Get_size())
+x = {0}
+y = c.allreduce(x,MPI.SUM)
+print('reduce ',y)
+time.sleep({1})
+""".format(
+        reduce_val, sleep_sec
+    )
+    script_fn = "temp.py"
+    script_output = "temp.txt"
+
+    ranks = 6
+    ranks_per_node = 6
+    gpus_per_rank = 1
+
+    python_exe = "/sw/summit/python/3.6/anaconda3/5.3.0/bin/python"
+
+    def setUp(self):
+        with open(self.script_fn, "w") as file:
+            file.write(self.test_script)
+        app_args = [self.python_exe, self.script_fn]
+        node_list = ["nodeA", "nodeB"]
+        num_ranks = self.ranks
+        ranks_per_node = self.ranks_per_node
+        env = os.environ
+        self.mpirun = SummitJsrun(
+            app_args,
+            node_list,
+            num_ranks,
+            ranks_per_node,
+            env=env,
+            gpus_per_rank=self.gpus_per_rank,
+        )
         self.mpirun.get_launch_args = lambda: ["-n", num_ranks]
 
     @staticmethod
