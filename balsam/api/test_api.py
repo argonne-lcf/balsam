@@ -1,4 +1,6 @@
+import os
 import pytest
+from urllib.parse import urlparse
 from requests import HTTPError
 from datetime import timedelta
 from balsam.client import BasicAuthRequestsClient, DirectAPIClient
@@ -26,6 +28,16 @@ from .managers import (
     SessionManager,
     EventLogManager,
 )
+
+try:
+    test_db = os.environ["BALSAM_TEST_DB"]
+except KeyError:
+    raise KeyError("Environment BALSAM_TEST_DB must be set to host:port")
+try:
+    HOST, PORT = test_db.split(":")
+    PORT = int(PORT)
+except ValueError:
+    raise ValueError(f"{test_db} is not a valid HOST:PORT")
 
 
 def close_connections():
@@ -60,6 +72,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
 @pytest.fixture(scope="function")
 def requests_client(live_server, django_db_blocker):
     url = live_server.url.rstrip("/") + "/api"
+    info = urlparse(url)
     from balsam.server.models import User
 
     try:
@@ -72,7 +85,15 @@ def requests_client(live_server, django_db_blocker):
             is_staff=True,
             is_superuser=True,
         )
-    client = BasicAuthRequestsClient(api_root=url, username="user", password="f")
+    host = info.netloc.split(":")[0]
+    client = BasicAuthRequestsClient(
+        scheme=info.scheme,
+        host=host,
+        port=info.port,
+        api_root="/api",
+        username="user",
+        password="f",
+    )
     yield client
     with django_db_blocker.unblock():
         close_connections()
@@ -93,7 +114,9 @@ def direct_client(transactional_db, django_db_blocker):
             is_staff=True,
             is_superuser=True,
         )
-    client = DirectAPIClient(api_root=url, username="user", password="f")
+    client = DirectAPIClient(
+        api_root=url, host=HOST, port=PORT, username="user", password="f"
+    )
     yield client
     with django_db_blocker.unblock():
         close_connections()

@@ -6,6 +6,7 @@ from .requests_client import RequestsClient
 from .requests_auth import BasicAuthRequestsClient
 from .direct_api_client import DirectAPIClient
 
+
 __all__ = [
     "RESTClient",
     "RequestsClient",

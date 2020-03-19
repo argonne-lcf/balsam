@@ -1,7 +1,4 @@
-import django
-from django.conf import settings
-import os
-from rest_framework.test import APIClient as DRFAPIClient
+import click
 from requests import HTTPError
 from pprint import pformat
 from json import JSONDecodeError
@@ -10,13 +7,21 @@ from .rest_base_client import RESTClient
 
 
 class DirectAPIClient(RESTClient):
-    def __init__(self, api_root, username, password):
+    def __init__(
+        self, host, port, username, password, api_root, database="balsam", **kwargs
+    ):
+        from balsam.util import postgres
+
         super().__init__(api_root)
-        if not settings.configured:
-            os.environ.setdefault(
-                "DJANGO_SETTINGS_MODULE", "balsam.server.conf.settings"
-            )
-            django.setup()
+        postgres.configure_django_database(
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=database,
+        )
+        from rest_framework.test import APIClient as DRFAPIClient
+
         self._client = DRFAPIClient()
         self.username = username
         self.password = password
@@ -30,7 +35,28 @@ class DirectAPIClient(RESTClient):
         }
 
     def refresh_auth(self):
+        """
+        DirectAPIClient is already making an authenticated connection directly to Postgres.
+        Bypass auth by ensuring a User with the same credentials as the database user exists.
+        """
+        from balsam.server.models import User
+
+        try:
+            User.objects.get(username=self.username)
+        except User.DoesNotExist:
+            User.objects.create_user(
+                username=self.username,
+                password=self.password,
+                email="",
+                is_staff=True,
+                is_superuser=True,
+            )
         self._client.login(username=self.username, password=self.password)
+
+    def interactive_login(self):
+        self.refresh_auth()
+        click.echo("Established direct connection to Postgres DB")
+        return {}
 
     def request(self, absolute_url, http_method, payload=None):
         client_http_method = self._dispatch[http_method]

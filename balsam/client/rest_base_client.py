@@ -1,6 +1,10 @@
 from urllib.parse import urlencode
 
 
+class AuthError(Exception):
+    pass
+
+
 class RESTClient:
     def __init__(self, api_root):
         self.api_root = api_root.rstrip("/")

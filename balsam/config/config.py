@@ -1,29 +1,38 @@
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 import importlib.util
+from typing import Optional
 import yaml
 
 from pydantic import (
     BaseSettings,
     PyObject,
     FilePath,
-    PostgresDsn,
-    AnyHttpUrl,
     AnyUrl,
     validator,
     ValidationError,
 )
 from typing import Union, List
-from balsam.client import RESTClient, RequestsClient
+from balsam.client import RESTClient
+
+
+def balsam_home():
+    return Path.home().joinpath(".balsam")
 
 
 class ClientSettings(BaseSettings):
     client_class: PyObject
-    address: Union[AnyHttpUrl, PostgresDsn] = "http://localhost:8000"
-    username: str = ""
-    password: str = ""
+    host: str
+    port: int
+    username: str
+    password: str
+    scheme: str
+    token: Optional[str] = None
+    token_expiry: Optional[datetime] = None
     database: str = "balsam"
+    api_root: str = "/api"
     connect_timeout: float = 3.1
     read_timeout: float = 5.0
     retry_count: int = 3
@@ -34,18 +43,59 @@ class ClientSettings(BaseSettings):
             raise TypeError(f"client_class must subclass balsam.client.RESTClient")
         return v
 
-    @validator("address")
-    def address_matches_client_type(cls, v, values):
-        client_class = values["client_class"]
-        if issubclass(client_class, RequestsClient):
-            assert v.startswith(
-                "http"
-            ), f"address must start with 'http' when using {client_class.__name__}"
+    @classmethod
+    def from_url(cls, url):
+        if url.scheme == "postgres":
+            return cls(
+                client_class="balsam.client.DirectAPIClient",
+                host=url.host,
+                port=url.port,
+                username=url.user,
+                password=url.password,
+                scheme=url.scheme,
+            )
+        else:
+            return cls(
+                client_class="balsam.client.BasicAuthRequestsClient",
+                host=url.host,
+                port=url.port,
+                username=url.user,
+                password=url.password,
+                api_root=url.path or "/api",
+                scheme=url.scheme,
+            )
+
+    @staticmethod
+    def settings_path():
+        return balsam_home().joinpath("client.yml")
+
+    @classmethod
+    def load_from_home(cls):
+        with open(cls.settings_path()) as fp:
+            data = yaml.safe_load(fp)
+        return cls(**data)
+
+    def save_to_home(self):
+        data = self.dict()
+        cls = data["client_class"]
+        data["client_class"] = cls.__module__ + "." + cls.__name__
+
+        settings_path = self.settings_path()
+        if settings_path.exists():
+            os.chmod(settings_path, 0o600)
+        else:
+            open(settings_path, "w").close()
+            os.chmod(settings_path, 0o600)
+        with open(settings_path, "w+") as fp:
+            yaml.dump(data, fp)
+
+    def build_client(self):
+        return self.client_class(**self.dict())
 
 
 class Settings(BaseSettings):
     credentials_file: FilePath = "~/.balsam/credentials"
-    client: ClientSettings
+    client: Union[ClientSettings, str]
     site_id: int
     trusted_data_sources: List[AnyUrl] = []
 

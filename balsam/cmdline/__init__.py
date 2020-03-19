@@ -1,8 +1,9 @@
 from balsam import __version__
 import click
 
-from balsam.cmdline import init
+from balsam.cmdline import login
 from balsam.cmdline import ls
+from balsam.cmdline import db
 from balsam.cmdline import activate
 
 # Monkey-patch make_default_short_help: cut off after first line
@@ -31,11 +32,7 @@ def main():
     pass
 
 
-LOAD_COMMANDS = [
-    init.init,
-    activate.activate,
-    ls.ls,
-]
+LOAD_COMMANDS = [login.login, activate.activate, ls.ls, db.db]
 
 for cmd in LOAD_COMMANDS:
     main.add_command(cmd)
