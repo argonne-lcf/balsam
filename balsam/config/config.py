@@ -3,19 +3,29 @@ import sys
 from datetime import datetime
 from pathlib import Path
 import importlib.util
+import socket
+import shutil
 from typing import Optional
 import yaml
 
 from pydantic import (
     BaseSettings,
     PyObject,
-    FilePath,
     AnyUrl,
     validator,
     ValidationError,
 )
-from typing import Union, List
+from typing import List
 from balsam.client import RESTClient
+from balsam.api import Site
+from balsam.api.managers import (
+    JobManager,
+    SiteManager,
+    AppManager,
+    BatchJobManager,
+    SessionManager,
+    EventLogManager,
+)
 
 
 def balsam_home():
@@ -90,14 +100,29 @@ class ClientSettings(BaseSettings):
             yaml.dump(data, fp)
 
     def build_client(self):
-        return self.client_class(**self.dict())
+        client = self.client_class(**self.dict())
+        SiteManager(client.sites)
+        AppManager(client.apps)
+        JobManager(client.jobs)
+        BatchJobManager(client.batch_jobs)
+        SessionManager(client.sessions)
+        EventLogManager(client.events)
+        return client
 
 
 class Settings(BaseSettings):
-    credentials_file: FilePath = "~/.balsam/credentials"
-    client: Union[ClientSettings, str]
     site_id: int
     trusted_data_sources: List[AnyUrl] = []
+
+    def save(self, path):
+        with open(path, "w") as fp:
+            yaml.dump(self.dict(), fp)
+
+    @classmethod
+    def load(cls, path):
+        with open(path) as fp:
+            raw_data = yaml.safe_load(fp)
+        return cls(**raw_data)
 
 
 class BalsamComponentFactory:
@@ -149,9 +174,48 @@ class BalsamComponentFactory:
         else:
             self.settings = self._load_yaml_settings(yaml_settings)
 
+    @classmethod
+    def new_site_setup(cls, site_path, hostname=None):
+        """
+        Creates a new site directory, registers Site
+        with Balsam API, and writes default settings.yml into
+        Site directory
+        """
+        site_path = Path(site_path)
+        site_path.mkdir(exist_ok=True, parents=True)
+
+        here = Path(__file__).parent
+        with open(here.joinpath("default-site.yml")) as fp:
+            default_site_data = yaml.safe_load(fp)
+        default_site_path = here.joinpath(default_site_data["default_site_path"])
+
+        settings = cls._load_yaml_settings(
+            default_site_path.joinpath("settings.yml"), validate=False
+        )
+
+        client = ClientSettings.load_from_home().build_client()
+        SiteManager(client.sites)
+
+        site = Site.objects.create(
+            hostname=socket.gethostname() if hostname is None else hostname,
+            path=site_path,
+        )
+        settings.site_id = site.pk
+        settings.save(path=site_path.joinpath("settings.yml"))
+        cf = cls(site_path=site_path, settings=settings)
+        for path in [cf.log_path, cf.job_path, cf.data_path]:
+            path.mkdir(exist_ok=True)
+
+        shutil.copytree(
+            src=default_site_path.joinpath("apps"), dst=cf.apps_path,
+        )
+        shutil.copy(
+            src=default_site_path.joinpath("job-template.sh"), dst=cf.site_path,
+        )
+
     def resolve_site_path(self, site_path):
         if site_path is not None:
-            os.environ["BALSAM_SITE_PATH"] = site_path
+            os.environ["BALSAM_SITE_PATH"] = str(site_path)
         else:
             site_path = os.environ.get("BALSAM_SITE_PATH")
         if site_path is None:
@@ -212,9 +276,11 @@ class BalsamComponentFactory:
         return settings
 
     @staticmethod
-    def _load_yaml_settings(file_path):
+    def _load_yaml_settings(file_path, validate=True):
         with open(file_path) as fp:
             raw_settings = yaml.safe_load(fp)
+        if not validate:
+            return Settings.construct(**raw_settings)
         try:
             settings = Settings(**raw_settings)
         except ValidationError as exc:

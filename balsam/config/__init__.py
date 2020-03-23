@@ -1,3 +1,3 @@
-from .config import ClientSettings
+from .config import ClientSettings, Settings, BalsamComponentFactory
 
-__all__ = ["ClientSettings"]
+__all__ = ["ClientSettings", "Settings", "BalsamComponentFactory"]

@@ -1,16 +1,1 @@
-site_id: 1
-trusted_data_sources:
-  -
-client:
-  client_class: balsam.client.DirectAPIClient
-  address: postgres://localhost:8000
-  username: foo
-  password: bar
-  database: balsam
-  connect_timeout: 3.1
-  read_timeout: 5.0
-  retry_count: 3
-scheduler:
-  scheduler_class: balsam.platform.scheduler.CobaltScheduler
-node_spec:
-  node_def: balsam
+{}
