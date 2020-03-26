@@ -149,7 +149,7 @@ class BalsamComponentFactory:
         """
         Load Settings from BALSAM_SITE_PATH/settings.py or settings.yml
         """
-        self.site_path = self.resolve_site_path(site_path)
+        self.site_path = self.resolve_site_path(site_path, raise_exc=True)
 
         if settings is not None:
             if not isinstance(settings, Settings):
@@ -212,23 +212,40 @@ class BalsamComponentFactory:
         shutil.copy(
             src=default_site_path.joinpath("job-template.sh"), dst=cf.site_path,
         )
+        cf.site_path.joinpath(".balsam-site").touch()
 
-    def resolve_site_path(self, site_path):
-        if site_path is not None:
-            os.environ["BALSAM_SITE_PATH"] = str(site_path)
-        else:
-            site_path = os.environ.get("BALSAM_SITE_PATH")
+    @staticmethod
+    def resolve_site_path(site_path=None, raise_exc=False):
+        # Site determined from either passed argument, environ,
+        # or walking up parent directories, in that order
+        site_path = (
+            site_path
+            or os.environ.get("BALSAM_SITE_PATH")
+            or BalsamComponentFactory.search_site_dir()
+        )
         if site_path is None:
-            raise ValueError(
-                "Initialize BalsamComponentFactory with a `site_path` or set env BALSAM_SITE_PATH "
-                "to a Balsam site directory containing a settings.py file."
-            )
+            if raise_exc:
+                raise ValueError(
+                    "Initialize BalsamComponentFactory with a `site_path` or set env BALSAM_SITE_PATH "
+                    "to a Balsam site directory containing a settings.py file."
+                )
+            return None
+
         site_path = Path(site_path).resolve()
         if not site_path.is_dir():
             raise FileNotFoundError(
                 f"BALSAM_SITE_PATH {site_path} must point to an existing Balsam site directory"
             )
+        os.environ["BALSAM_SITE_PATH"] = str(site_path)
         return site_path
+
+    @staticmethod
+    def search_site_dir():
+        check_dir = Path.cwd()
+        while check_dir.as_posix() != "/":
+            if check_dir.joinpath(".balsam-site").is_file():
+                return check_dir
+            check_dir = check_dir.parent
 
     def __getattr__(self, item):
         return getattr(self.settings, item)

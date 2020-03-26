@@ -22,7 +22,12 @@ class RESTClient:
             query_seq = []
             for k, v in query_params.items():
                 if isinstance(v, (list, tuple)):
-                    query_seq.extend((k, item) for item in v)
+                    if k.endswith("__in"):
+                        # __in queries are parsed as a CSV (?name__in=foo,bar)
+                        query_seq.append((k, ",".join(item for item in v)))
+                    else:
+                        # all other multiple-choice values are AND'ed together in the query:
+                        query_seq.extend((k, item) for item in v)
                 else:
                     query_seq.append((k, v))
             result += "?" + urlencode(query_seq)

@@ -90,11 +90,12 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         """
         Load the ApplicationDefinition subclass located in directory app_path
         """
-        if class_name in cls._loaded_apps:
-            return cls._loaded_apps[class_name]
+        key = (app_path, class_name)
+        if key in cls._loaded_apps:
+            return cls._loaded_apps[key]
 
         app_path = pathlib.Path(app_path)
-        if not app_path.is_directory():
+        if not app_path.is_dir():
             raise FileNotFoundError(f"No such directory {app_path}")
 
         filename, *module_attr = class_name.split(".")
@@ -110,7 +111,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
                 f"{class_name} must refer to a Python class with the form Module.Class"
             )
 
-        fpath = app_path.joinpath(filename)
+        fpath = app_path.joinpath(filename + ".py")
         if not fpath.is_file():
             raise FileNotFoundError(f"Could not find App definition file {fpath}")
 
@@ -139,7 +140,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         if not issubclass(app_class, cls):
             raise TypeError(f"{class_name} must subclass {cls.__name__}")
 
-        cls._loaded_apps[class_name] = app_class
+        cls._loaded_apps[key] = app_class
         return app_class
 
     @classmethod
@@ -147,3 +148,34 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         return dict(
             name=cls.__name__, description=cls.__doc__, parameters=cls.parameters,
         )
+
+
+app_template = '''
+from balsam import ApplicationDefinition
+
+class {{cls_name}}(ApplicationDefinition):
+    """
+    {{description}}
+    """
+    environment_variables = {}
+    command_template = '{{command_template}}'
+
+    def preprocess(self):
+        pass
+
+    def postprocess(self):
+        pass
+
+    def shell_preamble(self):
+        pass
+
+    def handle_timeout(self):
+        self.job.state = "RESTART_READY"
+        self.job.save()
+
+    def handle_error(self):
+        pass
+
+'''.lstrip()
+
+app_template = jinja2.Template(app_template)

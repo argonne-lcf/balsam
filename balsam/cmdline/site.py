@@ -22,7 +22,7 @@ def init(site_path, hostname):
 
     balsam site init path/to/site
     """
-    site_path = Path(site_path)
+    site_path = Path(site_path).absolute()
     if site_path.exists():
         raise click.BadParameter(f"{site_path} already exists")
 

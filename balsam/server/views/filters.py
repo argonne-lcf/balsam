@@ -4,6 +4,10 @@ import django_filters.rest_framework as django_filters
 from django_filters.rest_framework import DjangoFilterBackend  # noqa
 from balsam.server.models import BatchJob, Job, EventLog, Site, AppExchange
 
+# NOTE: AllValuesMultipleFilter, MultipleChoiceFilter, etc.. take
+# query parameters that are AND'd together ?foo=A&foo=B.
+# BaseInFilter subclasses take a single query parameter with comma-sep values
+
 
 class JSONFilter(drf_filters.BaseFilterBackend):
     """
@@ -27,6 +31,10 @@ class JSONFilter(drf_filters.BaseFilterBackend):
                 }
             )
         return queryset.filter(**kwargs) if kwargs else queryset
+
+
+class CharInFilter(django_filters.BaseInFilter, django_filters.CharFilter):
+    pass
 
 
 class SiteFilter(django_filters.FilterSet):
@@ -53,12 +61,14 @@ class AppFilter(django_filters.FilterSet):
     class_name = django_filters.CharFilter(
         field_name="backends", lookup_expr="class_name"
     )
+    name__in = CharInFilter(field_name="name", lookup_expr="in")
 
     class Meta:
         model = AppExchange
         fields = [
             "pk",
             "name",
+            "name__in",
             "owner",
             "site",
             "site_hostname",

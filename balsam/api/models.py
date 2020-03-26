@@ -45,8 +45,8 @@ class Site(BalsamModel):
 
 
 class AppBackend(BalsamModel):
-    site_hostname: str
-    site_path: pathlib.Path
+    site_hostname: Optional[str]
+    site_path: Optional[pathlib.Path]
     site: Union[Site, int]
     class_name: str
 
