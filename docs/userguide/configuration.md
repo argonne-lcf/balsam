@@ -1,12 +1,12 @@
 Configuration
 =============
 
-On using Balsam, a [.balsam]{.title-ref} configuration directory is
+On using Balsam, a `.balsam` configuration directory is
 created in your home folder. This contains an adjustable
-[settings.json]{.title-ref} to control how several Balsam components
+`settings.json` to control how several Balsam components
 behave. The default should look like the following:
 
-``` {.javascript}
+```{.javascript}
 {
     "SCHEDULER_CLASS": "CobaltScheduler",
     "SCHEDULER_SUBMIT_EXE": "/usr/bin/qsub",
@@ -38,25 +38,17 @@ behave. The default should look like the following:
     your own pre-run logic or create a new template and point to it with
     this field.
 
-Customizing the Job Template {#JobTemplate}
+Customizing the Job Template
 ----------------------------
 
-`ApplicationDefinition`{.interpreted-text role="ref"} shows how
-[ApplicationDefinitions]{.title-ref} can set the environment and
-pre/post-processing scripts for each application in your workflow. If
-you want to run some commands at the start of **every job** or set
+If you want to run some commands at the start of **every job** or set
 **global** environment variables, you can insert this logic in the job
 template.
 
-For instance, suppose that [\~/libs/myLib]{.title-ref} needs to be
-copied to a local SSD on each compute node at the start of every job in
-your workflow. On the ALCF Theta platform, this is easily accomplished
-by inserting one line:
-`aprun -n $COBALT_JOBSIZE -N 1 cp -r ~/libs/myLib /local/scratch`{.bash}
-before the [balsam launcher]{.title-ref} command is invoked to start
-executing your workflow. A complete example is shown below.
+An example of copying some data to the SSDs at the beginning of a job
+on ALCF Theta is shown below.
 
-``` {.bash}
+```.bash
 #!/bin/bash -x
 #COBALT -A {{ project }}
 #COBALT -n {{ nodes }}
@@ -83,19 +75,13 @@ balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes
 source balsamdeactivate
 ```
 
-::: {.warning}
-::: {.title}
-Warning
-:::
-
-It is best to avoid exporting global [LD\_LIBRARY\_PATH]{.title-ref} or
-[PYTHONPATH]{.title-ref} variables in your Job Template, because these
-are inherited by all tasks in the workflow and often clobber how shared
-libraries or Python packages are loaded, respectively. [If your codes
-are properly linked](http://xahlee.info/UnixResource_dir/_/ldpath.html)
-and Python packages are properly installed into isolated environments,
-it is rarely necessary to set these variables. If you must, it\'s much
-better to set them in the Application [envscript]{.title-ref} to prevent
-polluting the global environment (see
-`ApplicationDefinition`{.interpreted-text role="ref"}).
-:::
+!!! warning
+    Avoid exporting global `LD_LIBRARY_PATH` or
+    `PYTHONPATH` variables in your Job Template, because these
+    are inherited by all tasks in the workflow and often clobber how shared
+    libraries or Python packages are loaded. [If your codes
+    are properly linked](http://xahlee.info/UnixResource_dir/_/ldpath.html)
+    and Python packages are properly installed into isolated environments,
+    it is rarely necessary to set these variables. If you must, it's much
+    better to set them in the Application `envscript` to prevent
+    polluting the global environment (see the [applications guide](app.md) for more details).

@@ -13,7 +13,7 @@ nav:
     - "DeepHyper": tutorial/deephyper.md
     - "NWChem: Parameter Sweep": tutorial/nwchem.md
     - "Containerizing Single-node MPI Applications": tutorial/nwcontainer.md
-  - "FAQs & Common Recipes":
+  - FAQs & Common Recipes:
       - Hyperparameter Optimization: faq/dl-hps.md
       - Frequently Asked Questions: faq/recipes.md
 
@@ -30,6 +30,7 @@ theme:
 
 markdown_extensions:
   - admonition
+  - codehilite
 
 extra_css: [extra.css]
 

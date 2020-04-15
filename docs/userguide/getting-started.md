@@ -28,13 +28,9 @@ while a different version of Python runs in the backend.
 ### Cooley (@ALCF)
 
 ```console
-$ soft add +anaconda
-$ conda config --add channels intel
-$ conda create -p ~/BalsamEnv intelpython3_core python=3.6
-$ source activate ~/BalsamEnv
-
-$ conda install mpi4py
-$ pip install balsam-flow
+$ source /soft/datascience/balsam/setup.sh
+$ which balsam
+/soft/datascience/balsam/env/bin/balsam
 ```
 
 Installation
@@ -53,21 +49,15 @@ $ pip install --upgrade pip setuptools
 
 Some Balsam components require
 [mpi4py](https://github.com/mpi4py/mpi4py), so it is best to install
-Balsam in an environment with [mpi4py]{.title-ref} already in place and
-configured for your platform. **At the minimum**, a working MPI
-implementation and [mpicc]{.title-ref} compiler wrapper should be in the
-search path, in which case the [mpi4py]{.title-ref} dependency will
-automatically build and install.
-
-[cython](https://github.com/cython/cython) is also used to compile some
-CPU-intensive portions of the Balsam service. While the Cython
-dependency will also be installed if it's absent, it is preferable to
-have an existing version built with your platform-tuned compiler
-wrappers.
+Balsam in an environment with mpi4py already in place. 
+**At the minimum**, a working MPI
+implementation and `mpicc` compiler wrapper should be in the
+search path, in which case `pip install balsam-flow` will automatically build 
+`mpi4py`. 
 
 Finally, Balsam requires PostgreSQL version 9.6.4 or newer to be
 installed. You can verify that PostgreSQL is in the search
-[PATH]{.title-ref} and the version is up-to-date with:
+`PATH` and the version is up-to-date with:
 
 ```console
 $ pg_ctl --version
@@ -76,7 +66,7 @@ $ pg_ctl --version
 It's very easy to get the [PostgreSQL
 binaries](https://www.enterprisedb.com/download-postgresql-binaries) if
 you don't already have them. Simply adding the PostgreSQL
-[bin/]{.title-ref} to your search PATH should be enough to use Balsam
+`bin/` to your search `PATH` should be enough to use Balsam
 without having to bother a system administrator.
 
 ### Installation from PyPI
@@ -87,9 +77,9 @@ $ pip install balsam-flow
 
 ### Create a Balsam DB to start working
 
-You can use the command line to start working with Balsam. [balsam
-init]{.title-ref} is used to create a new database at the specified
-path. [source balsmactivate]{.title-ref} takes a database path (or
+You can use the command line to start working with Balsam. `balsam
+init` is used to create a new database at the specified
+path. `source balsmactivate` takes a database path (or
 unique substring) and starts up the database.
 
 ```console

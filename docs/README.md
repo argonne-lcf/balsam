@@ -1,8 +1,5 @@
-<p align="center">
-<a href="https://balsam.readthedocs.io">
-<img align="center" src="docs/_static/logo/small3.png" style="border: 0;">
-</a>
-</p>
+![Balsam](img/small3.png "Logo Title Text 1")
+
 
 ![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/balsam-alcf/balsam.svg?label=version)
 [![Documentation Status](https://readthedocs.org/projects/balsam/badge/?version=latest)](https://balsam.readthedocs.io/en/latest/?badge=latest)
@@ -17,8 +14,8 @@ care of reserving compute resources in response to changing workloads.  The
 **launcher** fetches tasks and executes the workflow on its allocated
 resources.
 
-Balsam is designed to minimize user "buy-in" and cognitive overhead. You
-don't have to learn an API or write any glue code to acheive throughput with
+Balsam requires minimal "buy-in" and works with any type of existing application.
+You don't have to learn an API or write any glue code to acheive throughput with
 existing applications. On systems with Balsam installed, it's arguably faster
 and easier for a beginner to run an ensemble using Balsam than
 by writing an ensemble job script:
@@ -59,6 +56,7 @@ it's not necessary to install Balsam yourself:
 |Location | System | Command|
 |---------|--------|-------|
 |ALCF     | Theta | `module load balsam` |
+|ALCF     | Cooley | `source /soft/datascience/balsam/setup.sh` |
 
 ## Installation
 
