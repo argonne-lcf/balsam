@@ -84,11 +84,6 @@ and configured for your platform.  **At the minimum**, a working MPI
 implementation and `mpicc` compiler wrapper should be in the search path, in
 which case the `mpi4py` dependency will automatically build and install.
 
-[cython](https://github.com/cython/cython) is also used to compile some
-CPU-intensive portions of the Balsam service.  While the Cython dependency will
-also be installed if it's absent, it is preferable to have an existing version
-built with your platform-tuned compiler wrappers.
-
 Finally, Balsam requires PostgreSQL version 9.6.4 or newer to be installed. You can verify
 that PostgreSQL is in the search `PATH` and the version is up-to-date with:
 

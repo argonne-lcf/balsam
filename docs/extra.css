@@ -2,3 +2,22 @@ img[alt="Balsam"] {
     display: block;
     margin: 0 auto;
 }
+/*
+a.md-nav__button {
+    display: block;
+    position: absolute !important;
+    left: 0px !important;
+    top: 0px !important;
+}
+label.md-nav__title img {
+    display: block !important;
+    position: absolute;
+    bottom: 0.0rem;
+}
+
+div.md-flex__cell a.md-header-nav__button img[alt="logo"] {
+    width: 38px !important;
+    height: 38px !important;
+    object-fit: contain;
+}
+*/

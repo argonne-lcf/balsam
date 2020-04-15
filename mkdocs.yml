@@ -7,17 +7,13 @@ nav:
       - "The Database": userguide/db.md
       - "Defining Applications": userguide/app.md
       - "Submitting Jobs": userguide/submit.md
-      - "Command Line Interface": userguide/cli.md
       - "Multi-user Collaboration": userguide/multi-user.md
   - Application Tutorials:
     - "DeepHyper": tutorial/deephyper.md
     - "NWChem: Parameter Sweep": tutorial/nwchem.md
     - "Containerizing Single-node MPI Applications": tutorial/nwcontainer.md
-  - FAQs & Common Recipes:
-      - Hyperparameter Optimization: faq/dl-hps.md
-      - Frequently Asked Questions: faq/recipes.md
-
-       
+    - "Using Jupyter (Experimental)": tutorial/balsam_monitor.ipynb
+  - Frequently Asked Questions: faq/recipes.md
   - License: LICENSE.md
 
 
