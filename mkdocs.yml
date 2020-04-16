@@ -23,6 +23,11 @@ theme:
   palette:
     primary: 'teal'
     accent: 'amber'
+  features:
+    - tabs
+    - instant
+  icon: 
+    logo: material/cloud
 
 markdown_extensions:
   - admonition
@@ -35,7 +40,7 @@ repo_url: 'https://github.com/balsam-alcf/balsam'
 
 extra:
   social:
-    - type: 'github'
+    - icon: fontawesome/brands/git-alt
       link: 'https://github.com/balsam-alcf'
 
 plugins:
