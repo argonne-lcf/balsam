@@ -1,17 +1,14 @@
-DeepHyper: Hyperparameter Search on Theta
-=========================================
-
 Keras MNIST-MLP Benchmark
 -------------------------
 
-Let\'s search for optimal hyperparameters in the Keras [MNIST multilayer
+Let's search for optimal hyperparameters in the Keras [MNIST multilayer
 perceptron
 benchmark](https://github.com/keras-team/keras/blob/master/examples/mnist_mlp.py).
-Notice the top-level comment: \"there is *a lot* of margin for parameter
-tuning,\" which underscores how much even a simple model can benefit
-from hyperparameter optimization.
+Notice the top-level comment: "there is *a lot* of margin for parameter
+tuning," which underscores how much even a simple model can benefit from
+hyperparameter optimization.
 
-To start, let\'s set up a clean workspace and download the Keras
+To start, let's set up a clean workspace and download the Keras
 benchmark model and MNIST data.
 
 ``` {.bash}
@@ -34,8 +31,8 @@ $ ls ~/.keras/datasets/mnist.npz
 Defining the Search Space
 -------------------------
 
-Now let\'s have a look at the MNIST-MLP code. We immediately notice some
-arbitrary choices for hyperparameters that we\'d like to vary,
+Now let's have a look at the MNIST-MLP code. We immediately notice some
+arbitrary choices for hyperparameters that we'd like to vary,
 highlighted in the lines below:
 
 ``` {.python}
@@ -84,14 +81,15 @@ hyperparameters:
 > -   choice of optimization algorithm
 
 Suppose we are on a tight budget and are willing to sacrifice a little
-accuracy for significantly fewer hidden units. Let\'s do a search over
+accuracy for significantly fewer hidden units. Let's do a search over
 these hyperparameters, with a highly restricted range on the number of
 hidden units in both layers. In order to define the DeepHyper search
-space over these parameters, we create a `problem.py`{.bash} file that
-defines the search problem. Let\'s set this up by creating the following
+space over these parameters, we create a `problem.py` file that
+defines the search problem. Let's set this up by creating the following
 file:
 
 ``` {.python}
+# problem.py
 from deephyper.benchmark import HpProblem
 Problem = HpProblem()
 
@@ -103,22 +101,20 @@ Problem.add_dim('dropout_2', (0.0, 1.0), 0.2)
 Problem.add_dim('optimizer_type', ['RMSprop', 'Adam'], 'RMSprop')
 ```
 
-Notice that the call to Problem.add\_dim() takes three arguments:
+Notice that the call to `Problem.add_dim()` takes three arguments:
 
-:   -   the hyperparameter name
-    -   the hyperparameter **range**
-    -   the hyperparameter reference value (optional)
+   -   the hyperparameter name
+   -   the hyperparameter **range**
+   -   the hyperparameter reference value (optional)
 
 DeepHyper automatically recognizes the hyperparmeter **type** based on
-the range.
+the range. There are three possibile hyperparameter types:
 
-There are three possibilities:
-
-:   -   **Discrete:** pair of integers (as in *log2\_batch\_size*)
-    -   **Continuous:** pair of floating-point numbers (as in
-        *dropout\_1*)
-    -   **Categorical:** list of any JSON-serializable data, like
-        strings (as in *optimizer\_type*)
+   -   **Discrete:** pair of integers (as in `log2_batch_size`)
+   -   **Continuous:** pair of floating-point numbers (as in
+        `dropout_1`)
+   -   **Categorical:** list of any JSON-serializable data, like
+        strings (as in `optimizer_type`)
 
 Now all we have to do is adjust our model code to accept various points
 in this space, rather than using the fixed set of hyperparmeters in the
@@ -129,25 +125,24 @@ Interfacing to the Model
 
 Getting DeepHyper to call the model code requires a straightforward
 modification of the script. We place the entire model
-build/train/validate code inside a function called `run()`{.bash}, which
+build/train/validate code inside a function called `run()`, which
 accepts one argument: a dictionary of hyperparmeters. The dictionary
-keys will match those defined in the **HpProblem**, and the values can
+keys will match those defined in the `HpProblem`, and the values can
 span the entire problem space.
 
 Of course, the model code must actually unpack the dictionary items and
 use them in configuration of the model build/train process. This is
 illustrated in the code snippet below.
 
-After the model validation step, the `run()`{.bash} function must return
+After the model validation step, the `run()` function must return
 the optimization objective back to DeepHyper. Since the problem is cast
-as a **minimization**, we will return the **negative validation
-accuracy**, which will be equivalent to maximizing accuracy under
-DeepHyper.
+as a maximization, we will return the **validation accuracy** as our
+model quality metric. 
 
 The full, modified model source code should look like the following
-after you have implemented the `run()`{.bash} function (with proper
+after you have implemented the `run()` function (with proper
 signature and return value) and tweaked the model to read in a
-hyperparameter dictionary. The relevant lines are highlighted in yellow.
+hyperparameter dictionary.
 
 ``` {.python}
 from __future__ import print_function
@@ -205,7 +200,7 @@ def run(param_dict):
     score = model.evaluate(x_test, y_test, verbose=0)
     print('Test loss:', score[0])
     print('Test accuracy:', score[1])
-    return -score[1]
+    return score[1]
 ```
 
 Launch an Experiment
@@ -235,27 +230,25 @@ Monitor Execution and Check Results
 
 You can use Balsam to watch when the experiment starts running and track
 how many models are running in realtime. Once the ambs task is RUNNING,
-the `bcd`{.bash} command line tool provides a convenient way to jump to
+the `bcd` command line tool provides a convenient way to jump to
 the working directory, which will contain the DeepHyper log and search
 results in CSV or JSON format. Notice the objective value in the
-second-to-last column of the `results.csv`{.bash} file.
+second-to-last column of the `results.csv` file.
 
-::: {.highlight}
-console
-:::
+```bash
+$ balsam ls
+                              job_id |        name |        workflow | application |   state
+--------------------------------------------------------------------------------------------
+806aa9a8-5028-4409-97c8-4971feb6aa87 | run05-01-19 | mnist_mlp_dh.py | ambs        | RUNNING
 
-    $ balsam ls
-                                  job_id |        name |        workflow | application |   state
-    --------------------------------------------------------------------------------------------
-    806aa9a8-5028-4409-97c8-4971feb6aa87 | run05-01-19 | mnist_mlp_dh.py | ambs        | RUNNING
+$ . bcd 806
+$ balsam ls
+                              job_id |        name |        workflow |      application |        state
+------------------------------------------------------------------------------------------------------
+33ae4062-5a48-4602-8f98-fb645dd0b10a | task0       | mnist_mlp_dh.py | mnist_mlp_dh.run | JOB_FINISHED
+806aa9a8-5028-4409-97c8-4971feb6aa87 | run05-01-19 | mnist_mlp_dh.py | ambs             | RUNNING
+2026a35a-a686-4d34-b6b1-f870514fe0a3 | task1       | mnist_mlp_dh.py | mnist_mlp_dh.run | RUNNING
 
-    $ . bcd 806
-    $ balsam ls
-                                      job_id |        name |        workflow |      application |        state
-    ------------------------------------------------------------------------------------------------------
-        33ae4062-5a48-4602-8f98-fb645dd0b10a | task0       | mnist_mlp_dh.py | mnist_mlp_dh.run | JOB_FINISHED
-        806aa9a8-5028-4409-97c8-4971feb6aa87 | run05-01-19 | mnist_mlp_dh.py | ambs             | RUNNING
-        2026a35a-a686-4d34-b6b1-f870514fe0a3 | task1       | mnist_mlp_dh.py | mnist_mlp_dh.run | RUNNING
-
-    $ ls
-    deephyper.log  results.csv  results.json  run05-01-19.out
+$ ls
+deephyper.log  results.csv  results.json  run05-01-19.out
+```

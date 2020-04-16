@@ -1,8 +1,8 @@
 Containerizing Single Node MPI Applications for High Throughput
 ===============================================================
 
-In this article, I\'ll demonstrate how MPI applications can be
-containerized and run under the Balsam [serial]{.title-ref} job mode on
+In this article, I'll demonstrate how MPI applications can be
+containerized and run under the Balsam `serial` job mode on
 Theta. This approach enables **significantly higher throughput for a
 large number of single-node jobs that use MPI to scale across the cores
 of each KNL node**. This is particuarly important for users of certain
@@ -17,22 +17,24 @@ Understanding Balsam Job Modes
 
 Suppose you need to use Theta to crank through a very large number of
 small simulations. The MPI job mode of Balsam works by launching several
-concurrent [apruns]{.title-ref} and monitoring the status of each
+concurrent `apruns` and monitoring the status of each
 process. This MPI job mode is the *only* way to run codes built with
 Cray MPI, because initializing communications requires coordinating with
-Cray\'s Application Level Placement Scheduler (ALPS). When applications
-use at least \~4 nodes and take \~1 minute to run, the MPI job mode of
+Cray's Application Level Placement Scheduler (ALPS). When applications
+use at least 4 nodes and take 1 minute to run, the MPI job mode of
 Balsam poses no bottlenecks to your workflow.
 
 For smaller or shorter jobs, we start to feel two limitations of this
 launch mode. First, Theta supports a maximum of 1000 concurrent apruns
 per job. That means even if you have 2 million+ single node
-calculations, each batch job must be limited to 1000 nodes. (The natural
-workaround with Balsam is to submit several \~800 node MPI-mode jobs,
-and allow them process your workload cooperatively.) The second
+calculations, each batch job must be limited to 1000 nodes. A natural
+workaround with Balsam is to submit several 800 node MPI-mode jobs,
+and allow them process your workload cooperatively. 
+
+The second
 limitation of the MPI job mode is a 100 ms delay between subsequent
 application launches. Assuming a target maximum of 800
-[apruns]{.title-ref} sustained in an 800-node job, it will take about 80
+`apruns` sustained in an 800-node job, it will take about 80
 seconds to ramp up to full utilization. If applications take several
 minutes to run or their completion is fairly staggered, this latency is
 hardly noticed. For significantly faster applications, you might find
@@ -40,7 +42,7 @@ some that some fraction of the nodes are idle on average, due to
 application startup time losses.
 
 Generally speaking, the MPI-mode becomes a bottleneck for very small or
-short runs. Balsam\'s [serial]{.title-ref} job mode can be much faster
+short runs. Balsam's `serial` job mode can be much faster
 and scale to the entire machine in a single allocation, because the
 launcher wraps the execution of all tasks under a single MPI runtime
 launched at the beginning of the job. Unfortunately, the serial job mode
@@ -53,28 +55,28 @@ Containerizing NWChem 6.8+OpenMPI
 
 If we plan to run single-node instances of our MPI app, we *still* want
 MPI for parallelism across CPU cores. If we could avoid linking the code
-with the Cray MPI stack, we would be able to run in Balsam\'s
-[serial]{.title-ref} job mode, since a generic MPI initialization would
-be unaware of the interconnect and not try to reach ALPS. Here, I\'ll
+with the Cray MPI stack, we would be able to run in Balsam's
+`serial` job mode, since a generic MPI initialization would
+be unaware of the interconnect and not try to reach ALPS. Here, I'll
 show how Singularity can be leveraged on Theta to run an application
 built with generic MPI inside a container.
 
-The example we\'ll follow here is for NWChem 6.8. Fortunately, Dr. Apra
+The example we'll follow here is for NWChem 6.8. Fortunately, Dr. Apra
 at PNNL has contributed several examples of Dockerfiles for NWChem
-builds to the official Github repository. We\'ll start with a build that
+builds to the official Github repository. We'll start with a build that
 uses the generic [sockets ARMCI
 implementation](https://github.com/nwchemgit/nwchem-dockerfiles/blob/master/nwchem-681.fedora.sockets/Dockerfile).
 This Dockerfile builds NWChem in a Fedora image with completely generic
 OpenMPI and Scalapack libraries, so it should be fairly portable and
 interconnect-agnostic. One important change for compatibility with the
 Singularity runtime, which does not allow setting UID on Theta, is to
-remove the [USER]{.title-ref} instruction from the Dockerfile. Instead
-of creating an [nwchem]{.title-ref} user and building inside their home
-directory in the Docker image, we\'ll do it the canonical Singularity
-way and build our app under [/nwchem]{.title-ref} of the Singularity
+remove the `USER` instruction from the Dockerfile. Instead
+of creating an `nwchem` user and building inside their home
+directory in the Docker image, we'll do it the canonical Singularity
+way and build our app under `/nwchem` of the Singularity
 image root path.
 
-Here\'s the modified Dockerfile that I used:
+Here's the modified Dockerfile that I used:
 
 ``` {.bash}
 FROM        fedora:27
@@ -131,25 +133,23 @@ RUN         cd /nwchem; git clone -b hotfix/release-6-8 https://github.com/nwche
 ENTRYPOINT  ["/bin/bash"]
 ```
 
-The container was built with Docker Desktop for Mac OS, using
-`docker build -t nwchem-681.fedora.sockets .`{.interpreted-text
-role="bash"}
-
-After building and pushing to Docker Hub, getting the Singularity image
-on Theta required only a simple [singularity pull]{.title-ref} command.
+The container was built with Docker Desktop for Mac OS, using `docker build
+-t nwchem-681.fedora.sockets .`. After building and pushing to Docker Hub,
+getting the Singularity image on Theta required only a simple `singularity
+pull` command.
 
 Registering the Balsam ApplicationDefinition
 --------------------------------------------
 
-Let\'s set up a flexible Balsam App and factory function to dispatch
+Let's set up a flexible Balsam App and factory function to dispatch
 NWChem runs with this container. The following assumes an activated
 Balsam DB and that the current directory contains the pulled Singularity
-image file [nwchem-681.fedora.sockets\_latest.sif]{.title-ref}. The
-ApplicationDefinition\'s executable will do nothing but call
-[singularity exec]{.title-ref}. We leave it up to our factory function
+image file `nwchem-681.fedora.sockets_latest.sif`. The
+ApplicationDefinition's executable will do nothing but call
+`singularity exec`. We leave it up to our `BalsamJob` factory function
 to set up the rest of the command line as follows:
 
-``` {.python}
+```python
 import os
 from balsam.core.models import BalsamJob, ApplicationDefinition
 
@@ -180,45 +180,44 @@ if __name__ == "__main__":
     )
 ```
 
-The [nw\_job]{.title-ref} function accepts a path to any input file and
-ensures that it\'s visible in the container by setting the appropriate
-readonly bind path. From Balsam\'s point of view, it is launching a
+The `nw_job` function accepts a path to any input file and
+ensures that it's visible in the container by setting the appropriate
+readonly bind path. From Balsam's point of view, it is launching a
 strictly serial (1 node, 1 rank, no-MPI) application. Instead, we pass
-the [nproc]{.title-ref} parameter to [mpirun]{.title-ref} **inside the
+the `nproc` parameter to `mpirun` **inside the
 container** by crafting the commandline arguments on
-[job.args]{.title-ref}. This allows the container\'s OpenMPI to
+`job.args`. This allows the container's OpenMPI to
 parallelize NWChem across cores without Balsam even knowing about it. We
-can call this [nw\_job]{.title-ref} function from anywhere (a login
+can call this `nw_job` function from anywhere (a login
 node, or inside another running job) to programatically dispatch new
 NWChem tasks for given input files. By invoking this script directly, we
-ensure that the corresponding [ApplicationDefinition]{.title-ref} named
-[nwchem]{.title-ref} is created.
+ensure that the corresponding `ApplicationDefinition` named
+`nwchem` is created.
 
 Notice that we also associated this App with a postprocessing step and
-an envscript for setting up the Application\'s environment. The
+an envscript for setting up the Application's environment. The
 postprocessing step lets us implement a quick error handling/retry step
 for jobs that failed due to an intermittent bug with Singularity on
-Theta. Sometimes, the [getpwuid]{.title-ref} system call, which is used
-to get the current user\'s UID and home directory, fails when invoked
+Theta. Sometimes, the `getpwuid` system call, which is used
+to get the current user's UID and home directory, fails when invoked
 from the compute nodes. We can catch the error message and tell Balsam
-this was not our fault to try the job again. The [post.py]{.title-ref}
-should look as follows **and have the executable permission bit set**
+this was not our fault to try the job again. The `post.py`
+should look as follows (with executable permission bit set!)
 
-``` {.python}
+```python
 #!/usr/bin/env python
 from balsam.launcher.dag import current_job
 
 if current_job.state == "RUN_ERROR":
-    stdout = open(current_job.name+'.out').read() # read the stdout/stderr located in current workdir
+    stdout = open(current_job.name+'.out').read() # read output from current workdir
     if 'unknown userid' in stdout:
         current_job.update_state("RESTART_READY", "detected getpwuid error; retrying...")
 ```
 
-The [envscript]{.title-ref} sets [LD\_LIBRARY\_PATH]{.title-ref}, which
-is propagated inside the container (no need for the
-[SINGULARITYENV\_]{.title-ref} prefix), and sets some additional
-environment variables in an attempt to mitigate the
-[getpwuid]{.title-ref} issue on Theta.
+The `envscript` sets `LD_LIBRARY_PATH`, which is propagated inside the
+container (no need for the `SINGULARITYENV_` prefix), and sets some
+additional environment variables in an attempt to mitigate the `getpwuid`
+issue on Theta.
 
 ``` {.bash}
 export SINGULARITYENV_HOME=/home/msalim # your home directory here
@@ -233,36 +232,28 @@ Checking single-node performance inside the container
 To verify that the ARMCI sockets+OpenMPI build of NWChem was actually
 able to utilize the KNL effectively, I checked the strong scaling of a
 water hexamer MP2/aug-cc-pvdz energy calculation up to 64 ranks (1 for
-each core on the KNL chip). I used [nw\_job]{.title-ref} to add jobs
-with [nproc]{.title-ref} between 1 and 64 ranks, with 3 trials per
+each core on the KNL). I used `nw_job` to add jobs
+with `nproc` between 1 and 64 ranks, with 3 trials per
 number of ranks. The results show a satistfactory speedup of the
-calculation as [nprocs]{.title-ref} is increased, which shows that
+calculation as `nprocs` is increased, which shows that
 running OpenMPI inside Singularity in the Balsam serial job mode is
 actually working:
 
-+-------------+------------------------------+
-| \# of ranks | Average Total Walltime (sec) |
-+=============+==============================+
-| 1           | > 1127                       |
-+-------------+------------------------------+
-| 2           | > 555                        |
-+-------------+------------------------------+
-| 4           | > 287                        |
-+-------------+------------------------------+
-| 8           | > 157                        |
-+-------------+------------------------------+
-| 16          | > 93                         |
-+-------------+------------------------------+
-| 32          | > 64                         |
-+-------------+------------------------------+
-| 64          | > 50                         |
-+-------------+------------------------------+
+| \# of ranks | Average walltime (sec) |
+| ------------| ----------------------------|
+| 1           |  1127                       |
+| 2           |  555                        |
+| 4           |  287                        |
+| 8           |  157                        |
+| 16          |  93                         |
+| 32          |  64                         |
+| 64          |  50                         |
 
 If you are paying attention, the strong scaling efficiency drops from
 90% at 8 cores to 35% at 64 cores. This is not surprising given the
 small system size, completely unoptimized build of NWChem on a MacBook,
 and no attention paid to I/O or memory settings in the input file. The
-important point is that using the container\'s OpenMPI to scale on the
+important point is that using the container's OpenMPI to scale on the
 KNL does provide a signficant and reproducible speedup, all the way up
 to 64 ranks. There is certainly room for optimization here. The input
 file used for this test is provided below.
@@ -298,13 +289,13 @@ task mp2 energy
 Acheiving throughput on 2048 nodes
 ----------------------------------
 
-Finally, you should uncomment [export
-MPICH\_GNI\_FORK\_MODE=FULLCOPY]{.title-ref} in your Balsam job template
-in [\~/.balsam/job-templates/theta.cobaltscheduler.tmpl]{.title-ref}.
+Finally, you should uncomment `export
+MPICH_GNI_FORK_MODE=FULLCOPY` in your Balsam job template
+in `~/.balsam/job-templates/theta.cobaltscheduler.tmpl`.
 This flag mitigates an issue in the Cray MPI stack that arises when
 Balsam (or any other application) spawns child processes at scale. You
 can now populate your Balsam database with up to *millions* of NWChem
-tasks, and use [balsam submit-launch \--job-mode=serial]{.title-ref} to
+tasks, and use `balsam submit-launch --job-mode=serial` to
 submit several (up to 20) default queue jobs with no limit on the number
 of requested nodes.
 
@@ -318,7 +309,7 @@ history metadata and get a quick look at the throughput of jobs. To get
 a first look at throughput, the following code snippet can be used to
 trace the number of completed job events over time:
 
-``` {.python}
+```python
 from matplotlib import pyplot as plt
 from balsam.core import models
 
@@ -333,13 +324,13 @@ from the snippet above:
 ![Number of completed tasks versus time. Close to 10,000 tasks were
 completed in a prior test job. This plot is zoomed in on the duration of
 the 2048 node experiment, in which 22,765 tasks completed over an 8
-minute span.](figs/nwcont-thru.png){.align-center}
+minute span.](figs/nwcont-thru.png)
 
 Dividing the 16,384 node-minutes by 22,765 completed tasks, the total
 node-time per calculation comes to 43 node-seconds. Given that the
 actual walltime spent in NWChem is 9 seconds, there is a substantial
 overhead here. The loss in efficiency can partially be attributed to the
-[FULLCOPY]{.title-ref} fork mode, which has a significant impact on
+`FULLCOPY` fork mode, which has a significant impact on
 subprocess startup time. There is an open ticket with Cray to look at
 resolving this issue. We will continue to look at other potential
 bottlenecks in the Balsam serial job executor and Singularity startup
