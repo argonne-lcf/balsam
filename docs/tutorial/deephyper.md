@@ -8,12 +8,13 @@ Notice the top-level comment: "there is *a lot* of margin for parameter
 tuning," which underscores how much even a simple model can benefit from
 hyperparameter optimization.
 
-To start, let's set up a clean workspace and download the Keras
+To start on Theta, let's set up a clean workspace and download the Keras
 benchmark model and MNIST data.
 
 ``` {.bash}
 # Create a new workspace with a Balsam DB
-$ module load deephyper
+$ module unload balsam   # unload Balsam module: we want to use deephyper which comes with everything
+$ module load deephyper/0.1.6  #  includes Balsam, Tensorflow, Keras, etc...
 $ rm -r ~/.balsam # reset default settings (for now)
 $ mkdir ~/dh-tutorial
 $ cd ~/dh-tutorial
@@ -24,7 +25,7 @@ $ . balsamactivate ./db
 # Run it on the login node  just long enough that the dataset can be downloaded
 $ wget https://raw.githubusercontent.com/keras-team/keras/master/examples/mnist_mlp.py
 
-$ python mnist_mlp.py # CTRL+C after download finished and training starts
+$ python -c 'from keras.datasets import mnist; mnist.load_data()' # download dataset on login node
 $ ls ~/.keras/datasets/mnist.npz
 ```
 
@@ -36,7 +37,7 @@ arbitrary choices for hyperparameters that we'd like to vary,
 highlighted in the lines below:
 
 ``` {.python}
-batch_size = 128
+batch_size = 128 # **
 num_classes = 10
 epochs = 20
 
@@ -57,16 +58,16 @@ y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 
 model = Sequential()
-model.add(Dense(512, activation='relu', input_shape=(784,)))
-model.add(Dropout(0.2))
-model.add(Dense(512, activation='relu'))
-model.add(Dropout(0.2))
+model.add(Dense(512, activation='relu', input_shape=(784,))) # **
+model.add(Dropout(0.2)) # **
+model.add(Dense(512, activation='relu')) # **
+model.add(Dropout(0.2)) # **
 model.add(Dense(num_classes, activation='softmax'))
 
 model.summary()
 
 model.compile(loss='categorical_crossentropy',
-              optimizer=RMSprop(),
+              optimizer=RMSprop(), # **
               metrics=['accuracy'])
 ```
 
@@ -93,19 +94,22 @@ file:
 from deephyper.benchmark import HpProblem
 Problem = HpProblem()
 
-Problem.add_dim('log2_batch_size', (5, 10), 7)
-Problem.add_dim('nunits_1', (10, 100), 100)
-Problem.add_dim('nunits_2', (10, 30), 20)
-Problem.add_dim('dropout_1', (0.0, 1.0), 0.2)
-Problem.add_dim('dropout_2', (0.0, 1.0), 0.2)
-Problem.add_dim('optimizer_type', ['RMSprop', 'Adam'], 'RMSprop')
+Problem.add_dim('log2_batch_size', (5, 10))
+Problem.add_dim('nunits_1', (10, 100))
+Problem.add_dim('nunits_2', (10, 30))
+Problem.add_dim('dropout_1', (0.0, 1.0))
+Problem.add_dim('dropout_2', (0.0, 1.0))
+Problem.add_dim('optimizer_type', ['RMSprop', 'Adam'])
+Problem.add_starting_point(
+    log2_batch_size=7, nunits_1=100, nunits_2=20,
+    dropout_1=0.2, dropout_2=0.2, optimizer_type='RMSprop'
+)
 ```
 
-Notice that the call to `Problem.add_dim()` takes three arguments:
+Notice that the call to `Problem.add_dim()` takes two arguments:
 
    -   the hyperparameter name
    -   the hyperparameter **range**
-   -   the hyperparameter reference value (optional)
 
 DeepHyper automatically recognizes the hyperparmeter **type** based on
 the range. There are three possibile hyperparameter types:
@@ -115,6 +119,9 @@ the range. There are three possibile hyperparameter types:
         `dropout_1`)
    -   **Categorical:** list of any JSON-serializable data, like
         strings (as in `optimizer_type`)
+
+The call to `Problem.add_starting_point()` allows us to pass reference configurations that
+will run before any new hyperparameters are sampled in the search.
 
 Now all we have to do is adjust our model code to accept various points
 in this space, rather than using the fixed set of hyperparmeters in the
@@ -144,7 +151,7 @@ after you have implemented the `run()` function (with proper
 signature and return value) and tweaked the model to read in a
 hyperparameter dictionary.
 
-``` {.python}
+```python
 from __future__ import print_function
 
 import keras
@@ -208,22 +215,23 @@ Launch an Experiment
 
 The deephyper Theta module has a convenience script included for quick
 generation of DeepHyper Async Bayesian Model Search (AMBS) search jobs.
-Simply pass the paths to the **mnist\_mlp\_dh.py** script (containing
+Simply pass the paths to the `mnist_mlp_run.py` script (containing
 the **run()** function) and the **problem.py** file as follows:
 
-``` {.bash}
-$ deephyper-ambs  mnist_mlp_dh.py problem.py
+```bash
+$ deephyper balsam-submit -p problem.py -r mnist_mlp_run.py -t 20 -q debug-cache-quad -n 2 -A datascience -j serial hps test-mnist
 ```
 
-You will see the details of the created Balsam job to run the DeepHyper
-AMBS search code. Internally, the DeepHyper execution backend uses the
+The positional arguments `hps` and `test-mnist` denote a Hyperparameter search
+job with the `test-mnist` workflow label. The necessary Balsam application to
+run DeepHyper Asynchronous Model-Based Search (AMBS) is automatically created
+for the job.  You can see the details of the created Balsam job with `balsam
+ls`.  Finally, the launcher script is automatically submitted to Cobalt for the requested
+nodes and walltime in serial job mode (`-j serial`).
+
+When the job starts running, the DeepHyper execution backend will use the
 Balsam API to identify how many compute nodes are available and spawn
-model evaluation tasks dynamically. To start the search, simply dispatch
-a launcher job with as many nodes as you like:
-
-``` {.bash}
-$ balsam submit-launch -n 8 -t 60 -A Project -q Queue --job-mode=serial
-```
+model evaluation tasks dynamically.
 
 Monitor Execution and Check Results
 -----------------------------------
