@@ -9,8 +9,11 @@ nav:
       - "Submitting Jobs": userguide/submit.md
       - "Multi-user Collaboration": userguide/multi-user.md
   - Application Tutorials:
-    - "DeepHyper": tutorial/deephyper.md
+    - "Introduction": tutorial/workshop.md
+    - "The Balsam CLI": tutorial/cli.md
+    - "Using the Python API": tutorial/api.md
     - "NWChem: Parameter Sweep": tutorial/nwchem.md
+    - "DeepHyper": tutorial/deephyper.md
     - "Containerizing Single-node MPI Applications": tutorial/nwcontainer.md
     - "Using Jupyter (Experimental)": tutorial/balsam_monitor.ipynb
   - Frequently Asked Questions: faq/recipes.md
