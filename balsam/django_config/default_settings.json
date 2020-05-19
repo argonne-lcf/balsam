@@ -17,6 +17,6 @@
  "LOG_FILE_SIZE_LIMIT": 104857600,
 
  "QUEUE_POLICY": "theta_policy.ini",
- "JOB_TEMPLATE": "job-templates/bebop.slurm.tmpl"
+ "JOB_TEMPLATE": "job-templates/theta.cobaltscheduler.tmpl"
     
 }
