@@ -11,6 +11,14 @@ import shlex
 import signal
 import time
 import psutil
+_p = psutil.Process()
+try:
+    _p.cpu_affinity([])
+except AttributeError:
+    class MockPsutilProcess:
+        def cpu_affinity(self, list): pass
+    _p = MockPsutilProcess()
+
 
 from mpi4py import MPI
 from django.db import transaction, connections
@@ -82,8 +90,8 @@ class ResourceManager:
             self.job_cache = list(jobquery[:10000])
             self.last_job_fetch = now
             logger.debug(f"Refreshed job cache: {len(self.job_cache)} runnable")
-            if len(self.job_cache) == 0:
-                logger.debug(f'Job cache query\n{jobquery.query}\n')
+            #if len(self.job_cache) == 0:
+            #    logger.debug(f'Job cache query\n{jobquery.query}\n')
 
     def refresh_killed_jobs(self):
         now = time.time()
@@ -192,9 +200,9 @@ class ResourceManager:
         stat = MPI.Status()
         for rank in self.recv_requests:
             req = self.recv_requests[rank]
-            logger.debug(f"calling req.test() on rank {rank}'s request...")
+            #logger.debug(f"calling req.test() on rank {rank}'s request...")
             done, msg = req.test(status = stat)
-            logger.debug(f"req.test() call completed:\ndone = {done}\nmsg = {msg}")
+            #logger.debug(f"req.test() call completed:\ndone = {done}\nmsg = {msg}")
             if done:
                 completed_requests.append((stat.source, msg))
                 assert stat.source == rank
@@ -464,7 +472,6 @@ class Worker:
         outfile = open(os.path.join(workdir, out_name), 'wb')
         self.outfiles[pk] = outfile
         try:
-            _p = psutil.Process()
             # Set this job's affinity:
             _p.cpu_affinity(self.job_specs[pk]['used_affinity'])
             proc = Popen(args, stdout=outfile, stderr=STDOUT,
@@ -590,9 +597,9 @@ class Worker:
             if len(statuses) > 0 or len(started_pks) > 0:
                 msg = self.write_message(statuses)
                 msg['started'] = started_pks
-                logger.debug(f"rank {RANK} sending request to master...")
+                #logger.debug(f"rank {RANK} sending request to master...")
                 comm.send(msg, dest=0)
-                logger.debug(f"rank {RANK} send done")
+                #logger.debug(f"rank {RANK} send done")
 
         self.exit()
 
