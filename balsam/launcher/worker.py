@@ -1,11 +1,4 @@
-'''Worker: Abstraction for the compute unit running a job.
-Theta: 1 worker = 1 node
-BG/Q: 1 worker = 1 subblock
-Default: 1 worker = local host machine
-
-Workers contain any identifying information needed to assign jobs to specific
-workers (e.g. via "mpirun") and the WorkerGroup keeps track of all busy and
-idle workers available in the current launcher instance'''
+from django.conf import settings
 from balsam.service.schedulers import JobEnv
 from balsam.launcher import mpi_commands
 import logging
@@ -43,13 +36,33 @@ class WorkerGroup:
             - ``workers_file``: system-specific file identifying compute
               resources
         '''
-        self.host_type = JobEnv.host_type
+        self.host_type = settings.WORKER_DETECTION_TYPE
         self.workers_str = JobEnv.workers_str
         self.workers_file = JobEnv.workers_file
         self.workers = []
-        self.setup = getattr(self, f"setup_{self.host_type}")
+
+        try:
+            self.setup = getattr(self, f"setup_{self.host_type}")
+        except AttributeError as e:
+            raise RuntimeError(
+                "~/.balsam/settings.json contains an invalid value for "
+                "WORKER_DETECTION_TYPE. Please choose a value that's "
+                "listed in launcher/worker.py"
+            ) from e
+
         self.setup()
-        self.mpi_cmd = mpi_commands.MPIcmd()
+        
+        mpirun_class_name = settings.MPI_RUN_TEMPLATE
+        try:
+            mpirun_class = getattr(mpi_commands, mpirun_class_name)
+        except AttributeError as e:
+            raise RuntimeError(
+                "~/.balsam/settings.json contains an invalid value for "
+                "MPI_RUN_TEMPLATE.  Please choose a class name that's "
+                " listed in launcher/mpi_commands.py"
+            ) from e
+        else:
+            self.mpi_cmd = mpirun_class()
 
         logger.info(f"Built {len(self.workers)} {self.host_type} workers")
         for worker in self.workers:

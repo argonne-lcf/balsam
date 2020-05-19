@@ -350,6 +350,7 @@ class JobSource(models.Manager):
 
         runnable = self.by_states(RUNNABLE_STATES)
         runnable = runnable.filter(num_nodes__lte=max_nodes)
+        runnable = runnable.filter(lock='')
 
         if remaining_minutes is not None:
             try:

@@ -181,5 +181,3 @@ class SLURMMPICommand(MPICommand):
         num = len(workers)
         return f"--nodelist {','.join(str(worker.id) for worker in workers)} --nodes {num} "
 
-
-MPIcmd = SLURMMPICommand

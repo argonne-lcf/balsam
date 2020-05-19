@@ -20,7 +20,6 @@ class JobEnvironment:
         self.scheduler_vars = scheduler.SCHEDULER_VARIABLES
         self.pid = os.getpid()
         self.hostname = gethostname()
-        self.host_type = 'SLURM'
         self.current_scheduler_id = None
         self.num_workers = 1
         self.workers_str = None
@@ -33,11 +32,6 @@ class JobEnvironment:
         except (NoQStatInformation, TypeError, KeyError):
             pass
         self._last_check_seconds = time.time()
-
-        for host_type, known_names in self.RECOGNIZED_HOSTS.items():
-            if any(self.hostname.find(name) >= 0 for name in known_names):
-                self.host_type = host_type
-        logger.debug(f"Recognized host_type: {self.host_type}")
 
     def get_env(self):
         '''Check for environment variables (e.g. COBALT_JOBID) indicating
