@@ -184,16 +184,18 @@ def validate_state(value):
         raise InvalidStateError(f"{value} is not a valid state in balsam.models")
 
 
-def get_time_string():
-    return timezone.now().strftime(TIME_FMT)
+def get_time_string(timestamp):
+    if timestamp is None:
+        timestamp = timezone.now()
+    return timestamp.strftime(TIME_FMT)
 
 
 def from_time_string(s):
     return datetime.strptime(s, TIME_FMT)
 
 
-def history_line(state='CREATED', message=''):
-    return f"\n[{get_time_string()} {state}] ".rjust(46) + message
+def history_line(state='CREATED', message='', timestamp=None):
+    return f"\n[{get_time_string(timestamp)} {state}] ".rjust(46) + message
 
 
 def safe_select(queryset):
@@ -755,10 +757,25 @@ class BalsamJob(models.Model):
             update_jobs.update(state=new_state,
                                state_history=Concat('state_history', V(msg)))
 
-    def update_state(self, new_state, message=''):
+    @classmethod
+    def bulk_update_states(cls, pk_timestamp_map, new_state, state_msg=""):
+        fields = ['state', 'state_history']
+        with transaction.atomic():
+            pk_list = pk_timestamp_map.keys()
+            jobs = safe_select(BalsamJob.objects.filter(job_id__in=pk_list))
+            for job in jobs:
+                job.state = new_state
+                msg = history_line(
+                    new_state, state_msg, pk_timestamp_map[job.pk]
+                )
+                job.state_history += msg
+            BalsamJob.objects.bulk_update(jobs, fields)
+
+
+    def update_state(self, new_state, message='', timestamp=None):
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
-        msg = history_line(new_state, message)
+        msg = history_line(new_state, message, timestamp)
         self.state = new_state
         self.state_history += msg
         self.save(update_fields=['state', 'state_history'])

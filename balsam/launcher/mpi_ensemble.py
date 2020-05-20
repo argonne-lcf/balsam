@@ -28,6 +28,7 @@ setup()
 from balsam.launcher.util import get_tail, remaining_time_minutes
 from balsam.core.models import BalsamJob, safe_select, PROCESSABLE_STATES
 from django.conf import settings
+from django.utils import timezone
 
 SERIAL_CORES_PER_NODE = settings.SERIAL_CORES_PER_NODE
 SERIAL_HYPERTHREAD_STRIDE = settings.SERIAL_HYPERTHREAD_STRIDE
@@ -213,18 +214,18 @@ class ResourceManager:
 
     def serve_requests(self):
         requests = self._get_requests()
-        done_jobs = []
-        error_jobs = []
+        started_jobs = {}
+        done_jobs = {}
+        error_jobs = {}
         killed_pks = []
-        start_pks = []
         for rank, msg in requests:
             kill_pks = self._handle_ask(rank, msg['ask'])
             killed_pks.extend(kill_pks)
-            done_jobs.extend(msg['done'])
-            error_jobs.extend(msg['error'])
-            start_pks.extend(msg['started'])
+            started_jobs.update(msg['started'])
+            done_jobs.update(msg['done'])
+            error_jobs.update(msg['error'])
 
-        if start_pks: self._handle_starts(start_pks)
+        if started_jobs: self._handle_starts(started_jobs)
         if done_jobs:  self._handle_dones(done_jobs)
         if error_jobs: self._handle_errors(error_jobs)
         if killed_pks: self.job_source.release(killed_pks)
@@ -242,28 +243,39 @@ class ResourceManager:
 
         return self.outbox[rank]['kill_pks']
 
-    def _handle_dones(self, done_pks):
-        for pk in done_pks:
+    def _handle_dones(self, done_jobs):
+        for pk in done_jobs:
             rank = self.running_locations[pk]
             self.revert_assign(rank, pk)
 
-        BalsamJob.batch_update_state(done_pks, 'RUN_DONE')
-        self.job_source.release(done_pks)
-        logger.info(f"RUN_DONE: {len(done_pks)} jobs")
+        BalsamJob.bulk_update_states(
+            {pk: dat["timestamp"] for pk,dat in done_jobs.items()},
+            'RUN_DONE'
+        )
+        self.job_source.release(list(done_jobs.keys()))
+        logger.info(f"RUN_DONE: {len(done_jobs)} jobs")
 
-    def _handle_starts(self, start_pks):
-        BalsamJob.batch_update_state(start_pks, 'RUNNING', self.RUN_MESSAGE)
+    def _handle_starts(self, started_jobs):
+        BalsamJob.bulk_update_states(
+            started_jobs, 'RUNNING', self.RUN_MESSAGE
+        )
 
     @transaction.atomic
     def _handle_errors(self, error_jobs):
-        error_pks = [j[0] for j in error_jobs]
+        error_pks = list(error_jobs.keys())
         safe_select(BalsamJob.objects.filter(pk__in=error_pks))
-        for pk,retcode,tail in error_jobs:
+
+        for pk, errData in error_jobs.items():
+            retcode = errData["retcode"]
+            err_tail = errData["tail"]
+            err_time = errData["timestamp"]
+            
             rank = self.running_locations[pk]
             self.revert_assign(rank, pk)
+
             job = BalsamJob.objects.get(pk=pk)
-            state_msg = f"nonzero return {retcode}: {tail}"
-            job.update_state('RUN_ERROR', state_msg)
+            state_msg = f"nonzero return {retcode}: {err_tail}"
+            job.update_state('RUN_ERROR', state_msg, err_time)
         self.job_source.release(error_pks)
 
     def send_exit(self):
@@ -395,10 +407,8 @@ class Worker:
 
     def _check_retcodes(self):
         pk_retcodes = []
-        for pk, proc in self.processes.items():
-            retcode = self._check_retcode(proc)
-            pk_retcodes.append((pk, retcode))
-        return pk_retcodes
+        for pk, proc in list(self.processes.items()):
+            yield (pk, self._check_retcode(proc))
 
     def _log_error_tail(self, pk, retcode):
         fname = self.outfiles[pk].name
@@ -492,13 +502,18 @@ class Worker:
 
         if not self._can_retry(pk, retcode):
             self._cleanup_proc(pk)
-            return (retcode, tail)
+            return {
+                'state': 'error',
+                'retcode': retcode,
+                'tail': tail,
+                'timestamp': timezone.now()
+            }
         else:
             self.outfiles[pk].close()
             self.start_times[pk] = time.time()
             self.retry_counts[pk] += 1
             self._launch_proc(pk)
-            return 'running'
+            return {'state': 'running'}
 
     def log_prefix(self, pk=None):
         prefix = f'rank {RANK} '
@@ -506,31 +521,35 @@ class Worker:
         return prefix
 
     def write_message(self, job_statuses):
-        msg = {'ask' : [], 'done' : [], 'error': []}
+        msg = {'ask' : [], 'done' : {}, 'error': {}}
         num_jobs = len(job_statuses)
         num_errors = len([
             s for s in job_statuses.values()
-            if s not in ["running","done"]
+            if s["state"] not in ["running","done"]
         ])
         max_tail = (MSG_BUFSIZE - 110*num_jobs) // max(1,num_errors)
-        for pk, status in job_statuses.items():
-            if status == 'running':
+
+        for pk, statusDict in job_statuses.items():
+            state = statusDict["state"]
+            if state == 'running':
                 msg['ask'].append(pk)
-            elif status == 'done':
-                msg['done'].append(pk)
+            elif state == 'done':
+                msg['done'][pk] = statusDict
             else:
-                retcode, tail = status
-                tail = tail[-max_tail:]
-                msg['error'].append((pk, retcode, tail))
+                statusDict["tail"] = statusDict["tail"][-max_tail:]
+                msg['error'][pk] = statusDict
         return msg
 
     def update_processes(self):
         statuses = {}
         for pk, retcode in self._check_retcodes():
             if retcode is None:
-                statuses[pk] = 'running'
+                statuses[pk] = {'state': 'running'}
             elif retcode == 0:
-                statuses[pk] = 'done'
+                statuses[pk] = {
+                    'state': 'done',
+                    'timestamp': timezone.now()
+                }
                 self._cleanup_proc(pk)
             else:
                 statuses[pk] = self._handle_error(pk, retcode)
@@ -544,7 +563,7 @@ class Worker:
         sys.exit(0)
 
     def start_jobs(self):
-        started_pks = []
+        started_jobs = {}
 
         for pk, job_spec in self.runnable_cache.items():
             if job_spec["occ"] + self.occupancy > 1.001:
@@ -554,14 +573,14 @@ class Worker:
             self.start_times[pk] = time.time()
             self.retry_counts[pk] = 1
             self._launch_proc(pk)
-            started_pks.append(pk)
+            started_jobs[pk] = timezone.now()
             self.occupancy += job_spec["occ"]
 
         self.runnable_cache = {
             k:v for k,v in self.runnable_cache.items()
-            if k not in started_pks
+            if k not in started_jobs
         }
-        return started_pks
+        return started_jobs
 
     def kill_jobs(self, kill_pks):
         for pk in kill_pks: self._cleanup_proc(pk, timeout=0)
@@ -581,7 +600,7 @@ class Worker:
             if msg.get('new_jobs', {}):
                 self.runnable_cache.update(msg['new_jobs'])
 
-            started_pks = self.start_jobs()
+            started_jobs = self.start_jobs()
 
             if msg.get('kill_pks', []):
                 self.kill_jobs(msg['kill_pks'])
@@ -594,9 +613,9 @@ class Worker:
                 f"[{len(self.runnable_cache)} additional prefetched "
                 f"jobs in cache]"
             )
-            if len(statuses) > 0 or len(started_pks) > 0:
+            if len(statuses) > 0 or len(started_jobs) > 0:
                 msg = self.write_message(statuses)
-                msg['started'] = started_pks
+                msg['started'] = started_jobs
                 #logger.debug(f"rank {RANK} sending request to master...")
                 comm.send(msg, dest=0)
                 #logger.debug(f"rank {RANK} send done")
