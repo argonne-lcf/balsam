@@ -1,9 +1,11 @@
-from django.urls import path, include
-from rest_framework.schemas import get_schema_view
+from django.urls import path, re_path, include
+from rest_framework import permissions
 
 from knox import views as knox_views
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
 from .views.main import (
-    api_root,
     LoginView,
     UserList,
     UserDetail,
@@ -21,12 +23,26 @@ from .views.main import (
     SessionDetail,
 )
 
-schema_view = get_schema_view(title="Balsam API")
+schema_view = get_schema_view(
+    openapi.Info(title="Balsam API", default_version="v1",),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+)
 
 urlpatterns = [
+    # Schema
+    re_path(
+        r"swagger(?P<format>\.json|\.yaml)",
+        schema_view.without_ui(cache_timeout=0),
+        name="schema-json",
+    ),
+    path(
+        r"swagger/",
+        schema_view.with_ui("swagger", cache_timeout=0),
+        name="schema-swagger-ui",
+    ),
+    path(r"redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
     # Auth & Users
-    path("", api_root, name="api-root"),
-    path("schema", schema_view),
     path(r"login", LoginView.as_view(), name="knox-login"),
     path(r"logout", knox_views.LogoutView.as_view(), name="knox-logout"),
     path(r"logoutall", knox_views.LogoutAllView.as_view(), name="knox-logoutall"),

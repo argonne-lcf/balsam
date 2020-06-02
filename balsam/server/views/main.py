@@ -1,11 +1,8 @@
 from django.contrib.auth import get_user_model
-from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy
 
 from rest_framework import generics, permissions
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.decorators import api_view
-from rest_framework.reverse import reverse
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authentication import BasicAuthentication
@@ -32,13 +29,6 @@ from balsam.server.models import Site, AppExchange, Job, BatchJob, EventLog, Job
 
 auth._ = gettext_lazy  # Monkeypatch to avoid a Django deprecation warning
 User = get_user_model()
-
-
-@api_view(["GET"])
-def api_root(request):
-    return redirect(
-        reverse("user-detail", kwargs={"pk": request.user.pk}, request=request)
-    )
 
 
 class IsAuthenticatedOrAdmin(permissions.BasePermission):
@@ -105,7 +95,7 @@ class SiteList(generics.ListCreateAPIView):
         return user.sites.all()
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        return serializer.save(owner=self.request.user)
 
 
 class SiteDetail(generics.RetrieveUpdateDestroyAPIView):

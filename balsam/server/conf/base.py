@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "knox",
+    "drf_yasg",
     "balsam.server.apps.BalsamAppConfig",
 ]
 SECRET_KEY = "not-secret"
