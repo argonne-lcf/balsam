@@ -1,6 +1,11 @@
 site_name: Balsam
 nav:
   - Home: README.md
+  - Development:
+      - Contribution Guide: development/contributing.md
+      - Data Model: development/data-model.md
+      - Site Configuration: development/site-config.md
+      - The Python REST Client: development/client.md
   - Tutorials:
     - "Launching Jobs from a Jupyter Notebook": tutorials/ffn_balsam_interactive.ipynb
   - License: LICENSE.md
@@ -12,6 +17,15 @@ theme:
   palette:
     primary: 'teal'
     accent: 'amber'
+  features:
+    - tabs
+    - instant
+  icon: 
+    logo: material/cloud
+
+markdown_extensions:
+  - admonition
+  - codehilite
 
 extra_css: [extra.css]
 
@@ -26,3 +40,4 @@ extra:
 plugins:
   - mkdocs-jupyter
   - search
+
