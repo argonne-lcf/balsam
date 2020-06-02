@@ -1,4 +1,4 @@
-from .query import Manager
+from .manager_base import Manager
 from .models import (
     Job,
     Site,
