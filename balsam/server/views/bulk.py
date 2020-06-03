@@ -1,5 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.serializers import ValidationError
 from rest_framework.mixins import (
     ListModelMixin,
     CreateModelMixin,
@@ -31,12 +32,18 @@ class BulkUpdateModelMixin(UpdateModelMixin):
 
     def update(self, request, *args, **kwargs):
         qs = self.filter_queryset(self.get_queryset())
+        pk_patches = kwargs.get("pk_patches", False)
+        if not pk_patches:
+            if not isinstance(request.data, dict):
+                raise ValidationError(
+                    "Bulk PUT does not accept list data: provide a dict"
+                )
+            data = [request.data]
+        else:
+            data = request.data
+
         serializer = self.get_serializer(
-            qs,
-            data=request.data,
-            many=True,
-            partial=True,
-            pk_patches=kwargs.get("pk_patches"),
+            qs, data=data, many=True, partial=True, pk_patches=kwargs.get("pk_patches"),
         )
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -65,7 +72,9 @@ class BulkDestroyModelMixin(DestroyModelMixin):
 
         if filtered_count < full_count or destroy_ok:
             self.perform_destroy(qs)
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                {"deleted_count": filtered_count}, status=status.HTTP_204_NO_CONTENT
+            )
 
         msg = (
             "It's dangerous to delete all items. "

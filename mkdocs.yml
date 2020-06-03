@@ -1,6 +1,17 @@
 site_name: Balsam
 nav:
   - Home: README.md
+  - Development:
+      - Contribution Guide: development/contributing.md
+      - Data Model: development/data-model.md
+      - Site Configuration: development/site-config.md
+      - The Python REST Client: development/client.md
+      - Defining Applications: development/appdef.md
+      - JobSource and StatusUpdater: development/jobsource.md
+      - Launcher: development/launcher.md
+      - Service modules: development/service.md
+      - Platform Interfaces: development/platform.md
+      - Roadmap: development/todo.md
   - Tutorials:
     - "Launching Jobs from a Jupyter Notebook": tutorials/ffn_balsam_interactive.ipynb
   - License: LICENSE.md
@@ -12,8 +23,28 @@ theme:
   palette:
     primary: 'teal'
     accent: 'amber'
+  features:
+    - tabs
+    - instant
+  icon: 
+    logo: material/cloud
 
-extra_css: [extra.css]
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences:
+      custom_fences:
+          - name: mermaid
+            class: mermaid
+            format: !!python/name:pymdownx.superfences.fence_div_format
+
+extra_css: 
+  - extra.css
+
+extra_javascript: 
+  - mermaid.min.js
 
 repo_name: 'balsam-alcf/balsam'
 repo_url: 'https://github.com/balsam-alcf/balsam'
@@ -26,3 +57,4 @@ extra:
 plugins:
   - mkdocs-jupyter
   - search
+

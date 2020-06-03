@@ -21,13 +21,14 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "knox",
+    "drf_yasg",
     "balsam.server.apps.BalsamAppConfig",
 ]
 SECRET_KEY = "not-secret"
 
-ROOT_URLCONF = "conf.urls"
+ROOT_URLCONF = "balsam.server.conf.urls"
 
-WSGI_APPLICATION = "conf.wsgi.application"
+WSGI_APPLICATION = "balsam.server.conf.wsgi.application"
 
 DATABASES = {
     "default": {

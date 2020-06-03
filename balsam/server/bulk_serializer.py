@@ -10,6 +10,11 @@ class CachedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
         if self.pk_field is not None:
             data = self.pk_field.to_internal_value(data)
 
+        if not isinstance(data, int):
+            raise serializers.ValidationError(
+                f"{self.field_name} must be an integer ID; not {type(data).__name__}"
+            )
+
         cache = self.context.setdefault(f"{self.field_name}_cache", {})
         if data in cache:
             return cache[data]
@@ -27,8 +32,21 @@ class BulkListSerializer(serializers.ListSerializer):
         self.pk_patches = kwargs.pop("pk_patches", False)
         super().__init__(*args, **kwargs)
 
+        # If pk_patches=True, we are doing a bulk PATCH and need
+        # to accept pk as a writeable field.
         if self.pk_patches:
             self.child.fields["pk"] = serializers.IntegerField(required=True)
+
+            # If there are any nested serializers being updated,
+            # we need to make their pk's writeable, too.
+            names = getattr(self.child.Meta, "nested_update_fields", [])
+            for name in names:
+                nested_serializer = self.child.fields[name]
+                if isinstance(nested_serializer, serializers.ListSerializer):
+                    child = nested_serializer.child
+                else:
+                    child = nested_serializer
+                child.fields["pk"] = serializers.IntegerField(required=True)
 
         if getattr(self, "initial_data", None):
             cache_fields = [
@@ -78,7 +96,7 @@ class BulkListSerializer(serializers.ListSerializer):
             )
         patch_list = list(instance.values("pk"))
         for patch in patch_list:
-            patch.update(validated_data)
+            patch.update(validated_data[0])
         ModelClass = self.child.Meta.model
         res = ModelClass.objects.bulk_update(patch_list)
         return res

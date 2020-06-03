@@ -1,13 +1,15 @@
 """
-ClientAPI: client interface to Balsam server (DB-only or REST-API)
-ClientAPI implementations: handle client setup; resilience
-Query: Mimics Django QuerySet capabilility for Python users
-API: client-facing base models (use Pydantic?)
+Clients: perform requests to Balsam server
 """
+from .rest_base_client import RESTClient
+from .requests_client import RequestsClient
+from .requests_auth import BasicAuthRequestsClient
+from .direct_api_client import DirectAPIClient
 
-from .client import ClientAPI
-from .rest_client import RESTClient
-from .orm_client import DjangoORMClient
-from .postgres_client import PostgresDjangoORMClient
 
-__all__ = ["ClientAPI", "RESTClient", "DjangoORMClient", "PostgresDjangoORMClient"]
+__all__ = [
+    "RESTClient",
+    "RequestsClient",
+    "BasicAuthRequestsClient",
+    "DirectAPIClient",
+]

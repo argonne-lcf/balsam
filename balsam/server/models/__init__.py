@@ -2,7 +2,7 @@ import logging
 from .user import User
 from .site import Site, SiteStatus
 from .app import AppExchange, AppBackend
-from .job import Job, EventLog, JobLock
+from .job import Job, EventLog, JobLock, STATE_CHOICES
 from .transfer import TransferItem
 from .batchjob import BatchJob
 
@@ -21,3 +21,4 @@ MODELS = {
     "TransferItem": TransferItem,
     "BatchJob": BatchJob,
 }
+JOB_STATE_CHOICES = STATE_CHOICES

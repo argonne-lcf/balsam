@@ -44,7 +44,7 @@ class AppManager(models.Manager):
                 f"User {owner.username} already has an App named {name}"
             )
 
-        parameter_tuples = [tuple(app.parameters) for app in existing_apps]
+        parameter_tuples = [tuple(sorted(app.parameters)) for app in existing_apps]
         if len(set(parameter_tuples)) != 1:
             raise ValidationError(f"Cannot merge apps with different parameters")
         parameters = parameter_tuples[0]
