@@ -3,7 +3,7 @@
 Before commiting any changes to the repository, install the development code into a 
 virtual environment and install the **pre-commit** hooks as follows:
 
-```
+```py3
 pip install -e .[dev,server]
 pre-commit install
 ```
