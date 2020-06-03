@@ -16,11 +16,11 @@ service_modules:
             - datascience
         default_project: datascience
         allowed_queues:
-            - default:
+            -   name: default
                 max_nodes: 4096
                 max_walltime: 24h
                 max_queued: 20
-            - debug_cache_quad:
+            -   name: debug_cache_quad
                 max_nodes: 8
                 max_walltime: 1h
                 max_queued: 1

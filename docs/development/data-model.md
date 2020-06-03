@@ -79,6 +79,8 @@ cd balsam/server
 # Navigate to 127.0.0.1:8000/api/swagger in browser
 ```
 
+![Swagger UI](../graphs/swagger.png)
+
 
 The rest of this page gives a condensed overview of the API, with the aim of
 explaining concepts rather than serving as a reference for actual development.
@@ -130,6 +132,9 @@ Generally, Balsam will need two types of Auth to function:
 | `num_idle_nodes`  |  Number of currently idle nodes        | 
 | `num_busy_nodes`  | Number of currently busy nodes         |
 | `backfill_windows`  | JSONField: array of `[queue, num_nodes, wall_time_min]` tuples indicating backfill slots |
+| `optional_batch_job_params` | JSONField used in BatchJob forms/validation `[ {name, default} ]`. Taken from site config. |
+| `allowed_projects` | JSONField used in BatchJob forms/validation: `[ name: str ]` |
+| `allowed_queues` | JSONField used in BatchJob forms/validation: `[ {name, max_nodes, max_walltime, max_queued}  ]` |
 
 ### API
 
@@ -197,7 +202,25 @@ A user only sees Apps linked to Sites which belong to them.
 | Field Name  | Description |
 | -----------  | ----------- |
 | `id ` | Unique App ID |
-
+| `workdir` | Working directory, *relative* to the Site `data/` directory |
+| `tags` | JSON `{str: str}` mappings for tagging and selecting jobs | 
+| `lock` | ForeignKey to `Lock` instance | 
+| `app` | ForeignKey to `App` instance | 
+| `parameters` | JSON `{paramName: paramValue}` for the `App` command template parameters |
+| `batch_job` | ForeignKey to current or most recent `BatchJob` instance in which this `Job` ran |
+| `state` | Current state of the `Job` |
+| `last_update` | Timestamp of last modification to Job | 
+| `data` | Arbitrary JSON data storage |
+| `return_code` | Most recent return code of job | 
+| `parents` | Non-symmetric ManyToMany  Parent --> Child relations between Jobs |
+| `num_nodes` | Number of compute nodes required (> 1 implies MPI usage) |
+| `ranks_per_node` | Number of ranks per node (> 1 implies MPI usage) |
+| `threads_per_rank` | Number of logical threads per MPI rank |
+| `threads_per_core` | Number of logical threads per hardware core | 
+| `cpu_affinity` | Flag describing CPU affinity mode | 
+| `gpus_per_rank` | Number of GPUs per MPI rank |
+| `node_packing_count` | Maximum number of instances that can run on a single node | 
+| `wall_time_min` | Lower bound estimate for runtime of the Job (leaving at default 0 is allowed) |
 
 ### API
 ##### Representation
