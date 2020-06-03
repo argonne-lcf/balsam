@@ -67,6 +67,21 @@ relationship between two tables.
    a separate Table is that it becomes easy to query for aggregate throughput, etc... without
    having to first parse and accumulate timestamps nested inside a `Job` field.
 
+## The REST API
+
+Refer to the interactive and detailed API documentation (URL query parameters, sample
+request and response payloads) for every endpoint at the `/api/swagger/` endpoint:
+
+```bash
+cd balsam/server
+./dev/total-reset.sh
+./manage.py runserver
+# Navigate to 127.0.0.1:8000/api/swagger in browser
+```
+
+
+The rest of this page gives a condensed overview of the API, with the aim of
+explaining concepts rather than serving as a reference for actual development.
 
 ## User API
 
@@ -100,7 +115,7 @@ Generally, Balsam will need two types of Auth to function:
 
 ## Site
 
-### Fields
+### Model Fields
 
 | Field Name  | Description |
 | -----------  | ----------- |
@@ -115,3 +130,83 @@ Generally, Balsam will need two types of Auth to function:
 | `num_idle_nodes`  |  Number of currently idle nodes        | 
 | `num_busy_nodes`  | Number of currently busy nodes         |
 | `backfill_windows`  | JSONField: array of `[queue, num_nodes, wall_time_min]` tuples indicating backfill slots |
+
+### API
+
+##### Representation
+The `owner` field is excluded from the serialized representation.  Created sites
+implicitly belong to the authenticated user, and a user can only view or update
+sites that belong to them.
+
+##### URLs
+
+| HTTP Method | URL | Description | Example usage |
+| ------------| ----- | ---------- | -----   |
+| GET | /api/sites/ | Retrieve the current user's list of sites | A user checks their Balsam site statuses on dashboard | 
+| POST | /api/sites/ | Create a new Site | `balsam init` creates a Site and stores new `id` locally |
+| PUT | /api/sites/{id} | Update Site information | Service daemon syncs `backfill_windows` periodically |
+| DELETE | /api/sites/{id} | Delete Site | User deletes their Site with `balsam rm site` |
+
+## App
+
+### Model Fields
+| Field Name  | Description |
+| -----------  | ----------- |
+| `id ` | Unique App ID |
+| `site` | Foreign Key to `Site` instance containing this App | 
+| `name` | Short name identifying the app. |
+| `description` | Text description (useful in generating Web forms) |
+| `class_path` | Name of `ApplicationDefinition` class in the format: `{module_name}.{class_name}` |
+| `parameters` | A list of command line template parameters. A list of dicts with the structure: `[ {name: str, required: bool, default: str, help: str} ]` |
+| `stage_ins` | A list of stage-in slots with the structure: `[ {name: str, required: bool, dest: str} ]` |
+| `stage_outs` | A list of stage-out slots with the structure: `[ {name: str, required: bool, src: str} ]` |
+
+The `App` model is used to merely *index* the `ApplicationDefinition` classes
+that a user has registered at their Balsam Sites. 
+
+The `parameters` field represents "slots" for each adjustable command line parameter.  
+For example, an `ApplicationDefinition` command template of
+`"echo hello, {{first_name}}!"` would result in an `App` having the `parameters` list: 
+`[ {name: "first_name", required: true, default: "", help: ""} ]`.  None of the Balsam
+site components use `App.parameters` internally; the purpose of mirroring this field in 
+the database is simply to facilitate Job validation and create App-tailored web forms.
+
+Similarly, `stage_ins` and `stage_outs` mirror data on the `ApplicationDefinition` for
+Job input and validation purposes only.
+
+For security reasons, the
+validation of Job input parameters takes place in the site-local `ApplicationDefinition`
+module. Even if a malicious user altered the `parameters` field in the API, they would not
+be able to successfully run a Job with injected parameters.
+
+### API
+##### Representation
+A user only sees Apps linked to Sites which belong to them.
+
+##### URLs
+| HTTP Method | URL | Description | Example usage |
+| ------------| ----- | ---------- | -----   |
+| GET | /api/apps/ | Retrieve the current user's list of Apps | `balsam ls apps` shows Apps across sites |
+| POST | /api/apps/ | Create a new `App` | `balsam app sync` creates new `Apps` from local `ApplicationDefinitions`  |
+| PUT | /api/apps/{id} | Update `App` information | `balsam app sync` updates existing `Apps` with changes from local `ApplicationDefinitions` |
+| DELETE | /api/apps/{id} | Delete `App` | User deletes an `App`; all related `Jobs` are deleted |
+
+## Job
+
+### Model Fields
+| Field Name  | Description |
+| -----------  | ----------- |
+| `id ` | Unique App ID |
+
+
+### API
+##### Representation
+A user only sees Jobs linked to Apps linked to Sites which belong to them.
+
+##### URLs
+| HTTP Method | URL | Description | Example usage |
+| ------------| ----- | ---------- | -----   |
+| GET | /api/jobs/ | Retrieve the current user's list of Jobs | |
+| POST | /api/jobs/ | Create a new `Job` | |
+| PUT | /api/jobs/{id} | Update `Job` information | |
+| DELETE | /api/jobs/{id} | Delete `Job` | |
