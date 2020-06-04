@@ -132,9 +132,11 @@ Generally, Balsam will need two types of Auth to function:
 | `num_idle_nodes`  |  Number of currently idle nodes        | 
 | `num_busy_nodes`  | Number of currently busy nodes         |
 | `backfill_windows`  | JSONField: array of `[queue, num_nodes, wall_time_min]` tuples indicating backfill slots |
-| `optional_batch_job_params` | JSONField used in BatchJob forms/validation `[ {name, default} ]`. Taken from site config. |
+| `queued_jobs` | JSONField: array of `[queue, num_nodes, wall_time_min, state]` indicating currently queued and running jobs |
+| `optional_batch_job_params` | JSONField used in BatchJob forms/validation `{name: default_value}`. Taken from site config. |
 | `allowed_projects` | JSONField used in BatchJob forms/validation: `[ name: str ]` |
-| `allowed_queues` | JSONField used in BatchJob forms/validation: `[ {name, max_nodes, max_walltime, max_queued}  ]` |
+| `allowed_queues` | JSONField used in BatchJob forms/validation: `{name: {max_nodes, max_walltime, max_queued}}` |
+| `transfer_locations` | JSONField used in Job stage-in/stage-out validation: `{alias: {protocol, netloc}}`
 
 ### API
 
@@ -162,9 +164,8 @@ sites that belong to them.
 | `name` | Short name identifying the app. |
 | `description` | Text description (useful in generating Web forms) |
 | `class_path` | Name of `ApplicationDefinition` class in the format: `{module_name}.{class_name}` |
-| `parameters` | A list of command line template parameters. A list of dicts with the structure: `[ {name: str, required: bool, default: str, help: str} ]` |
-| `stage_ins` | A list of stage-in slots with the structure: `[ {name: str, required: bool, dest: str} ]` |
-| `stage_outs` | A list of stage-out slots with the structure: `[ {name: str, required: bool, src: str} ]` |
+| `parameters` | Command line template parameters. A dict of dicts with the structure: `{name: {required: bool, default: str, help: str}}` |
+| `transfers` | A dict of stage-in/stage-out slots with the structure: `{name: {required: bool, direction: ["in"|"out"], target: str}}` |
 
 The `App` model is used to merely *index* the `ApplicationDefinition` classes
 that a user has registered at their Balsam Sites. 
@@ -176,7 +177,7 @@ For example, an `ApplicationDefinition` command template of
 site components use `App.parameters` internally; the purpose of mirroring this field in 
 the database is simply to facilitate Job validation and create App-tailored web forms.
 
-Similarly, `stage_ins` and `stage_outs` mirror data on the `ApplicationDefinition` for
+Similarly, `transfers`  mirrors data on the `ApplicationDefinition` for
 Job input and validation purposes only.
 
 For security reasons, the
@@ -224,9 +225,30 @@ A user only sees Apps linked to Sites which belong to them.
 
 ### API
 ##### Representation
-A user only sees Jobs linked to Apps linked to Sites which belong to them.
+A user can only access Jobs they own. The related App, BatchJob, and parents
+are included by ID in the serialized representation. The `lock` is excluded
+since it is only used internally.   Reverse relationships (one-to-many) with
+`transfers` and `events` are also not included in the Job representation, as
+they can be accessed through separate API endpoints.
+
+The related entities are represented in JSON as follows:
+
+| Field | Serialized  | Deserialized |
+| ----  | ----------  | ------------ |
+| `id`  | Primary Key | Fetch Job from user-filtered queryset |
+| `app_id`  | Primary Key | Fetch App from user-filtered queryset |
+| `batch_job_id`  | Primary Key | Fetch BatchJob from user-filtered queryset |
+| `parent_ids` | Primary Key list | Fetch parent jobs from user-filtered queryset |
+| `transfers` | **N/A** | *Create only:* Dict of `{transfer_item_name: {location_alias: str, path: str}}`  |
+| `events` | **N/A** | **N/A** |
+| `lock`  | **N/A** | **N/A** |
+
 
 ##### URLs
+Use cases:
+-  Get paginated job list, sorted by `last_update`
+-  List jobs filtered by: site, state, tags, BatchJob, app
+
 | HTTP Method | URL | Description | Example usage |
 | ------------| ----- | ---------- | -----   |
 | GET | /api/jobs/ | Retrieve the current user's list of Jobs | |
