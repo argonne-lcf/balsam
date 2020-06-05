@@ -48,12 +48,12 @@ relationship between two tables.
      `BatchJob` is many-to-one. That is, many `Jobs` run in a single
      `BatchJob`, and many `BatchJobs` are submitted at a `Site` over time.
 
-  6. The `Lock` is an internal model representing an active Balsam launcher
-     session.  `Jobs` have a nullable relationship to `Lock`; when it is not
+  6. The `Session` is an internal model representing an active Balsam launcher
+     session.  `Jobs` have a nullable relationship to `Session`; when it is not
      null, the job is said to be *locked* by a launcher, and no other launcher
      should try running it.  The Balsam **session API** is used by launchers to
-     acquire jobs concurrently and without race conditions.  Locks contain a
-     heartbeat timestamp that must be periodically ticked to maintain the lock.
+     acquire jobs concurrently and without race conditions.  Sessions contain a
+     heartbeat timestamp that must be periodically ticked to maintain the session.
 
    7. A `TransferItem` is created for each stage-in or stage-out task
       associated with a `Job`. This permits the transfer module of the Balsam
@@ -69,8 +69,9 @@ relationship between two tables.
 
 ## The REST API
 
-Refer to the interactive and detailed API documentation (URL query parameters, sample
-request and response payloads) for every endpoint at the `/api/swagger/` endpoint:
+The rest of this page details the Django model fields and gives a condensed overview of the API.
+Refer to the interactive API documentation for details on URL query parameters and sample
+request and response payloads:
 
 ```bash
 cd balsam/server
@@ -82,10 +83,8 @@ cd balsam/server
 ![Swagger UI](../graphs/swagger.png)
 
 
-The rest of this page gives a condensed overview of the API, with the aim of
-explaining concepts rather than serving as a reference for actual development.
 
-## User API
+## User & a note on Auth
 
 The `User` model Extends Django's [default User
 model](https://docs.djangoproject.com/en/3.0/ref/contrib/auth/) via
@@ -165,7 +164,7 @@ sites that belong to them.
 | `description` | Text description (useful in generating Web forms) |
 | `class_path` | Name of `ApplicationDefinition` class in the format: `{module_name}.{class_name}` |
 | `parameters` | Command line template parameters. A dict of dicts with the structure: `{name: {required: bool, default: str, help: str}}` |
-| `transfers` | A dict of stage-in/stage-out slots with the structure: `{name: {required: bool, direction: ["in"|"out"], target: str}}` |
+| `transfers` | A dict of stage-in/stage-out slots with the structure: `{name: {required: bool, direction: ["in"|"out"], target_path: str, help: str}}` |
 
 The `App` model is used to merely *index* the `ApplicationDefinition` classes
 that a user has registered at their Balsam Sites. 
@@ -202,10 +201,10 @@ A user only sees Apps linked to Sites which belong to them.
 ### Model Fields
 | Field Name  | Description |
 | -----------  | ----------- |
-| `id ` | Unique App ID |
+| `id ` | Unique Job ID |
 | `workdir` | Working directory, *relative* to the Site `data/` directory |
 | `tags` | JSON `{str: str}` mappings for tagging and selecting jobs | 
-| `lock` | ForeignKey to `Lock` instance | 
+| `session` | ForeignKey to `Session` instance | 
 | `app` | ForeignKey to `App` instance | 
 | `parameters` | JSON `{paramName: paramValue}` for the `App` command template parameters |
 | `batch_job` | ForeignKey to current or most recent `BatchJob` instance in which this `Job` ran |
@@ -223,10 +222,16 @@ A user only sees Apps linked to Sites which belong to them.
 | `node_packing_count` | Maximum number of instances that can run on a single node | 
 | `wall_time_min` | Lower bound estimate for runtime of the Job (leaving at default 0 is allowed) |
 
+
+Let workdir uniqueness be the user's problem.  If they put 2
+jobs with same workdir, assume it's intentional.  We can
+ensure that "stdout" of each job goes into a file named by
+Job ID, so multiple runs do not collide.
+
 ### API
 ##### Representation
 A user can only access Jobs they own. The related App, BatchJob, and parents
-are included by ID in the serialized representation. The `lock` is excluded
+are included by ID in the serialized representation. The `session` is excluded
 since it is only used internally.   Reverse relationships (one-to-many) with
 `transfers` and `events` are also not included in the Job representation, as
 they can be accessed through separate API endpoints.
@@ -241,17 +246,143 @@ The related entities are represented in JSON as follows:
 | `parent_ids` | Primary Key list | Fetch parent jobs from user-filtered queryset |
 | `transfers` | **N/A** | *Create only:* Dict of `{transfer_item_name: {location_alias: str, path: str}}`  |
 | `events` | **N/A** | **N/A** |
-| `lock`  | **N/A** | **N/A** |
+| `session`  | **N/A** | **N/A** |
 
 
 ##### URLs
-Use cases:
--  Get paginated job list, sorted by `last_update`
--  List jobs filtered by: site, state, tags, BatchJob, app
+
 
 | HTTP Method | URL | Description | Example usage |
 | ------------| ----- | ---------- | -----   |
-| GET | /api/jobs/ | Retrieve the current user's list of Jobs | |
-| POST | /api/jobs/ | Create a new `Job` | |
-| PUT | /api/jobs/{id} | Update `Job` information | |
-| DELETE | /api/jobs/{id} | Delete `Job` | |
+| GET | /api/jobs/ | Get paginated Job lists, filtered by site, state, tags, BatchJob, or App | `balsam ls` |
+| POST | /api/jobs/ | Bulk-create `Jobs` | Create 1k jobs with single API call |
+| PUT | /api/jobs/{id} | Update `Job` information | Tweak a single job in web UI |
+| DELETE | /api/jobs/{id} | Delete `Job` | Delete a single job in web UI |
+| PUT | /api/jobs/ | Bulk-update Jobs: apply same update to all jobs matching query | Restart all jobs at Site X with tag workflow="foo" |
+| PATCH | /api/jobs/ | Bulk-update Jobs: apply list of patches job-wise | Balsam StatusUpdater component sends a list of status updates to API |
+
+## BatchJob
+
+### Model Fields
+| Field Name  | Description |
+| -----------  | ----------- |
+| `id ` | Unique ID. Not to be confused with Scheduler ID, which is not necessarily unique across Sites! |
+| `site ` | ForeignKey to `Site` where submitted |
+| `scheduler_id ` | ID assigned by Site's batch scheduler (null if unassigned) |
+| `project ` | Project/allocation to be charged for the job submission |
+| `queue ` | Which scheduler queue the batchjob is submitted to |
+| `num_nodes` | Number of nodes requested for batchjob |
+| `wall_time_min` | Wall time, in minutes, requested |
+| `job_mode` | Balsam launcher job mode |
+| `filter_tags` | Restrict launcher to run jobs with matching tags. JSONField dict: `{tag_key: tag_val}` |
+| `state` | Current status of BatchJob |
+| `status_message` | Error or custom message received from scheduler |
+| `start_time` | DateTime when BatchJob started running |
+| `end_time` | DateTime when BatchJob ended |
+
+### State flow
+
+Every workload manager is different and there are numerous job states
+intentionally **not** considered in the `BatchJob` model, including `starting`,
+`exiting`, `user_hold`, `dep_hold`, etc.  It is the responsibility of the
+site's Scheduler interface to translate real scheduler states to one of the few
+coarse-grained Balsam `BatchJob` states: `queued`, `running`, or `finished`.
+
+```mermaid
+stateDiagram-v2
+    pending_submission  --> queued
+    pending_submission --> submit_failed
+    queued --> running
+    running --> finished
+
+    pending_submission --> pending_deletion
+    queued --> pending_deletion
+    running --> pending_deletion
+    pending_deletion --> finished
+```
+
+### API
+##### Representation
+A user can only see `BatchJobs` belonging to their `Sites`. All fields included in representation.
+`Site` represented by `site_id` primary key.
+
+##### URLs
+
+
+| HTTP Method | URL | Description | Example usage |
+| ------------| ----- | ---------- | -----   |
+| GET | | | |
+| POST | | | |
+| PUT | | | |
+| DELETE | | | |
+| PUT | | ||
+| PATCH | | | |
+
+## Session
+
+### Model Fields
+| Field Name  | Description |
+| -----------  | ----------- |
+| `id ` | Unique ID |
+
+### API
+##### Representation
+
+
+##### URLs
+
+
+| HTTP Method | URL | Description | Example usage |
+| ------------| ----- | ---------- | -----   |
+| GET | | | |
+| POST | | | |
+| PUT | | | |
+| DELETE | | | |
+| PUT | | ||
+| PATCH | | | |
+
+## Transfer
+
+### Model Fields
+| Field Name  | Description |
+| -----------  | ----------- |
+| `id ` | Unique ID |
+
+### API
+##### Representation
+
+
+##### URLs
+
+
+| HTTP Method | URL | Description | Example usage |
+| ------------| ----- | ---------- | -----   |
+| GET | | | |
+| POST | | | |
+| PUT | | | |
+| DELETE | | | |
+| PUT | | ||
+| PATCH | | | |
+
+## LogEvent
+
+### Model Fields
+| Field Name  | Description |
+| -----------  | ----------- |
+| `id ` | Unique ID |
+
+### API
+##### Representation
+
+
+##### URLs
+
+
+| HTTP Method | URL | Description | Example usage |
+| ------------| ----- | ---------- | -----   |
+| GET | | | |
+| POST | | | |
+| PUT | | | |
+| DELETE | | | |
+| PUT | | ||
+| PATCH | | | |
