@@ -148,3 +148,22 @@
     * [ ] Aurora
     * [ ] Frontier
 
+## Web Interface
+
+- [ ] Nuxt project skeleton
+- [ ] Wire up Basic Auth with Axios+VueX
+- [ ] Set up VueX store and actions
+- [ ] Sites view (grid layout of Site cards)
+- [ ] Apps view
+- [ ] BatchJobs view (list)
+- [ ] BatchJobs view (detail: show related Jobs & utilization plot for the Job)
+- [ ] Jobs datatable
+- [ ] Interactive Job creation form
+- [ ] Transfers view
+- [ ] History view: graphical
+    - filter controls: by Site, by Tags, by Date Range
+    - show: throughput, utilization, available nodes
+
+## Jupyter Interface
+
+- Widgets and plotting convenience functions

@@ -19,4 +19,6 @@ Several fields in the Site configuration file or Job Template are sync'ed with t
 
 A Balsam Site is initialized with `balsam init`.
 
+Site settings for each launcher Job mode dictate whether multi-apps-per-node is supported and what is the max occupancy per node.
+
 ## Global configuration

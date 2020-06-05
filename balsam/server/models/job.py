@@ -105,6 +105,19 @@ class JobLockManager(models.Manager):
         expiry_time = now - self.EXPIRATION_PERIOD
         qs = self.get_queryset()
         expired_locks = qs.filter(heartbeat__lte=expiry_time)
+        for lock in expired_locks:
+            zombie_jobs = lock.jobs.filter(state="RUNNING")
+            Job.objects.bulk_update(
+                [
+                    {
+                        "pk": pk,
+                        "state": "RUN_TIMEOUT",
+                        "state_message": "Lost contact with launcher",
+                    }
+                    for pk in zombie_jobs.values_list("pk", flat=True)
+                ]
+            )
+
         num_deleted, _ = expired_locks.delete()
         logger.info(f"Cleared {num_deleted} expired locks")
 

@@ -11,6 +11,7 @@ nav:
       - Launcher: development/launcher.md
       - Service modules: development/service.md
       - Platform Interfaces: development/platform.md
+      - Web Client: development/web-client.md
       - Roadmap: development/todo.md
   - Tutorials:
     - "Launching Jobs from a Jupyter Notebook": tutorials/ffn_balsam_interactive.ipynb

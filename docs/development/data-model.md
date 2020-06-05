@@ -228,6 +228,45 @@ jobs with same workdir, assume it's intentional.  We can
 ensure that "stdout" of each job goes into a file named by
 Job ID, so multiple runs do not collide.
 
+### State flow
+
+```mermaid
+stateDiagram-v2
+    created: Created
+    awaiting_parents: Awaiting Parents
+    ready: Ready
+    staged_in: Staged In
+    preprocessed: Preprocessed
+    restart_ready: Restart Ready
+    running: Running
+    run_done: Run Done
+    postprocessed: Postprocessed
+    staged_out: Staged Out
+    finished: Job Finished
+    run_error: Run Error
+    run_timeout: Run Timeout
+    failed: Failed
+
+    created --> ready: No parents
+    created --> awaiting_parents: Pending dependencies
+    awaiting_parents --> ready: Dependencies finished
+    ready --> staged_in: Transfer external data in
+    staged_in --> preprocessed: Run preprocess script
+    preprocessed --> running: Launch job
+
+    running --> run_done: Return code 0
+    running --> run_error: Nonzero return
+    running --> run_timeout: Early termination
+
+    run_timeout --> restart_ready: Auto retry
+    run_error --> restart_ready: Run error handler
+    run_error --> failed: No error handler
+    restart_ready --> running: Launch job
+
+    run_done --> postprocessed: Run postprocess script
+    postprocessed --> staged_out: Transfer data out
+    staged_out --> finished: Job Finished
+```
 ### API
 ##### Representation
 A user can only access Jobs they own. The related App, BatchJob, and parents
@@ -310,13 +349,12 @@ A user can only see `BatchJobs` belonging to their `Sites`. All fields included 
 
 
 | HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | -----   |
-| GET | | | |
-| POST | | | |
-| PUT | | | |
-| DELETE | | | |
-| PUT | | ||
-| PATCH | | | |
+| ------------| ----- | ---------- | ----------   |
+| GET | /api/batch-jobs/ | Get BatchJobs | Web client lists recent BatchJobs  |
+| POST | /api/batch-jobs/ | Create BatchJob | Web client or AutoScaler submits a new BatchJob |
+| PUT | /api/batch-jobs/{id} | Alter BatchJob by ID | Web client alters job runtime while queued |
+| DELETE | /api/batch-jobs/{id} | Delete BatchJob by ID | User deletes job before it was ever submitted |
+| PATCH | /api/batch-jobs/ | Bulk Update batch jobs by patch list | Service syncs BatchJob states |
 
 ## Session
 
@@ -324,22 +362,48 @@ A user can only see `BatchJobs` belonging to their `Sites`. All fields included 
 | Field Name  | Description |
 | -----------  | ----------- |
 | `id ` | Unique ID |
+| `heartbeat ` | DateTime of last session tick API call |
+| `batch_job` | Non-nullable ForeignKey to `BatchJob` this Session is running under |
 
 ### API
 ##### Representation
+A user can only see `Sessions` associated with their `BatchJobs`. The `id` and `batch_job_id`
+are represented by their primary keys.
 
+* `Session` creation only requires providing `batch_job_id`. 
+* `Session` tick has empty payload
+* `Session` **acquire** endpoint uses a special `JobAcquireSerializer` representation:
+
+| Field | Description |
+| ----- | ----------  |
+| `states`| `list` of states to acquire |
+| `max_num_acquire`| limit number of jobs to acquire |
+| `filter_tags`| filter `Jobs` for which `job.tags` contains all `{tag_name: tag_value}` pairs |
+| `node_resources`| Nested `NodeResource` representation placing resource constraints on what Jobs may be acquired |
+| `order_by`| order returned jobs according to a set of Job fields (may include ascending or descending `num_nodes`, `node_packing_count`, `wall_time_min`) |
+
+The nested `NodeResource` representation is provided as a dict with the structure:
+```py3
+{
+    "max_jobs_per_node": 1,  # Determined by Site settings for each Launcher job mode
+    "max_wall_time_min": 60,
+    "running_job_counts": [0, 1, 0],
+    "node_occupancies": [0.0, 1.0, 0.0],
+    "idle_cores": [64, 63, 64],
+    "idle_gpus": [1, 0, 1],
+}
+```
 
 ##### URLs
 
 
 | HTTP Method | URL | Description | Example usage |
 | ------------| ----- | ---------- | -----   |
-| GET | | | |
-| POST | | | |
-| PUT | | | |
-| DELETE | | | |
-| PUT | | ||
-| PATCH | | | |
+| GET | /api/sessions | Get Sessions List | BatchJob Web view shows "Last Heartbeat" for each running |
+| POST | /api/sessions | Create new `Session` | Launcher `JobSource` initialized |
+| **POST** | /api/sessions/{id}/acquire | **Acquire** Jobs for launcher | `JobSource` acquires new jobs to run |
+| PUT | /api/sessions/{id} | Tick `Session` heartbeat | `JobSource` ticks Session periodically |
+| DELETE | /api/sessions/{id} | Destroy `Session` and release Jobs | Final `JobSource` `release()` call |
 
 ## Transfer
 
@@ -370,6 +434,13 @@ A user can only see `BatchJobs` belonging to their `Sites`. All fields included 
 | Field Name  | Description |
 | -----------  | ----------- |
 | `id ` | Unique ID |
+| `job` | ForeignKey to `Job` undergoing event |
+| `timestamp ` | DateTime of event |
+| `from_state ` | Job state before transition |
+| `to_state ` | Job state after transition |
+| `data` | JSONField containing `{message: str}` and other optional data |
+
+For transitions to or from `RUNNING`, the 
 
 ### API
 ##### Representation
