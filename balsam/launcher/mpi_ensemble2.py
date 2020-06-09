@@ -474,38 +474,26 @@ class Worker:
         if pk: prefix += f'{self.cuteids[pk]} '
         return prefix
 
-    def write_job_status_message(self, job_statuses):
-        msg = {'done' : [], 'error': []}
-        for pk, status in job_statuses.items():
-            if status == 'done':
-                msg['done'].append(pk)
-            else:
-                retcode, tail = status
-                tail = tail[-4000:]
-                msg['error'].append((pk, retcode, tail))
-        return msg
-
-    def write_request_msg(self, statuses, request_num_jobs, started_pks):
-        msg = {}
-        msg.update(self.write_job_status_message(statuses))
-        msg['started'] = started_pks
-        msg['request_num_jobs'] = request_num_jobs
-        msg['active'] = True if statuses or started_pks else False
-        return msg
-
-    def update_processes(self):
-        statuses = {}
+    def write_request_msg(self, request_num_jobs, started_pks):
+        msg = {'done': [], 'error': [], 'active': False}
         for pk, retcode in self._check_retcodes():
+            msg["active"] = True
             if retcode is None:
-                statuses[pk] = 'running'
+                continue
             elif retcode == 0:
-                statuses[pk] = 'done'
+                msg['done'].append(pk)
                 logger.info(f"{self.log_prefix(pk)} WORKER_DONE")
                 self._cleanup_proc(pk)
             else:
                 logger.info(f"{self.log_prefix(pk)} WORKER_ERROR")
-                statuses[pk] = self._handle_error(pk, retcode)
-        return statuses
+                status = self._handle_error(pk, retcode)
+                if status != 'running':
+                    retcode, tail = status
+                    msg['error'].append((pk, retcode, tail))
+
+        msg['started'] = started_pks
+        msg['request_num_jobs'] = request_num_jobs
+        return msg
 
     def exit(self):
         all_pks = list(self.processes.keys())
@@ -546,7 +534,6 @@ class Worker:
         config_logging('serial-launcher', filename=log_filename)
 
         while True:
-            statuses = self.update_processes()
             request_num_jobs = max(
                 0, 
                 self.prefetch_count - len(self.runnable_cache)
@@ -554,7 +541,6 @@ class Worker:
             started_pks = self.start_jobs()
 
             request_msg = self.write_request_msg(
-                statuses,
                 request_num_jobs,
                 started_pks,
             )
