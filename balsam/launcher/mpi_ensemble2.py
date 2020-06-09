@@ -18,10 +18,12 @@ import psutil
 _p = psutil.Process()
 try:
     _p.cpu_affinity([])
+    print("Detected psutil CPU affinity support.")
 except AttributeError:
     class MockPsutilProcess:
         def cpu_affinity(self, list): pass
     _p = MockPsutilProcess()
+    print("No psutil CPU Affinity support: will not bind processes to cores.")
 
 
 from mpi4py import MPI
