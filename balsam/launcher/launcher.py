@@ -355,7 +355,7 @@ class MPILauncher:
 
 
 class SerialLauncher:
-    MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble").origin
+    MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble2").origin
 
     def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None):
         self.wf_name = wf_name

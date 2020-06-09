@@ -736,7 +736,7 @@ class BalsamJob(models.Model):
         return envs
 
     @classmethod
-    def batch_update_state(cls, pk_list, new_state, message=''):
+    def batch_update_state(cls, pk_list, new_state, message='', release=False):
         try:
             exists = pk_list.exists()
         except AttributeError:
@@ -748,20 +748,27 @@ class BalsamJob(models.Model):
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
 
         msg = history_line(new_state, message)
+        update_kwargs = {
+            "state": new_state,
+            "state_history": Concat('state_history', V(msg))
+        }
+        if release:
+            update_kwargs['lock'] = ''
 
         with transaction.atomic():
             update_jobs = cls.objects.filter(job_id__in=pk_list).exclude(state='USER_KILLED')
             update_jobs = safe_select(update_jobs)
-            update_jobs.update(state=new_state,
-                               state_history=Concat('state_history', V(msg)))
+            update_jobs.update(**update_kwargs)
 
-    def update_state(self, new_state, message=''):
+    def update_state(self, new_state, message='', release=False):
         if new_state not in STATES:
             raise InvalidStateError(f"{new_state} is not a job state in balsam.models")
         msg = history_line(new_state, message)
         self.state = new_state
         self.state_history += msg
-        self.save(update_fields=['state', 'state_history'])
+        if release:
+            self.lock = ''
+        self.save(update_fields=['state', 'state_history', 'lock'])
 
     def get_recent_state_str(self):
         return self.state_history.split("\n")[-1].strip()

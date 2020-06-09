@@ -26,9 +26,13 @@ _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
 
 
-def config_logging(basename):
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    fname = f'{basename}_{timestamp}.log'
+def config_logging(basename, filename=None):
+    if filename is None:
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        fname = f'{basename}_{timestamp}.log'
+    else:
+        fname = filename
+
     HANDLER_FILE = os.path.join(settings.LOGGING_DIRECTORY, fname)
     formatter = logging.Formatter(
         '%(asctime)s|%(process)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s',
@@ -39,6 +43,7 @@ def config_logging(basename):
     handler.setLevel(level)
     handler.setFormatter(formatter)
     _logger.addHandler(handler)
+    return fname
 
 
 def log_uncaught_exceptions(exctype, value, tb):
