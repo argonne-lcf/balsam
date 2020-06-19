@@ -7,7 +7,7 @@ import sys
 import logging
 import random
 from subprocess import Popen, STDOUT, TimeoutExpired
-import threading
+import multiprocessing
 import queue
 import shlex
 import signal
@@ -44,12 +44,13 @@ RANK = comm.Get_rank()
 MSG_BUFSIZE = 2**16
 connections.close_all()
 
-class StatusUpdater(threading.Thread):
+class StatusUpdater(multiprocessing.Process):
     def __init__(self):
         super().__init__()
-        self.queue = queue.Queue()
+        self.queue = multiprocessing.Queue()
 
     def run(self):
+        connections.close_all()
         while True:
             first_item = self.queue.get(block=True, timeout=None)
             if first_item == 'exit':
@@ -85,8 +86,10 @@ class BalsamDBStatusUpdater(StatusUpdater):
 
         if start_pks:
             BalsamJob.batch_update_state(start_pks, 'RUNNING')
+            logger.debug(f"StatusUpdater marked {len(start_pks)} RUNNING")
         if done_pks:
             BalsamJob.batch_update_state(done_pks, 'RUN_DONE', release=True)
+            logger.debug(f"StatusUpdater marked {len(done_pks)} DONE")
         if error_msgs:
             self._handle_errors(error_msgs)
 
@@ -102,14 +105,15 @@ class BalsamDBStatusUpdater(StatusUpdater):
             state_msg = f"nonzero return {retcode}: {tail}"
             job.update_state('RUN_ERROR', state_msg, release=True)
 
-class JobSource(threading.Thread):
+class JobSource(multiprocessing.Process):
     def __init__(self, prefetch_depth):
         super().__init__()
-        self._exit_flag = threading.Event()
-        self.queue = queue.Queue()
+        self._exit_flag = multiprocessing.Event()
+        self.queue = multiprocessing.Queue()
         self.prefetch_depth = prefetch_depth
 
     def run(self):
+        connections.close_all()
         while not self._exit_flag.is_set():
             time.sleep(1)
             qsize = self.queue.qsize()
@@ -140,11 +144,13 @@ class JobSource(threading.Thread):
 class BalsamJobSource(JobSource):
     def __init__(self, prefetch_depth, wf_filter):
         super().__init__(prefetch_depth)
+        connections.close_all()
         self._manager = BalsamJob.source
         self._manager.workflow = wf_filter
         self._manager.start_tick()
         self._manager.clear_stale_locks()
         self._manager.check_qLaunch()
+        connections.close_all()
         if wf_filter:
             logger.info(f'Pulling jobs with workflow matching: {wf_filter}')
         else:
@@ -222,12 +228,12 @@ class ResourceManager:
             logger.info(f"Rank {status.source} requested {msg['request_num_jobs']} jobs")
             assert status.source == idx + 1
             self.status_updater.queue.put_nowait(msg)
-            self.send_job_specs(
+            sent_jobs = self.send_job_specs(
                 max_jobs=msg['request_num_jobs'],
                 dest_rank=status.source
             )
 
-            active = active or msg.get("active", False)
+            active = active or msg.get("active", False) or sent_jobs
 
             self.recv_requests[status.source] = comm.irecv(
                 MSG_BUFSIZE,
@@ -237,8 +243,10 @@ class ResourceManager:
 
     def send_job_specs(self, max_jobs, dest_rank):
         new_job_specs = self.job_source.get_jobs(max_jobs)
-        self.outbox[dest_rank]['new_jobs'] = new_job_specs
+        comm.send({'new_jobs': new_job_specs}, dest=dest_rank)
+        #self.outbox[dest_rank]['new_jobs'] = new_job_specs
         logger.debug(f"Sent {len(new_job_specs)} new jobs to rank {dest_rank}")
+        return len(new_job_specs) > 0
 
     def send_exit(self):
         for i in range(1, comm.size):
@@ -307,7 +315,7 @@ class Master:
 
     def _main(self):
         have_active_workers = self.manager.handle_requests()
-        self.manager.send_messages()
+        #self.manager.send_messages()
         if not have_active_workers:
             self.idle_time += self.DELAY_PERIOD
             logger.info(
