@@ -714,7 +714,7 @@ class BalsamJob(models.Model):
         return {variable: '='.join(values) for (variable, *values) in entries}
 
     def get_envs(self, *, timeout=False, error=False):
-        envs = os.environ.copy()
+        envs = {}
 
         if self.environ_vars:
             job_vars = self.parse_envstring(self.environ_vars)

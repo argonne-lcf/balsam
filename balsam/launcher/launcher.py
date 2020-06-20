@@ -52,7 +52,8 @@ class MPIRun:
         for w in self.workers:
             w.idle = False
 
-        envs = job.get_envs()
+        envs = os.environ.copy()
+        envs.update(job.get_envs())
         app_cmd = job.app_cmd
         nranks = job.num_ranks
         affinity = job.cpu_affinity
