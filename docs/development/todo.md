@@ -18,6 +18,8 @@
     3. Bulk creates and updates
     4. Can bypass serializers entirely with `queryset.values()`
     5. Cache model instances to avoid DB on GET requests
+- [ ] Cache user info, sites, apps, batchjobs, sessions by owner. used for `GET` requests and request validation
+- [ ] Offload longer processing (e.g. post Job update via Celery+Redis)
 - [ ] cron+PIDfile deployment of PG+Gunicorn on generic-01
 - [ ] Replace JSONFilters with Django-Filter plugins limited to str:str mappings
 - [ ] DAG Endpoint: creating prototype DAGs and instances of workflows from the DAG

@@ -128,8 +128,6 @@ Generally, Balsam will need two types of Auth to function:
 | `owner ` | ForeignKey to `User` model             |
 | `globus_endpoint_id ` | Optional `UUID`: setting an associated endpoint for data transfer |
 | `num_nodes`  | Number of compute nodes available at the Site           |
-| `num_idle_nodes`  |  Number of currently idle nodes        | 
-| `num_busy_nodes`  | Number of currently busy nodes         |
 | `backfill_windows`  | JSONField: array of `[queue, num_nodes, wall_time_min]` tuples indicating backfill slots |
 | `queued_jobs` | JSONField: array of `[queue, num_nodes, wall_time_min, state]` indicating currently queued and running jobs |
 | `optional_batch_job_params` | JSONField used in BatchJob forms/validation `{name: default_value}`. Taken from site config. |
@@ -217,7 +215,7 @@ A user only sees Apps linked to Sites which belong to them.
 | `ranks_per_node` | Number of ranks per node (> 1 implies MPI usage) |
 | `threads_per_rank` | Number of logical threads per MPI rank |
 | `threads_per_core` | Number of logical threads per hardware core | 
-| `cpu_affinity` | Flag describing CPU affinity mode | 
+| `launch_params` | Optional pass-through parameters to MPI launcher (e.g -cc depth) | 
 | `gpus_per_rank` | Number of GPUs per MPI rank |
 | `node_packing_count` | Maximum number of instances that can run on a single node | 
 | `wall_time_min` | Lower bound estimate for runtime of the Job (leaving at default 0 is allowed) |
@@ -287,7 +285,14 @@ The related entities are represented in JSON as follows:
 | `events` | **N/A** | **N/A** |
 | `session`  | **N/A** | **N/A** |
 
+`transfers` are nested in the Job for `POST` only: `Job` creation is an atomic transaction grouping addition of the `Job` with its related `TransferItems`.
+The API fetches the related `App.transfers`  and `Site.transfer_locations` to validate each transfer item:
 
+   - `transfer_item_name` must match one of the keys in `App.transfers`, which
+     determines the `direction` and local path
+   - The `location_alias` must match one of the keys in `Site.transfer_locations`,
+     which determines the `protocol` and `remote_netloc`
+   - Finally, the remote path is determined by the `path` key in each `Job` transfer item
 ##### URLs
 
 
@@ -313,9 +318,10 @@ The related entities are represented in JSON as follows:
 | `num_nodes` | Number of nodes requested for batchjob |
 | `wall_time_min` | Wall time, in minutes, requested |
 | `job_mode` | Balsam launcher job mode |
+| `optional_params` | Extra pass-through parameters to Job Template |
 | `filter_tags` | Restrict launcher to run jobs with matching tags. JSONField dict: `{tag_key: tag_val}` |
 | `state` | Current status of BatchJob |
-| `status_message` | Error or custom message received from scheduler |
+| `status_info` | JSON: Error or custom data received from scheduler |
 | `start_time` | DateTime when BatchJob started running |
 | `end_time` | DateTime when BatchJob ended |
 
@@ -405,28 +411,46 @@ The nested `NodeResource` representation is provided as a dict with the structur
 | PUT | /api/sessions/{id} | Tick `Session` heartbeat | `JobSource` ticks Session periodically |
 | DELETE | /api/sessions/{id} | Destroy `Session` and release Jobs | Final `JobSource` `release()` call |
 
-## Transfer
+## TransferItem
 
 ### Model Fields
 | Field Name  | Description |
 | -----------  | ----------- |
-| `id ` | Unique ID |
+| `id ` | Unique TransferItem ID |
+| `job` | ForeignKey to Job | 
+| `protocol` | `globus` or `rsync` |
+| `direction` | `in` or `out`. If `in`, the transfer is from `remote_netloc:source_path` to `Job.workdir/destination_path`. If `out`, the transfer is from `Job.workdir/src_path` to `remote_netloc:dest_path`. |
+| `remote_netloc` | The Globus endpoint UUID or user@hostname of the remote data location |
+| `source_path` | If stage-`in`: the remote path. If stage-`out`: the local path |
+| `destination_path` | If stage-`in`: the local path. If stage-`out`: the remote path. |
+| `state` | `pending` -> `active` -> `done` or `error` |
+| `task_id` | Unique identifier of the Transfer task (e.g. Globus Task UUID) |
+| `transfer_info` | JSONField for Error messages, average bandwidth, transfer time, etc... |
 
 ### API
 ##### Representation
+There is no create (`POST`) method on the `/transfers` endpoint, because `TransferItem` creation is directly linked with `Job` creation. The related Transfers are nested in the `Job` representation when `POSTING` new jobs. The following fields are **fixed** at creation time:
 
+   - `id`
+   - `job`
+   - `protocol`
+   - `direction`
+   - `remote_netloc`
+   - `source_path`
+   - `dest_path`
+
+For `list` (GET), the representation includes all fields. `job_id` represents the `Job` by primary key.
+
+For `update` (PUT and PATCH), *only* `state`, `task_id`, and `transfer_info` may be modified. The update of a state to `done` triggers a check of the related `Job`'s transfers to determine whether the job can be advanced to `STAGED_IN`.
 
 ##### URLs
 
 
 | HTTP Method | URL | Description | Example usage |
 | ------------| ----- | ---------- | -----   |
-| GET | | | |
-| POST | | | |
-| PUT | | | |
-| DELETE | | | |
-| PUT | | ||
-| PATCH | | | |
+| GET | /api/transfers/ | List `TransferItems`  | Transfer module gets list of pending Transfers |
+| PUT | /api/transfers/{id} | Update `TransferItem`  State | Transfer module updates status |
+| PATCH | /api/transfers/ | Bulk update `TransferItems` via patch list | Transfer module bulk-updates statuses of finished transfers |
 
 ## LogEvent
 
@@ -440,20 +464,18 @@ The nested `NodeResource` representation is provided as a dict with the structur
 | `to_state ` | Job state after transition |
 | `data` | JSONField containing `{message: str}` and other optional data |
 
-For transitions to or from `RUNNING`, the 
+For transitions to or from `RUNNING`, the `data` includes `nodes` as a fractional
+number of occupied nodes. This enables clients to generate throughput and utilization views without having to fetch entire related Jobs.
 
 ### API
 ##### Representation
 
+This is a read only-API with all fields included.  The related Job is represented by primary key `job_id` field.
 
 ##### URLs
+This is a read-only API with a single endpoint for querying history.
 
 
 | HTTP Method | URL | Description | Example usage |
 | ------------| ----- | ---------- | -----   |
-| GET | | | |
-| POST | | | |
-| PUT | | | |
-| DELETE | | | |
-| PUT | | ||
-| PATCH | | | |
+| GET | /api/events | Fetch EventLogs | Web client filters by Job `tags` and last 24 hours to get a quick view at throughput/utilization for a particular job type |
