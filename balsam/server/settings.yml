@@ -1,0 +1,9 @@
+auth:
+  algorithm: HS256
+  auth_method: balsamapi.auth.token.user_from_token
+  secret_key: 3f4abcaa16a006de8a7ef520a4c77c7d51b3ddb235c1ee2b99187f0f049eaa76
+  token_ttl: !!python/object/apply:datetime.timedelta
+  - 0
+  - 1800
+  - 0
+database_url: postgresql://postgres@localhost:5432/balsam
