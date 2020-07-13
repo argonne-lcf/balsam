@@ -1,7 +1,8 @@
 from sqlalchemy.orm.exc import NoResultFound
 from fastapi import status, HTTPException
 from passlib.context import CryptContext
-from balsamapi.models import schemas, crud
+from balsam import schemas
+from balsam.server.models import crud
 
 
 ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -7,7 +7,7 @@ from dateutil.parser import isoparse
 from fastapi import status
 import pytest
 
-from balsamapi import models
+from balsam.server import models
 from .util import (
     create_site,
     create_app,

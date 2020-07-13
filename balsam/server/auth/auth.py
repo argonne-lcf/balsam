@@ -1,9 +1,9 @@
 from fastapi import Depends, APIRouter, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from balsamapi.models import get_session
-from balsamapi.models.schemas import UserCreate, UserOut
-from balsamapi.models.crud import users
+from balsam.server.models import get_session
+from balsam.schemas import UserCreate, UserOut
+from balsam.server.models.crud import users
 from .password import authenticate_user_password
 from .token import user_from_token, create_access_token
 

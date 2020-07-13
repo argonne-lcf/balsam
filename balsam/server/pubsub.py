@@ -1,4 +1,4 @@
-from balsamapi import settings
+from balsam.server import settings
 from fastapi.encoders import jsonable_encoder
 import redis
 import aredis

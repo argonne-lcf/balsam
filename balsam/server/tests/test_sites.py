@@ -1,7 +1,7 @@
 from fastapi import status
 from .util import create_site
 from dateutil.parser import isoparse
-from balsamapi import models
+from balsam.server import models
 
 
 def test_create_site(auth_client):

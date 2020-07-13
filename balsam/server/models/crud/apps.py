@@ -1,5 +1,5 @@
 from fastapi.encoders import jsonable_encoder
-from balsamapi import models, ValidationError
+from balsam.server import models, ValidationError
 from sqlalchemy.exc import IntegrityError
 
 

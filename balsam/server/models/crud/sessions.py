@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-from balsamapi import models, ValidationError
-from balsamapi.models import schemas
+from balsam.server import models, ValidationError
+from balsam import schemas
 from .jobs import update_states_by_query
 from sqlalchemy import orm
 

@@ -18,7 +18,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects import postgresql as pg
 from .base import Base
-from .schemas.transfer import TransferProtocol, TransferDirection, TransferItemState
+from balsam.schemas.transfer import (
+    TransferProtocol,
+    TransferDirection,
+    TransferItemState,
+)
 
 # PK automatically has nullable=False, autoincrement
 # Postgres auto-creates index for unique constraint and primary key constraint

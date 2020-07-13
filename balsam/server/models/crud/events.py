@@ -1,4 +1,4 @@
-from balsamapi import models
+from balsam.server import models
 
 
 def fetch(db, owner, paginator, filterset):

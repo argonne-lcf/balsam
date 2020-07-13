@@ -2,10 +2,11 @@ from typing import List
 
 from fastapi import Depends, APIRouter, status, Query
 
-from balsamapi.models import schemas, get_session, crud
-from balsamapi.util import Paginator
-from balsamapi.pubsub import pubsub
-from balsamapi import settings
+from balsam import schemas
+from balsam.server.models import get_session, crud
+from balsam.server.util import Paginator
+from balsam.server.pubsub import pubsub
+from balsam.server import settings
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()

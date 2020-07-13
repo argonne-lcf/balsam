@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import orm
-from balsamapi import models, ValidationError
+from balsam.server import models, ValidationError
 
 
 def owned_transfer_query(db, owner):

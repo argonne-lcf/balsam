@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from balsamapi.models.tables import User
-from balsamapi.models.schemas import UserOut
-from balsamapi.auth.password import get_hash
+from balsam.server.models.tables import User
+from balsam.schemas import UserOut
+from balsam.server.auth.password import get_hash
 
 
 def get_user_by_username(db: Session, username: str):

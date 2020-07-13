@@ -5,9 +5,9 @@ import subprocess
 
 from fastapi import status
 from fastapi.testclient import TestClient
-import balsamapi
-from balsamapi import models
-from balsamapi.main import app
+import balsam.server
+from balsam.server import models
+from balsam.server.main import app
 from .util import BalsamTestClient
 
 
@@ -15,10 +15,12 @@ from .util import BalsamTestClient
 def setup_database():
     subprocess.run("dropdb -U postgres balsam-test", shell=True)
     subprocess.run("createdb -U postgres balsam-test", check=True, shell=True)
-    balsamapi.settings.database_url = "postgresql://postgres@localhost:5432/balsam-test"
-    os.environ["balsam_database_url"] = balsamapi.settings.database_url
+    balsam.server.settings.database_url = (
+        "postgresql://postgres@localhost:5432/balsam-test"
+    )
+    os.environ["balsam_database_url"] = balsam.server.settings.database_url
 
-    models_dir = Path(__file__).parent.parent.joinpath("balsamapi/models")
+    models_dir = Path(__file__).parent.parent.joinpath("models")
     subprocess.run(
         "alembic -x db=test upgrade head", cwd=models_dir, check=True, shell=True
     )

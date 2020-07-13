@@ -1,6 +1,6 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, orm
-import balsamapi
+import balsam.server
 import logging
 
 Base = declarative_base()
@@ -13,7 +13,7 @@ logging.basicConfig()
 def get_engine():
     global _engine
     if _engine is None:
-        _engine = create_engine(balsamapi.settings.database_url, connect_args={},)
+        _engine = create_engine(balsam.server.settings.database_url, connect_args={},)
     return _engine
 
 

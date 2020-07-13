@@ -4,8 +4,8 @@ from fastapi.security import OAuth2PasswordBearer
 import jwt
 from jwt import PyJWTError
 
-from balsamapi import settings
-from balsamapi.models import schemas
+from balsam.server import settings
+from balsam import schemas
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 

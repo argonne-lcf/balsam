@@ -1,9 +1,9 @@
 from datetime import datetime
 from urllib.parse import urlparse
 
-from balsamapi import models, ValidationError
-from balsamapi.models.schemas.job import JobState
-from balsamapi.models.schemas.transfer import TransferItemState
+from balsam.server import models, ValidationError
+from balsam.schemas.job import JobState
+from balsam.schemas.transfer import TransferItemState
 from sqlalchemy import orm, func, case, literal_column
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
