@@ -3,13 +3,18 @@ from balsam.server import models, ValidationError
 from sqlalchemy.exc import IntegrityError
 
 
-def fetch(db, owner, paginator=None, app_id=None, filter_site_ids=None):
+def fetch(db, owner, paginator=None, app_id=None, filter_site_ids=None, ids=None):
     qs = db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)
     if filter_site_ids:
         qs = qs.filter(models.App.site_id.in_(filter_site_ids))
+    if ids is not None:
+        qs = qs.filter(models.App.id.in_(ids))
     if app_id is not None:
         qs = qs.filter(models.App.id == app_id).one()
-    return paginator.paginate(qs) if app_id is None else qs
+        return (1, qs)
+    else:
+        count = qs.group_by(models.App.id).count()
+        return count, paginator.paginate(qs)
 
 
 def flush_or_400(db):

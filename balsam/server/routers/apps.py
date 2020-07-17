@@ -12,19 +12,24 @@ router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
-@router.get("/", response_model=List[schemas.AppOut])
+@router.get("/", response_model=schemas.PaginatedAppsOut)
 def list(
     db=Depends(get_session),
     user=Depends(auth),
     paginator=Depends(Paginator),
     site_id: List[int] = Query(None),
+    id: List[int] = Query(None),
 ):
-    return crud.apps.fetch(db, owner=user, paginator=paginator, filter_site_ids=site_id)
+    count, apps = crud.apps.fetch(
+        db, owner=user, paginator=paginator, filter_site_ids=site_id, ids=id,
+    )
+    return {"count": count, "results": apps}
 
 
 @router.get("/{app_id}", response_model=schemas.AppOut)
 def read(app_id: int, db=Depends(get_session), user=Depends(auth)):
-    return crud.apps.fetch(db, owner=user, app_id=app_id)
+    _, app = crud.apps.fetch(db, owner=user, app_id=app_id)
+    return app
 
 
 @router.post("/", response_model=schemas.AppOut, status_code=status.HTTP_201_CREATED)

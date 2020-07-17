@@ -10,10 +10,10 @@ router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
-@router.get("/", response_model=List[schemas.SessionOut])
+@router.get("/", response_model=schemas.PaginatedSessionsOut)
 def list(db=Depends(get_session), user=Depends(auth)):
-    sessions = crud.sessions.fetch(db, owner=user)
-    return sessions
+    count, sessions = crud.sessions.fetch(db, owner=user)
+    return {"count": count, "results": sessions}
 
 
 @router.post(

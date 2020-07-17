@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List
-from fastapi import Depends, APIRouter, status
+from fastapi import Depends, APIRouter, status, Query
 from balsam import schemas
 from balsam.server.models import get_session, crud
 from balsam.server.util import Paginator
@@ -11,26 +11,30 @@ router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
-@router.get("/", response_model=List[schemas.SiteOut])
+@router.get("/", response_model=schemas.PaginatedSitesOut)
 def list(
-    host_contains: str = None,
-    path_contains: str = None,
+    hostname: str = None,
+    path: str = None,
+    id: List[int] = Query(None),
     db=Depends(get_session),
     user=Depends(auth),
     paginator=Depends(Paginator),
 ):
-    return crud.sites.fetch(
+    count, sites = crud.sites.fetch(
         db,
         owner=user,
         paginator=paginator,
-        host_contains=host_contains,
-        path_contains=path_contains,
+        host_contains=hostname,
+        path_contains=path,
+        ids=id,
     )
+    return {"count": count, "results": sites}
 
 
 @router.get("/{site_id}", response_model=schemas.SiteOut)
 def read(site_id: int, db=Depends(get_session), user=Depends(auth)):
-    return crud.sites.fetch(db, owner=user, site_id=site_id)
+    _, site = crud.sites.fetch(db, owner=user, site_id=site_id)
+    return site
 
 
 @router.post("/", response_model=schemas.SiteOut, status_code=status.HTTP_201_CREATED)

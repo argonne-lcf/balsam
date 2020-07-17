@@ -34,7 +34,7 @@ def _set_transfer_state(job):
         if item.direction == direction
     )
     if is_done:
-        job.state = "STAGED_IN" if direction == "in" else "STAGED_OUT"
+        job.state = "STAGED_IN" if direction == "in" else "JOB_FINISHED"
     return is_done
 
 

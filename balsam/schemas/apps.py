@@ -1,6 +1,6 @@
 from pathlib import Path
 from pydantic import BaseModel, validator, Field
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from enum import Enum
 
 
@@ -85,3 +85,8 @@ class AppOut(AppBase):
         orm_mode = True
 
     id: int
+
+
+class PaginatedAppsOut(BaseModel):
+    count: int
+    results: List[AppOut]

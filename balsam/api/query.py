@@ -92,7 +92,8 @@ class Query:
         if start is None:
             start = 0
         self._offset = start
-        self._limit = stop - start
+        if stop is not None:
+            self._limit = stop - start
 
     def __iter__(self):
         self._fetch_cache()
@@ -157,7 +158,5 @@ class Query:
         # TODO: kwargs should expand to a set of allowed update_fields
         return self._manager._do_bulk_update_query(patch=kwargs, filters=self._filters)
 
-    def delete(self, allow_delete_all=False):
-        return self._manager._do_bulk_delete(
-            filters=self._filters, allow_delete_all=allow_delete_all
-        )
+    def delete(self):
+        return self._manager._do_bulk_delete(filters=self._filters)

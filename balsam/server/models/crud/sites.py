@@ -4,16 +4,28 @@ from datetime import datetime
 
 
 def fetch(
-    db, owner, paginator=None, host_contains=None, path_contains=None, site_id=None
+    db,
+    owner,
+    paginator=None,
+    host_contains=None,
+    path_contains=None,
+    site_id=None,
+    ids=None,
 ):
     qs = db.query(models.Site).filter(models.Site.owner_id == owner.id)
     if host_contains:
         qs = qs.filter(models.Site.hostname.like(f"%{host_contains}%"))
     if path_contains:
         qs = qs.filter(models.Site.path.like(f"%{path_contains}%"))
+    if ids:
+        qs = qs.filter(models.Site.id.in_(ids))
+
     if site_id is not None:
         qs = qs.filter(models.Site.id == site_id).one()
-    return paginator.paginate(qs) if site_id is None else qs
+        return (1, qs)
+    else:
+        count = qs.group_by(models.Site.id).count()
+        return count, paginator.paginate(qs)
 
 
 def create(db, owner, site):

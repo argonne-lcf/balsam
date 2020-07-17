@@ -7,7 +7,7 @@ from fastapi import Depends, APIRouter, status, Query
 
 from balsam import schemas
 from balsam.server.models import get_session, crud
-from balsam.server.models import Job
+from balsam.server.models import Job, Site, BatchJob
 from balsam.server.util import Paginator
 from balsam.server.pubsub import pubsub
 from balsam.server import settings, ValidationError
@@ -51,9 +51,10 @@ class JobQuery:
         if self.app_id:
             qs = qs.filter(Job.app_id == self.app_id)
         if self.site_id:
-            qs = qs.filter(Job.app.site_id == self.site_id)
+            qs = qs.filter(Site.id == self.site_id)
         if self.batch_job_id:
-            qs = qs.filter(Job.batch_job.id == self.batch_job_id)
+            qs = qs.join(BatchJob)
+            qs = qs.filter(BatchJob.id == self.batch_job_id)
         if self.last_update_before:
             qs = qs.filter(Job.last_update <= self.last_update_before)
         if self.last_update_after:

@@ -1,21 +1,21 @@
 from .models import (
-    TransferItem,
+    Transfer,
     Job,
     Site,
     App,
-    AppBackend,
     BatchJob,
+    JobAcquireSpec,
     Session,
     EventLog,
 )
 
 __all__ = [
-    "TransferItem",
+    "Transfer",
     "Job",
     "Site",
-    "AppBackend",
     "App",
     "BatchJob",
+    "JobAcquireSpec",
     "Session",
     "EventLog",
 ]

@@ -27,3 +27,8 @@ class SessionAcquire(BaseModel):
     max_wall_time_min: int
     acquire: List[JobAcquireSpec]
     filter_tags: Dict[str, str]
+
+
+class PaginatedSessionsOut(BaseModel):
+    count: int
+    results: List[SessionOut]

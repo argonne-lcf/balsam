@@ -7,7 +7,7 @@ def test_created_app_in_list_view(auth_client):
     app = create_app(auth_client, site["id"])
 
     # Retrieve the app list; ensure the App shows up
-    app_list = auth_client.get("/apps")
+    app_list = auth_client.get("/apps")["results"]
     assert len(app_list) == 1
     assert app_list[0] == app
 
@@ -19,8 +19,8 @@ def test_filter_apps_by_site(auth_client):
     create_app(auth_client, site1["id"], class_path="demo.SayHelloB")
     create_app(auth_client, site2["id"], class_path="demo.SayHelloC")
 
-    assert len(auth_client.get("/apps", site_id=site1["id"])) == 2
-    assert len(auth_client.get("/apps", site_id=site2["id"])) == 1
+    assert len(auth_client.get("/apps", site_id=site1["id"])["results"]) == 2
+    assert len(auth_client.get("/apps", site_id=site2["id"])["results"]) == 1
 
 
 def test_cannot_create_duplicate(auth_client):
@@ -49,14 +49,14 @@ def test_cannot_update_duplicate(auth_client):
 
 def test_delete_app(auth_client):
     site = create_site(auth_client)
-    assert len(auth_client.get("/apps")) == 0
+    assert len(auth_client.get("/apps")["results"]) == 0
     create_app(auth_client, site_id=site["id"])
-    assert len(auth_client.get("/apps")) == 1
+    assert len(auth_client.get("/apps")["results"]) == 1
     app2 = create_app(auth_client, site_id=site["id"], class_path="app2.app")
-    assert len(auth_client.get("/apps")) == 2
+    assert len(auth_client.get("/apps")["results"]) == 2
 
     auth_client.delete(f"/apps/{app2['id']}")
-    assert len(auth_client.get("/apps")) == 1
+    assert len(auth_client.get("/apps")["results"]) == 1
 
 
 def test_no_shared_app(create_user_client):
@@ -64,8 +64,8 @@ def test_no_shared_app(create_user_client):
     client1, client2 = create_user_client(), create_user_client()
     site = create_site(client1)
     create_app(client1, site_id=site["id"])
-    assert len(client1.get("/apps")) == 1
-    assert len(client2.get("/apps")) == 0
+    assert len(client1.get("/apps")["results"]) == 1
+    assert len(client2.get("/apps")["results"]) == 0
 
 
 def test_cannot_add_app_to_other_user_site(create_user_client):

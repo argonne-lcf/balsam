@@ -704,7 +704,7 @@ def test_view_session_list(auth_client, job_dict, create_session):
         check=status.HTTP_200_OK,
     )
     after_acquire = datetime.utcnow()
-    sessions = auth_client.get("/sessions/")
+    sessions = auth_client.get("/sessions/")["results"]
     assert len(sessions) == 1
     sess = sessions[0]
     assert sess["batch_job_id"] == session.batch_job_id

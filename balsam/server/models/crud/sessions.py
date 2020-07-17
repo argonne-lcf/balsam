@@ -20,7 +20,9 @@ def owned_session_query(db, owner):
 
 
 def fetch(db, owner):
-    return owned_session_query(db, owner).all()
+    qs = owned_session_query(db, owner).all()
+    count = len(qs)
+    return count, qs
 
 
 def _clear_stale_sessions(db, owner):

@@ -1,10 +1,11 @@
-from pathlib import Path
-import yaml
+import os
+import sys
 from pydantic import BaseSettings
 from datetime import timedelta
 from importlib import import_module
+import logging
 
-SETTINGS_PATH = Path(__file__).parent.joinpath("settings.yml")
+logger = logging.getLogger(__name__)
 
 
 class AuthSettings(BaseSettings):
@@ -20,19 +21,18 @@ class AuthSettings(BaseSettings):
 
 class Settings(BaseSettings):
     class Config:
-        env_prefix = "balsam"
+        env_prefix = "balsam_"
+        case_sensitive = False
+        env_file = ".env"
 
     database_url: str = "postgresql://postgres@localhost:5432/balsam"
     auth: AuthSettings = AuthSettings()
     redis_params: dict = {"unix_socket_path": "/tmp/redis-balsamapi.sock"}
 
-    @classmethod
-    def from_yaml(cls):
-        if not SETTINGS_PATH.exists():
-            settings = cls()
-            with open(SETTINGS_PATH, "w") as fp:
-                yaml.dump(settings.dict(), fp)
-        else:
-            with open(SETTINGS_PATH) as fp:
-                settings = cls(**yaml.load(fp, Loader=yaml.Loader))
-        return settings
+
+if os.environ.get("BALSAM_TEST") or "test" in "".join(sys.argv):
+    settings = Settings(_env_file=".env.test")
+    logger.info(f"Loaded test settings:\n{settings}")
+else:
+    settings = Settings(_env_file=".env")
+    logger.info(f"Loaded production settings:\n{settings}")

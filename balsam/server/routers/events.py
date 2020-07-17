@@ -30,7 +30,7 @@ class EventQuery:
     timestamp_after: datetime = Query(None)
     from_state: str = Query(None)
     to_state: str = Query(None)
-    ordering: EventOrdering = Query(None)
+    ordering: EventOrdering = Query("-timestamp")
 
     def apply_filters(self, qs):
         if self.job_id:

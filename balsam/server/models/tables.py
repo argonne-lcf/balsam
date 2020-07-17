@@ -118,7 +118,7 @@ class Job(Base):
         nullable=True,
         default=None,
     )
-    parameters = Column(JSON, default=dict)
+    parameters = Column(pg.JSONB, default=dict)
     batch_job_id = Column(
         Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True
     )
@@ -226,6 +226,6 @@ class LogEvent(Base):
     timestamp = Column(DateTime)
     from_state = Column(String(32))
     to_state = Column(String(32))
-    data = Column(JSON, default=dict)
+    data = Column(pg.JSONB, default=dict)
 
     job = orm.relationship(Job, back_populates="log_events")

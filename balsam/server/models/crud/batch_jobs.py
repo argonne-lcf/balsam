@@ -88,6 +88,6 @@ def delete(db, owner, batch_job_id):
         .filter(models.Site.owner_id == owner.id)
         .filter(models.BatchJob.id == batch_job_id)
     )
-    qs.one()
-    qs.delete()
+    bjob = qs.one()
+    db.query(models.BatchJob).filter(models.BatchJob.id == bjob.id).delete()
     db.flush()

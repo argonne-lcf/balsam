@@ -85,3 +85,8 @@ class SiteOut(SiteBase):
     id: int
     last_refresh: datetime
     creation_date: datetime
+
+
+class PaginatedSitesOut(BaseModel):
+    count: int
+    results: List[SiteOut]

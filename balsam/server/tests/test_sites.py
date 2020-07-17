@@ -11,7 +11,7 @@ def test_create_site(auth_client):
         path="/projects/myProject/balsam-site",
     )
     assert type(posted_site["id"]) == int
-    site_list = auth_client.get("/sites/")
+    site_list = auth_client.get("/sites/")["results"]
     assert isinstance(site_list, list)
     assert len(site_list) == 1
     assert site_list[0] == posted_site
@@ -67,6 +67,6 @@ def test_deleting_site_removes_associated_apps(auth_client):
         class_path="demo.SayHello",
         parameters={"name": {"required": True}, "N": {"required": False, "default": 1}},
     )
-    assert len(auth_client.get("/apps/")) == 1
+    assert len(auth_client.get("/apps/")["results"]) == 1
     auth_client.delete(f"/sites/{site['id']}", check=status.HTTP_204_NO_CONTENT)
-    assert len(auth_client.get("/apps/")) == 0
+    assert len(auth_client.get("/apps/")["results"]) == 0

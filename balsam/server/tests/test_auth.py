@@ -14,4 +14,4 @@ def test_register(anon_client):
 
 def test_auth_user_can_view_sites(auth_client):
     resp = auth_client.get("/sites/")
-    assert resp == []
+    assert resp["results"] == []

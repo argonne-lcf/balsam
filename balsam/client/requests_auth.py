@@ -1,6 +1,8 @@
 import click
 from .requests_client import RequestsClient
 from .rest_base_client import AuthError
+import time
+from requests.exceptions import ConnectionError
 
 
 class BasicAuthRequestsClient(RequestsClient):
@@ -13,7 +15,7 @@ class BasicAuthRequestsClient(RequestsClient):
         scheme,
         api_root,
         connect_timeout=3.1,
-        read_timeout=5,
+        read_timeout=60,
         retry_count=3,
         **kwargs,
     ):
@@ -29,17 +31,24 @@ class BasicAuthRequestsClient(RequestsClient):
 
     def refresh_auth(self):
         # Login with HTTPBasic Auth to get a token:
-        self._session.auth = (self.username, self.password)
-        login_url = self.build_url("login")
-        resp = self._session.post(login_url)
+        url = "users/login"
+        cred = {"username": self.username, "password": self.password}
+        resp = None
+        for _ in range(3):
+            try:
+                resp = self.request(url, "POST", data=cred)
+            except ConnectionError:
+                time.sleep(1)
+            else:
+                break
         try:
-            token = resp.json()["token"]
+            token = resp["access_token"]
         except KeyError:
             raise AuthError(f"Could not authenticate: {resp}")
 
         # Unset BasicAuth; set Token Authorization header
         self._session.auth = None
-        self._session.headers["Authorization"] = f"Token {token}"
+        self._session.headers["Authorization"] = f"Bearer {token}"
 
     def interactive_login(self):
         """Initiate interactive login flow"""

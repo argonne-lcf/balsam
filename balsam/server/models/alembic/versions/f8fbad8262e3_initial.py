@@ -101,7 +101,7 @@ def upgrade():
         sa.Column("tags", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("app_id", sa.Integer(), nullable=True),
         sa.Column("session_id", sa.Integer(), nullable=True),
-        sa.Column("parameters", sa.JSON(), nullable=True),
+        sa.Column("parameters", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("batch_job_id", sa.Integer(), nullable=True),
         sa.Column("state", sa.String(length=32), nullable=True),
         sa.Column("last_update", sa.DateTime(timezone=True), nullable=True),
@@ -153,7 +153,7 @@ def upgrade():
         sa.Column("timestamp", sa.DateTime(), nullable=True),
         sa.Column("from_state", sa.String(length=32), nullable=True),
         sa.Column("to_state", sa.String(length=32), nullable=True),
-        sa.Column("data", sa.JSON(), nullable=True),
+        sa.Column("data", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.ForeignKeyConstraint(["job_id"], ["jobs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
