@@ -26,16 +26,7 @@ class WorkerGroup:
     The host name and local batch scheduler's environment variables are used to
     identify the available compute resources and partition the resource into
     Workers.'''
-    def __init__(self):
-        '''Initialize WorkerGroup
-
-        Args:
-            - ``host_type``: one of THETA, BGQ, COOLEY, DEFAULT
-            - ``workers_str``: system-specific string identifying compute
-              resources
-            - ``workers_file``: system-specific file identifying compute
-              resources
-        '''
+    def __init__(self, limit=None, offset=None):
         self.host_type = settings.WORKER_DETECTION_TYPE
         self.workers_str = JobEnv.workers_str
         self.workers_file = JobEnv.workers_file
@@ -63,6 +54,15 @@ class WorkerGroup:
             ) from e
         else:
             self.mpi_cmd = mpirun_class()
+
+        # Apply limit and offset
+        if limit is not None:
+            if offset is None:
+                self.workers = self.workers[:limit] 
+            else: 
+                self.workers = self.workers[offset:offset+limit]
+        elif offset is not None:
+                self.workers = self.workers[offset:]
 
         logger.info(f"Built {len(self.workers)} {self.host_type} workers")
         for worker in self.workers:

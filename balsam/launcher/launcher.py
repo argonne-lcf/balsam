@@ -98,7 +98,8 @@ class MPIRun:
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
-    def __init__(self, wf_name, time_limit_minutes, gpus_per_node):
+    def __init__(self, wf_name, time_limit_minutes, gpus_per_node,
+                 limit_nodes=None, offset_nodes=None):
         self.jobsource = BalsamJob.source
         self.jobsource.workflow = wf_name
         if wf_name:
@@ -108,7 +109,7 @@ class MPILauncher:
 
         self.jobsource.clear_stale_locks()
         self.jobsource.start_tick()
-        self.worker_group = worker.WorkerGroup()
+        self.worker_group = worker.WorkerGroup(limit=limit_nodes, offset=offset_nodes)
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
         os.environ['BALSAM_JOB_MODE'] = "mpi"
@@ -358,13 +359,13 @@ class MPILauncher:
 class SerialLauncher:
     MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble2").origin
 
-    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None):
+    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, limit_nodes=None, offset_nodes=None):
         self.wf_name = wf_name
         self.gpus_per_node = gpus_per_node
 
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
-        self.worker_group = worker.WorkerGroup()
+        self.worker_group = worker.WorkerGroup(limit=limit_nodes, offset=offset_nodes)
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
         os.environ['BALSAM_JOB_MODE'] = "serial"
@@ -378,13 +379,8 @@ class SerialLauncher:
         global EXIT_FLAG
         workers = self.worker_group
         if self.total_nodes == 1:
-            logger.warning("Running Serial job mode with only one node. Typically, "
-            "there is only one rank per node, and Balsam master occupies the first node.\n"
-            "Assuming you are testing; will run 4 ranks (1 master; 3 workers) on the node.\n"
-            "This will cause heavy oversubscription with production workloads."
-            )
-            num_ranks = 4
-            rpn = 4
+            num_ranks = 2
+            rpn = 2
         else:
             num_ranks = self.total_nodes
             rpn = 1
@@ -428,6 +424,8 @@ def main(args):
     nthread = (args.num_transition_threads if args.num_transition_threads
                else settings.NUM_TRANSITION_THREADS)
     gpus_per_node = args.gpus_per_node
+    limit_nodes = args.limit_nodes
+    offset_nodes = args.offset_nodes
 
     Launcher = MPILauncher if job_mode == 'mpi' else SerialLauncher
 
@@ -436,7 +434,8 @@ def main(args):
             transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
         else:
             transition_pool = None
-        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node)
+        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node,
+                            limit_nodes, offset_nodes)
         launcher.run()
     except:
         raise
