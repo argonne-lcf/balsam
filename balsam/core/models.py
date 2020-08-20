@@ -723,6 +723,7 @@ class BalsamJob(models.Model):
         balsam_envs = dict(
             BALSAM_JOB_ID=str(self.pk),
             BALSAM_PARENT_IDS=str(self.parents),
+            BALSAM_DB_PATH=os.environ["BALSAM_DB_PATH"],
         )
 
         if self.threads_per_rank > 1:
