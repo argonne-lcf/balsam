@@ -16,6 +16,7 @@ from collections import defaultdict
 from importlib.util import find_spec
 import logging
 from math import floor
+from datetime import datetime
 import os
 import sys
 import signal
@@ -366,12 +367,22 @@ class SerialLauncher:
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
         self.worker_group = worker.WorkerGroup(limit=limit_nodes, offset=offset_nodes)
+
+        hostnames = sorted([w.hostname for w in self.worker_group])
+        master_host = hostnames[0]
+        master_port = 19876
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        log_fname = f'serial-ensemble_{timestamp}.log'
+
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
         os.environ['BALSAM_JOB_MODE'] = "serial"
 
         self.app_cmd = f"{sys.executable} {self.ZMQ_ENSEMBLE_EXE}"
         self.app_cmd += f" --time-limit-min={minutes_left}"
+        self.app_cmd += f" --master-address {master_host}:{master_port}"
+        self.app_cmd += f" --log-filename {log_fname}"
+        self.app_cmd += f" --num-workers {len(self.worker_group)-1}"
         if self.wf_name: self.app_cmd += f" --wf-name={self.wf_name}"
         if self.gpus_per_node: self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
 

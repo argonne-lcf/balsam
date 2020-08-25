@@ -100,12 +100,12 @@ class BalsamDBStatusUpdater(StatusUpdater):
             done_pks.extend(uuid.UUID(pk) for pk in msg['done']) # pk list
             error_msgs.extend(msg['error']) # list: (pk, retcode, tail)
 
-        if start_pks:
-            BalsamJob.batch_update_state(start_pks, 'RUNNING')
-            logger.info(f"StatusUpdater marked {len(start_pks)} RUNNING")
         if done_pks:
             BalsamJob.batch_update_state(done_pks, 'RUN_DONE', release=True)
             logger.info(f"StatusUpdater marked {len(done_pks)} DONE")
+        if start_pks:
+            BalsamJob.batch_update_state(start_pks, 'RUNNING')
+            logger.info(f"StatusUpdater marked {len(start_pks)} RUNNING")
         if error_msgs:
             self._handle_errors(error_msgs)
 
@@ -225,7 +225,7 @@ class Master:
         next(self.remaining_timer)
 
         if args.db_prefetch_count == 0:
-            prefetch = args.num_workers * 128
+            prefetch = args.num_workers * 96
         else:
             prefetch = args.db_prefetch_count
 

@@ -16,6 +16,12 @@ class Worker:
         self.host_type = host_type
         self.idle = True
 
+    @property
+    def hostname(self):
+        if self.host_type != 'THETA':
+            return self.id
+        return f'nid{self.id:05d}'
+
     def __repr__(self):
         return f"worker{self.id}"
 
