@@ -357,7 +357,7 @@ class MPILauncher:
 
 
 class SerialLauncher:
-    MPI_ENSEMBLE_EXE = find_spec("balsam.launcher.mpi_ensemble2").origin
+    ZMQ_ENSEMBLE_EXE = find_spec("balsam.launcher.serial_mode").origin
 
     def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, limit_nodes=None, offset_nodes=None):
         self.wf_name = wf_name
@@ -370,7 +370,7 @@ class SerialLauncher:
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
         os.environ['BALSAM_JOB_MODE'] = "serial"
 
-        self.app_cmd = f"{sys.executable} {self.MPI_ENSEMBLE_EXE}"
+        self.app_cmd = f"{sys.executable} {self.ZMQ_ENSEMBLE_EXE}"
         self.app_cmd += f" --time-limit-min={minutes_left}"
         if self.wf_name: self.app_cmd += f" --wf-name={self.wf_name}"
         if self.gpus_per_node: self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
