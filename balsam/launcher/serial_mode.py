@@ -13,7 +13,6 @@ import time
 import uuid
 import psutil
 import socket
-import json
 import zmq
 
 _p = psutil.Process()
@@ -239,7 +238,7 @@ class Master:
         self.socket.bind(f"tcp://*:{args.master_port}")
 
     def handle_request(self):
-        msg = json.loads(self.socket.recv())
+        msg = self.socket.recv_json()
         self.status_updater.queue.put_nowait(msg)
 
         src = msg["source"]
@@ -247,7 +246,7 @@ class Master:
         logger.info(f"Worker {src} requested {max_jobs} jobs")
 
         new_job_specs = self.job_source.get_jobs(max_jobs)
-        self.socket.send(json.dumps({'new_jobs': new_job_specs}))
+        self.socket.send_json({'new_jobs': new_job_specs})
         if new_job_specs:
             logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
@@ -297,7 +296,7 @@ class Worker:
 
     def __init__(self, args, hostname):
         self.context = zmq.Context()
-        self.socket = context.socket(zmq.REQ)
+        self.socket = self.context.socket(zmq.REQ)
         self.socket.connect(f"tcp://{args.master_address}")
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         self.hostname = hostname
@@ -461,7 +460,8 @@ class Worker:
         return done, error, active
 
     def exit(self):
-        for pk in self.processes:
+        pks = list(self.processes.keys())
+        for pk in pks:
             self._cleanup_proc(pk, timeout=self.CHECK_PERIOD)
         sys.exit(0)
 
@@ -502,8 +502,8 @@ class Worker:
                 "active": active,
                 "request_num_jobs": request_num_jobs,
             }
-            self.socket.send(json.dumps(msg))
-            response_msg = json.loads(self.socket.recv())
+            self.socket.send_json(msg)
+            response_msg = self.socket.recv_json()
 
             if response_msg.get('new_jobs'):
                 self.runnable_cache.update({
@@ -519,10 +519,11 @@ class Worker:
             if self.EXIT_FLAG:
                 logger.info(f"Worker {self.hostname} EXIT_FLAG break")
                 break
+            time.sleep(1)
 
         self.exit()
     
-def parse_args(self):
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--master-address', required=True)
     parser.add_argument('--log-filename', required=True)
@@ -533,8 +534,8 @@ def parse_args(self):
     parser.add_argument('--db-prefetch-count', type=int, default=0)
     parser.add_argument('--worker-prefetch-count', type=int, default=64)
     args = parser.parse_args()
-    args.master_host = master_address.split(':')[0]
-    args.master_port = int(master_address.split(':')[1])
+    args.master_host = args.master_address.split(':')[0]
+    args.master_port = int(args.master_address.split(':')[1])
     return args
 
 
