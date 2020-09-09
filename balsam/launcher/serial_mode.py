@@ -91,14 +91,30 @@ class BalsamDBStatusUpdater(StatusUpdater):
     def perform_updates(self, update_msgs):
         start_pks = []
         done_pks = []
+        error_pks = []
         error_msgs = []
+
+        early_start_pks = []
 
         for msg in update_msgs:
             if msg == 'exit': continue
             start_pks.extend(uuid.UUID(pk) for pk in msg['started']) # pk list
             done_pks.extend(uuid.UUID(pk) for pk in msg['done']) # pk list
+            error_pks.extend(uuid.UUID(err[0]) for err in msg['error'])
             error_msgs.extend(msg['error']) # list: (pk, retcode, tail)
 
+        for pk in done_pks:
+            if pk in start_pks:
+                start_pks.remove(pk)
+                early_start_pks.append(pk)
+        for pk in error_pks:
+            if pk in start_pks:
+                start_pks.remove(pk)
+                early_start_pks.append(pk)
+
+        if early_start_pks:
+            BalsamJob.batch_update_state(early_start_pks, 'RUNNING')
+            logger.info(f"StatusUpdater marked {len(start_pks)} RUNNING")
         if done_pks:
             BalsamJob.batch_update_state(done_pks, 'RUN_DONE', release=True)
             logger.info(f"StatusUpdater marked {len(done_pks)} DONE")

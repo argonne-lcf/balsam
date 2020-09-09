@@ -109,8 +109,6 @@ def remaining_time_minutes(time_limit_minutes=0.0):
         - ``time_limit_minutes`` (*float*): runtime limit
     Yields:
         - ``remaining`` (*float*): remaining time
-    Raises:
-        - ``StopIteration``: when there is no time left
     '''
     if time_limit_minutes > 0.0:
         elapsed_timer = elapsed_time_minutes()
@@ -122,4 +120,4 @@ def remaining_time_minutes(time_limit_minutes=0.0):
     while True:
         remaining_min = get_remaining()
         if remaining_min > 0: yield remaining_min
-        else: raise StopIteration
+        else: return
