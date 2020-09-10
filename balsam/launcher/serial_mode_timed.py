@@ -70,7 +70,7 @@ class SectionTimer:
 
     @staticmethod
     def report():
-        result = f'{"Section":18} {"MinTime":8.2f} {"MaxTime":8.2f} {"AvgTime":8.2f} {"PctTime":5.2f}%\n'
+        result = f'{"Section":18} {"MinTime":8} {"MaxTime":8} {"AvgTime":8} {"PctTime":5}\n'
         total_t = sum(sum(times) for times in SectionTimer._sections.values())
         for sec, times in SectionTimer._sections.items():
             min_t = min(times)
