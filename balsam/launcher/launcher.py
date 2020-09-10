@@ -358,7 +358,7 @@ class MPILauncher:
 
 
 class SerialLauncher:
-    ZMQ_ENSEMBLE_EXE = find_spec("balsam.launcher.serial_mode").origin
+    ZMQ_ENSEMBLE_EXE = find_spec("balsam.launcher.serial_mode_timed").origin
 
     def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, limit_nodes=None, offset_nodes=None):
         self.wf_name = wf_name
