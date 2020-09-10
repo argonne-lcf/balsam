@@ -26,7 +26,7 @@ _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
 
 
-def config_logging(basename, filename=None):
+def config_logging(basename, filename=None, use_buffer=False):
     if filename is None:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
         fname = f'{basename}_{timestamp}.log'
@@ -42,7 +42,12 @@ def config_logging(basename, filename=None):
     level = getattr(logging, settings.LOG_HANDLER_LEVEL)
     handler.setLevel(level)
     handler.setFormatter(formatter)
-    _logger.addHandler(handler)
+
+    if not use_buffer:
+        _logger.addHandler(handler)
+    else:
+        mem_handler = logging.handlers.MemoryHandler(capacity=128, target=handler)
+        _logger.addHandler(mem_handler)
     return fname
 
 

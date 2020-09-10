@@ -235,7 +235,7 @@ class Master:
         self.idle_time = 0.0
         self.EXIT_FLAG = False
 
-        config_logging('serial-launcher', filename=args.log_filename)
+        config_logging('serial-launcher', filename=args.log_filename, use_buffer=True)
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
 
@@ -321,7 +321,7 @@ class Worker:
 
         self.gpus_per_node = args.gpus_per_node
         self.prefetch_count = args.worker_prefetch_count
-        config_logging('serial-launcher', filename=args.log_filename)
+        config_logging('serial-launcher', filename=args.log_filename, use_buffer=True)
         self.processes = {}
         self.outfiles = {}
         self.cuteids = {}
