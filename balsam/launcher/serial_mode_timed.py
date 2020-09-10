@@ -362,7 +362,8 @@ class Worker:
 
         self.gpus_per_node = args.gpus_per_node
         self.prefetch_count = args.worker_prefetch_count
-        config_logging('serial-launcher', filename=args.log_filename, use_buffer=True)
+        log_fname = args.log_filename + "." + self.hostname
+        config_logging('serial-launcher', filename=log_fname, use_buffer=True)
         self.processes = {}
         self.outfiles = {}
         self.cuteids = {}

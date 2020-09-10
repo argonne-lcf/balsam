@@ -46,7 +46,9 @@ def config_logging(basename, filename=None, use_buffer=False):
     if not use_buffer:
         _logger.addHandler(handler)
     else:
-        mem_handler = logging.handlers.MemoryHandler(capacity=128, target=handler)
+        mem_handler = logging.handlers.MemoryHandler(capacity=256, target=handler)
+        mem_handler.setLevel(level)
+        mem_handler.setFormatter(formatter)
         _logger.addHandler(mem_handler)
     return fname
 
