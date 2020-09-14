@@ -470,7 +470,7 @@ class Worker:
             out_name = f'{name}.out'
         
         with SectionTimer(f'{self.hostname}_log_WORKER_START'):
-            logger.info(f"{self.log_prefix(pk)} WORKER_START")
+            logger.debug(f"{self.log_prefix(pk)} WORKER_START")
         with SectionTimer(f'{self.hostname}_log_Popen'):
             logger.debug(f"{self.log_prefix(pk)} Popen (shell={shell}):\n{args}")
 
@@ -489,7 +489,7 @@ class Worker:
                 _p.cpu_affinity([])
         except Exception as e:
             proc = FailedToStartProcess()
-            logger.info(f"{self.log_prefix(pk)} WORKER_ERROR")
+            logger.debug(f"{self.log_prefix(pk)} WORKER_ERROR")
             logger.error(self.log_prefix(pk) + f"Popen error:\n{str(e)}\n")
             sleeptime = 0.5 + 3.5*random.random()
             time.sleep(sleeptime)
@@ -524,7 +524,7 @@ class Worker:
             elif retcode == 0:
                 done.append(pk)
                 with SectionTimer(f'{self.hostname}_log_WORKER_DONE'):
-                    logger.info(f"{self.log_prefix(pk)} WORKER_DONE")
+                    logger.debug(f"{self.log_prefix(pk)} WORKER_DONE")
                 with SectionTimer(f'{self.hostname}_cleanup_proc'):
                     self._cleanup_proc(pk)
             else:
