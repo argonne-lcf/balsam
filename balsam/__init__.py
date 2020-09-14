@@ -1,4 +1,5 @@
 from datetime import datetime
+import time
 import logging
 import logging.handlers
 import os
@@ -14,6 +15,23 @@ except ImportError:
 from balsam.__version__ import __version__  # noqa
 
 
+class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
+    last_flush = 0
+    flush_period = 10
+
+    def flush(self):
+        super().flush()
+        self.last_flush = time.time()
+
+    def shouldFlush(self, record):
+        """
+        Check for buffer full or a record at the flushLevel or higher.
+        """
+        return (len(self.buffer) >= self.capacity) or \
+                (record.levelno >= self.flushLevel) or \
+                (time.time() - self.last_flush > self.flush_period)
+
+
 def setup():
     if not settings.configured:
         os.environ['DJANGO_SETTINGS_MODULE'] = 'balsam.django_config.settings'
@@ -26,7 +44,7 @@ _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
 
 
-def config_logging(basename, filename=None, use_buffer=False):
+def config_logging(basename, filename=None, buffer_capacity=None):
     if filename is None:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
         fname = f'{basename}_{timestamp}.log'
@@ -43,10 +61,10 @@ def config_logging(basename, filename=None, use_buffer=False):
     handler.setLevel(level)
     handler.setFormatter(formatter)
 
-    if not use_buffer:
+    if not buffer_capacity:
         _logger.addHandler(handler)
     else:
-        mem_handler = logging.handlers.MemoryHandler(capacity=256, target=handler)
+        mem_handler = PeriodicMemoryHandler(capacity=buffer_capacity, target=handler)
         mem_handler.setLevel(level)
         mem_handler.setFormatter(formatter)
         _logger.addHandler(mem_handler)

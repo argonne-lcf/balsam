@@ -393,7 +393,7 @@ class JobSource(models.Manager):
         with transaction.atomic():
             my_locked = safe_select(BalsamJob.objects.filter(lock=self.lock_str))
             num_updated = my_locked.update(tick=now)
-        logger.debug(f'Ticked lock on {num_updated} of my BalsamJobs')
+        logger.info(f'Ticked lock on {num_updated} of my BalsamJobs')
         connection.close()
 
     def release(self, pk_list):

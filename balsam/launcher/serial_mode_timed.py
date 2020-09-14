@@ -70,14 +70,14 @@ class SectionTimer:
 
     @staticmethod
     def report():
-        result = f'{"Section":18} {"MinTime":8} {"MaxTime":8} {"AvgTime":8} {"PctTime":5}\n'
+        result = f'{"Section":24} {"MinTime":8} {"MaxTime":8} {"AvgTime":8} {"PctTime":5}\n'
         total_t = sum(sum(times) for times in SectionTimer._sections.values())
         for sec, times in SectionTimer._sections.items():
             min_t = min(times)
             max_t = max(times)
             avg_t = sum(times) / len(times)
-            percent_t = sum(times) / total_t
-            result += f'{sec:18} {min_t:8.2f} {max_t:8.2f} {avg_t:8.2f} {percent_t:5.2f}%\n'
+            percent_t = 100 * sum(times) / total_t
+            result += f'{sec:24} {min_t:8.3f} {max_t:8.3f} {avg_t:8.3f} {percent_t:5.1f}%\n'
         SectionTimer._sections = {}
         SectionTimer.total_elapsed = 0.0
         logger.info("\n"+result)
@@ -217,16 +217,20 @@ class BalsamJobSource(JobSource):
         connections.close_all()
         self._manager = BalsamJob.source
         self._manager.workflow = wf_filter
-        self._manager.start_tick()
-        self._manager.clear_stale_locks()
         self._manager.check_qLaunch()
         connections.close_all()
+        self._started_tick = False
         if wf_filter:
             logger.info(f'Pulling jobs with workflow matching: {wf_filter}')
         else:
             logger.info('No workflow filter. Consuming all jobs.')
 
     def _acquire_jobs(self, num_jobs):
+        if not self._started_tick:
+            self._manager.clear_stale_locks()
+            self._manager.start_tick()
+            self._started_tick = True
+
         jobquery = self._manager.get_runnable(
             max_nodes=1,
             serial_only=True,
@@ -268,7 +272,11 @@ class Master:
         self.idle_time = 0.0
         self.EXIT_FLAG = False
 
-        config_logging('serial-launcher', filename=args.log_filename, use_buffer=True)
+        config_logging(
+            'serial-launcher',
+            filename=args.log_filename,
+            buffer_capacity=int(10*args.num_workers),
+        )
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
 
@@ -295,7 +303,7 @@ class Master:
         with SectionTimer("master_log_request"):
             src = msg["source"]
             max_jobs = msg['request_num_jobs']
-            logger.info(f"Worker {src} requested {max_jobs} jobs")
+            logger.debug(f"Worker {src} requested {max_jobs} jobs")
 
 
         with SectionTimer("master_dequeue_jobs"):
