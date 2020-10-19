@@ -92,7 +92,7 @@ def create_session(job_dict, site, db_session):
             filter_tags={},
         )
         db_session.add(bjob)
-        session = models.Session(batch_job=bjob)
+        session = models.Session(site_id=bjob.site_id, batch_job=bjob)
         db_session.commit()
         return session
 
@@ -126,7 +126,7 @@ def assertHistory(client, job, *states, **expected_messages):
         for i, e in enumerate(response["results"])
     )
     assert response["count"] == len(states) - 1, fail_msg
-    eventlogs = response["results"]
+    eventlogs = list(reversed(response["results"]))
 
     for i, (from_state, to_state) in enumerate(zip(states[:-1], states[1:])):
         expected_dict = {"from_state": from_state, "to_state": to_state}

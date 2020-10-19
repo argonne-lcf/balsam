@@ -6,6 +6,6 @@ def fetch(db, owner, paginator, filterset):
     qs = qs.filter(models.Site.owner_id == owner.id)
     qs = filterset.apply_filters(qs)
     count = qs.group_by(models.LogEvent.id).count()
-    print("I counted", count, "events")
     events = paginator.paginate(qs)
+    print(*((e.from_state, e.to_state) for e in events), sep="\n")
     return count, events

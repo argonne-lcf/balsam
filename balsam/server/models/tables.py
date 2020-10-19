@@ -59,6 +59,7 @@ class Site(Base):
     owner = orm.relationship(User, lazy="raise")
     apps = orm.relationship("App", back_populates="site", lazy="dynamic")
     batch_jobs = orm.relationship("BatchJob", back_populates="site", lazy="dynamic")
+    sessions = orm.relationship("Session", back_populates="site", lazy="dynamic")
 
 
 class App(Base):
@@ -194,10 +195,14 @@ class Session(Base):
     id = Column(Integer, primary_key=True)
     heartbeat = Column(DateTime, default=datetime.utcnow)
     batch_job_id = Column(
-        Integer, ForeignKey("batch_jobs.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    site_id = Column(
+        Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False
     )
 
     batch_job = orm.relationship(BatchJob, lazy="raise", back_populates="sessions")
+    site = orm.relationship(Site, lazy="raise", back_populates="sessions")
     jobs = orm.relationship("Job", lazy="dynamic", back_populates="session")
 
 

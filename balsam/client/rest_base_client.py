@@ -6,9 +6,6 @@ class AuthError(Exception):
 
 
 class RESTClient:
-    def __init__(self, base_url):
-        self.base_url = base_url.strip().rstrip("/")
-
     def interactive_login(self):
         """Initiate interactive login flow"""
         raise NotImplementedError

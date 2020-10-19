@@ -42,7 +42,7 @@ def live_server(setup_database, free_port):
         f"uvicorn balsam.server.main:app --port {free_port}", shell=True,
     )
     time.sleep(1)
-    yield {"host": "localhost", "port": free_port, "scheme": "http", "api_root": "/"}
+    yield f"http://localhost:{free_port}/"
     proc.terminate()
     proc.communicate()
 
@@ -67,7 +67,7 @@ def create_user_client(setup_database, db_session, live_server):
         user = crud.users.create_user(db_session, **login_credentials)
         db_session.commit()
         created_users.append(user)
-        client = BasicAuthRequestsClient(**live_server, **login_credentials)
+        client = BasicAuthRequestsClient(live_server, **login_credentials)
         client.refresh_auth()
         return client
 

@@ -3,7 +3,6 @@ from urllib.parse import urlparse
 
 from balsam.server import models, ValidationError
 from balsam.schemas.job import JobState
-from balsam.schemas.transfer import TransferItemState
 from sqlalchemy import orm, func, case, literal_column
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
@@ -77,7 +76,7 @@ def populate_transfers(db_job, job_spec):
             direction=direction,
             source_path=remote_path if direction == "in" else local_path,
             destination_path=local_path if direction == "in" else remote_path,
-            state=TransferItemState.pending,
+            state="pending" if direction == "in" else "awaiting_job",
             task_id="",
             transfer_info={},
         )
@@ -209,6 +208,10 @@ def _update_state(job, state, state_timestamp, state_data):
         ):
             job.state = "JOB_FINISHED"
             event.data["message"] = "Skipped stage out"
+        else:
+            for item in job.transfer_items:
+                if item.state == "awaiting_job":
+                    item.state = "pending"
 
     if job.state == "STAGED_OUT":
         job.state = "JOB_FINISHED"

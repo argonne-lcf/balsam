@@ -1,43 +1,29 @@
-from balsam import site
-from .util import file_watcher
-import threading
 import logging
+import signal
+from balsam.config import SiteConfig, ClientSettings
 
 logger = logging.getLogger(__name__)
 
-FILE_WATCHER_DELAY = 2
-
-
-def sandbox_exec_file(path):
-    local_vars, global_vars = {}, {}
-    try:
-        with open(path) as fp:
-            module_contents = fp.read()
-        exec(module_contents, globals=global_vars, locals=local_vars)
-    except Exception:
-        logger.exception(
-            f"An exception occured inside {path}. " "Please fix and re-save the file."
-        )
-        return {}
-    else:
-        return global_vars
-
-
-def app_modified(filepath):
-    global_vars = sandbox_exec_file(filepath)
-    for k, v in global_vars.items():
-        pass
-
 
 def main():
-    site.setup()
+    config = SiteConfig()
+    client = ClientSettings.load()
+    services = []
 
-    app_watcher = threading.Thread(
-        target=file_watcher.watcher,
-        args=(app_modified, site.APPS_PATH, "*.py", FILE_WATCHER_DELAY),
-        daemon=True,
-    )
-    app_watcher.start()
+    def handler(signum, stack):
+        for service in services:
+            service.sig_handler(signum, stack)
+
+    signal.signal(signal.SIGINT, handler)
+    signal.signal(signal.SIGTERM, handler)
+
+    for cls, conf in config.get_service_classes():
+        service = cls(client=client, **conf)
+        service.start()
+        services.append(service)
+
+    for service in services:
+        service.join()
 
 
 if __name__ == "__main__":

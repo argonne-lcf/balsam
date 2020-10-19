@@ -14,12 +14,15 @@ auth = settings.auth.get_auth_method()
 
 @dataclass
 class TransferQuery:
+    id: List[int] = Query(None)
     job_id: List[int] = Query(None)
     state: str = Query(None)
     job_state: str = Query(None)
     tags: str = Query(None)
 
     def apply_filters(self, qs):
+        if self.id:
+            qs = qs.filter(TransferItem.id.in_(self.id))
         if self.job_id:
             qs = qs.filter(Job.id.in_(self.job_id))
         if self.state:
@@ -62,6 +65,7 @@ def update(
         db, owner=user, transfer_id=transfer_id, data=data
     )
     result = schemas.TransferItemOut.from_orm(updated_transfer)
+    db.commit()
     pubsub.publish(user.id, "update", "transfer", result)
     if updated_job:
         pubsub.publish(user.id, "update", "job", schemas.JobOut.from_orm(updated_job))
@@ -83,6 +87,7 @@ def bulk_update(
     result_transfers = [schemas.TransferItemOut.from_orm(t) for t in updated_transfers]
     result_jobs = [schemas.JobOut.from_orm(j) for j in updated_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in log_events]
+    db.commit()
 
     pubsub.publish(user.id, "bulk-update", "transfer", result_transfers)
     if result_jobs or result_events:

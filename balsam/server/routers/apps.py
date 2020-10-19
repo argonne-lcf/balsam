@@ -39,6 +39,7 @@ def create(app: schemas.AppCreate, db=Depends(get_session), user=Depends(auth)):
     """
     new_app = crud.apps.create(db, owner=user, app=app)
     result = schemas.AppOut.from_orm(new_app)
+    db.commit()
     pubsub.publish(user.id, "create", "app", result)
     return result
 
@@ -50,6 +51,7 @@ def update(
     data = app.dict(exclude_unset=True)
     updated_app = crud.apps.update(db, owner=user, app_id=app_id, update_data=data)
     data["id"] = app_id
+    db.commit()
     pubsub.publish(user.id, "update", "app", data)
     return updated_app
 
@@ -57,4 +59,5 @@ def update(
 @router.delete("/{app_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(app_id: int, db=Depends(get_session), user=Depends(auth)):
     crud.apps.delete(db, owner=user, app_id=app_id)
+    db.commit()
     pubsub.publish(user.id, "delete", "app", {"id": app_id})

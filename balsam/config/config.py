@@ -5,7 +5,8 @@ from pathlib import Path
 import importlib.util
 import socket
 import shutil
-from typing import Optional
+from typing import Optional, Dict
+from uuid import UUID
 import yaml
 
 from pydantic import (
@@ -18,14 +19,8 @@ from pydantic import (
 from typing import List
 from balsam.client import RESTClient
 from balsam.api import Site
-from balsam.api.managers import (
-    JobManager,
-    SiteManager,
-    AppManager,
-    BatchJobManager,
-    SessionManager,
-    EventLogManager,
-)
+from balsam.api import Manager
+from balsam.schemas import AllowedQueue
 
 
 def balsam_home():
@@ -33,16 +28,12 @@ def balsam_home():
 
 
 class ClientSettings(BaseSettings):
-    client_class: PyObject
-    host: str
-    port: int
+    client_class: PyObject = "balsam.client.BasicAuthRequestsClient"
+    api_root: str
     username: str
     password: str
-    scheme: str
     token: Optional[str] = None
     token_expiry: Optional[datetime] = None
-    database: str = "balsam"
-    api_root: str = "/api"
     connect_timeout: float = 3.1
     read_timeout: float = 5.0
     retry_count: int = 3
@@ -55,25 +46,15 @@ class ClientSettings(BaseSettings):
 
     @classmethod
     def from_url(cls, url):
-        if url.scheme == "postgres":
-            return cls(
-                client_class="balsam.client.DirectAPIClient",
-                host=url.host,
-                port=url.port,
-                username=url.user,
-                password=url.password,
-                scheme=url.scheme,
-            )
-        else:
-            return cls(
-                client_class="balsam.client.BasicAuthRequestsClient",
-                host=url.host,
-                port=url.port,
-                username=url.user,
-                password=url.password,
-                api_root=url.path or "/api",
-                scheme=url.scheme,
-            )
+        return cls(
+            client_class="balsam.client.BasicAuthRequestsClient",
+            host=url.host,
+            port=url.port,
+            username=url.user,
+            password=url.password,
+            api_root=url.path or "/",
+            scheme=url.scheme,
+        )
 
     @staticmethod
     def settings_path():
@@ -101,18 +82,33 @@ class ClientSettings(BaseSettings):
 
     def build_client(self):
         client = self.client_class(**self.dict())
-        SiteManager(client.sites)
-        AppManager(client.apps)
-        JobManager(client.jobs)
-        BatchJobManager(client.batch_jobs)
-        SessionManager(client.sessions)
-        EventLogManager(client.events)
-        return client
+        Manager.set_client(client)
+
+
+class SchedulerSettings(BaseSettings):
+    scheduler_class: PyObject
+    sync_period: int
+    allowed_queues: Dict[str, AllowedQueue] = []
+    allowed_projects: List[str] = []
+    optional_batch_job_params = Dict[str, str]
+    job_template_path: Path
+
+
+class TransferInterfaceSettings(BaseSettings):
+    trusted_locations: Dict[str, AnyUrl] = []
+    max_concurrent_transfers: int
+    globus_endpoint_id: UUID
 
 
 class Settings(BaseSettings):
     site_id: int
-    trusted_data_sources: List[AnyUrl] = []
+
+    scheduler: SchedulerSettings
+    mpi_launcher: PyObject
+    resource_manager: PyObject
+    transfers: Optional[TransferInterfaceSettings]
+
+    log_level: str
 
     def save(self, path):
         with open(path, "w") as fp:
@@ -125,7 +121,7 @@ class Settings(BaseSettings):
         return cls(**raw_data)
 
 
-class BalsamComponentFactory:
+class SiteConfig:
     """
     This class plays the role of Dependency Injector
         https://en.wikipedia.org/wiki/Dependency_injection
@@ -193,8 +189,7 @@ class BalsamComponentFactory:
             default_site_path.joinpath("settings.yml"), validate=False
         )
 
-        client = ClientSettings.load_from_home().build_client()
-        SiteManager(client.sites)
+        ClientSettings.load_from_home().build_client()
 
         site = Site.objects.create(
             hostname=socket.gethostname() if hostname is None else hostname,
@@ -221,12 +216,12 @@ class BalsamComponentFactory:
         site_path = (
             site_path
             or os.environ.get("BALSAM_SITE_PATH")
-            or BalsamComponentFactory.search_site_dir()
+            or SiteConfig.search_site_dir()
         )
         if site_path is None:
             if raise_exc:
                 raise ValueError(
-                    "Initialize BalsamComponentFactory with a `site_path` or set env BALSAM_SITE_PATH "
+                    "Initialize SiteConfig with a `site_path` or set env BALSAM_SITE_PATH "
                     "to a Balsam site directory containing a settings.py file."
                 )
             return None

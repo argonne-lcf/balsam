@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Set
 from .model_base import BalsamModel
 from .manager_base import Manager
 from balsam import schemas
@@ -7,6 +7,8 @@ from balsam import schemas
 JobAcquireSpec = schemas.JobAcquireSpec
 AppParameter = schemas.AppParameter
 TransferSlot = schemas.TransferSlot
+JobState = schemas.JobState
+RUNNABLE_STATES = schemas.RUNNABLE_STATES
 
 
 class SiteManager(Manager):
@@ -157,6 +159,7 @@ class Session(BalsamModel):
         max_wall_time_min: int,
         acquire: List[JobAcquireSpec],
         filter_tags: Dict[str, str] = None,
+        states: Set[JobState] = RUNNABLE_STATES,
     ):
         if filter_tags is None:
             filter_tags = {}
@@ -165,6 +168,7 @@ class Session(BalsamModel):
             max_wall_time_min=max_wall_time_min,
             acquire=acquire,
             filter_tags=filter_tags,
+            states=states,
         )
 
     def tick(self):

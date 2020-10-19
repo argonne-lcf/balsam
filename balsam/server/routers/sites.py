@@ -43,6 +43,7 @@ def create(
 ):
     new_site = crud.sites.create(db, owner=user, site=site)
     result = schemas.SiteOut.from_orm(new_site)
+    db.commit()
     pubsub.publish(user.id, "create", "site", result)
     return result
 
@@ -55,6 +56,7 @@ def update(
     data["last_refresh"] = datetime.utcnow()
     updated_site = crud.sites.update(db, owner=user, site_id=site_id, update_data=data)
     data["id"] = site_id
+    db.commit()
     pubsub.publish(user.id, "update", "site", data)
     return updated_site
 
@@ -62,4 +64,5 @@ def update(
 @router.delete("/{site_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(site_id: int, db=Depends(get_session), user=Depends(auth)):
     crud.sites.delete(db, owner=user, site_id=site_id)
+    db.commit()
     pubsub.publish(user.id, "delete", "site", {"id": site_id})

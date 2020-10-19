@@ -1,12 +1,12 @@
 import click
-from balsam.config import BalsamComponentFactory, ClientSettings
+from balsam.config import SiteConfig, ClientSettings
 from balsam.api import App, AppBackend, Job
 from balsam.site import app_template, ApplicationDefinition
 
 
 def get_factory():
     try:
-        cf = BalsamComponentFactory()
+        cf = SiteConfig()
     except ValueError:
         raise click.BadParameter(
             "Cannot alter apps outside the scope of a Balsam Site. "

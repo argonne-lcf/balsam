@@ -45,6 +45,7 @@ class TestSite:
         site.backfill_windows = [
             {"queue": "default", "num_nodes": 31, "wall_time_min": 45}
         ]
+
         site.save()
         update_ts = site.last_refresh
         assert site.id == id
@@ -465,6 +466,8 @@ class TestTransfers:
         assert transfers.count() == 2
         stage_in = [t for t in transfers if t.direction == "in"][0]
         stage_out = [t for t in transfers if t.direction == "out"][0]
+        assert Transfer.objects.get(state="pending") == stage_in
+        assert Transfer.objects.get(state="awaiting_job") == stage_out
 
         stage_in.state = "done"
         stage_in.save()
@@ -474,6 +477,8 @@ class TestTransfers:
         job.state = "POSTPROCESSED"
         job.save()
         assert job.state == "POSTPROCESSED"
+        stage_out.refresh_from_db()
+        assert stage_out.state == "pending"
 
         stage_out.state = "done"
         stage_out.save()
@@ -649,7 +654,9 @@ class TestBatchJobs:
             job.save()
             assert job.batch_job_id is None
 
-        sess = Session.objects.create(batch_job_id=batch_job.id)
+        sess = Session.objects.create(
+            batch_job_id=batch_job.id, site_id=batch_job.site_id
+        )
         acquired = sess.acquire_jobs(
             max_wall_time_min=60,
             acquire=[
@@ -679,11 +686,11 @@ class TestSessions:
     def job(self, name, app, args={}, **kwargs):
         return Job(f"test/{name}", app.id, parameters=args, **kwargs)
 
-    def create_jobs(self, app, num_jobs=3):
+    def create_jobs(self, app, num_jobs=3, state="PREPROCESSED"):
         jobs = [self.job(i, app) for i in range(num_jobs)]
         jobs = Job.objects.bulk_create(jobs)
         for job in jobs:
-            job.state = "PREPROCESSED"
+            job.state = state
         Job.objects.bulk_update(jobs)
 
     def create_sess(self, site):
@@ -695,7 +702,7 @@ class TestSessions:
             wall_time_min=30,
             job_mode="mpi",
         )
-        sess = Session.objects.create(batch_job_id=batch_job.id)
+        sess = Session.objects.create(batch_job_id=batch_job.id, site_id=site.id)
         return sess
 
     def test_create(self, client):
@@ -724,6 +731,27 @@ class TestSessions:
         assert len(acquired) == 3
         for job in acquired:
             assert job.batch_job_id > 0
+
+    def test_acquire_for_preprocessing(self, client):
+        site, app = self.create_site_app()
+        self.create_jobs(app, num_jobs=10, state="STAGED_IN")
+        sess = Session.objects.create(site_id=site.id)
+        assert sess.batch_job_id is None
+
+        acquired = sess.acquire_jobs(
+            max_wall_time_min=3600,
+            acquire=[
+                {
+                    "min_nodes": 1,
+                    "max_nodes": 4096,
+                    "serial_only": False,
+                    "max_num_acquire": 100,
+                }
+            ],
+            states=["STAGED_IN", "RUN_DONE", "RUN_ERROR", "RUN_TIMEOUT"],
+        )
+        assert len(acquired) == 10
+        assert all(j.state == "STAGED_IN" for j in acquired)
 
     def test_acquire_with_filter_tags(self, client):
         site, app = self.create_site_app()

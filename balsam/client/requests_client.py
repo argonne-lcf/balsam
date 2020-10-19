@@ -10,30 +10,29 @@ logger = logging.getLogger(__name__)
 
 
 class RequestsClient(RESTClient):
-    def __init__(self, base_url, connect_timeout=3.1, read_timeout=60, retry_count=3):
-        super().__init__(base_url)
+    def __init__(self, api_root, connect_timeout=3.1, read_timeout=60, retry_count=3):
+        self.api_root = api_root
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         self.retry_count = retry_count
         self._session = requests.Session()
 
     def request(self, url, http_method, params=None, json=None, data=None):
-        absolute_url = self.base_url.rstrip("/") + "/" + url.lstrip("/")
+        absolute_url = self.api_root.rstrip("/") + "/" + url.lstrip("/")
         attempt = 0
         tried_reauth = False
         while attempt < self.retry_count:
             try:
-                print("Client:", http_method, absolute_url)
+                logger.debug(f"{http_method}: {absolute_url}")
                 response = self._do_request(
                     absolute_url, http_method, params, json, data
                 )
             except requests.Timeout as exc:
-                print("Timeout; retrying...")
+                logger.warning(f"Timed out request {http_method} {absolute_url}")
                 attempt += 1
                 if attempt == self.retry_count:
                     raise requests.Timeout(f"Timed-out {attempt} times.") from exc
             except requests.HTTPError as exc:
-                print("HTTPError")
                 if (
                     exc.response.status_code != status.HTTP_401_UNAUTHORIZED
                     or tried_reauth

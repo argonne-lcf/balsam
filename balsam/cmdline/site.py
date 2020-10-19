@@ -1,7 +1,7 @@
 import click
 from pathlib import Path
 import shutil
-from balsam.config import BalsamComponentFactory, ClientSettings
+from balsam.config import SiteConfig, ClientSettings
 from balsam.api import Site
 
 
@@ -26,7 +26,7 @@ def init(site_path, hostname):
     if site_path.exists():
         raise click.BadParameter(f"{site_path} already exists")
 
-    BalsamComponentFactory.new_site_setup(site_path=site_path, hostname=hostname)
+    SiteConfig.new_site_setup(site_path=site_path, hostname=hostname)
 
     click.echo(f"New Balsam site set up at {site_path}")
 
@@ -40,7 +40,7 @@ def mv(src, dest):
 
     balsam site mv /path/to/src /path/to/destination
     """
-    cf = BalsamComponentFactory(src)
+    cf = SiteConfig(src)
 
     if Path(dest).exists():
         raise click.BadParameter(f"{dest} exists")
@@ -62,7 +62,7 @@ def rm(path):
 
     balsam site rm /path/to/site
     """
-    cf = BalsamComponentFactory(path)
+    cf = SiteConfig(path)
     ClientSettings.load_from_home().build_client()
     site = Site.objects.get(pk=cf.settings.site_id)
 
@@ -79,7 +79,7 @@ def rename(path, name):
     """
     Change the hostname of a balsam site
     """
-    cf = BalsamComponentFactory(path)
+    cf = SiteConfig(path)
     ClientSettings.load_from_home().build_client()
     site = Site.objects.get(pk=cf.settings.site_id)
     site.hostname = name

@@ -88,10 +88,12 @@ def upgrade():
         "sessions",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("heartbeat", sa.DateTime(), nullable=True),
-        sa.Column("batch_job_id", sa.Integer(), nullable=False),
+        sa.Column("batch_job_id", sa.Integer(), nullable=True),
+        sa.Column("site_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
-            ["batch_job_id"], ["batch_jobs.id"], ondelete="CASCADE"
+            ["batch_job_id"], ["batch_jobs.id"], ondelete="SET NULL"
         ),
+        sa.ForeignKeyConstraint(["site_id"], ["sites.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -176,7 +178,14 @@ def upgrade():
         sa.Column("destination_path", sa.String(length=256), nullable=True),
         sa.Column(
             "state",
-            sa.Enum("pending", "active", "done", "error", name="transferitemstate"),
+            sa.Enum(
+                "awaiting_job",
+                "pending",
+                "active",
+                "done",
+                "error",
+                name="transferitemstate",
+            ),
             nullable=False,
         ),
         sa.Column("task_id", sa.String(length=100), nullable=True),

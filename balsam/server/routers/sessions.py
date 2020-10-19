@@ -27,6 +27,7 @@ def create(session: schemas.SessionCreate, db=Depends(get_session), user=Depends
 
     result_jobs = [schemas.JobOut.from_orm(job) for job in expired_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in expiry_events]
+    db.commit()
 
     pubsub.publish(user.id, "create", "session", result)
     pubsub.publish(user.id, "bulk-update", "job", result_jobs)
@@ -46,6 +47,7 @@ def acquire(
     )
     result_jobs = [schemas.JobOut.from_orm(job) for job in expired_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in expiry_events]
+    db.commit()
     pubsub.publish(user.id, "bulk-update", "job", result_jobs)
     pubsub.publish(user.id, "bulk-create", "event", result_events)
     return acquired_jobs
@@ -58,6 +60,7 @@ def tick(session_id: int, db=Depends(get_session), user=Depends(auth)):
     pubsub.publish(user.id, "update", "session", result)
     result_jobs = [schemas.JobOut.from_orm(job) for job in expired_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in events]
+    db.commit()
     pubsub.publish(user.id, "bulk-update", "job", result_jobs)
     pubsub.publish(user.id, "bulk-create", "event", result_events)
 
@@ -65,4 +68,5 @@ def tick(session_id: int, db=Depends(get_session), user=Depends(auth)):
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(session_id: int, db=Depends(get_session), user=Depends(auth)):
     crud.sessions.delete(db, owner=user, session_id=session_id)
+    db.commit()
     pubsub.publish(user.id, "delete", "session", {"id": session_id})

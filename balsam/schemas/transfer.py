@@ -5,6 +5,7 @@ import uuid
 
 
 class TransferItemState(str, Enum):
+    awaiting_job = "awaiting_job"
     pending = "pending"
     active = "active"
     done = "done"

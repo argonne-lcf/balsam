@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://postgres@localhost:5432/balsam"
     auth: AuthSettings = AuthSettings()
-    redis_params: dict = {"unix_socket_path": "/tmp/redis-balsamapi.sock"}
+    redis_params: dict = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
 
 
 if os.environ.get("BALSAM_TEST") or "test" in "".join(sys.argv):

@@ -24,7 +24,15 @@ from .session import (
     JobAcquireSpec,
     PaginatedSessionsOut,
 )
-from .job import JobCreate, JobUpdate, JobBulkUpdate, JobOut, PaginatedJobsOut
+from .job import (
+    JobCreate,
+    JobUpdate,
+    JobBulkUpdate,
+    JobOut,
+    PaginatedJobsOut,
+    JobState,
+    RUNNABLE_STATES,
+)
 from .transfer import (
     TransferItemOut,
     TransferItemUpdate,
@@ -63,6 +71,8 @@ __all__ = [
     "JobBulkUpdate",
     "PaginatedJobsOut",
     "JobOut",
+    "JobState",
+    "RUNNABLE_STATES",
     "TransferItemOut",
     "PaginatedTransferItemOut",
     "TransferItemUpdate",

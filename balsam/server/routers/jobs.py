@@ -109,6 +109,7 @@ def bulk_create(
     result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
     result_transfers = [schemas.TransferItemOut.from_orm(t) for t in new_transfers]
 
+    db.commit()
     pubsub.publish(user.id, "bulk-create", "job", result_jobs)
     pubsub.publish(user.id, "bulk-create", "event", result_events)
     pubsub.publish(user.id, "bulk-create", "transfer-item", result_transfers)
@@ -132,6 +133,7 @@ def bulk_update(
 
     result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
+    db.commit()
 
     pubsub.publish(user.id, "bulk-update", "job", result_jobs)
     pubsub.publish(user.id, "bulk-create", "event", result_events)
@@ -153,6 +155,7 @@ def query_update(
 
     result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
+    db.commit()
 
     pubsub.publish(user.id, "bulk-update", "job", result_jobs)
     pubsub.publish(user.id, "bulk-create", "event", result_events)
@@ -171,6 +174,7 @@ def update(
     result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
 
+    db.commit()
     pubsub.publish(user.id, "bulk-update", "job", result_jobs)
     pubsub.publish(user.id, "bulk-create", "event", result_events)
     return result_jobs[0]
@@ -179,10 +183,12 @@ def update(
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(job_id: int, db=Depends(get_session), user=Depends(auth)):
     crud.jobs.delete_query(db, owner=user, job_id=job_id)
+    db.commit()
     pubsub.publish(user.id, "bulk-delete", "job", {"ids": [job_id]})
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 def query_delete(db=Depends(get_session), user=Depends(auth), q=Depends(JobQuery)):
     deleted_ids = crud.jobs.delete_query(db, owner=user, filterset=q)
+    db.commit()
     pubsub.publish(user.id, "bulk-delete", "job", {"ids": deleted_ids})

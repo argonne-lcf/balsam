@@ -6,14 +6,12 @@ from sqlalchemy import orm
 
 SESSION_EXPIRE_PERIOD = timedelta(minutes=5)
 SESSION_SWEEP_PERIOD = timedelta(minutes=3)
-RUNNABLE_STATES = ["PREPROCESSED", "RESTART_READY"]
 _sweep_time = None
 
 
 def owned_session_query(db, owner):
     return (
         db.query(models.Session)
-        .join(models.BatchJob)
         .join(models.Site)
         .filter(models.Site.owner_id == owner.id)
     )
@@ -58,14 +56,22 @@ def _clear_stale_sessions(db, owner):
 
 def create(db, owner, session):
     expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
-    batch_job_id = (
-        db.query(models.BatchJob.id)
-        .join(models.Site, models.BatchJob.site_id == models.Site.id)
-        .filter(models.Site.owner_id == owner.id)
-        .filter(models.BatchJob.id == session.batch_job_id)
-    ).scalar()
-    if batch_job_id is None:
-        raise ValidationError(f"No batch_job with id {session.batch_job_id}")
+
+    site_id = (
+        db.query(models.Site.id)
+        .filter(models.Site.owner_id == owner.id, models.Site.id == session.site_id)
+        .scalar()
+    )
+    if site_id is None:
+        raise ValidationError(f"No site with ID {session.site_id}")
+    if session.batch_job_id is not None:
+        batch_job_id = (
+            db.query(models.BatchJob.id)
+            .filter(models.BatchJob.site_id == site_id)
+            .filter(models.BatchJob.id == session.batch_job_id)
+        ).scalar()
+        if batch_job_id is None:
+            raise ValidationError(f"No batch_job with id {session.batch_job_id}")
 
     created_session = models.Session(**session.dict())
     db.add(created_session)
@@ -76,21 +82,15 @@ def create(db, owner, session):
 def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
     expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
     session = (
-        owned_session_query(db, owner)
-        .filter(models.Session.id == session_id)
-        .options(
-            orm.selectinload(models.Session.batch_job).load_only(
-                models.BatchJob.site_id
-            )
-        )
+        owned_session_query(db, owner).filter(models.Session.id == session_id)
     ).one()
     session.heartbeat = datetime.utcnow()
 
     qs = db.query(models.Job).join(models.App)
     qs = qs.options(orm.selectinload(models.Job.parents).load_only(models.Job.id))
-    qs = qs.filter(models.App.site_id == session.batch_job.site_id)  # At site
+    qs = qs.filter(models.App.site_id == session.site_id)  # At site
     qs = qs.filter(models.Job.session_id.is_(None))  # Unlocked
-    qs = qs.filter(models.Job.state.in_(RUNNABLE_STATES))  # Matching states
+    qs = qs.filter(models.Job.state.in_(spec.states))  # Matching states
     qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # Matching tags
     qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
     qs = qs.with_for_update(of=models.Job, skip_locked=True)

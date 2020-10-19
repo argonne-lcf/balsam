@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import pathlib
 import shlex
 import jinja2
@@ -9,16 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class ApplicationDefinitionMeta(type):
+
+    _app_registry = []
+
     def __new__(mcls, name, bases, attrs):
         super_new = super().__new__
         cls = super_new(mcls, name, bases, attrs)
         if not bases:
             return cls
 
-        if "parameters" in attrs:
+        if "parameters" not in attrs:
             raise AttributeError(
-                "Do not set `parameters` directly on the ApplicationDefinition. "
-                "They are inferred from `command_template`."
+                "Must set `parameters` dict on the ApplicationDefinition class."
             )
         if "command_template" not in attrs or not isinstance(
             attrs["command_template"], str
@@ -29,7 +32,25 @@ class ApplicationDefinitionMeta(type):
 
         cls.command_template = " ".join(cls.command_template.strip().split())
         ctx = jinja2.Environment().parse(cls.command_template)
-        cls.parameters = jinja2.meta.find_undeclared_variables(ctx)
+
+        detected_params = jinja2.meta.find_undeclared_variables(ctx)
+        cls_params = set(cls.parameters.keys())
+
+        extraneous = cls_params.difference(detected_params)
+        if extraneous:
+            raise AttributeError(
+                f"App {name} has extraneous `parameters` not referenced "
+                f"in the command template: {extraneous}"
+            )
+        for param in detected_params.difference(cls_params):
+            cls.parameters[param] = {
+                "required": True,
+                "default": None,
+                "help": "",
+            }
+
+        class_path = f"{inspect.getmodule(cls).__name__}.{name}"
+        ApplicationDefinitionMeta._app_registry[class_path] = cls
         return cls
 
 
@@ -40,6 +61,9 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     _loaded_apps = {}
     environment_variables = {}
     command_template = ""
+    parameters = {}
+    stage_ins = {}
+    stage_outs = {}
 
     def __init__(self, job):
         self.job = job
@@ -71,19 +95,19 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         return jinja2.Template(self.command_template).render(sanitized_args)
 
     def preprocess(self):
-        pass
+        self.job.state = "PREPROCESSED"
 
     def postprocess(self):
-        pass
+        self.job.state = "POSTPROCESSED"
 
     def shell_preamble(self):
         pass
 
     def handle_timeout(self):
-        pass
+        self.job.state = "RESTART_READY"
 
     def handle_error(self):
-        pass
+        self.job.state = "FAILED"
 
     @classmethod
     def load_app_class(cls, app_path, class_name):
@@ -146,7 +170,10 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     @classmethod
     def as_dict(cls):
         return dict(
-            name=cls.__name__, description=cls.__doc__, parameters=cls.parameters,
+            description=cls.__doc__,
+            parameters=cls.parameters,
+            stage_ins=cls.stage_ins,
+            stage_outs=cls.stage_outs,
         )
 
 
@@ -159,6 +186,9 @@ class {{cls_name}}(ApplicationDefinition):
     """
     environment_variables = {}
     command_template = '{{command_template}}'
+    parameters = {}
+    stage_ins = {}
+    stage_outs = {}
 
     def preprocess(self):
         pass
@@ -171,7 +201,6 @@ class {{cls_name}}(ApplicationDefinition):
 
     def handle_timeout(self):
         self.job.state = "RESTART_READY"
-        self.job.save()
 
     def handle_error(self):
         pass

@@ -83,6 +83,7 @@ def create(
 ):
     new_batch_job = crud.batch_jobs.create(db, owner=user, batch_job=batch_job)
     result = schemas.BatchJobOut.from_orm(new_batch_job)
+    db.commit()
     pubsub.publish(user.id, "create", "batch_job", result)
     return result
 
@@ -98,6 +99,7 @@ def update(
         db, owner=user, batch_job_id=batch_job_id, batch_job=batch_job
     )
     result = schemas.BatchJobOut.from_orm(updated_batch_job)
+    db.commit()
     pubsub.publish(user.id, "update", "batch_job", result)
     return result
 
@@ -112,6 +114,7 @@ def bulk_update(
         db, owner=user, batch_jobs=batch_jobs
     )
     result = [schemas.BatchJobOut.from_orm(j) for j in updated_batch_jobs]
+    db.commit()
     pubsub.publish(user.id, "bulk-update", "batch_job", result)
     return result
 
@@ -119,4 +122,5 @@ def bulk_update(
 @router.delete("/{batch_job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(batch_job_id: int, db=Depends(get_session), user=Depends(auth)):
     crud.batch_jobs.delete(db, owner=user, batch_job_id=batch_job_id)
+    db.commit()
     pubsub.publish(user.id, "delete", "batch_job", {"id": batch_job_id})

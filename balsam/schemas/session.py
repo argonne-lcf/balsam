@@ -1,15 +1,18 @@
 from datetime import datetime
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import Dict, List, Set, Optional
+from .job import JobState, RUNNABLE_STATES
 
 
 class SessionCreate(BaseModel):
-    batch_job_id: int
+    site_id: int
+    batch_job_id: Optional[int]
 
 
 class SessionOut(BaseModel):
     id: int
-    batch_job_id: int
+    site_id: int
+    batch_job_id: Optional[int]
     heartbeat: datetime
 
     class Config:
@@ -27,6 +30,7 @@ class SessionAcquire(BaseModel):
     max_wall_time_min: int
     acquire: List[JobAcquireSpec]
     filter_tags: Dict[str, str]
+    states: Set[JobState] = RUNNABLE_STATES
 
 
 class PaginatedSessionsOut(BaseModel):

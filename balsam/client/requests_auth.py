@@ -8,20 +8,15 @@ from requests.exceptions import ConnectionError
 class BasicAuthRequestsClient(RequestsClient):
     def __init__(
         self,
-        host,
-        port,
+        api_root,
         username,
         password,
-        scheme,
-        api_root,
         connect_timeout=3.1,
         read_timeout=60,
         retry_count=3,
-        **kwargs,
     ):
-        url = f'{scheme}://{host}:{port}/{api_root.strip("/")}'
         super().__init__(
-            url,
+            api_root,
             connect_timeout=connect_timeout,
             read_timeout=read_timeout,
             retry_count=retry_count,
