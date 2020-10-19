@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter, status
+from fastapi import Depends, APIRouter, status, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 
 from balsam.server.models import get_session
@@ -27,4 +27,9 @@ def profile(user=Depends(user_from_token)):
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db=Depends(get_session)):
-    return users.create_user(db, user.username, user.password)
+    if users.user_exists(db, user.username):
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    new_user = users.create_user(db, user.username, user.password)
+    db.commit()
+    return new_user

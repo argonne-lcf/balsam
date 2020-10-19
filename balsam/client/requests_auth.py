@@ -31,7 +31,7 @@ class BasicAuthRequestsClient(RequestsClient):
         resp = None
         for _ in range(3):
             try:
-                resp = self.request(url, "POST", data=cred)
+                resp = self.request(url, "POST", data=cred, refresh_auth=False)
             except ConnectionError:
                 time.sleep(1)
             else:

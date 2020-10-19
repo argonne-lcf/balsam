@@ -8,6 +8,7 @@ from .models import (
     Session,
     EventLog,
 )
+from .manager_base import Manager
 
 __all__ = [
     "Transfer",
@@ -18,4 +19,5 @@ __all__ = [
     "JobAcquireSpec",
     "Session",
     "EventLog",
+    "Manager",
 ]

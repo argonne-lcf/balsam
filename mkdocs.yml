@@ -52,7 +52,7 @@ repo_url: 'https://github.com/balsam-alcf/balsam'
 
 extra:
   social:
-    - type: 'github'
+    - icon: 'fontawesome/brands/github-alt'
       link: 'https://github.com/balsam-alcf'
 
 plugins:

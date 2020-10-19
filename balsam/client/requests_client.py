@@ -16,7 +16,9 @@ class RequestsClient(RESTClient):
         self.retry_count = retry_count
         self._session = requests.Session()
 
-    def request(self, url, http_method, params=None, json=None, data=None):
+    def request(
+        self, url, http_method, params=None, json=None, data=None, refresh_auth=True
+    ):
         absolute_url = self.api_root.rstrip("/") + "/" + url.lstrip("/")
         attempt = 0
         tried_reauth = False
@@ -35,6 +37,7 @@ class RequestsClient(RESTClient):
                 if (
                     exc.response.status_code != 401  # HTTP_401_UNAUTHORIZED
                     or tried_reauth
+                    or not refresh_auth
                 ):
                     raise
                 self.refresh_auth()
