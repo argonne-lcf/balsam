@@ -1,6 +1,5 @@
 import textwrap
 import sys
-from balsam.site import ApplicationDefinition
 
 __version__ = "0.0.1"
 
@@ -30,4 +29,4 @@ def banner(message, color="HEADER"):
         print(msg)
 
 
-__all__ = ["ApplicationDefinition", "banner"]
+__all__ = ["banner"]

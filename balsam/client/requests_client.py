@@ -1,6 +1,5 @@
 import logging
 import requests
-from rest_framework import status
 from pprint import pformat
 from json import JSONDecodeError
 
@@ -34,7 +33,7 @@ class RequestsClient(RESTClient):
                     raise requests.Timeout(f"Timed-out {attempt} times.") from exc
             except requests.HTTPError as exc:
                 if (
-                    exc.response.status_code != status.HTTP_401_UNAUTHORIZED
+                    exc.response.status_code != 401  # HTTP_401_UNAUTHORIZED
                     or tried_reauth
                 ):
                     raise
