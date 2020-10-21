@@ -44,21 +44,21 @@ class BalsamModelField:
 
 class BalsamModelMeta(type):
     def __new__(mcls, name, bases, attrs):
-        cls = super().__new__(mcls, name, bases, attrs)
         if bases == (object,) or bases == ():
-            return cls
+            return super().__new__(mcls, name, bases, attrs)
 
         field_names = set()
         for model_cls in [
-            cls.create_model_cls,
-            cls.update_model_cls,
-            cls.read_model_cls,
+            attrs["create_model_cls"],
+            attrs["update_model_cls"],
+            attrs["read_model_cls"],
         ]:
             if model_cls is not None:
                 field_names.update(model_cls.__fields__)
         for field_name in field_names:
             field = BalsamModelField(field_name)
-            setattr(cls, field_name, field)
+            attrs[field_name] = field
+        cls = super().__new__(mcls, name, bases, attrs)
         cls.objects.model_class = cls
         return cls
 
