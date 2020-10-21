@@ -156,7 +156,7 @@ class Session(BalsamModel):
     def acquire_jobs(
         self,
         max_num_jobs: int,
-        max_wall_time_min: int,
+        max_wall_time_min: Optional[int] = None,
         max_nodes_per_job: Optional[int] = None,
         max_aggregate_nodes: Optional[float] = None,
         serial_only: bool = False,

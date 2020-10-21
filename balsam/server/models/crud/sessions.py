@@ -93,7 +93,8 @@ def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
     qs = qs.filter(models.Job.session_id.is_(None))  # Unlocked
     qs = qs.filter(models.Job.state.in_(spec.states))  # Matching states
     qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # Matching tags
-    qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
+    if spec.max_wall_time_min:
+        qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
 
     if spec.max_nodes_per_job:
         qs = qs.filter(models.Job.num_nodes <= spec.max_nodes_per_job)

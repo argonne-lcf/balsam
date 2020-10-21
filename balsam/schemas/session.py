@@ -21,7 +21,7 @@ class SessionOut(BaseModel):
 
 class SessionAcquire(BaseModel):
     max_num_jobs: int
-    max_wall_time_min: int
+    max_wall_time_min: Optional[int]
     max_nodes_per_job: Optional[int]
     max_aggregate_nodes: Optional[float]
     serial_only: bool = False
