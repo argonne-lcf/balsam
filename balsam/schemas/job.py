@@ -4,8 +4,6 @@ from enum import Enum
 from pathlib import Path
 from datetime import datetime
 
-RUNNABLE_STATES = {"PREPROCESSED", "RESTART_READY"}
-
 
 class JobTransferItem(BaseModel):
     location_alias: str
@@ -34,6 +32,9 @@ class JobState(str, Enum):
     staged_out = "STAGED_OUT"
     job_finished = "JOB_FINISHED"
     failed = "FAILED"
+
+
+RUNNABLE_STATES = {JobState.preprocessed, JobState.restart_ready}
 
 
 class JobBase(BaseModel):

@@ -107,9 +107,11 @@ def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
                 models.Job.num_nodes <= job_spec.max_nodes,
                 models.Job.num_nodes >= job_spec.min_nodes,
             )
-            jobs = jobs.order_by(
-                models.Job.num_nodes.desc(), models.Job.wall_time_min.desc()
-            )
+            if job_spec.max_nodes == 1:
+                ord = models.Job.node_packing_count
+            else:
+                ord = models.Job.num_nodes.desc()
+            jobs = jobs.order_by(ord, models.Job.wall_time_min.desc())
         for job in jobs[: job_spec.max_num_acquire]:
             job.session_id = session.id
             job.batch_job_id = session.batch_job_id

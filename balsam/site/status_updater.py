@@ -1,9 +1,12 @@
+from collections import defaultdict
 import multiprocessing
 import queue
 import signal
 import logging
-import time
-from balsam.api.models import Job
+from datetime import datetime
+
+from typing import List, Dict, Any, Optional
+from balsam.schemas import JobState
 
 Queue = multiprocessing.Queue
 Queue().qsize()
@@ -28,20 +31,16 @@ class StatusUpdater(multiprocessing.Process):
                 should_exit = False
                 updates = [item]
 
-            waited = False
-            while True:
+            attempts = 0
+            while attempts < 2:
                 try:
-                    item = self.queue.get(block=False)
+                    item = self.queue.get(block=True, timeout=1)
                     if item != "exit":
                         updates.append(item)
                     else:
                         should_exit = True
                 except queue.Empty:
-                    if waited:
-                        break
-                    else:
-                        time.sleep(1.0)
-                        waited = True
+                    attempts += 1
             if updates:
                 self.perform_updates(updates)
             if should_exit:
@@ -50,10 +49,26 @@ class StatusUpdater(multiprocessing.Process):
         self._on_exit()
         logger.info(f"StatusUpdater thread finished.")
 
+    def put(
+        self,
+        id: int,
+        state: JobState,
+        state_timestamp: Optional[datetime] = None,
+        state_data: Dict[str, Any] = None,
+    ):
+        self.queue.put_nowait(
+            {
+                "id": id,
+                "state": state,
+                "state_timestamp": state_timestamp,
+                "state_data": state_data,
+            }
+        )
+
     def set_exit(self):
         self.queue.put("exit")
 
-    def perform_updates(self, updates):
+    def perform_updates(self, updates: List[Dict]):
         raise NotImplementedError
 
     def _on_exit(self):
@@ -61,6 +76,17 @@ class StatusUpdater(multiprocessing.Process):
 
 
 class BalsamStatusUpdater(StatusUpdater):
-    def perform_updates(self, updated_jobs):
-        Job.objects.bulk_update(updated_jobs)
-        logger.info(f"StatusUpdater bulk-updated {len(updated_jobs)} jobs")
+    def __init__(self, client):
+        super().__init__()
+        self.client = client
+
+    def perform_updates(self, updates: List[dict]):
+        updates_by_id = defaultdict(list)
+        for update in sorted(updates, key=lambda x: x["state_timestamp"]):
+            updates_by_id[update["id"]].append(update)
+
+        while updates_by_id:
+            bulk_update = [update_list.pop(0) for update_list in updates_by_id.values()]
+            self.client.bulk_patch("jobs/", bulk_update)
+            logger.info(f"StatusUpdater bulk-updated {len(bulk_update)} jobs")
+            updates_by_id = {k: v for k, v in updates_by_id.items() if v}
