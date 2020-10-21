@@ -658,16 +658,7 @@ class TestBatchJobs:
             batch_job_id=batch_job.id, site_id=batch_job.site_id
         )
         acquired = sess.acquire_jobs(
-            max_wall_time_min=60,
-            acquire=[
-                {
-                    "min_nodes": 1,
-                    "max_nodes": 8,
-                    "serial_only": False,
-                    "max_num_acquire": 8,
-                }
-            ],
-            filter_tags={},
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8, filter_tags={},
         )
         assert len(acquired) == 3
 
@@ -717,16 +708,7 @@ class TestSessions:
         sess = self.create_sess(site)
 
         acquired = sess.acquire_jobs(
-            max_wall_time_min=60,
-            acquire=[
-                {
-                    "min_nodes": 1,
-                    "max_nodes": 8,
-                    "serial_only": False,
-                    "max_num_acquire": 8,
-                }
-            ],
-            filter_tags={},
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8, filter_tags={},
         )
         assert len(acquired) == 3
         for job in acquired:
@@ -740,14 +722,8 @@ class TestSessions:
 
         acquired = sess.acquire_jobs(
             max_wall_time_min=3600,
-            acquire=[
-                {
-                    "min_nodes": 1,
-                    "max_nodes": 4096,
-                    "serial_only": False,
-                    "max_num_acquire": 100,
-                }
-            ],
+            max_nodes_per_job=4096,
+            max_num_jobs=100,
             states=["STAGED_IN", "RUN_DONE", "RUN_ERROR", "RUN_TIMEOUT"],
         )
         assert len(acquired) == 10
@@ -769,14 +745,8 @@ class TestSessions:
         sess = self.create_sess(site)
         acquired = sess.acquire_jobs(
             max_wall_time_min=60,
-            acquire=[
-                {
-                    "min_nodes": 1,
-                    "max_nodes": 8,
-                    "serial_only": False,
-                    "max_num_acquire": 8,
-                }
-            ],
+            max_nodes_per_job=8,
+            max_num_jobs=8,
             filter_tags={"system": "H2O", "type": "energy"},
         )
         assert len(acquired) == 1
@@ -796,15 +766,7 @@ class TestSessions:
 
         sess = self.create_sess(site)
         acquired = sess.acquire_jobs(
-            max_wall_time_min=60,
-            acquire=[
-                {
-                    "min_nodes": 1,
-                    "max_nodes": 8,
-                    "serial_only": False,
-                    "max_num_acquire": 8,
-                }
-            ],
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
         )
         assert len(acquired) == 3
         assert sess.id is not None
@@ -814,14 +776,6 @@ class TestSessions:
         assert Session.objects.all().count() == 0
         sess2 = self.create_sess(site)
         acquired = sess2.acquire_jobs(
-            max_wall_time_min=60,
-            acquire=[
-                {
-                    "min_nodes": 1,
-                    "max_nodes": 8,
-                    "serial_only": False,
-                    "max_num_acquire": 8,
-                }
-            ],
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
         )
         assert len(acquired) == 3

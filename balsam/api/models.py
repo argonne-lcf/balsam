@@ -1,10 +1,9 @@
 from pathlib import Path
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 from .model_base import BalsamModel
 from .manager_base import Manager
 from balsam import schemas
 
-JobAcquireSpec = schemas.JobAcquireSpec
 AppParameter = schemas.AppParameter
 TransferSlot = schemas.TransferSlot
 JobState = schemas.JobState
@@ -156,8 +155,11 @@ class Session(BalsamModel):
 
     def acquire_jobs(
         self,
+        max_num_jobs: int,
         max_wall_time_min: int,
-        acquire: List[JobAcquireSpec],
+        max_nodes_per_job: Optional[int] = None,
+        max_aggregate_nodes: Optional[float] = None,
+        serial_only: bool = False,
         filter_tags: Dict[str, str] = None,
         states: Set[JobState] = RUNNABLE_STATES,
     ):
@@ -165,8 +167,11 @@ class Session(BalsamModel):
             filter_tags = {}
         return self.__class__.objects._do_acquire(
             self,
+            max_num_jobs=max_num_jobs,
             max_wall_time_min=max_wall_time_min,
-            acquire=acquire,
+            max_nodes_per_job=max_nodes_per_job,
+            max_aggregate_nodes=max_aggregate_nodes,
+            serial_only=serial_only,
             filter_tags=filter_tags,
             states=states,
         )

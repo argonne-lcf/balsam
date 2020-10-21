@@ -4,7 +4,6 @@ from .models import (
     Site,
     App,
     BatchJob,
-    JobAcquireSpec,
     Session,
     EventLog,
 )
@@ -16,7 +15,6 @@ __all__ = [
     "Site",
     "App",
     "BatchJob",
-    "JobAcquireSpec",
     "Session",
     "EventLog",
     "Manager",
