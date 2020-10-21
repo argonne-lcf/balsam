@@ -257,14 +257,8 @@ def test_acquire_for_launch(auth_client, job_dict, create_session):
         f"/sessions/{session1.id}",
         max_wall_time_min=120,
         filter_tags={},
-        acquire=[
-            {
-                "min_nodes": 1,
-                "max_nodes": 32,
-                "serial_only": False,
-                "max_num_acquire": 2,
-            }
-        ],
+        max_num_jobs=2,
+        max_nodes_per_job=32,
         check=status.HTTP_200_OK,
     )
 
@@ -273,14 +267,8 @@ def test_acquire_for_launch(auth_client, job_dict, create_session):
         f"/sessions/{session2.id}",
         max_wall_time_min=120,
         filter_tags={},
-        acquire=[
-            {
-                "min_nodes": 1,
-                "max_nodes": 32,
-                "serial_only": False,
-                "max_num_acquire": 1000,
-            }
-        ],
+        max_num_jobs=1000,
+        max_nodes_per_job=32,
         check=status.HTTP_200_OK,
     )
 
@@ -308,14 +296,8 @@ def test_update_to_running_does_not_release_lock(
         f"/sessions/{session.id}",
         max_wall_time_min=120,
         filter_tags={},
-        acquire=[
-            {
-                "min_nodes": 1,
-                "max_nodes": 32,
-                "serial_only": False,
-                "max_num_acquire": 100,
-            }
-        ],
+        max_num_jobs=100,
+        max_nodes_per_job=32,
         check=status.HTTP_200_OK,
     )
 
@@ -383,32 +365,28 @@ def test_acquire_for_launch_with_node_constraints(
     )
     session = create_session()
 
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 1, "serial_only": True, "max_num_acquire": 32}
-    ]
     acquired = auth_client.post(
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=32,
+        max_nodes_per_job=1,
+        serial_only=True,
         check=status.HTTP_200_OK,
     )
     assert len(acquired) == 8
     assert all(job["num_nodes"] == 1 for job in acquired)
+    assert all(job["ranks_per_node"] == 1 for job in acquired)
     assert acquired == sorted(
         acquired, key=lambda job: (job["node_packing_count"], -1 * job["wall_time_min"])
     )
 
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 1, "serial_only": False, "max_num_acquire": 32},
-        {"min_nodes": 2, "max_nodes": 4, "serial_only": False, "max_num_acquire": 16},
-        {"min_nodes": 5, "max_nodes": 8, "serial_only": False, "max_num_acquire": 8},
-    ]
     acquired = auth_client.post(
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=100,
+        max_nodes_per_job=8,
         check=status.HTTP_200_OK,
     )
     assert len(acquired) == 6
@@ -427,14 +405,12 @@ def test_acquire_by_tags(auth_client, job_dict, create_session):
     )
     session = create_session()
 
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 8, "serial_only": False, "max_num_acquire": 8}
-    ]
     acquired = auth_client.post(
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={"system": "T2O"},
-        acquire=acquisition_list,
+        max_nodes_per_job=8,
+        max_num_jobs=8,
         check=status.HTTP_200_OK,
     )
     assert len(acquired) == 0
@@ -443,7 +419,8 @@ def test_acquire_by_tags(auth_client, job_dict, create_session):
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={"system": "H2O", "calc": "vib"},
-        acquire=acquisition_list,
+        max_nodes_per_job=8,
+        max_num_jobs=8,
         check=status.HTTP_200_OK,
     )
     assert len(acquired) == 3
@@ -454,7 +431,8 @@ def test_acquire_by_tags(auth_client, job_dict, create_session):
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={"calc": "energy"},
-        acquire=acquisition_list,
+        max_nodes_per_job=8,
+        max_num_jobs=8,
         check=status.HTTP_200_OK,
     )
     assert len(acquired) == 6
@@ -556,14 +534,12 @@ def test_update_to_run_done_releases_lock_but_not_batch_job(
 
     # Acquisition
     session = create_session()
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 8, "serial_only": False, "max_num_acquire": 8}
-    ]
     acquired = auth_client.post(
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_nodes_per_job=8,
+        max_num_jobs=8,
         check=status.HTTP_200_OK,
     )
     assert len(acquired) == 5
@@ -607,14 +583,12 @@ def test_tick_heartbeat_extends_expiration(
     db_session.expire_all()
 
     # Acquire session lock on all jobs
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 8, "serial_only": False, "max_num_acquire": 8}
-    ]
     auth_client.post(
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_nodes_per_job=8,
+        max_num_jobs=8,
         check=status.HTTP_200_OK,
     )
 
@@ -638,16 +612,14 @@ def test_clear_expired_sess(
     session1, session2 = create_session(), create_session()
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 8, "serial_only": False, "max_num_acquire": 5}
-    ]
 
     # Session1 acquires 5 jobs
     auth_client.post(
         f"/sessions/{session1.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=5,
+        max_nodes_per_job=8,
         check=status.HTTP_200_OK,
     )
 
@@ -656,7 +628,8 @@ def test_clear_expired_sess(
         f"/sessions/{session2.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=5,
+        max_nodes_per_job=8,
         check=status.HTTP_200_OK,
     )
 
@@ -693,14 +666,12 @@ def test_view_session_list(auth_client, job_dict, create_session):
     before_acquire = datetime.utcnow()
 
     # Session acquires 5 jobs
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 8, "serial_only": False, "max_num_acquire": 5}
-    ]
     auth_client.post(
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=5,
+        max_nodes_per_job=8,
         check=status.HTTP_200_OK,
     )
     after_acquire = datetime.utcnow()
@@ -719,15 +690,13 @@ def test_delete_session_frees_lock_on_all_jobs(
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
 
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 8, "serial_only": False, "max_num_acquire": 5}
-    ]
     # Session1 acquires 5 jobs
     auth_client.post(
         f"/sessions/{session1.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=5,
+        max_nodes_per_job=8,
         check=status.HTTP_200_OK,
     )
     # Session2 acquires 5 jobs
@@ -735,7 +704,8 @@ def test_delete_session_frees_lock_on_all_jobs(
         f"/sessions/{session2.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=5,
+        max_nodes_per_job=8,
         check=status.HTTP_200_OK,
     )
     assert db_session.query(models.Job).filter_by(session_id=session1.id).count() == 5
@@ -831,14 +801,12 @@ def test_aggregated_state_history_by_batch_job(auth_client, create_session, job_
     session2 = create_session()
 
     # Batch Job 1 started and acquired all jobs:
-    acquisition_list = [
-        {"min_nodes": 1, "max_nodes": 8, "serial_only": False, "max_num_acquire": 2}
-    ]
     acquired = auth_client.post(
         f"/sessions/{session.id}",
         max_wall_time_min=40,
         filter_tags={},
-        acquire=acquisition_list,
+        max_num_jobs=2,
+        max_nodes_per_job=8,
         check=status.HTTP_200_OK,
     )
     assert len(acquired) == 2
@@ -963,14 +931,8 @@ def test_cannot_acquire_with_another_lock_id(
         f"/sessions/{session.id}",
         max_wall_time_min=120,
         filter_tags={},
-        acquire=[
-            {
-                "min_nodes": 1,
-                "max_nodes": 32,
-                "serial_only": False,
-                "max_num_acquire": 5,
-            }
-        ],
+        max_num_jobs=5,
+        max_nodes_per_job=32,
         check=status.HTTP_404_NOT_FOUND,
     )
 

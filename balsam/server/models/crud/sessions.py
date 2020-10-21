@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta
 from balsam.server import models, ValidationError
 from balsam import schemas
@@ -93,31 +94,46 @@ def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
     qs = qs.filter(models.Job.state.in_(spec.states))  # Matching states
     qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # Matching tags
     qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
-    qs = qs.with_for_update(of=models.Job, skip_locked=True)
 
+    if spec.max_nodes_per_job:
+        qs = qs.filter(models.Job.num_nodes <= spec.max_nodes_per_job)
+    if spec.serial_only:
+        qs = qs.filter(models.Job.num_nodes == 1, models.Job.ranks_per_node == 1)
+    qs = qs.with_for_update(of=models.Job, skip_locked=True)
+    qs = qs.order_by(
+        models.Job.num_nodes.desc(),
+        models.Job.node_packing_count,
+        models.Job.wall_time_min.desc(),
+    )
+
+    if spec.max_aggregate_nodes:
+        aggregate_nodes = spec.max_aggregate_nodes + 0.001
+    else:
+        aggregate_nodes = math.inf
+    jobs = list(qs[: spec.max_num_jobs])
+    idx = 0
     acquired_jobs = []
-    for job_spec in spec.acquire:
-        if job_spec.serial_only:
-            jobs = qs.filter(models.Job.num_nodes == 1, models.Job.ranks_per_node == 1)
-            jobs = jobs.order_by(
-                models.Job.node_packing_count, models.Job.wall_time_min.desc()
-            )
-        else:
-            jobs = qs.filter(
-                models.Job.num_nodes <= job_spec.max_nodes,
-                models.Job.num_nodes >= job_spec.min_nodes,
-            )
-            if job_spec.max_nodes == 1:
-                ord = models.Job.node_packing_count
-            else:
-                ord = models.Job.num_nodes.desc()
-            jobs = jobs.order_by(ord, models.Job.wall_time_min.desc())
-        for job in jobs[: job_spec.max_num_acquire]:
-            job.session_id = session.id
-            job.batch_job_id = session.batch_job_id
+
+    while idx < len(jobs) and aggregate_nodes > 0.002:
+        job = jobs[idx]
+        job_footprint = job.num_nodes / job.node_packing_count
+        if job_footprint <= aggregate_nodes:
             acquired_jobs.append(job)
+            aggregate_nodes -= job_footprint
+            idx += 1
+        else:
+            idx = next(
+                (
+                    i
+                    for (i, job) in enumerate(jobs[idx:], idx)
+                    if job.num_nodes / job.node_packing_count <= aggregate_nodes
+                ),
+                len(jobs),
+            )
 
     for job in acquired_jobs:
+        job.session_id = session.id
+        job.batch_job_id = session.batch_job_id
         job.parent_ids = [parent.id for parent in job.parents]
     db.flush()
     return acquired_jobs, expired_jobs, expiry_events

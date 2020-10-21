@@ -19,16 +19,12 @@ class SessionOut(BaseModel):
         orm_mode = True
 
 
-class JobAcquireSpec(BaseModel):
-    min_nodes: int
-    max_nodes: int
-    serial_only: bool
-    max_num_acquire: int
-
-
 class SessionAcquire(BaseModel):
+    max_num_jobs: int
     max_wall_time_min: int
-    acquire: List[JobAcquireSpec]
+    max_nodes_per_job: Optional[int]
+    max_aggregate_nodes: Optional[float]
+    serial_only: bool = False
     filter_tags: Dict[str, str]
     states: Set[JobState] = RUNNABLE_STATES
 

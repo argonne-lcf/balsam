@@ -21,7 +21,6 @@ from .session import (
     SessionCreate,
     SessionOut,
     SessionAcquire,
-    JobAcquireSpec,
     PaginatedSessionsOut,
 )
 from .job import (
