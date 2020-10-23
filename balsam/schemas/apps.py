@@ -63,6 +63,7 @@ class AppBase(BaseModel):
             }
         },
     )
+    last_modified: Optional[float] = Field(None)
 
     @validator("class_path")
     def is_class_path(cls, v: str):

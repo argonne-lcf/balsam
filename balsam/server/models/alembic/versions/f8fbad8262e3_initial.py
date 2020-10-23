@@ -58,6 +58,7 @@ def upgrade():
         sa.Column("class_path", sa.String(length=200), nullable=False),
         sa.Column("parameters", sa.JSON(), nullable=True),
         sa.Column("transfers", sa.JSON(), nullable=True),
+        sa.Column("last_modified", sa.Float(), nullable=True),
         sa.ForeignKeyConstraint(["site_id"], ["sites.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("site_id", "class_path"),

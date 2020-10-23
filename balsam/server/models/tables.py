@@ -72,6 +72,7 @@ class App(Base):
     class_path = Column(String(200), nullable=False)
     parameters = Column(JSON, default=dict)
     transfers = Column(JSON, default=dict)
+    last_modified = Column(Float, default=0.0)
 
     site = orm.relationship(Site, back_populates="apps")
     jobs = orm.relationship("Job", back_populates="app")

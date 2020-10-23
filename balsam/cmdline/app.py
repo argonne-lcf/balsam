@@ -1,8 +1,27 @@
+import yaml
+from pathlib import Path
 import click
 from .utils import load_site_config
 from balsam.config import ClientSettings
-from balsam.api import App
+from balsam.api import App, Job
 from balsam.site import app_template, ApplicationDefinition
+from balsam.site.app import load_module, find_app_classes
+
+
+def load_apps(apps_path):
+    """
+    Fetch all ApplicationDefinitions and their local modification times
+    Returns two dicts keyed by module name
+    """
+    app_files = list(Path(apps_path).glob("*.py"))
+    mtimes = {}
+    app_classes = {}
+    for fname in app_files:
+        module_name = fname.with_suffix("").name
+        mtimes[module_name] = fname.stat().st_mtime
+        module = load_module(fname)
+        app_classes[module_name] = find_app_classes(module)
+    return app_classes, mtimes
 
 
 @click.group()
@@ -61,59 +80,90 @@ def create(name, command_template, description):
         )
     with open(app_file, "w") as fp:
         fp.write(app_body)
+    mtime = Path(app_file).stat().st_mtime
 
     click.echo(f"Created App {cls_name} in {app_file}")
     app_cls = ApplicationDefinition.load_app_class(cf.apps_path, name)
 
     App.objects.create(
-        site_id=cf.settings.site_id, class_path=name, **app_cls.as_dict(),
+        site_id=cf.settings.site_id,
+        class_path=name,
+        last_modified=mtime,
+        **app_cls.as_dict(),
     )
+
+
+def sync_app(app_class, class_path, mtime, registered_app, site_id):
+    # App not in DB: create it
+    if registered_app is None:
+        app = App.objects.create(
+            site_id=site_id,
+            class_path=class_path,
+            last_modified=mtime,
+            **app_class.as_dict(),
+        )
+        click.echo(f"CREATED    {class_path} (app_id={app.id})")
+    # App out of date; update it:
+    elif registered_app.last_modified is None or registered_app.last_modified < mtime:
+        for k, v in app_class.as_dict():
+            setattr(registered_app, k, v)
+        registered_app.last_modified = mtime
+        registered_app.save()
+        click.echo(f"UPDATED         {class_path} (app_id={registered_app.id})")
+    else:
+        click.echo(f"UP-TO-DATE      {class_path} (app_id={registered_app.id})")
+    # Otherwise, app is up to date :)
+    return
+
+
+def app_deletion_prompt(app):
+    job_count = Job.objects.filter(app_id=app.id).count()
+    click.echo(f"DELETED/RENAMED {app.class_path} (app_id={app.id})")
+    click.echo(f"   --> You either renamed this ApplicationDefinition or deleted it.")
+    click.echo(f"   --> There are {job_count} Jobs associated with this App")
+    delete = click.confirm(
+        "  --> Do you wish to unregister this App (this will ERASE {job_count} jobs!)"
+    )
+    if delete:
+        app.delete()
+        click.echo(f"  --> Deleted.")
+    else:
+        click.echo(
+            f"  --> App not deleted. If you meant to rename it, please update the class_path in the API."
+        )
 
 
 @app.command()
 @click.argument("app-class-name")
 def sync(app_class_name):
     """
-    Sync a local App with Balsam
+    Sync local ApplicationDefinitions with Balsam
     """
     cf = load_site_config()
     ClientSettings.load_from_home().build_client()
 
     registered_apps = list(App.objects.filter(site_id=cf.settings.site_id))
+    app_classes, mtimes = load_apps(cf.apps_path)
 
-    app_files = list(cf.apps_path.glob("*.py"))
-    file_mtimes = {
-        fname.with_suffix("").name: fname.stat().st_mtime for fname in app_files
-    }
-    print(registered_apps, file_mtimes)
+    for module_name, app_class_list in app_classes.items():
+        for app_class in app_class_list:
+            class_path = f"{module_name}.{app_class.__name__}"
+            registered_app = next(
+                (a for a in registered_apps if a.class_path == class_path), None
+            )
+            registered_apps.remove(registered_app)
+            sync_app(
+                app_class,
+                class_path,
+                mtimes[module_name],
+                registered_app,
+                cf.settings.site_id,
+            )
 
-    # Load full list of App classes from each file: mapping App to mtime
-    # For Apps not in DB, create
-    # For Apps with mtime newer than in DB, update the App
-    # For Apps with mtime matching DB mtime, do nothing (same)
-
-    # For Apps in DB:
-    # If DB App not in Site apps, prompt user: remove it from DB (it was deleted or renamed)
-    #   WARN that this will destroy COUNT jobs associated to the app
-
-    app_class = ApplicationDefinition.load_app_class(cf.apps_path, app_class_name)
-    app_data = app_class.as_dict()
-
-    new_app = App(site_id=cf.settings.site_id, class_path=app_class_name, **app_data)
-
-    try:
-        existing = App.objects.get(
-            site_id=cf.settings.site_id, class_path=app_class_name
-        )
-    except App.DoesNotExist:
-        new_app.save()
-        click.echo(f"Created new App {new_app.id}")
-    else:
-        existing.description = new_app.description
-        existing.parameters = new_app.parameters
-        existing.transfers = new_app.transfers
-        existing.save()
-        click.echo(f"Updated existing App {existing.pk}")
+    # Remaining registered_apps are no longer in the apps_path
+    # They could have been deleted or renamed
+    for app in registered_apps:
+        app_deletion_prompt(app)
 
 
 @app.command()
@@ -122,10 +172,5 @@ def ls():
     List my Apps
     """
     ClientSettings.load_from_home().build_client()
-    for app in App.objects.all():
-        backends = "\n".join(
-            f" --> {b.class_name}@{b.site_hostname}:{b.site_path}" for b in app.backends
-        )
-        print(f"{app.pk} {app.name}")
-        print(f"Parameters: {app.parameters}")
-        print(backends)
+    reprs = [yaml.dump(app.dict(), indent=4) for app in App.objects.all()]
+    print(*reprs, sep="\n----\n")

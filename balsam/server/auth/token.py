@@ -1,4 +1,3 @@
-import dateutil.parser
 from datetime import datetime
 from fastapi import status, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
@@ -27,18 +26,23 @@ def user_from_token(token: str = Depends(oauth2_scheme)):
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    expired_token_exc = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Expired Token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
         payload = jwt.decode(
             token, settings.auth.secret_key, algorithms=[settings.auth.algorithm],
         )
 
-        user_id: int = payload.get("sub")
-        username: str = payload.get("username")
-        expiry = payload.get("exp", "")
+        user_id: int = payload["sub"]
+        username: str = payload["username"]
+        expiry = payload["exp"]
 
-        expiry = dateutil.parser.parse(expiry)
-        if datetime.utcnow() >= expiry:
-            raise credentials_exception
+        utc_now = (datetime.utcnow() - datetime.utcfromtimestamp(0)).total_seconds()
+        if expiry <= utc_now:
+            raise expired_token_exc
 
         if user_id is None or username is None:
             raise credentials_exception

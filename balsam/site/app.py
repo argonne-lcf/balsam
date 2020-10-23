@@ -44,6 +44,15 @@ def load_module(fpath):
     return module
 
 
+def find_app_classes(module):
+    app_classes = []
+    for obj_name in dir(module):
+        attr = getattr(module, obj_name)
+        if issubclass(attr, ApplicationDefinition):
+            app_classes.append(attr)
+    return app_classes
+
+
 class ApplicationDefinitionMeta(type):
     def __new__(mcls, name, bases, attrs):
         super_new = super().__new__
@@ -148,9 +157,9 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
 
         apps_dir = Path(apps_dir)
 
-        filename, class_name = cls.split_class_path(class_path)
+        filename, class_name = split_class_path(class_path)
         fpath = apps_dir.joinpath(filename + ".py")
-        module = cls.load_module(fpath)
+        module = load_module(fpath)
 
         app_class = getattr(module, class_name, None)
         if app_class is None:
