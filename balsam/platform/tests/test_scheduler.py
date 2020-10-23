@@ -4,7 +4,7 @@ import stat
 import unittest
 import time
 
-from balsam.platform.scheduler import CobaltScheduler, SlurmScheduler
+from balsam.platform.scheduler import CobaltScheduler, SlurmScheduler, LsfScheduler
 from balsam.platform.scheduler.dummy import DummyScheduler
 
 
@@ -33,7 +33,7 @@ class SchedulerTestMixin(object):
             time.sleep(1)
             stats = self.scheduler.get_statuses(**self.status_params)
             if count > 30:
-                break
+                raise Exception("waited too long for job to be deleted")
             count += 1
 
     def test_get_statuses(self):
@@ -53,14 +53,16 @@ class SchedulerTestMixin(object):
         # check that all states are expected
         balsam_job_states = self.scheduler.job_states.values()
         for id, job_status in stat_dict.items():
-            self.assertIsInstance(job_status.project, str)
+            self.assertIsInstance(job_status.id, int)
+            self.assertIn(job_status.state, balsam_job_states)
             self.assertIsInstance(job_status.queue, str)
             self.assertIsInstance(job_status.num_nodes, int)
+            self.assertGreaterEqual(job_status.num_nodes, 0)
             self.assertIsInstance(job_status.wall_time_min, int)
-
-            self.assertIn(job_status.state, balsam_job_states)
             self.assertGreaterEqual(job_status.wall_time_min, 0)
-            self.assertGreater(job_status.num_nodes, 0)
+            self.assertIsInstance(job_status.time_remaining_min, int)
+            self.assertGreaterEqual(job_status.time_remaining_min, 0)
+            self.assertIsInstance(job_status.project, str)
 
         # clean up after this test, delete job, wait for delete to be complete
         self.scheduler.delete_job(job_id)
@@ -179,8 +181,8 @@ echo [$SECONDS] All Done! Great Test!
 
     def setUp(self):
         self.scheduler = SlurmScheduler()
-        self.scheduler.default_submit_kwargs = {"constraint": "haswell"}
-        self.scheduler.submit_kwargs_flag_map = {"constraint": "-C"}
+        SlurmScheduler.default_submit_kwargs = {"constraint": "haswell"}
+        SlurmScheduler.submit_kwargs_flag_map = {"constraint": "-C"}
 
         self.script_path = os.path.join(os.getcwd(), self.submit_script_fn)
         script = open(self.script_path, "w")
@@ -216,6 +218,48 @@ echo [$SECONDS] All Done! Great Test!
     def test_get_backfill_windows(self):
         with self.assertRaises(NotImplementedError):
             self.scheduler.get_backfill_windows()
+
+
+class LsfTest(SchedulerTestMixin, unittest.TestCase):
+
+    submit_script = """#!/usr/bin/env bash
+echo [$SECONDS] Running test submit script
+echo [$SECONDS] LSB_JOBID = $LSB_JOBID
+echo [$SECONDS] All Done! Great Test!
+"""
+    submit_script_fn = "lsf_submit.sh"
+
+    def setUp(self):
+        self.scheduler = LsfScheduler()
+
+        self.script_path = os.path.join(os.getcwd(), self.submit_script_fn)
+        script = open(self.script_path, "w")
+        script.write(self.submit_script)
+        script.close()
+        st = os.stat(self.script_path)
+        os.chmod(self.script_path, st.st_mode | stat.S_IEXEC)
+
+        self.submit_params = {
+            "script_path": self.script_path,
+            "project": "CSC388",
+            "queue": "batch",
+            "num_nodes": 1,
+            "time_minutes": 10,
+        }
+
+        self.status_params = {
+            "user": os.environ.get("USER", "UNKNOWN_USER"),
+            "project": "CSC388",
+            "queue": None,
+        }
+
+    def tearDown(self):
+        os.remove(self.submit_script_fn)
+        log_base = os.path.basename(os.path.splitext(self.script_path)[0])
+        if os.path.exists(log_base + ".output"):
+            os.remove(log_base + ".output")
+        if os.path.exists(log_base + ".error"):
+            os.remove(log_base + ".error")
 
 
 if __name__ == "__main__":

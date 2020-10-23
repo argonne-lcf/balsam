@@ -67,12 +67,12 @@ class SlurmScheduler(SubprocessSchedulerInterface):
 
     # maps Balsam status fields to the scheduler fields
     # should be a comprehensive list of scheduler status fields
-    status_fields = {
+    _status_fields = {
         "id": "jobid",
         "state": "state",
-        "wall_time_min": "timelimit",
         "queue": "partition",
         "num_nodes": "numnodes",
+        "wall_time_min": "timelimit",
         "project": "account",
         "time_remaining_min": "timeleft",
     }
@@ -84,15 +84,17 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         status_field_map = {
             "id": lambda id: int(id),
             "state": SlurmScheduler._job_state_map,
-            "wall_time_min": parse_time_minutes,
+            "queue": lambda queue: str(queue),
             "num_nodes": lambda n: int(n),
+            "wall_time_min": parse_time_minutes,
+            "project": lambda project: str(project),
             "time_remaining_min": parse_time_minutes,
         }
-        return status_field_map.get(balsam_field, lambda x: x)
+        return status_field_map.get(balsam_field, None)
 
     # maps node list states to Balsam node states
     # descriptions: https://slurm.schedmd.com/sinfo.html
-    node_states = {
+    _node_states = {
         "alloc": "busy",  # allocated
         "boot": "busy",
         "comp": "busy",  # completing
@@ -131,20 +133,20 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             nodelist_state = nodelist_state.replace("@", "")
             # alloc+ The node is allocated to one or more active jobs plus one or more jobs are in the process of COMPLETING.
             nodelist_state = nodelist_state.replace("+", "")
-            return SlurmScheduler.node_states[nodelist_state]
+            return SlurmScheduler._node_states[nodelist_state]
         except KeyError:
             logger.warning("node state %s is not recognized", nodelist_state)
             return "unknown"
 
     # maps the Balsam status fields to the node list fields
     # should be a comprehensive list of node list fields
-    nodelist_fields = {
+    _nodelist_fields = {
         "id": "nodelist",
         "queues": "partition",
         "node_state": "stateshort",
     }
 
-    fields_encondings = {
+    _fields_encondings = {
         "nodelist": "%N",
         "partition": "%P",
         "stateshort": "%t",
@@ -161,21 +163,23 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         }
         return nodelist_field_map.get(balsam_field, lambda x: x)
 
-    def _get_envs(self):
+    @staticmethod
+    def _get_envs():
         env = {}
-        fields = self.status_fields.values()
+        fields = SlurmScheduler._status_fields.values()
         env["SQUEUE_FORMAT2"] = ",".join(fields)
-        fields = self.nodelist_fields.values()
+        fields = SlurmScheduler._nodelist_fields.values()
         env["SINFO_FORMAT"] = " ".join(
-            self.fields_encondings[field] for field in fields
+            SlurmScheduler._fields_encondings[field] for field in fields
         )
         return env
 
+    @staticmethod
     def _render_submit_args(
-        self, script_path, project, queue, num_nodes, time_minutes, **kwargs
+        script_path, project, queue, num_nodes, time_minutes, **kwargs
     ):
         args = [
-            self.submit_exe,
+            SlurmScheduler.submit_exe,
             "-o",
             os.path.basename(os.path.splitext(script_path)[0]) + ".output",
             "-e",
@@ -190,16 +194,17 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             str(int(time_minutes)),
         ]
         # adding additional flags as needed, e.g. `-C knl`
-        for key, default_value in self.default_submit_kwargs.items():
-            flag = self.submit_kwargs_flag_map[key]
+        for key, default_value in SlurmScheduler.default_submit_kwargs.items():
+            flag = SlurmScheduler.submit_kwargs_flag_map[key]
             value = kwargs.setdefault(key, default_value)
             args += [flag, value]
 
         args.append(script_path)
         return args
 
-    def _render_status_args(self, project=None, user=None, queue=None):
-        args = [self.status_exe]
+    @staticmethod
+    def _render_status_args(project=None, user=None, queue=None):
+        args = [SlurmScheduler.status_exe]
         if user is not None:
             args += ["-u", user]
         if project is not None:
@@ -208,26 +213,30 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             args += ["-q", queue]
         return args
 
-    def _render_delete_args(self, job_id):
-        return [self.delete_exe, str(job_id)]
+    @staticmethod
+    def _render_delete_args(job_id):
+        return [SlurmScheduler.delete_exe, str(job_id)]
 
-    def _render_backfill_args(self):
-        return [self.backfill_exe]
+    @staticmethod
+    def _render_backfill_args():
+        return [SlurmScheduler.backfill_exe]
 
-    def _parse_submit_output(self, submit_output):
+    @staticmethod
+    def _parse_submit_output(submit_output):
         try:
             scheduler_id = int(submit_output)
         except ValueError:
             scheduler_id = int(submit_output.split()[-1])
         return scheduler_id
 
-    def _parse_status_output(self, raw_output):
+    @staticmethod
+    def _parse_status_output(raw_output):
         # TODO: this can be much more efficient with a compiled regex findall()
         status_dict = {}
         job_lines = raw_output.strip().split("\n")[1:]
         for line in job_lines:
             try:
-                job_stat = self._parse_status_line(line)
+                job_stat = SlurmScheduler._parse_status_line(line)
             except (ValueError, TypeError):
                 logger.debug(f"Cannot parse job status: {line}")
                 continue
@@ -235,65 +244,25 @@ class SlurmScheduler(SubprocessSchedulerInterface):
                 status_dict[job_stat.id] = job_stat
         return status_dict
 
-    def _parse_status_line(self, line):
+    @staticmethod
+    def _parse_status_line(line):
         fields = line.split()
         actual = len(fields)
-        expected = len(self.status_fields)
+        expected = len(SlurmScheduler._status_fields)
         if actual != expected:
             raise ValueError(
                 f"Line has {actual} columns: expected {expected}:\n{fields}"
             )
 
         status = {}
-        for name, value in zip(self.status_fields, fields):
-            func = self._status_field_map(name)
-            status[name] = func(value)
+        for name, value in zip(SlurmScheduler._status_fields, fields):
+            func = SlurmScheduler._status_field_map(name)
+            if callable(func):
+                status[name] = func(value)
 
         return JobStatus(**status)
 
-    def _parse_backfill_output(self, stdout):
-        # TODO: waiting for feedback from NERSC
-        # TODO: to extract backfill information
-        raise NotImplementedError
-
-        # raw_lines = stdout.split("\n")
-        # windows = {}
-        # sinfo_lines = raw_lines[1:]
-        # for line in sinfo_lines:
-        #     self._parse_sinfo_line(line, nodelist)
-        # return nodelist
-
-    # def _parse_sinfo_line(self, line, nodelist):
-    #     fields = line.split()
-    #     if len(fields) != len(self.nodelist_fields):
-    #         return
-    #
-    #     node_ids = self._parse_node_field(fields[0])
-    #     num_nodes = len(node_ids)
-    #
-    #     queue = fields[1]
-    #     status = self._node_state_map(fields[2])
-    #
-    #     for node_id in node_ids:
-    #         if node_id in nodelist:
-    #             nodelist[node_id]["queues"].append(queue)
-    #             nodelist[node_id]["state"] = status
-    #         else:
-    #             nodelist[node_id] = {"queues": [queue], "state": status}
-    #
-    # @staticmethod
-    # def _parse_node_field(nodes_str):
-    #     node_numbers_str = nodes_str[len("nid[") : -1]
-    #     node_ranges = node_numbers_str.split(",")
-    #     node_ids = []
-    #     for node_range in node_ranges:
-    #         if "-" in node_range:
-    #             parts = node_range.split("-")
-    #             min = int(parts[0])
-    #             max = int(parts[1])
-    #             for i in range(min, max + 1):
-    #                 node_ids.append(i)
-    #         else:
-    #             node_ids.append(int(node_range))
-    #
-    #     return node_ids
+    @staticmethod
+    def _parse_backfill_output(stdout):
+        # NERSC currently does not provide this kind of information
+        return {}
