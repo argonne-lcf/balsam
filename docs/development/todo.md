@@ -2,45 +2,24 @@
 
 ## REST API
 
-- [x] Data models
-- [x] Serializers
-- [x] URL routing
-- [x] Views, pagination, filtering
 - [ ] Login Auth
 - [ ] Token Auth
-- [x] `APIClient` tests
 - [ ] Idempotent updates
 - [ ] `POST` with `submission_id`, response caching, optimizstic lock & rollback mechanism
-- [ ] DB query profiling & optimization: prefetch loads & bulk writes 0. Focus on critical endpoints only: probably only `Job` bulk create, update, acquire, get
+- [ ] DB query profiling & optimization: prefetch loads & bulk writes 
+- [ ] DAG Endpoint: creating prototype DAGs and instances of workflows from the DAG
+  0. Focus on critical endpoints only: probably only `Job` bulk create, update, acquire, get
   1. Don't optimize until you have timings on a realistic API call
   2. Use `prefetch` and `select_related`. Consider `defer` to avoid pulling unnecessary rows
   3. Bulk creates and updates
-  4. Can bypass serializers entirely with `queryset.values()`
-  5. Cache model instances to avoid DB on GET requests
-- [ ] Cache user info, sites, apps, batchjobs, sessions by owner. used for `GET` requests and request validation
-- [ ] Offload longer processing (e.g. post Job update via Celery+Redis)
-- [ ] cron+PIDfile deployment of PG+Gunicorn on generic-01
-- [ ] Replace JSONFilters with Django-Filter plugins limited to str:str mappings
-- [ ] DAG Endpoint: creating prototype DAGs and instances of workflows from the DAG
-
-## LiveServer Test Harness
-
-- [ ] Completely disable PyTest-Django. Run separate Gunicorn server and separate setup/teardown
-- [ ] Timeout+retry tests (to trigger POST rollback)
-- [ ] Concurrency tests with multiprocessing & `RequestsClient`
-
-## Client
-
-- [x] RESTClient base class
-- [x] DirectAPI Client
-- [x] Requests Client
-- [x] Resource components and URL-mapped methods
-- [ ] Update Resources to reflect API changes
+  4. If DB query slow on GET, consider caching in Redis layer
+  5. Consider offloading time-consuming processes (Celery+Redis)
 
 ## Python API
 
-- [ ] Update models & managers to reflect API changes
-- [ ] Update API Test cases
+- [ ] Support typing on Models/Mangers (set Model fields explicitly?)
+- [ ] Explicit `__init__` on models and Jupyter notebook introspection-friendly API
+- [ ] Any other helpers/wrappers needed in API for Jupyter usage?
 
 ## CLI
 
@@ -54,25 +33,6 @@
 - [ ] BatchJob (`submit-launch`)
 - [ ] Service
 - [ ] `which`
-
-## Configuration
-
-- [ ] Configuration structure
-  - APIClient should be independently configurable for Launcher & Service
-    - Launcher may need to use HTTP Proxy
-- [ ] SiteConfig methods
-- [ ] Default presets
-  - [ ] Local
-  - [ ] Theta
-  - [ ] Cooley
-  - [ ] Bebop
-  - [ ] Cori
-  - [ ] Summit
-  - [ ] Theta-GPU
-  - [ ] Crux
-  - [ ] Perlmutter
-  - [ ] Aurora
-  - [ ] Frontier
 
 ## Balsam Site Components
 

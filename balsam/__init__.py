@@ -1,7 +1,13 @@
+import logging
 import textwrap
 import sys
 
 __version__ = "0.0.1"
+
+root_logger = logging.getLogger("balsam")
+root_logger.setLevel(logging.DEBUG)
+stderr_handler = logging.StreamHandler()
+root_logger.addHandler(stderr_handler)
 
 
 def banner(message, color="HEADER"):

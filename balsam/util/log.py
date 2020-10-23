@@ -5,10 +5,9 @@ import socket
 import time
 import threading
 
-__version__ = "0.1"
+from balsam import root_logger, stderr_handler
 
-balsam_root_logger = logging.getLogger("balsam")
-balsam_root_logger.setLevel(logging.DEBUG)
+__version__ = "0.1"
 
 
 class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
@@ -79,14 +78,15 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     file_handler.setFormatter(formatter)
     mem_handler.setLevel(level)
     mem_handler.setFormatter(formatter)
-    balsam_root_logger.addHandler(mem_handler)
-    balsam_root_logger.info(f"Logging on {socket.gethostname()}")
+    root_logger.removeHandler(stderr_handler)
+    root_logger.addHandler(mem_handler)
+    root_logger.info(f"Logging on {socket.gethostname()}")
     sys.excepthook = log_uncaught_exceptions
 
 
 def log_uncaught_exceptions(exctype, value, tb):
-    balsam_root_logger.error(
+    root_logger.error(
         f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb)
     )
-    for handler in balsam_root_logger.handlers:
+    for handler in root_logger.handlers:
         handler.flush()
