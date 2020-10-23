@@ -1,4 +1,5 @@
 import click
+import dateutil.parser
 from .requests_client import RequestsClient
 from .rest_base_client import AuthError
 import time
@@ -10,7 +11,9 @@ class BasicAuthRequestsClient(RequestsClient):
         self,
         api_root,
         username,
-        password,
+        password=None,
+        token=None,
+        token_expiry=None,
         connect_timeout=3.1,
         read_timeout=60,
         retry_count=3,
@@ -23,8 +26,14 @@ class BasicAuthRequestsClient(RequestsClient):
         )
         self.username = username
         self.password = password
+        self.token = token
+        self.token_expiry = token_expiry
 
     def refresh_auth(self):
+        if self.password is None:
+            raise ValueError(
+                "Cannot refresh_auth: self.password is None. Please provide a password"
+            )
         # Login with HTTPBasic Auth to get a token:
         url = "users/login"
         cred = {"username": self.username, "password": self.password}
@@ -37,15 +46,18 @@ class BasicAuthRequestsClient(RequestsClient):
             else:
                 break
         try:
-            token = resp["access_token"]
+            self.token = resp["access_token"]
+            self.token_expiry = dateutil.parser.parse(resp["expiration"])
         except KeyError:
             raise AuthError(f"Could not authenticate: {resp}")
 
         # Unset BasicAuth; set Token Authorization header
         self._session.auth = None
-        self._session.headers["Authorization"] = f"Bearer {token}"
+        self._session.headers["Authorization"] = f"Bearer {self.token}"
 
     def interactive_login(self):
         """Initiate interactive login flow"""
+        self.password = click.prompt("Balsam password", hide_input=True)
         self.refresh_auth()
         click.echo("Logged In")
+        return {"token": self.token, "token_expiry": self.token_expiry}

@@ -1,3 +1,4 @@
+import dateutil.parser
 from datetime import datetime
 from fastapi import status, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
@@ -17,7 +18,7 @@ def create_access_token(user):
     encoded_jwt = jwt.encode(
         to_encode, settings.auth.secret_key, algorithm=settings.auth.algorithm
     )
-    return encoded_jwt
+    return encoded_jwt, expiry
 
 
 def user_from_token(token: str = Depends(oauth2_scheme)):
@@ -30,10 +31,18 @@ def user_from_token(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(
             token, settings.auth.secret_key, algorithms=[settings.auth.algorithm],
         )
+
         user_id: int = payload.get("sub")
         username: str = payload.get("username")
+        expiry = payload.get("exp", "")
+
+        expiry = dateutil.parser.parse(expiry)
+        if datetime.utcnow() >= expiry:
+            raise credentials_exception
+
         if user_id is None or username is None:
             raise credentials_exception
+
     except PyJWTError:
         raise credentials_exception
 

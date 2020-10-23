@@ -1,19 +1,8 @@
 import click
-from balsam.config import SiteConfig, ClientSettings
-from balsam.api import App, AppBackend, Job
+from .utils import load_site_config
+from balsam.config import ClientSettings
+from balsam.api import App
 from balsam.site import app_template, ApplicationDefinition
-
-
-def get_factory():
-    try:
-        cf = SiteConfig()
-    except ValueError:
-        raise click.BadParameter(
-            "Cannot alter apps outside the scope of a Balsam Site. "
-            "Please navigate into a Balsam site directory, or set "
-            "BALSAM_SITE_PATH"
-        )
-    return cf
 
 
 @click.group()
@@ -37,7 +26,7 @@ def app():
 @click.option("-d", "--description", default="Application description")
 def create(name, command_template, description):
     """
-    Create a new Balsam AppBackend file in the current Site.
+    Create a new Balsam App in the current Site.
 
     The App file is generated according to a template; feel free to
     write app files without using this command.  You can also define
@@ -47,7 +36,8 @@ def create(name, command_template, description):
 
         balsam app create --name demo.Hello --command-template 'echo hello, {{name}}!'
     """
-    cf = get_factory()
+    cf = load_site_config()
+    ClientSettings.load_from_home().build_client()
 
     try:
         module_name, cls_name = name.split(".")
@@ -71,66 +61,59 @@ def create(name, command_template, description):
         )
     with open(app_file, "w") as fp:
         fp.write(app_body)
-    click.echo(f"Created {app_file}")
+
+    click.echo(f"Created App {cls_name} in {app_file}")
+    app_cls = ApplicationDefinition.load_app_class(cf.apps_path, name)
+
+    App.objects.create(
+        site_id=cf.settings.site_id, class_path=name, **app_cls.as_dict(),
+    )
 
 
 @app.command()
 @click.argument("app-class-name")
-@click.option("-n", "--name")
-def sync(app_class_name, name):
+def sync(app_class_name):
     """
     Sync a local App with Balsam
     """
-    cf = get_factory()
+    cf = load_site_config()
     ClientSettings.load_from_home().build_client()
+
+    registered_apps = list(App.objects.filter(site_id=cf.settings.site_id))
+
+    app_files = list(cf.apps_path.glob("*.py"))
+    file_mtimes = {
+        fname.with_suffix("").name: fname.stat().st_mtime for fname in app_files
+    }
+    print(registered_apps, file_mtimes)
+
+    # Load full list of App classes from each file: mapping App to mtime
+    # For Apps not in DB, create
+    # For Apps with mtime newer than in DB, update the App
+    # For Apps with mtime matching DB mtime, do nothing (same)
+
+    # For Apps in DB:
+    # If DB App not in Site apps, prompt user: remove it from DB (it was deleted or renamed)
+    #   WARN that this will destroy COUNT jobs associated to the app
 
     app_class = ApplicationDefinition.load_app_class(cf.apps_path, app_class_name)
     app_data = app_class.as_dict()
-    name = name or app_data["name"]
 
-    new_backend = AppBackend(site=cf.settings.site_id, class_name=app_class_name)
-    new_app = App(
-        name=name,
-        description=app_data["description"],
-        parameters=app_data["parameters"],
-        backends=[new_backend],
-    )
+    new_app = App(site_id=cf.settings.site_id, class_path=app_class_name, **app_data)
 
     try:
-        existing = App.objects.get(name=name)
+        existing = App.objects.get(
+            site_id=cf.settings.site_id, class_path=app_class_name
+        )
     except App.DoesNotExist:
         new_app.save()
-        click.echo(f"Created new App {new_app.pk}")
+        click.echo(f"Created new App {new_app.id}")
     else:
-        existing.name = new_app.name
         existing.description = new_app.description
         existing.parameters = new_app.parameters
-        backends = {b.site: b for b in existing.backends}
-        backends[new_backend.site] = new_backend
-        existing.backends = list(backends.values())
+        existing.transfers = new_app.transfers
         existing.save()
         click.echo(f"Updated existing App {existing.pk}")
-
-
-@app.command()
-@click.option("-n", "--name", required=True)
-def rm(name):
-    """
-    Remove an App by name
-    """
-    get_factory()
-    ClientSettings.load_from_home().build_client()
-    try:
-        existing = App.objects.get(name=name)
-    except App.DoesNotExist:
-        raise click.BadParameter(f"Could not find an App named {name}")
-    else:
-        job_count = Job.objects.filter(app_id=existing.pk).count()
-        if click.confirm(
-            f"Really delete App {name}?  This will wipe out {job_count} associated Jobs!"
-        ):
-            existing.delete()
-            click.echo(f"Deleted App {existing.name}")
 
 
 @app.command()
@@ -146,55 +129,3 @@ def ls():
         print(f"{app.pk} {app.name}")
         print(f"Parameters: {app.parameters}")
         print(backends)
-
-
-@app.command()
-@click.argument("app-names", nargs=-1)
-@click.option("-n", "--name", required=True)
-def merge(app_names, name):
-    """
-    Merge two or more Apps into an AppExchange
-
-    When Jobs are created with an AppExchange, they may run at more than one
-    Balsam site.
-
-    Example:
-
-        balsam app merge --name MyExchange simulation_theta simulation_cori
-    """
-    if len(app_names) < 2:
-        raise click.BadParameter("Give at least two App names to merge")
-
-    ClientSettings.load_from_home().build_client()
-    apps = list(App.objects.filter(name__in=app_names))
-    if len(app_names) != len(apps):
-        found_set = set(a.name for a in apps)
-        missing_set = set(app_names).difference(found_set)
-        raise click.BadParameter(
-            f"Could not find apps with the following names: {missing_set}"
-        )
-
-    merged = App.objects.merge(apps, name=name)
-    click.echo(f"Created new merged App {merged.name}")
-    backends = "\n".join(
-        f" --> {b.class_name}@{b.site_hostname}:{b.site_path}" for b in merged.backends
-    )
-    click.echo(backends)
-
-
-@app.command()
-@click.argument("old-name")
-@click.argument("new-name")
-def rename(old_name, new_name):
-    """
-    Change name of an App
-    """
-    ClientSettings.load_from_home().build_client()
-    try:
-        app = App.objects.get(name=old_name)
-    except App.DoesNotExist:
-        raise click.BadParameter(f"No app with name {old_name}")
-    else:
-        app.name = new_name
-        app.save()
-        click.echo(f"Renamed app {old_name} --> {new_name}")

@@ -20,34 +20,44 @@ class StatusUpdater(multiprocessing.Process):
         self.queue = Queue()
 
     def run(self):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        while True:
-            item = self.queue.get(block=True, timeout=None)
-            if item == "exit":
-                should_exit = True
-                updates = []
-            else:
-                should_exit = False
-                updates = [item]
+        EXIT_FLAG = False
 
-            attempts = 0
-            while attempts < 2:
+        def handler(signum, stack):
+            nonlocal EXIT_FLAG
+            EXIT_FLAG = True
+
+        signal.signal(signal.SIGINT, handler)
+        signal.signal(signal.SIGTERM, handler)
+
+        while not EXIT_FLAG:
+            try:
+                item = self.queue.get(block=True, timeout=1)
+            except queue.Empty:
+                continue
+
+            updates = [item]
+            while len(updates) < 10_000:
                 try:
                     item = self.queue.get(block=True, timeout=1)
-                    if item != "exit":
-                        updates.append(item)
-                    else:
-                        should_exit = True
+                    updates.append(item)
                 except queue.Empty:
-                    attempts += 1
-            if updates:
-                self.perform_updates(updates)
-            if should_exit:
-                break
+                    break
+            self._perform_updates(updates)
 
-        self._on_exit()
+        logger.info("Signal: break out of StatusUpdater main loop")
+        self._drain_queue()
         logger.info(f"StatusUpdater thread finished.")
+
+    def _drain_queue(self):
+        updates = []
+        while True:
+            try:
+                item = self.queue.get_nowait()
+                updates.append(item)
+            except queue.Empty:
+                break
+        if updates:
+            self._perform_updates(updates)
 
     def put(
         self,
@@ -65,22 +75,21 @@ class StatusUpdater(multiprocessing.Process):
             }
         )
 
-    def set_exit(self):
-        self.queue.put("exit")
-
-    def perform_updates(self, updates: List[Dict]):
+    def _perform_updates(self, updates: List[Dict]):
         raise NotImplementedError
 
-    def _on_exit(self):
-        pass
 
-
-class BalsamStatusUpdater(StatusUpdater):
+class BulkStatusUpdater(StatusUpdater):
     def __init__(self, client):
         super().__init__()
         self.client = client
 
-    def perform_updates(self, updates: List[dict]):
+    def _perform_updates(self, updates: List[dict]):
+        """
+        In case two job updates occur in the same window,
+        we sort updates by timestamp and avoid duplicate job
+        updates in the same API call
+        """
         updates_by_id = defaultdict(list)
         for update in sorted(updates, key=lambda x: x["state_timestamp"]):
             updates_by_id[update["id"]].append(update)

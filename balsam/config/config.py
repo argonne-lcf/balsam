@@ -2,7 +2,6 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-import importlib.util
 import socket
 import shutil
 from typing import Optional, Dict
@@ -22,16 +21,18 @@ from balsam.api import Site
 from balsam.api import Manager
 from balsam.schemas import AllowedQueue
 
+from balsam.site.service import SchedulerService, ProcessingService
+from balsam.util import config_logging
+
 
 def balsam_home():
     return Path.home().joinpath(".balsam")
 
 
 class ClientSettings(BaseSettings):
-    client_class: PyObject = "balsam.client.BasicAuthRequestsClient"
     api_root: str
     username: str
-    password: str
+    client_class: PyObject = "balsam.client.BasicAuthRequestsClient"
     token: Optional[str] = None
     token_expiry: Optional[datetime] = None
     connect_timeout: float = 3.1
@@ -43,18 +44,6 @@ class ClientSettings(BaseSettings):
         if not issubclass(v, RESTClient):
             raise TypeError(f"client_class must subclass balsam.client.RESTClient")
         return v
-
-    @classmethod
-    def from_url(cls, url):
-        return cls(
-            client_class="balsam.client.BasicAuthRequestsClient",
-            host=url.host,
-            port=url.port,
-            username=url.user,
-            password=url.password,
-            api_root=url.path or "/",
-            scheme=url.scheme,
-        )
 
     @staticmethod
     def settings_path():
@@ -83,15 +72,30 @@ class ClientSettings(BaseSettings):
     def build_client(self):
         client = self.client_class(**self.dict())
         Manager.set_client(client)
+        return client
+
+
+class LoggingConfig(BaseSettings):
+    level: str = "DEBUG"
+    format: str = "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
+    datefmt: str = "%d-%b-%Y %H:%M:%S"
+    buffer_num_records: int = 1024
+    flush_period: int = 30
 
 
 class SchedulerSettings(BaseSettings):
     scheduler_class: PyObject
     sync_period: int
-    allowed_queues: Dict[str, AllowedQueue] = []
+    allowed_queues: Dict[str, AllowedQueue]
     allowed_projects: List[str] = []
     optional_batch_job_params = Dict[str, str]
     job_template_path: Path
+
+
+class ProcessingSettings(BaseSettings):
+    prefetch_depth: int
+    filter_tags: Dict[str, str]
+    num_workers: Dict[str, str]
 
 
 class TransferInterfaceSettings(BaseSettings):
@@ -102,13 +106,12 @@ class TransferInterfaceSettings(BaseSettings):
 
 class Settings(BaseSettings):
     site_id: int
-
     scheduler: SchedulerSettings
+    processing: ProcessingSettings
     mpi_launcher: PyObject
     resource_manager: PyObject
     transfers: Optional[TransferInterfaceSettings]
-
-    log_level: str
+    logging: LoggingConfig = LoggingConfig()
 
     def save(self, path):
         with open(path, "w") as fp:
@@ -123,28 +126,12 @@ class Settings(BaseSettings):
 
 class SiteConfig:
     """
-    This class plays the role of Dependency Injector
-        https://en.wikipedia.org/wiki/Dependency_injection
-    Uses validated settings to build components and provide dependencies:
-        - Client
-        - Client <-- API (build Client first; provide Client to API)
-        - Scheduler Interface
-        - MPIRun Interface
-        - NodeTracker Interface
-        - JobTemplate (setting chooses template file)
-        - Service modules:
-            - Queue Submitter <-- SchedulerInterface
-            - App Watchdog
-            - Acquisition & Stage-in module
-            - Transitions Module
-    NO Component should refer to external settings or set its own dependencies
+    Uses above settings to build components and provide dependencies
+    No component should refer to external settings or set its own dependencies
     Instead, this class builds and injects needed settings/dependencies at runtime
     """
 
     def __init__(self, site_path=None, settings=None):
-        """
-        Load Settings from BALSAM_SITE_PATH/settings.py or settings.yml
-        """
         self.site_path = self.resolve_site_path(site_path, raise_exc=True)
 
         if settings is not None:
@@ -156,19 +143,32 @@ class SiteConfig:
             self.settings = settings
             return
 
-        py_settings = self.site_path.joinpath("settings.py")
-        py_settings = py_settings if py_settings.is_file() else None
         yaml_settings = self.site_path.joinpath("settings.yml")
-        yaml_settings = yaml_settings if yaml_settings.is_file() else None
 
-        if not (py_settings or yaml_settings):
-            raise FileNotFoundError(
-                f"{site_path} must contain a settings.py or settings.yml"
-            )
-        elif py_settings:
-            self.settings = self._load_py_settings(py_settings)
-        else:
-            self.settings = self._load_yaml_settings(yaml_settings)
+        if not yaml_settings.is_file():
+            raise FileNotFoundError(f"{site_path} must contain a settings.yml")
+        self.settings = self._load_yaml_settings(yaml_settings)
+
+    def build_services(self):
+        services = []
+        client = ClientSettings.load_from_home().build_client()
+
+        scheduler_service = SchedulerService(
+            client=client,
+            site_id=self.settings.site_id,
+            submit_directory=self.job_path,
+            **self.settings.scheduler.dict(),
+        )
+        services.append(scheduler_service)
+
+        processing_service = ProcessingService(
+            client=client,
+            site_id=self.site_id,
+            apps_path=self.apps_path,
+            **self.settings.processing.dict(),
+        )
+        services.append(processing_service)
+        return services
 
     @classmethod
     def new_site_setup(cls, site_path, hostname=None):
@@ -231,6 +231,11 @@ class SiteConfig:
             raise FileNotFoundError(
                 f"BALSAM_SITE_PATH {site_path} must point to an existing Balsam site directory"
             )
+        if not site_path.joinpath(".balsam-site").is_file():
+            raise FileNotFoundError(
+                f"BALSAM_SITE_PATH {site_path} is not a valid Balsam site directory "
+                f"(does not contain a .balsam-site file)"
+            )
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
         return site_path
 
@@ -261,31 +266,14 @@ class SiteConfig:
     def data_path(self):
         return self.site_path.joinpath("data")
 
-    @staticmethod
-    def _load_py_settings(file_path):
-        strpath = str(file_path)
-        spec = importlib.util.spec_from_file_location(strpath, strpath)
-        module = importlib.util.module_from_spec(spec)
-
-        try:
-            spec.loader.exec_module(module)
-        except ValidationError as exc:
-            print(f"Please fix the issues in settings file: {file_path}")
-            print(exc, file=sys.stderr)
-            sys.exit(1)
-
-        settings = getattr(module, "BALSAM_SETTINGS", None)
-        if settings is None:
-            raise AttributeError(
-                f"Your settings module {file_path} is missing a BALSAM_SETTINGS object."
-                f" Be sure to create an instance of balsam.config.Settings in this file, with the "
-                "exact name BALSAM_SETTINGS."
-            )
-        if not isinstance(settings, Settings):
-            raise TypeError(
-                f"The BALSAM_SETTINGS object in {file_path} must be an instance of balsam.site.Settings"
-            )
-        return settings
+    def enable_logging(self, basename, filename=None):
+        if filename is None:
+            ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            filename = f"{basename}_{ts}.log"
+        log_path = self.log_path.joinpath(filename)
+        config_logging(
+            filename=log_path, **self.settings.logging.dict(),
+        )
 
     @staticmethod
     def _load_yaml_settings(file_path, validate=True):

@@ -1,5 +1,4 @@
 import importlib
-import inspect
 import pathlib
 import shlex
 import jinja2
@@ -10,9 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class ApplicationDefinitionMeta(type):
-
-    _app_registry = []
-
     def __new__(mcls, name, bases, attrs):
         super_new = super().__new__
         cls = super_new(mcls, name, bases, attrs)
@@ -48,9 +44,6 @@ class ApplicationDefinitionMeta(type):
                 "default": None,
                 "help": "",
             }
-
-        class_path = f"{inspect.getmodule(cls).__name__}.{name}"
-        ApplicationDefinitionMeta._app_registry[class_path] = cls
         return cls
 
 
@@ -58,12 +51,11 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     class ModuleLoadError(Exception):
         pass
 
-    _loaded_apps = {}
-    environment_variables = {}
-    command_template = ""
-    parameters = {}
-    stage_ins = {}
-    stage_outs = {}
+    _loaded_apps: dict = {}
+    environment_variables: dict = {}
+    command_template: str = ""
+    parameters: dict = {}
+    transfers: dict = {}
 
     def __init__(self, job):
         self.job = job
@@ -85,7 +77,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             Use shlex.split() to split the result into args list.
             Do *NOT* use string.join on the split list: unsafe!
         """
-        diff = self.parameters.difference(arg_dict.keys())
+        diff = set(self.parameters.keys()).difference(arg_dict.keys())
         if diff:
             raise ValueError(f"Missing required args: {diff}")
 
@@ -101,7 +93,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         self.job.state = "POSTPROCESSED"
 
     def shell_preamble(self):
-        pass
+        return []
 
     def handle_timeout(self):
         self.job.state = "RESTART_READY"
@@ -114,7 +106,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         """
         Load the ApplicationDefinition subclass located in directory app_path
         """
-        key = (app_path, class_name)
+        key = (str(app_path), str(class_name))
         if key in cls._loaded_apps:
             return cls._loaded_apps[key]
 
@@ -170,10 +162,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     @classmethod
     def as_dict(cls):
         return dict(
-            description=cls.__doc__,
-            parameters=cls.parameters,
-            stage_ins=cls.stage_ins,
-            stage_outs=cls.stage_outs,
+            description=cls.__doc__, parameters=cls.parameters, transfers=cls.transfers,
         )
 
 
@@ -187,14 +176,13 @@ class {{cls_name}}(ApplicationDefinition):
     environment_variables = {}
     command_template = '{{command_template}}'
     parameters = {}
-    stage_ins = {}
-    stage_outs = {}
+    transfers = {}
 
     def preprocess(self):
-        pass
+        self.job.state = "PREPROCESSED"
 
     def postprocess(self):
-        pass
+        self.job.state = "POSTPROCESSED"
 
     def shell_preamble(self):
         pass
@@ -203,7 +191,7 @@ class {{cls_name}}(ApplicationDefinition):
         self.job.state = "RESTART_READY"
 
     def handle_error(self):
-        pass
+        self.job.state = "FAILED"
 
 '''.lstrip()
 

@@ -19,14 +19,14 @@ class SchedulerService(BalsamService):
         client,
         site_id,
         scheduler_class,
-        service_period,
+        sync_period,
         allowed_queues,
         allowed_projects,
         optional_batch_job_params,
         job_template_path,
         submit_directory,
     ):
-        super().__init__(service_period=service_period)
+        super().__init__(service_period=sync_period)
         Manager.set_client(client)
         self.site_id = site_id
         self.scheduler = scheduler_class()

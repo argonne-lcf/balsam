@@ -16,8 +16,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db=Depends(get_sessi
     password = form_data.password
 
     user = authenticate_user_password(db, username, password)
-    token = create_access_token(user)
-    return {"access_token": token, "token_type": "bearer"}
+    token, expiry = create_access_token(user)
+    return {"access_token": token, "token_type": "bearer", "expiration": expiry}
 
 
 @router.get("/me", response_model=UserOut)

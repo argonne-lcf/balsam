@@ -66,7 +66,6 @@ class FixedDepthJobSource(multiprocessing.Process):
         max_aggregate_nodes=None,
     ):
         super().__init__()
-        self._exit_flag = multiprocessing.Event()
         self.queue = Queue()
         self.prefetch_depth = prefetch_depth
 
@@ -91,18 +90,21 @@ class FixedDepthJobSource(multiprocessing.Process):
                 break
         return fetched
 
-    def set_exit(self):
-        self._exit_flag.set()
-
     def run(self):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        EXIT_FLAG = False
+
+        def handler(signum, stack):
+            nonlocal EXIT_FLAG
+            EXIT_FLAG = True
+
+        signal.signal(signal.SIGINT, handler)
+        signal.signal(signal.SIGTERM, handler)
 
         if self.session_thread is None:
             self.session_thread = SessionThread(site_id=self.site_id)
             self.session = self.session_thread.session
 
-        while not self._exit_flag.is_set():
+        while not EXIT_FLAG:
             time.sleep(1)
             qsize = self.queue.qsize()
             fetch_count = max(0, self.prefetch_depth - qsize)
@@ -114,12 +116,10 @@ class FixedDepthJobSource(multiprocessing.Process):
                 jobs = self.session.acquire_jobs(**params)
                 for job in jobs:
                     self.queue.put_nowait(job)
-        self._on_exit()
-
-    def _on_exit(self):
+        logger.info("Signal: JobSource cancelling tick thread and deleting API Session")
         self.session_thread.timer.cancel()
         self.session.delete()
-        logger.info("Stopped Session tick thread and deleted session")
+        logger.info("JobSource exit graceful")
 
     def _get_acquire_parameters(self, num_jobs):
         if self.max_wall_time_min:
@@ -172,10 +172,14 @@ class SynchronousJobSource(object):
     def start(self):
         pass
 
-    def set_exit(self):
+    def terminate(self):
+        logger.info("Signal: JobSource cancelling tick thread and deleting API Session")
         self.session_thread.timer.cancel()
         self.session.delete()
-        logger.info("Stopped Session tick thread and deleted session")
+        logger.info("JobSource exit graceful")
+
+    def join(self):
+        pass
 
     def get_jobs(self, max_num_jobs, max_nodes_per_job=None, max_aggregate_nodes=None):
         if self.max_wall_time_min:

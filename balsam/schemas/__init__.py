@@ -1,5 +1,5 @@
 from .user import UserCreate, UserOut
-from .site import SiteCreate, SiteUpdate, SiteOut, PaginatedSitesOut
+from .site import SiteCreate, SiteUpdate, SiteOut, PaginatedSitesOut, AllowedQueue
 from .apps import (
     AppCreate,
     AppUpdate,
@@ -48,6 +48,7 @@ __all__ = [
     "SiteUpdate",
     "SiteOut",
     "PaginatedSitesOut",
+    "AllowedQueue",
     "AppCreate",
     "AppUpdate",
     "AppOut",
