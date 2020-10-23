@@ -27,6 +27,11 @@ ALLOWED_TRANSITIONS = {
     "RESET": ("AWAITING_PARENTS", "READY",),
 }
 
+NO_OP_TRANSITIONS = {
+    "AWAITING_PARENTS": ("RESET",),
+    "READY": ("RESET",),
+}
+
 # Lock signifies something is working on the job
 LOCKED_STATUS = {
     "READY": "Staging in",
@@ -83,16 +88,36 @@ class EventLog(models.Model):
 
 class JobLockManager(models.Manager):
     EXPIRATION_PERIOD = timedelta(minutes=3)
+    SWEEP_PERIOD = timedelta(seconds=10)
+    last_sweep = timezone.now() - SWEEP_PERIOD
 
-    def create(self, site, label):
-        lock = JobLock(site=site, label=label)
+    def create(self, site, label, batch_job):
+        lock = JobLock(site=site, label=label, batch_job=batch_job)
         lock.save()
         return lock
 
     def clear_stale(self):
-        expiry_time = timezone.now() - self.EXPIRATION_PERIOD
+        now = timezone.now()
+        if now - JobLockManager.last_sweep < self.SWEEP_PERIOD:
+            return
+
+        JobLockManager.last_sweep = now
+        expiry_time = now - self.EXPIRATION_PERIOD
         qs = self.get_queryset()
         expired_locks = qs.filter(heartbeat__lte=expiry_time)
+        for lock in expired_locks:
+            zombie_jobs = lock.jobs.filter(state="RUNNING")
+            Job.objects.bulk_update(
+                [
+                    {
+                        "pk": pk,
+                        "state": "RUN_TIMEOUT",
+                        "state_message": "Lost contact with launcher",
+                    }
+                    for pk in zombie_jobs.values_list("pk", flat=True)
+                ]
+            )
+
         num_deleted, _ = expired_locks.delete()
         logger.info(f"Cleared {num_deleted} expired locks")
 
@@ -100,11 +125,15 @@ class JobLockManager(models.Manager):
 class JobLock(models.Model):
     objects = JobLockManager()
     heartbeat = models.DateTimeField(auto_now=True)
-    label = models.CharField(max_length=64)
+    label = models.CharField(blank=True, default="", max_length=64)
     site = models.ForeignKey("Site", on_delete=models.CASCADE)
+    batch_job = models.ForeignKey(
+        "BatchJob", blank=True, null=True, default=None, on_delete=models.SET_NULL
+    )
 
     def tick(self):
         self.save(update_fields=["heartbeat"])
+        JobLock.objects.clear_stale()
 
     def release(self):
         logger.info(f"Released lock {self.pk}")
@@ -115,13 +144,10 @@ class JobManager(models.Manager):
     def chain_prefetch_for_update(self, qs):
         """Prefetch related items that would be hit in a big list view"""
         return qs.select_related(
-            "lock",
-            "app_exchange",
-            "app_backend",
-            "app_backend__site",
-            "batch_job",
-            "parents",
-        ).prefetch_related("app_exchange__backends", "transfer_items", "events")
+            "lock", "app_exchange", "app_backend", "app_backend__site", "batch_job",
+        ).prefetch_related(
+            "parents", "app_exchange__backends", "transfer_items", "events"
+        )
 
     @transaction.atomic
     def bulk_create(self, job_list):
@@ -140,7 +166,8 @@ class JobManager(models.Manager):
 
         qs = self.get_queryset().filter(pk__in=patch_map)
         qs = self.chain_prefetch_for_update(qs)
-        for job in qs.order_by("pk").select_for_update():
+        locking_qs = qs.order_by("pk").select_for_update(of=("self",))
+        for job in locking_qs:
             patch = patch_map[job.pk]
             job.update(**patch)
         return qs
@@ -187,6 +214,7 @@ class JobManager(models.Manager):
             node_packing_count=node_packing_count,
             wall_time_min=wall_time_min,
         )
+        job.validate_parameters(raise_exception=True)
         job.save()
         job.parents.set(parents)
         for dat in transfer_items:
@@ -194,7 +222,7 @@ class JobManager(models.Manager):
                 direction=dat["direction"],
                 source=dat["source"],
                 destination=dat["destination"],
-                job=self,
+                job=job,
             )
 
         job.reset_backend()
@@ -212,25 +240,26 @@ class JobManager(models.Manager):
         # Using filter(lock=None).select_for_update(skip_locked=False)
         # should do the right thing and serialize access to pre-selected rows
         # skip_locked=True would improve concurrency only if a small LIMIT was used
+        # lock_pks = list(queryset.values_list("pk", flat=True))
         locked_pks = list(
-            queryset.order_by("pk").select_for_update().values_list("pk", flat=True)
+            queryset.order_by("pk")
+            .select_for_update(of=("self",))
+            .values_list("pk", flat=True)
         )
         return self.get_queryset().filter(pk__in=locked_pks)
 
     @transaction.atomic
     def acquire(
         self,
-        site,
+        lock,
         acquire_unbound,
         states,
-        lock,
+        max_num_acquire,
         filter_tags=None,
-        max_num_acquire=1000,
-        max_nodes=None,
-        max_time_min=None,
         node_resources=None,
         order_by=(),
     ):
+        site = lock.site
         already_bound = Q(app_backend__site=site)
         eligible_to_bind = Q(app_exchange__backends__site=site)
 
@@ -251,11 +280,6 @@ class JobManager(models.Manager):
             .filter(tags__contains=filter_tags)  # Job.keys contains all k:v pairs
         )
 
-        if max_nodes is not None:
-            qs = qs.filter(num_nodes__lte=max_nodes)
-        if max_time_min is not None:
-            qs = qs.filter(wall_time_min__lte=max_time_min)
-
         if node_resources is None:
             qs = self._lock_for_acquire(qs).order_by(*order_by)[:max_num_acquire]
             return self._lock_and_bind(qs, lock)
@@ -271,23 +295,97 @@ class JobManager(models.Manager):
         """
         for job in queryset:
             job.lock = lock
-            if lock.batch_job is not None:
-                job.batch_job = lock.batch_job
+            if lock.batch_job_id is not None:
+                job.batch_job_id = lock.batch_job_id
             if job.app_backend is None:
                 backend = job.app_exchange.backends.get(site=lock.site)
                 job.app_backend = backend
             job.save()
+        lock.tick()
         return queryset
 
     def _pre_assign(self, ordered_qs, node_resources, max_num_acquire):
-        # iterate over qs and pre-assign jobs (a la launcher)
-        # resource constraint includes a max_jobs_per_node
-        # if 1, then cannot pack multiple jobs per node
-        # stop when hitting max_num_acquire
-        node_resources = {
-            "max_jobs_per_node": 1,
-        }
-        return node_resources, ordered_qs
+        """
+        Iterate `ordered_qs` (a la launcher) to pre-assign jobs for
+        execution, according to the launcher client's `node_resources` constraints.
+        A reasonable ordering is: (-num_nodes, -wall_time_minutes, node_packing_count)
+        No more than `max_num_acquire` jobs will be selected.
+        """
+        max_wall_time_min = node_resources.pop("max_wall_time_min")
+        ordered_qs = ordered_qs.filter(wall_time_min__lte=max_wall_time_min)
+
+        resources = NodeResources(**node_resources)
+        max_nodes = resources.num_available_nodes()
+        ordered_qs = ordered_qs.filter(num_nodes__lte=max_nodes)
+        placed_jobs = []
+
+        for job in ordered_qs:
+            assigned_nodes = resources.attempt_assign(job)
+            if assigned_nodes:
+                job.assigned_nodes = assigned_nodes
+                placed_jobs.append(job)
+
+                if len(placed_jobs) >= max_num_acquire:
+                    break
+                if resources.num_available_nodes() < 1:
+                    break
+
+        return placed_jobs
+
+
+class NodeResources(object):
+    def __init__(
+        self,
+        max_jobs_per_node,
+        running_job_counts,
+        node_occupancies,
+        idle_cores,
+        idle_gpus,
+    ):
+        self.max_jobs_per_node = max_jobs_per_node
+        self.running_job_counts = running_job_counts
+        self.node_occupancies = node_occupancies
+        self.idle_cores = idle_cores
+        self.idle_gpus = idle_gpus
+        self.num_nodes = len(self.running_job_counts)
+        assert (
+            self.num_nodes == len(idle_cores) == len(idle_gpus) == len(node_occupancies)
+        )
+
+    def num_available_nodes(self):
+        return sum(
+            bool(node_job_count < self.max_jobs_per_node)
+            for node_job_count in self.running_job_counts
+        )
+
+    def attempt_assign(self, job):
+        required_num_nodes = int(job.num_nodes)
+        num_cores = job.ranks_per_node * job.threads_per_rank / job.threads_per_core
+        num_gpus = job.ranks_per_node * job.gpus_per_rank
+        occ = 1.0 / job.node_packing_count
+
+        eligible_nodes = []
+        for node_idx in range(self.num_nodes):
+            if self.running_job_counts[node_idx] >= self.max_jobs_per_node:
+                continue
+            if self.idle_cores[node_idx] < num_cores:
+                continue
+            if self.idle_gpus[node_idx] < num_gpus:
+                continue
+            if occ + self.node_occupancies[node_idx] > 1.0001:
+                continue
+            eligible_nodes.append(node_idx)
+            if len(eligible_nodes) == required_num_nodes:
+                self._do_assign(eligible_nodes, num_cores, num_gpus, occ)
+                return eligible_nodes
+        return []
+
+    def _do_assign(self, node_indices, num_cores, num_gpus, occ):
+        for idx in node_indices:
+            self.running_job_counts[idx] += 1
+            self.idle_cores[idx] -= num_cores
+            self.idle_gpus[idx] -= num_gpus
+            self.node_occupancies[idx] += occ
 
 
 class Job(models.Model):
@@ -315,6 +413,7 @@ class Job(models.Model):
         on_delete=models.SET_NULL,
         db_index=True,
         editable=False,
+        related_name="jobs",
     )
     owner = models.ForeignKey(
         "User",
@@ -347,7 +446,7 @@ class Job(models.Model):
     state = models.CharField(
         max_length=32,
         default="CREATED",
-        editable=False,
+        editable=True,
         db_index=True,
         choices=STATE_CHOICES,
     )
@@ -371,16 +470,11 @@ class Job(models.Model):
     ranks_per_node = models.IntegerField(default=1)
     threads_per_rank = models.IntegerField(default=1)
     threads_per_core = models.IntegerField(default=1)
-    cpu_affinity = models.CharField(max_length=32, default="depth")
+    cpu_affinity = models.CharField(max_length=32, default="depth", blank=True)
     gpus_per_rank = models.IntegerField(default=0)
     node_packing_count = models.IntegerField(default=1)
     wall_time_min = models.IntegerField(default=0)
 
-    # Not Directly Updateable fields:
-    # parents, app_exchange, owner: set at creation
-    # app_backend: set in reset_backend() or acquire()
-    # lock: set by acquire(); unset in update_state()
-    # batchjob: set in acquire() when from a launcher context
     def update(
         self,
         tags=None,
@@ -400,43 +494,71 @@ class Job(models.Model):
         gpus_per_rank=None,
         node_packing_count=None,
         wall_time_min=None,
+        **kwargs,
     ):
-        update_kwargs = dict(
-            tags=tags,
-            workdir=workdir,
-            parameters=parameters,
-            num_nodes=num_nodes,
-            ranks_per_node=ranks_per_node,
-            threads_per_rank=threads_per_rank,
-            threads_per_core=threads_per_core,
-            cpu_affinity=cpu_affinity,
-            gpus_per_rank=gpus_per_rank,
-            node_packing_count=node_packing_count,
-            wall_time_min=wall_time_min,
-        )
-        update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None}
-
+        # These fields can always be updated:
         if return_code is not None:
             self.return_code = return_code
 
-        if data is not None:
+        if data:
             self.data.update(data)
             EventLog.objects.log_update(self, f"Set data {data.keys()}")
 
         self.update_transfer_status(transfer_items)
 
+        # These fields can only update when job is not being processed:
         if not self.is_locked():
+            update_kwargs = dict(
+                tags=tags,
+                workdir=workdir,
+                parameters=parameters,
+                num_nodes=num_nodes,
+                ranks_per_node=ranks_per_node,
+                threads_per_rank=threads_per_rank,
+                threads_per_core=threads_per_core,
+                cpu_affinity=cpu_affinity,
+                gpus_per_rank=gpus_per_rank,
+                node_packing_count=node_packing_count,
+                wall_time_min=wall_time_min,
+            )
+            update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None}
             for kwarg, new_value in update_kwargs.items():
-                old_value = getattr(self, kwarg)
-                setattr(self, kwarg, new_value)
-                EventLog.objects.log_update(
-                    self, f"{kwarg.capitalize()} changed: {old_value} -> {new_value}"
-                )
+                self.update_field(kwarg, new_value)
 
         if state is not None:
             self.update_state(state, message=state_message, timestamp=state_timestamp)
-        else:
-            self.save()
+        self.save()
+        return self
+
+    def update_field(self, field_name, new_value):
+        old_value = getattr(self, field_name)
+        if old_value == new_value:
+            return
+
+        setattr(self, field_name, new_value)
+        validator = getattr(self, "validate_" + field_name, None)
+
+        if callable(validator):
+            validator(raise_exception=True)
+
+        EventLog.objects.log_update(
+            self, f"{field_name} changed: {old_value} -> {new_value}"
+        )
+
+    def validate_parameters(self, raise_exception=True):
+        app_params = set(self.app_exchange.parameters)
+        params = set(self.parameters.keys())
+        missing_params = app_params.difference(params)
+        extra_params = params.difference(app_params)
+        if missing_params and raise_exception:
+            raise ValidationError(
+                f'Job is missing parameters: {", ".join(missing_params)}'
+            )
+        if extra_params and raise_exception:
+            raise ValidationError(
+                f'Job has extraneous parameters: {", ".join(extra_params)}'
+            )
+        return not (missing_params or extra_params)
 
     def update_transfer_status(self, transfer_status_updates):
         if transfer_status_updates is None:
@@ -453,9 +575,15 @@ class Job(models.Model):
             status = LOCKED_STATUS.get(self.state)
             msg = f"Can't delete active Job {self.pk}: currently {status}"
             raise ValidationError(msg)
+        for child in self.children.all():
+            child.delete(*args, **kwargs)
         super().delete(*args, **kwargs)
 
     def update_state(self, new_state, message="", timestamp=None):
+        if new_state == self.state or new_state in NO_OP_TRANSITIONS.get(
+            self.state, []
+        ):
+            return
         if new_state not in ALLOWED_TRANSITIONS[self.state]:
             raise InvalidStateError(
                 f"Cannot transition from {self.state} to {new_state}"
@@ -506,6 +634,10 @@ class Job(models.Model):
             )
         else:
             self.update_state("READY", timestamp=timestamp)
+        for child in self.children.all().order_by("pk"):
+            child.update_state(
+                "RESET", timestamp=timestamp, message="Parent was reset (recursive)"
+            )
 
     def on_POSTPROCESSED(self, *args, timestamp=None, **kwargs):
         if self.transfer_items.filter(direction="out").count() == 0:
@@ -513,15 +645,23 @@ class Job(models.Model):
 
     @transaction.atomic
     def on_JOB_FINISHED(self, *args, timestamp=None, **kwargs):
-        qs = self.children.order_by("pk").select_for_update()
-        qs = qs.annotate(num_parents=Count("parents", distinct=True))
-        qs = qs.annotate(
-            finished_parents=Count(
-                "parents", distinct=True, filter=Q(parents__state="JOB_FINISHED")
+        # WARNING! Order of annotate() and filter() is important!
+        # You need to annotate on all() before applying filters!
+        # Using self.children.annotate(..) is subtly INCORRECT
+        # https://docs.djangoproject.com/en/3.0/topics/db/aggregation/#order-of-annotate-and-filter-clauses
+        children = (
+            Job.objects.filter(owner=self.owner)
+            .annotate(num_parents=Count("parents", distinct=True))
+            .annotate(
+                num_finished_parents=Count(
+                    "parents", distinct=True, filter=Q(parents__state="JOB_FINISHED")
+                )
             )
+            .filter(parents=self.pk)
+            .order_by("pk")
         )
-        for child in qs:
-            if child.num_parents == child.finished_parents:
+        for child in children:
+            if child.num_parents == child.num_finished_parents:
                 child.update_state(
                     "READY", message="All parents finished", timestamp=timestamp
                 )
@@ -541,7 +681,12 @@ class Job(models.Model):
             self.app_backend = None
 
     def is_locked(self):
-        return self.lock is not None
+        return self.lock_id is not None
+
+    def get_lock_status(self):
+        if not self.is_locked():
+            return "Unlocked"
+        return LOCKED_STATUS.get(self.state, "Unknown")
 
     def release_lock(self):
         self.lock = None

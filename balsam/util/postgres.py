@@ -5,11 +5,14 @@ import tempfile
 from pathlib import Path
 import logging
 import psycopg2
+import os
 import re
+import sys
 import socket
 import yaml
 from balsam import banner
 
+SERVER_INFO_FILENAME = "server-info.yml"
 MIN_VERSION = (10, 0, 0)
 POSTGRES_MSG = f"""You need PostgreSQL {'.'.join(map(str, MIN_VERSION))} or newer.
 Ensure pg_ctl is in the search PATH, and double-check version with pg_ctl --version.
@@ -18,6 +21,7 @@ https://www.enterprisedb.com/download-postgresql-binaries
 """
 
 logger = logging.getLogger(__name__)
+OperationalError = psycopg2.OperationalError
 
 
 def make_token() -> str:
@@ -46,41 +50,88 @@ def identify_hostport():
     return (host, port)
 
 
-def create_new_db(
-    site_path, rel_db_path="balsamdb", db_name="balsam", pwfile="client.yml"
+def write_pwfile(
+    db_path, username, password, host, port, database, filename=SERVER_INFO_FILENAME
 ):
+    pw_dict = dict(
+        username=username, password=password, host=host, port=port, database=database
+    )
+    pw_dict["scheme"] = "postgres"
+    pw_dict["client_class"] = "balsam.client.DirectAPIClient"
+    with open(Path(db_path).joinpath(filename), "w") as fp:
+        yaml.dump(pw_dict, fp)
+    return pw_dict
+
+
+def load_pwfile(db_path, filename=SERVER_INFO_FILENAME):
+    with open(Path(db_path).joinpath(filename)) as fp:
+        pw_dict = yaml.safe_load(fp)
+    return pw_dict
+
+
+def create_new_db(db_path="balsamdb", database="balsam"):
     """
-    Create & start a new PostgresDB cluster inside `site_path.joinpath(rel_db_path)`
-    A DB named `db_name` is created. If `pwfile` given, write DB credentials to
-    `site_path/pwfile`.  Returns a dict containing credentials/connection
+    Create & start a new PostgresDB cluster inside `db_path`
+    A DB named `database` is created. If `pwfile` given, write DB credentials to
+    `db_path/pwfile`.  Returns a dict containing credentials/connection
     info.
     """
     version_check()
-
-    site_path = Path(site_path).absolute()
-    db_path = site_path / rel_db_path
 
     superuser, password = init_db_cluster(db_path)
     host, port = identify_hostport()
     mutate_conf_port(db_path, port)
 
-    pw_dict = dict(
-        user=superuser,
+    pw_dict = write_pwfile(
+        db_path=db_path,
+        username=superuser,
         password=password,
-        site_id=0,
-        site_path=site_path,
         host=host,
         port=port,
-        rel_db_path=rel_db_path,
+        database=database,
     )
 
-    if pwfile:
-        with open(site_path.joinpath(pwfile), "w") as fp:
-            yaml.dump(pw_dict, fp)
-
     start_db(db_path)
-    create_database(new_dbname=db_name, **pw_dict)
+    create_database(new_dbname=database, **pw_dict)
     return pw_dict
+
+
+def configure_django_database(
+    username,
+    password,
+    host,
+    port,
+    database="balsam",
+    engine="django.db.backends.postgresql",
+    conn_max_age=60,
+    db_options={"connect_timeout": 30, "client_encoding": "UTF8",},
+    **kwargs,
+):
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "balsam.server.conf.settings")
+    import django
+    from django.conf import settings
+    from django import db
+
+    new_db = dict(
+        ENGINE=engine,
+        NAME=database,
+        OPTIONS=db_options,
+        USER=username,
+        PASSWORD=password,
+        HOST=host,
+        PORT=port,
+        CONN_MAX_AGE=conn_max_age,
+    )
+    settings.DATABASES = {"default": new_db}
+    django.setup()
+    db.connections.close_all()
+
+
+def run_django_migrations():
+    from django.core.management import call_command
+
+    isatty = sys.stdout.isatty()
+    call_command("migrate", interactive=isatty, verbosity=2)
 
 
 # *******************************
@@ -175,18 +226,20 @@ def stop_db(db_path: str) -> None:
 # Functions that use a psycopg cursor
 # ***********************************
 class PgCursor:
-    def __init__(self, host, port, user, password, dbname="balsam", autocommit=False):
+    def __init__(
+        self, host, port, username, password, database="balsam", autocommit=False
+    ):
         self.host = host
         self.port = port
-        self.user = user
+        self.username = username
         self.password = password
-        self.dbname = dbname
+        self.database = database
         self.autocommit = autocommit
 
     def __enter__(self):
         self.conn = psycopg2.connect(
-            dbname=self.dbname,
-            user=self.user,
+            dbname=self.database,
+            user=self.username,
             password=self.password,
             host=self.host,
             port=self.port,
@@ -205,8 +258,8 @@ class PgCursor:
         self.conn.close()
 
 
-def create_database(new_dbname, host, port, user, password, **kwargs):
-    with PgCursor(host, port, user, password, dbname="", autocommit=True) as cur:
+def create_database(new_dbname, host, port, username, password, **kwargs):
+    with PgCursor(host, port, username, password, database="", autocommit=True) as cur:
         cur.execute(
             f"""
         CREATE DATABASE {new_dbname};
@@ -214,65 +267,78 @@ def create_database(new_dbname, host, port, user, password, **kwargs):
         )
 
 
-def connections_list(host, port, user, password, **kwargs):
-    with PgCursor(host, port, user, password) as cur:
+def connections_list(host, port, username, password, database="balsam", **kwargs):
+    with PgCursor(host, port, username, password) as cur:
         cur.execute(
-            """
+            f"""
         SELECT pid,application_name,usename,state,substr(query, 1, 60) \
-        FROM pg_stat_activity WHERE datname = 'balsam';
+        FROM pg_stat_activity WHERE datname = '{database}';
         """
         )
         return cur.fetchall()
 
 
-def create_user_and_pwfile(new_user, host, port, user, password, pwfile=None):
+def create_user_and_pwfile(
+    new_user, host, port, username, password, database="balsam", pwfile=None
+):
     """
     Create new Postgres user `new_user` and auto-generated
     token for the database at `host:port`.  A pwfile
     containing the DB credentials is written for transfer to the new user
     """
     token = make_token()
-    pg_add_user(new_user, token, host, port, user, password)
+    pg_add_user(new_user, token, host, port, username, password, database)
 
     if pwfile is None:
-        pwfile = f"{new_user}-info.yml"
+        pwfile = f"{new_user}-server-info.yml"
+    write_pwfile(
+        db_path=".",
+        username=new_user,
+        password=token,
+        host=host,
+        port=port,
+        database=database,
+        filename=pwfile,
+    )
 
-    with open(pwfile, "w") as fp:
-        yaml.dump(dict(user=new_user, password=token, host=host, port=port,))
     banner(
-        f"Created new Postgres user: data in {fp.name}.\n"
+        f"New Postgres user data in {pwfile}.\n"
         f"Protect this file in transit to {new_user}! "
         f"It contains the token necessary to reach the DB. "
-        f"The new user can now create Balsam endpoints using the command: \n"
-        f"`balsam init --remote-db {fp.name}`"
+        f"The new user can then reach the DB with "
+        f"`balsam login --file {pwfile}`"
     )
 
 
-def pg_add_user(new_user, new_password, host, port, user, password):
-    with PgCursor(host, port, user, password) as cur:
+def pg_add_user(
+    new_user, new_password, host, port, username, password, database="balsam"
+):
+    with PgCursor(host, port, username, password) as cur:
         cur.execute(
             f"""
         CREATE ROLE {new_user} WITH LOGIN PASSWORD '{new_password}'; \
-        grant all privileges on database balsam to {new_user}; \
+        grant all privileges on database {database} to {new_user}; \
         GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO {new_user}; \
         GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO {new_user};
         """
         )
 
 
-def drop_user(deleting_user, host, port, user, password, **kwargs):
-    with PgCursor(host, port, user, password) as cur:
+def drop_user(
+    deleting_user, host, port, username, password, database="balsam", **kwargs
+):
+    with PgCursor(host, port, username, password) as cur:
         cur.execute(
             f"""
         REVOKE ALL privileges on all tables in schema public FROM {deleting_user}; \
         REVOKE ALL privileges on all sequences in schema public FROM {deleting_user}; \
-        REVOKE ALL privileges on database balsam FROM {deleting_user}; \
+        REVOKE ALL privileges on database {database} FROM {deleting_user}; \
         DROP ROLE {deleting_user};
         """
         )
 
 
-def list_users(host, port, user, password, **kwargs):
-    with PgCursor(host, port, user, password) as cur:
+def list_users(host, port, username, password, **kwargs):
+    with PgCursor(host, port, username, password) as cur:
         cur.execute("SELECT usename FROM pg_catalog.pg_user;")
         return cur.fetchall()

@@ -1,4 +1,3 @@
-from .config import SiteConfiguration
+from .app import ApplicationDefinition, app_template
 
-conf = SiteConfiguration()
-__all__ = ["conf"]
+__all__ = ["ApplicationDefinition", "app_template"]
