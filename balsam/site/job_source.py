@@ -8,9 +8,7 @@ import time
 
 from balsam.api.models import Session
 from balsam.api import Manager
-
-Queue = multiprocessing.Queue
-Queue().qsize()  # Can raise NotImplementedError on Mac OS
+from .service.util import Queue
 
 logger = logging.getLogger(__name__)
 

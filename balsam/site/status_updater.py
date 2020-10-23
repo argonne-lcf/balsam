@@ -7,9 +7,7 @@ from datetime import datetime
 
 from typing import List, Dict, Any, Optional
 from balsam.schemas import JobState
-
-Queue = multiprocessing.Queue
-Queue().qsize()
+from .service.util import Queue
 
 logger = logging.getLogger(__name__)
 
