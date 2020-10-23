@@ -1,11 +1,47 @@
-import importlib
-import pathlib
+import importlib.util
+from pathlib import Path
 import shlex
+from typing import Tuple
 import jinja2
 import jinja2.meta
 import logging
+from balsam.api import Job
 
 logger = logging.getLogger(__name__)
+
+
+def split_class_path(class_path: str) -> Tuple[str, str]:
+    """
+    'my_module.ClassName' --> ('my_module', 'ClassName')
+    """
+    filename, *class_name = class_path.split(".")
+    class_name = ".".join(class_name)
+    if not filename:
+        raise ValueError(
+            f"{class_path} must refer to a Python class with the form Module.Class"
+        )
+    if not class_name or "." in class_name:
+        raise ValueError(
+            f"{class_path} must refer to a Python class with the form Module.Class"
+        )
+    return filename, class_name
+
+
+def load_module(fpath):
+    if not Path(fpath).is_file():
+        raise FileNotFoundError(f"Could not find App definition file {fpath}")
+
+    fpath = str(fpath)
+    spec = importlib.util.spec_from_file_location(fpath, fpath)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        logger.exception(
+            f"Failed to load {fpath} because of an exception in the module:\n{exc}"
+        )
+        raise
+    return module
 
 
 class ApplicationDefinitionMeta(type):
@@ -57,18 +93,18 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     parameters: dict = {}
     transfers: dict = {}
 
-    def __init__(self, job):
-        self.job = job
+    def __init__(self, job: Job):
+        self.job: Job = job
 
     @property
-    def arg_str(self):
+    def arg_str(self) -> str:
         return self._render_command(self.job.parameters)
 
     @property
-    def arg_list(self):
+    def arg_list(self) -> list:
         return shlex.split(self.arg_str)
 
-    def _render_command(self, arg_dict):
+    def _render_command(self, arg_dict: dict) -> str:
         """
         Args:
             - arg_dict: value for each required parameter
@@ -102,59 +138,27 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         self.job.state = "FAILED"
 
     @classmethod
-    def load_app_class(cls, app_path, class_name):
+    def load_app_class(cls, apps_dir, class_path):
         """
-        Load the ApplicationDefinition subclass located in directory app_path
+        Load the ApplicationDefinition subclass located in directory apps_dir
         """
-        key = (str(app_path), str(class_name))
+        key = (str(apps_dir), str(class_path))
         if key in cls._loaded_apps:
             return cls._loaded_apps[key]
 
-        app_path = pathlib.Path(app_path)
-        if not app_path.is_dir():
-            raise FileNotFoundError(f"No such directory {app_path}")
+        apps_dir = Path(apps_dir)
 
-        filename, *module_attr = class_name.split(".")
-        module_attr = ".".join(module_attr)
+        filename, class_name = cls.split_class_path(class_path)
+        fpath = apps_dir.joinpath(filename + ".py")
+        module = cls.load_module(fpath)
 
-        if not filename:
-            raise ValueError(
-                f"{class_name} must refer to a Python class with the form Module.Class"
-            )
-
-        if not module_attr or "." in module_attr:
-            raise ValueError(
-                f"{class_name} must refer to a Python class with the form Module.Class"
-            )
-
-        fpath = app_path.joinpath(filename + ".py")
-        if not fpath.is_file():
-            raise FileNotFoundError(f"Could not find App definition file {fpath}")
-
-        fpath = str(fpath)
-        spec = importlib.util.spec_from_file_location(fpath, fpath)
-        module = importlib.util.module_from_spec(spec)
-
-        try:
-            spec.loader.exec_module(module)
-        except Exception as exc:
-            logger.exception(
-                f"Failed to load {class_name} because of an exception in the module {fpath}:\n{exc}"
-            )
-            module = None
-
-        if module is None:
-            raise cls.ModuleLoadError(
-                f"Failed to load {class_name} because of an exception in the module {fpath}"
-            )
-
-        app_class = getattr(module, module_attr, None)
+        app_class = getattr(module, class_name, None)
         if app_class is None:
             raise AttributeError(
-                f"Loaded module at {fpath}, but it does not contain the class {module_attr}"
+                f"Loaded module at {fpath}, but it does not contain the class {class_name}"
             )
         if not issubclass(app_class, cls):
-            raise TypeError(f"{class_name} must subclass {cls.__name__}")
+            raise TypeError(f"{class_path} must subclass {cls.__name__}")
 
         cls._loaded_apps[key] = app_class
         return app_class
