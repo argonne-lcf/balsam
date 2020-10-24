@@ -32,7 +32,5 @@ class Settings(BaseSettings):
 
 if os.environ.get("BALSAM_TEST") or "test" in "".join(sys.argv):
     settings = Settings(_env_file=".env.test")
-    logger.info(f"Loaded test settings:\n{settings}")
 else:
     settings = Settings(_env_file=".env")
-    logger.info(f"Loaded production settings:\n{settings}")

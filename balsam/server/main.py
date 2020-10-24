@@ -5,6 +5,7 @@ from .auth import auth, user_from_token
 from .routers import sites, apps, jobs, events, batch_jobs, transfers, sessions
 from .pubsub import pubsub
 from sqlalchemy.orm.exc import NoResultFound
+from balsam.server import settings
 
 app = FastAPI(title="Balsam API", version="0.1.0",)
 
@@ -154,7 +155,7 @@ def get_user_events():
     return HTMLResponse(ws_html)
 
 
-logger.info("Loaded balsam.server.main")
+logger.info(f"Loaded balsam.server.main\n{settings}")
 
 
 # 1) Parameter in path

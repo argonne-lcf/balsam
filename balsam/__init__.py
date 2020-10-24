@@ -14,7 +14,7 @@ if root_logger.hasHandlers():
 root_logger.addHandler(stderr_handler)
 
 sqa_logger = logging.getLogger("sqlalchemy")
-sqa_logger.setLevel(logging.INFO)
+sqa_logger.setLevel(logging.WARN)
 sqa_logger.handlers.clear()
 sqa_logger.addHandler(stderr_handler)
 logging.getLogger("sqlalchemy.engine").propagate = True

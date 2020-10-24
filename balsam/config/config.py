@@ -60,6 +60,8 @@ class ClientSettings(BaseSettings):
         data["client_class"] = cls.__module__ + "." + cls.__name__
 
         settings_path = self.settings_path()
+        if not settings_path.parent.is_dir():
+            settings_path.parent.mkdir()
         if settings_path.exists():
             os.chmod(settings_path, 0o600)
         else:

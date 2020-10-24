@@ -46,6 +46,9 @@ This puts the Redis binary in your virtualenv bin
 If `which pg_ctl`  does not show a Postgres on your system, get the postgres binaries from https://www.enterprisedb.com/download-postgresql-binaries .
 You only need to unzip and add the postgres bin/ to your PATH.
 
+### Deploying Balsam Server locally
+
+Use the `balsam server deploy` command line interface to automate Postgres, Redis, and Gunicorn Management.
 
 ## Provision the database
 

@@ -25,6 +25,9 @@ def server():
     "-p", "--path", required=True, type=click.Path(exists=True, file_okay=False)
 )
 def down(path):
+    """
+    Shut down the Balsam server (Postgres, Redis, and Gunicorn)
+    """
     path = Path(path).resolve()
     pid_files = ["balsamdb/postmaster.pid", "redis.pid", "gunicorn.pid"]
     services = ["PostgreSQL", "Redis", "Gunicorn"]
@@ -51,6 +54,9 @@ def down(path):
 @click.option("-l", "--log-level", default="debug")
 @click.option("-w", "--num-workers", default=1, type=int)
 def up(path, bind, log_level, num_workers):
+    """
+    Starts up the services comprising the Balsam server (Postgres, Redis, and Gunicorn)
+    """
     path = Path(path).resolve()
     click.echo("Starting Redis daemon")
     start_redis(path)
@@ -69,7 +75,7 @@ def up(path, bind, log_level, num_workers):
 @click.option("-w", "--num-workers", default=1, type=int)
 def deploy(path, bind, log_level, num_workers):
     """
-    Set client information and authenticate to server
+    Create a new Balsam database and API server instance
     """
     path = Path(path).resolve()
     if path.exists():
