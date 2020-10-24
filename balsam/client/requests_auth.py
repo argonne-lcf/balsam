@@ -1,9 +1,13 @@
 import click
+from datetime import datetime, timedelta
 import dateutil.parser
+import logging
 from .requests_client import RequestsClient
 from .rest_base_client import AuthError
 import time
 from requests.exceptions import ConnectionError
+
+logger = logging.getLogger(__name__)
 
 
 class BasicAuthRequestsClient(RequestsClient):
@@ -28,6 +32,19 @@ class BasicAuthRequestsClient(RequestsClient):
         self.password = password
         self.token = token
         self.token_expiry = token_expiry
+        if self.token is not None:
+            self._session.auth = None
+            self._session.headers["Authorization"] = f"Bearer {self.token}"
+        if self.token_expiry:
+            if datetime.utcnow() >= self.token_expiry:
+                logger.warning(
+                    "Auth Token is expired; please refresh with `balsam login`"
+                )
+            expires_in = self.token_expiry - datetime.utcnow()
+            if expires_in < timedelta(hours=24):
+                logger.warning(
+                    f"Auth Token will expire in {expires_in}; please refresh with `balsam login`"
+                )
 
     def refresh_auth(self):
         if self.password is None:
