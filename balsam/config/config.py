@@ -21,7 +21,6 @@ from balsam.api import Site
 from balsam.api import Manager
 from balsam.schemas import AllowedQueue
 
-from balsam.site.service import SchedulerService, ProcessingService
 from balsam.util import config_logging
 
 
@@ -70,7 +69,7 @@ class ClientSettings(BaseSettings):
             yaml.dump(data, fp)
 
     def build_client(self):
-        client = self.client_class(**self.dict())
+        client = self.client_class(**self.dict(exclude={"client_class"}))
         Manager.set_client(client)
         return client
 
@@ -150,6 +149,8 @@ class SiteConfig:
         self.settings = self._load_yaml_settings(yaml_settings)
 
     def build_services(self):
+        from balsam.site.service import SchedulerService, ProcessingService
+
         services = []
         client = ClientSettings.load_from_home().build_client()
 

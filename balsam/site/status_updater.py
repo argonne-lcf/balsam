@@ -7,7 +7,7 @@ from datetime import datetime
 
 from typing import List, Dict, Any, Optional
 from balsam.schemas import JobState
-from .service.util import Queue
+from .util import Queue
 
 logger = logging.getLogger(__name__)
 

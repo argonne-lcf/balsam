@@ -78,6 +78,8 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     file_handler.setFormatter(formatter)
     mem_handler.setLevel(level)
     mem_handler.setFormatter(formatter)
+    if root_logger.hasHandlers():
+        root_logger.handlers.clear()
     root_logger.removeHandler(stderr_handler)
     root_logger.addHandler(mem_handler)
     root_logger.info(f"Logging on {socket.gethostname()}")

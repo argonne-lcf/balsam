@@ -134,6 +134,17 @@ def run_django_migrations():
     call_command("migrate", interactive=isatty, verbosity=2)
 
 
+def run_alembic_migrations(migrations_path, dsn):
+    from alembic.config import Config
+    from alembic import command
+
+    logger.info(f"Running DB migrations in {migrations_path}")
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option("script_location", str(migrations_path))
+    # alembic_cfg.set_main_option("sqlalchemy.url", dsn)
+    command.upgrade(alembic_cfg, "head")
+
+
 # *******************************
 # Functions that use a subprocess
 # *******************************

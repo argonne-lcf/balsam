@@ -1,12 +1,10 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, orm
 import balsam.server
-import logging
 
 Base = declarative_base()
 _engine = None
 _Session = None
-logging.basicConfig()
 # logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 

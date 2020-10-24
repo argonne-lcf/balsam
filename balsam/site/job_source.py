@@ -8,7 +8,7 @@ import time
 
 from balsam.api.models import Session
 from balsam.api import Manager
-from .service.util import Queue
+from .util import Queue
 
 logger = logging.getLogger(__name__)
 

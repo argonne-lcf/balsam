@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, Request, status, WebSocket, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from .auth import auth, user_from_token
@@ -6,6 +7,8 @@ from .pubsub import pubsub
 from sqlalchemy.orm.exc import NoResultFound
 
 app = FastAPI(title="Balsam API", version="0.1.0",)
+
+logger = logging.getLogger("balsam.server.main")
 
 
 @app.exception_handler(NoResultFound)
@@ -149,6 +152,9 @@ ws_html = """
 @app.get("/user-events")
 def get_user_events():
     return HTMLResponse(ws_html)
+
+
+logger.info("Loaded balsam.server.main")
 
 
 # 1) Parameter in path
