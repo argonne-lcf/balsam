@@ -8,6 +8,10 @@ from .rest_base_client import RESTClient
 logger = logging.getLogger(__name__)
 
 
+class NotAuthenticatedError(Exception):
+    pass
+
+
 class RequestsClient(RESTClient):
     def __init__(self, api_root, connect_timeout=3.1, read_timeout=60, retry_count=3):
         self.api_root = api_root
@@ -15,13 +19,17 @@ class RequestsClient(RESTClient):
         self.read_timeout = read_timeout
         self.retry_count = retry_count
         self._session = requests.Session()
+        self._authenticated = False
 
     def request(
-        self, url, http_method, params=None, json=None, data=None, refresh_auth=True
+        self, url, http_method, params=None, json=None, data=None, authenticating=False
     ):
+        if not self._authenticated and not authenticating:
+            raise NotAuthenticatedError(
+                "Cannot perform unauthenticated request. Please login with `balsam login`"
+            )
         absolute_url = self.api_root.rstrip("/") + "/" + url.lstrip("/")
         attempt = 0
-        tried_reauth = False
         while attempt < self.retry_count:
             try:
                 logger.debug(f"{http_method}: {absolute_url}")
@@ -33,15 +41,6 @@ class RequestsClient(RESTClient):
                 attempt += 1
                 if attempt == self.retry_count:
                     raise requests.Timeout(f"Timed-out {attempt} times.") from exc
-            except requests.HTTPError as exc:
-                if (
-                    exc.response.status_code != 401  # HTTP_401_UNAUTHORIZED
-                    or tried_reauth
-                    or not refresh_auth
-                ):
-                    raise
-                self.refresh_auth()
-                tried_reauth = True
             else:
                 try:
                     return response.json()

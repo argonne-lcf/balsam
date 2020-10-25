@@ -1,16 +1,26 @@
 import click
 import getpass
 from balsam.config import ClientSettings
+from balsam.client import NotAuthenticatedError
 
 
 @click.command()
-@click.option("-a", "--address", prompt="Balsam server address")
-@click.option("-u", "--username", prompt="Balsam username")
+@click.option("-a", "--address")
+@click.option("-u", "--username")
 def login(address, username):
     """
     Set client information and authenticate to server
     """
-    settings = ClientSettings(api_root=address, username=username)
+    try:
+        settings = ClientSettings.load_from_home()
+    except NotAuthenticatedError:
+        address = click.prompt("Balsam server address")
+        username = click.prompt("Balsam username")
+        if not address.startswith("http"):
+            address = "https://" + address
+        settings = ClientSettings(api_root=address, username=username)
+
+    click.echo(f"Logging in as {settings.username} to {settings.api_root}")
     client = settings.build_client()
     update_fields = client.interactive_login()
     if update_fields:

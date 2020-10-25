@@ -16,7 +16,7 @@ from pydantic import (
     ValidationError,
 )
 from typing import List
-from balsam.client import RESTClient
+from balsam.client import RESTClient, NotAuthenticatedError
 from balsam.api import Site
 from balsam.api import Manager
 from balsam.schemas import AllowedQueue
@@ -50,8 +50,14 @@ class ClientSettings(BaseSettings):
 
     @classmethod
     def load_from_home(cls):
-        with open(cls.settings_path()) as fp:
-            data = yaml.safe_load(fp)
+        try:
+            with open(cls.settings_path()) as fp:
+                data = yaml.safe_load(fp)
+        except FileNotFoundError:
+            raise NotAuthenticatedError(
+                f"Client credentials {cls.settings_path()} do not exist. "
+                f"Please authenticate with `balsam login`."
+            )
         return cls(**data)
 
     def save_to_home(self):

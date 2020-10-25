@@ -35,13 +35,15 @@ class BasicAuthRequestsClient(RequestsClient):
         if self.token is not None:
             self._session.auth = None
             self._session.headers["Authorization"] = f"Bearer {self.token}"
+            self._authenticated = True
         if self.token_expiry:
-            if datetime.utcnow() >= self.token_expiry:
+            expires_in = self.token_expiry - datetime.utcnow()
+            if expires_in.total_seconds() <= 1:
+                self._authenticated = False
                 logger.warning(
                     "Auth Token is expired; please refresh with `balsam login`"
                 )
-            expires_in = self.token_expiry - datetime.utcnow()
-            if expires_in < timedelta(hours=24):
+            elif expires_in < timedelta(hours=24):
                 logger.warning(
                     f"Auth Token will expire in {expires_in}; please refresh with `balsam login`"
                 )
@@ -57,8 +59,9 @@ class BasicAuthRequestsClient(RequestsClient):
         resp = None
         for _ in range(3):
             try:
-                resp = self.request(url, "POST", data=cred, refresh_auth=False)
-            except ConnectionError:
+                resp = self.request(url, "POST", data=cred, authenticating=True)
+            except ConnectionError as e:
+                logger.warning(f"ConnectionError: {e}")
                 time.sleep(1)
             else:
                 break
