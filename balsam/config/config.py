@@ -106,7 +106,7 @@ class ProcessingSettings(BaseSettings):
 
 
 class TransferInterfaceSettings(BaseSettings):
-    trusted_locations: Dict[str, AnyUrl] = []
+    trusted_locations: Dict[str, AnyUrl] = {}
     max_concurrent_transfers: int
     globus_endpoint_id: UUID
 
@@ -139,7 +139,7 @@ class SiteConfig:
     """
 
     def __init__(self, site_path=None, settings=None):
-        self.site_path = self.resolve_site_path(site_path, raise_exc=True)
+        self.site_path: Path = self.resolve_site_path(site_path)
 
         if settings is not None:
             if not isinstance(settings, Settings):
@@ -188,6 +188,7 @@ class SiteConfig:
         """
         site_path = Path(site_path)
         site_path.mkdir(exist_ok=True, parents=True)
+        site_path.joinpath(".balsam-site").touch()
 
         here = Path(__file__).parent
         with open(here.joinpath("default-site.yml")) as fp:
@@ -204,7 +205,7 @@ class SiteConfig:
             hostname=socket.gethostname() if hostname is None else hostname,
             path=site_path,
         )
-        settings.site_id = site.pk
+        settings.site_id = site.id
         settings.save(path=site_path.joinpath("settings.yml"))
         cf = cls(site_path=site_path, settings=settings)
         for path in [cf.log_path, cf.job_path, cf.data_path]:
@@ -216,10 +217,9 @@ class SiteConfig:
         shutil.copy(
             src=default_site_path.joinpath("job-template.sh"), dst=cf.site_path,
         )
-        cf.site_path.joinpath(".balsam-site").touch()
 
     @staticmethod
-    def resolve_site_path(site_path=None, raise_exc=False):
+    def resolve_site_path(site_path=None) -> Path:
         # Site determined from either passed argument, environ,
         # or walking up parent directories, in that order
         site_path = (
@@ -228,12 +228,10 @@ class SiteConfig:
             or SiteConfig.search_site_dir()
         )
         if site_path is None:
-            if raise_exc:
-                raise ValueError(
-                    "Initialize SiteConfig with a `site_path` or set env BALSAM_SITE_PATH "
-                    "to a Balsam site directory containing a settings.py file."
-                )
-            return None
+            raise ValueError(
+                "Initialize SiteConfig with a `site_path` or set env BALSAM_SITE_PATH "
+                "to a Balsam site directory containing a settings.py file."
+            )
 
         site_path = Path(site_path).resolve()
         if not site_path.is_dir():
