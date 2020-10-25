@@ -19,3 +19,7 @@ def create_user(db: Session, username: str, password: str):
     db.add(new_user)
     db.flush()
     return UserOut(id=new_user.id, username=new_user.username)
+
+
+def list_users(db: Session):
+    return list(db.query(User))

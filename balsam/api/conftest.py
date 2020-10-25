@@ -6,10 +6,13 @@ import socket
 import time
 from contextlib import closing
 
+import balsam.server
 from balsam.server import models
 from balsam.server.models import crud
 from balsam.client import BasicAuthRequestsClient
 from .manager_base import Manager
+
+BALSAM_TEST_DB = "postgresql://postgres@localhost:5432/balsam-test"
 
 
 @pytest.fixture(scope="session")
@@ -26,18 +29,14 @@ def setup_database():
     subprocess.run("createdb -U postgres balsam-test", check=True, shell=True)
 
     models_dir = Path(__file__).parent.parent.joinpath("server/models")
-    subprocess.run(
-        "alembic -x db=test upgrade head", cwd=models_dir, check=True, shell=True
-    )
+    os.environ["balsam_database_url"] = BALSAM_TEST_DB
+    balsam.server.settings.database_url = BALSAM_TEST_DB
+    subprocess.run("alembic upgrade head", cwd=models_dir, check=True, shell=True)
 
 
 @pytest.fixture(scope="session")
 def live_server(setup_database, free_port):
-    # relies on setup_database to export DB environ
-    os.environ["BALSAM_TEST"] = "1"
-    os.environ[
-        "balsam_database_url"
-    ] = "postgresql://postgres@localhost:5432/balsam-test"
+    os.environ["balsam_database_url"] = BALSAM_TEST_DB
     proc = subprocess.Popen(
         f"uvicorn balsam.server.main:app --port {free_port}", shell=True,
     )

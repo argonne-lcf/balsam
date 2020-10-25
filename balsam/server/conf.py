@@ -1,5 +1,3 @@
-import os
-import sys
 from pydantic import BaseSettings
 from datetime import timedelta
 from importlib import import_module
@@ -30,7 +28,4 @@ class Settings(BaseSettings):
     redis_params: dict = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
 
 
-if os.environ.get("BALSAM_TEST") or "test" in "".join(sys.argv):
-    settings = Settings(_env_file=".env.test")
-else:
-    settings = Settings(_env_file=".env")
+settings = Settings()

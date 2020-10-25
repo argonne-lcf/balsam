@@ -69,6 +69,16 @@ def load_pwfile(db_path, filename=SERVER_INFO_FILENAME):
     return pw_dict
 
 
+def load_dsn(db_path, filename=SERVER_INFO_FILENAME):
+    pw_dict = load_pwfile(db_path, filename)
+    user = pw_dict["username"]
+    pwd = pw_dict["password"]
+    host = pw_dict["host"]
+    port = pw_dict["port"]
+    db = pw_dict["database"]
+    return f"postgresql://{user}:{pwd}@{host}:{port}/{db}"
+
+
 def create_new_db(db_path="balsamdb", database="balsam"):
     """
     Create & start a new PostgresDB cluster inside `db_path`

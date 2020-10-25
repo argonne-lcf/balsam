@@ -48,7 +48,7 @@ def mv(src, dest):
     shutil.move(src, dest)
     ClientSettings.load_from_home().build_client()
 
-    site = Site.objects.get(pk=cf.settings.site_id)
+    site = Site.objects.get(id=cf.settings.site_id)
     site.path = dest
     site.save()
     click.echo(f"Moved site to new path {dest}")
@@ -64,7 +64,7 @@ def rm(path):
     """
     cf = SiteConfig(path)
     ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(pk=cf.settings.site_id)
+    site = Site.objects.get(id=cf.settings.site_id)
 
     if click.confirm(f"Do you really want to destroy {path}?"):
         site.delete()
@@ -81,10 +81,10 @@ def rename(path, name):
     """
     cf = SiteConfig(path)
     ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(pk=cf.settings.site_id)
+    site = Site.objects.get(id=cf.settings.site_id)
     site.hostname = name
     site.save()
-    click.echo("Renamed site {site.pk} to {site.hostname}")
+    click.echo("Renamed site {site.id} to {site.hostname}")
 
 
 @site.command()
@@ -95,4 +95,4 @@ def ls():
     ClientSettings.load_from_home().build_client()
     qs = Site.objects.all()
     for site in qs:
-        click.echo(f"{site.pk} {site.hostname} {site.path}")
+        click.echo(f"{site.id} {site.hostname} {site.path}")

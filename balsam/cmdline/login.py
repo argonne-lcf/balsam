@@ -11,14 +11,21 @@ def login(address, username):
     """
     Set client information and authenticate to server
     """
-    try:
-        settings = ClientSettings.load_from_home()
-    except NotAuthenticatedError:
-        address = click.prompt("Balsam server address")
-        username = click.prompt("Balsam username")
+    if address is not None or username is not None:
+        address = address or click.prompt("Balsam server address")
+        username = username or click.prompt("Balsam username")
         if not address.startswith("http"):
             address = "https://" + address
         settings = ClientSettings(api_root=address, username=username)
+    else:
+        try:
+            settings = ClientSettings.load_from_home()
+        except NotAuthenticatedError:
+            address = click.prompt("Balsam server address")
+            username = click.prompt("Balsam username")
+            if not address.startswith("http"):
+                address = "https://" + address
+            settings = ClientSettings(api_root=address, username=username)
 
     click.echo(f"Logging in as {settings.username} to {settings.api_root}")
     client = settings.build_client()
@@ -44,8 +51,7 @@ def register(address, username):
     if password != conf_password:
         raise click.BadParameter("Passwords must match")
 
-    resp = client.post("users/register", username=username, password=password)
-    if resp.status_code == 201:
-        click.echo(f"Registration success! {resp.json()}")
-    else:
-        click.echo(f"Registration failed!\n {resp.text()}")
+    resp = client.post(
+        "users/register", username=username, password=password, authenticating=True
+    )
+    click.echo(f"Registration success! {resp}")

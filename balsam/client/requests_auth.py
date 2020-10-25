@@ -74,6 +74,7 @@ class BasicAuthRequestsClient(RequestsClient):
         # Unset BasicAuth; set Token Authorization header
         self._session.auth = None
         self._session.headers["Authorization"] = f"Bearer {self.token}"
+        self._authenticated = True
 
     def interactive_login(self):
         """Initiate interactive login flow"""

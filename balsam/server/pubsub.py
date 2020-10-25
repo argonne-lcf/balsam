@@ -3,6 +3,9 @@ from fastapi.encoders import jsonable_encoder
 import redis
 import aredis
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class _PubSub:
@@ -13,6 +16,7 @@ class _PubSub:
     def __init__(self):
         self._redis = None
         self._async_redis = None
+        self._has_warned = False
 
     @property
     def r(self):
@@ -37,7 +41,14 @@ class _PubSub:
 
     def publish(self, user_id, action, type, data):
         msg = {"action": action, "type": type, "data": data}
-        self.r.publish(self.get_topic(user_id), json.dumps(jsonable_encoder(msg)))
+        try:
+            self.r.publish(self.get_topic(user_id), json.dumps(jsonable_encoder(msg)))
+        except redis.exceptions.ConnectionError as e:
+            if not self._has_warned:
+                logger.warning(
+                    f"Redis connection failed!\n{e}\n Proceeding without Redis pub/sub."
+                )
+                self._has_warned = True
 
 
 pubsub = _PubSub()

@@ -1,3 +1,4 @@
+import json
 import os
 import jinja2
 from pathlib import Path
@@ -57,13 +58,17 @@ def up(path, bind, log_level, num_workers):
     """
     Starts up the services comprising the Balsam server (Postgres, Redis, and Gunicorn)
     """
-    path = Path(path).resolve()
-    click.echo("Starting Redis daemon")
-    start_redis(path)
-    start_gunicorn(path, bind, log_level, num_workers)
     from balsam.util import postgres as pg
 
-    pg.start_db(path.joinpath("balsamdb").as_posix())
+    path = Path(path).resolve()
+
+    click.echo("Starting Redis daemon")
+    start_redis(path)
+    db_path = path.joinpath("balsamdb").as_posix()
+    pg.start_db(db_path)
+    dsn = pg.load_dsn(db_path)
+    os.environ["balsam_database_url"] = dsn
+    start_gunicorn(path, bind, log_level, num_workers)
 
 
 @server.command()
@@ -94,6 +99,7 @@ def deploy(path, bind, log_level, num_workers):
     port = pw_dict["port"]
     database = pw_dict["database"]
     dsn = f"postgresql://{user}:{passwd}@{host}:{port}/{database}"
+    os.environ["balsam_database_url"] = dsn
 
     balsam.server.settings.database_url = dsn
 
@@ -119,6 +125,13 @@ def write_redis_conf(conf_path):
 
 def start_redis(path, config_filename="redis.conf"):
     config_file = path.joinpath(config_filename)
+    with open(config_file) as fp:
+        for line in fp:
+            if line.strip().startswith("unixsocket"):
+                sock_file = line.split()[1]
+                os.environ["balsam_redis_params"] = json.dumps(
+                    {"unix_socket_path": sock_file}
+                )
     proc = subprocess.run(
         f"redis-server {config_file} --daemonize yes",
         stdout=subprocess.PIPE,
@@ -159,4 +172,4 @@ def start_gunicorn(path, bind="0.0.0.0:8000", log_level="debug", num_workers=1):
     ]
     with open(path.joinpath("gunicorn.out"), "w") as fp:
         p = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT, cwd=path)
-    click.echo(f"Started gunicorn (pid={p.pid})")
+    click.echo(f"Started gunicorn at {bind} (pid={p.pid})")

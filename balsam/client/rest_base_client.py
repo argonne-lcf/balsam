@@ -17,7 +17,9 @@ class RESTClient:
         """
         raise NotImplementedError
 
-    def request(self, url, http_method, params=None, json=None, data=None):
+    def request(
+        self, url, http_method, params=None, json=None, data=None, authenticating=False
+    ):
         """
         Supports timeout retry, auto re-authentication, accepting DUPLICATE status
         Raises helfpul errors on 4**, 5**, TimeoutErrors, AuthErrors
@@ -31,8 +33,10 @@ class RESTClient:
     def post_form(self, url, **kwargs):
         return self.request(url, "POST", data=kwargs)
 
-    def post(self, url, **kwargs):
-        return self.request(url, "POST", json=jsonable_encoder(kwargs))
+    def post(self, url, authenticating=False, **kwargs):
+        return self.request(
+            url, "POST", json=jsonable_encoder(kwargs), authenticating=authenticating
+        )
 
     def bulk_post(self, url, list_data):
         return self.request(url, "POST", json=jsonable_encoder(list_data))
