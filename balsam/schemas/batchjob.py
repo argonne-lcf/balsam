@@ -18,6 +18,26 @@ class BatchJobState(str, Enum):
     pending_deletion = "pending_deletion"
 
 
+class SchedulerJobStatus(BaseModel):
+    scheduler_id: int
+    state: BatchJobState
+    queue: str
+    num_nodes: int
+    wall_time_min: int
+    project: str
+    time_remaining_min: int
+
+
+class SchedulerBackfillWindow(BaseModel):
+    num_nodes: int
+    wall_time_min: int
+
+
+class SchedulerJobLog(BaseModel):
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+
+
 class BatchJobBase(BaseModel):
     num_nodes: int = Field(..., example=128)
     wall_time_min: int = Field(..., example=60)

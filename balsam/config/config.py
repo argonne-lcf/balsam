@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from datetime import datetime
@@ -11,7 +12,6 @@ import yaml
 from pydantic import (
     BaseSettings,
     PyObject,
-    AnyUrl,
     validator,
     ValidationError,
 )
@@ -26,6 +26,10 @@ from balsam.util import config_logging
 
 def balsam_home():
     return Path.home().joinpath(".balsam")
+
+
+def get_class_path(cls):
+    return cls.__module__ + "." + cls.__name__
 
 
 class ClientSettings(BaseSettings):
@@ -63,7 +67,7 @@ class ClientSettings(BaseSettings):
     def save_to_home(self):
         data = self.dict()
         cls = data["client_class"]
-        data["client_class"] = cls.__module__ + "." + cls.__name__
+        data["client_class"] = get_class_path(cls)
 
         settings_path = self.settings_path()
         if not settings_path.parent.is_dir():
@@ -91,44 +95,60 @@ class LoggingConfig(BaseSettings):
 
 
 class SchedulerSettings(BaseSettings):
-    scheduler_class: PyObject
-    sync_period: int
-    allowed_queues: Dict[str, AllowedQueue]
-    allowed_projects: List[str] = []
-    optional_batch_job_params = Dict[str, str]
-    job_template_path: Path
+    scheduler_class: PyObject = "balsam.platform.scheduler.CobaltScheduler"
+    sync_period: int = 60
+    allowed_queues: Dict[str, AllowedQueue] = {
+        "default": AllowedQueue(
+            max_nodes=4010, max_walltime=24 * 60, max_queued_jobs=20
+        ),
+        "debug-cache-quad": AllowedQueue(
+            max_nodes=8, max_walltime=60, max_queued_jobs=1
+        ),
+    }
+    allowed_projects: List[str] = ["datascience", "magstructsADSP"]
+    optional_batch_job_params: Dict[str, str] = {"singularity_prime_cache": "no"}
+    job_template_path: Path = Path("job-template.sh")
 
 
 class ProcessingSettings(BaseSettings):
-    prefetch_depth: int
-    filter_tags: Dict[str, str]
-    num_workers: Dict[str, str]
+    num_workers: int = 5
+    prefetch_depth: int = 1000
+    filter_tags: Dict[str, str] = {"workflow": "test-1", "system": "H2O"}
 
 
-class TransferInterfaceSettings(BaseSettings):
-    trusted_locations: Dict[str, AnyUrl] = {}
-    max_concurrent_transfers: int
-    globus_endpoint_id: UUID
+class TransferSettings(BaseSettings):
+    transfer_locations: Dict[str, str] = {
+        "theta_dtn": "globus://08925f04-569f-11e7-bef8-22000b9a448b"
+    }
+    max_concurrent_transfers: int = 5
+    globus_endpoint_id: Optional[UUID] = None
 
 
 class Settings(BaseSettings):
-    site_id: int
-    scheduler: SchedulerSettings
-    processing: ProcessingSettings
-    mpi_launcher: PyObject
-    resource_manager: PyObject
-    transfers: Optional[TransferInterfaceSettings]
+    site_id: int = -1
+    mpi_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
+    resource_manager: PyObject = "balsam.platform.nodespec.DefaultNode"
+    scheduler: SchedulerSettings = SchedulerSettings()
+    processing: ProcessingSettings = ProcessingSettings()
+    transfers: Optional[TransferSettings] = TransferSettings()
     logging: LoggingConfig = LoggingConfig()
 
     def save(self, path):
         with open(path, "w") as fp:
-            yaml.dump(self.dict(), fp)
+            yaml.dump(
+                json.loads(self.json()), fp, indent=4,
+            )
 
     @classmethod
     def load(cls, path):
         with open(path) as fp:
             raw_data = yaml.safe_load(fp)
         return cls(**raw_data)
+
+    class Config:
+        json_encoders = {
+            type: get_class_path,
+        }
 
 
 class SiteConfig:
@@ -179,44 +199,51 @@ class SiteConfig:
         services.append(processing_service)
         return services
 
+    @staticmethod
+    def load_default_config_dirs():
+        """
+        Get list of pre-configured Site directories for new site setup
+        """
+        defaults_dir = Path(__file__).parent.joinpath("defaults")
+        default_settings_files = defaults_dir.glob("*/settings.yml")
+        return [p.parent for p in default_settings_files]
+
     @classmethod
-    def new_site_setup(cls, site_path, hostname=None):
+    def new_site_setup(cls, site_path, default_site_path, hostname=None):
         """
         Creates a new site directory, registers Site
         with Balsam API, and writes default settings.yml into
         Site directory
         """
         site_path = Path(site_path)
-        site_path.mkdir(exist_ok=True, parents=True)
+        site_path.mkdir(exist_ok=False, parents=True)
         site_path.joinpath(".balsam-site").touch()
-
-        here = Path(__file__).parent
-        with open(here.joinpath("default-site.yml")) as fp:
-            default_site_data = yaml.safe_load(fp)
-        default_site_path = here.joinpath(default_site_data["default_site_path"])
 
         settings = cls._load_yaml_settings(
             default_site_path.joinpath("settings.yml"), validate=False
         )
 
         ClientSettings.load_from_home().build_client()
-
         site = Site.objects.create(
             hostname=socket.gethostname() if hostname is None else hostname,
             path=site_path,
         )
         settings.site_id = site.id
         settings.save(path=site_path.joinpath("settings.yml"))
-        cf = cls(site_path=site_path, settings=settings)
-        for path in [cf.log_path, cf.job_path, cf.data_path]:
-            path.mkdir(exist_ok=True)
 
-        shutil.copytree(
-            src=default_site_path.joinpath("apps"), dst=cf.apps_path,
-        )
-        shutil.copy(
-            src=default_site_path.joinpath("job-template.sh"), dst=cf.site_path,
-        )
+        try:
+            cf = cls(site_path=site_path, settings=settings)
+            for path in [cf.log_path, cf.job_path, cf.data_path]:
+                path.mkdir(exist_ok=True)
+            shutil.copytree(
+                src=default_site_path.joinpath("apps"), dst=cf.apps_path,
+            )
+            shutil.copy(
+                src=default_site_path.joinpath("job-template.sh"), dst=cf.site_path,
+            )
+        except Exception:
+            site.delete()
+            raise
 
     @staticmethod
     def resolve_site_path(site_path=None) -> Path:

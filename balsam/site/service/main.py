@@ -1,11 +1,12 @@
 from pathlib import Path
 import logging
 import signal
-from balsam.config import SiteConfig
 import os
 import socket
-import sys
 import time
+
+from balsam.config import SiteConfig, Settings
+from balsam.api import Site
 
 logger = logging.getLogger(__name__)
 
@@ -17,25 +18,46 @@ def handler(signum, stack):
     EXIT_FLAG = True
 
 
-def check_and_set_pidfile(site_path):
-    pidfile: Path = site_path.joinpath("balsam-service.pid")
-    if pidfile.exists():
-        sys.stderr.write(
-            f"{pidfile} already exists: will not start Balsam service because it's already running"
-        )
-        sys.stderr.write(
-            "To restart, first stop the Balsam service with `balsam service stop`"
-        )
-        sys.exit(1)
-    else:
-        with open(pidfile, "w") as fp:
+class PIDFile:
+    def __init__(self, site_path: Path):
+        self.path: Path = site_path.joinpath("balsam-service.pid")
+
+    def __enter__(self):
+        if self.path.exists():
+            raise RuntimeError(
+                f"{self.path} already exists: will not start Balsam service because it's already running. "
+                f"To restart, first stop the Balsam service with `balsam service stop`"
+            )
+        with open(self.path, "w") as fp:
             fp.write(f"{socket.gethostname()} {os.getpid()}")
 
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.path.unlink()
 
-def main():
-    config = SiteConfig()
-    check_and_set_pidfile(config.site_path)
+
+def update_site_from_config(site: Site, settings: Settings):
+    old_dict = site.display_dict()
+    site.allowed_projects = settings.scheduler.allowed_projects
+    site.allowed_queues = settings.scheduler.allowed_queues
+    site.optional_batch_job_params = settings.scheduler.optional_batch_job_params
+    site.transfer_locations = settings.transfers.transfer_locations
+    site.globus_endpoint_id = settings.transfers.globus_endpoint_id
+
+    new_dict = site.display_dict()
+    diff = {
+        k: (old_dict[k], new_dict[k]) for k in old_dict if old_dict[k] != new_dict[k]
+    }
+    if diff:
+        site.save()
+        diff_str = "\n".join(f"{k}={diff[k][0]} --> {diff[k][1]}" for k in diff)
+        logger.info(f"Updated Site parameters:\n{diff_str}")
+
+
+def main(config: SiteConfig):
     config.enable_logging(basename="service")
+
+    site = Site.objects.get(id=config.settings.site_id)
+    update_site_from_config(site, config.settings)
 
     services = config.build_services()
 
@@ -63,4 +85,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    config = SiteConfig()
+    with PIDFile(config.site_path):
+        main(config)

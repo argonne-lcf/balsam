@@ -106,7 +106,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_submit_args(
-        script_path, project, queue, num_nodes, time_minutes, **kwargs
+        script_path, project, queue, num_nodes, wall_time_min, **kwargs
     ):
         args = [
             LsfScheduler.submit_exe,
@@ -121,7 +121,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
             "-nnodes",
             str(int(num_nodes)),
             "-W",
-            str(int(time_minutes)),
+            str(int(wall_time_min)),
         ]
         # adding additional flags as needed, e.g. `-C knl`
         for key, default_value in LsfScheduler.default_submit_kwargs.items():

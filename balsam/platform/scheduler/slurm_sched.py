@@ -176,7 +176,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_submit_args(
-        script_path, project, queue, num_nodes, time_minutes, **kwargs
+        script_path, project, queue, num_nodes, wall_time_min, **kwargs
     ):
         args = [
             SlurmScheduler.submit_exe,
@@ -191,7 +191,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             "-N",
             str(int(num_nodes)),
             "-t",
-            str(int(time_minutes)),
+            str(int(wall_time_min)),
         ]
         # adding additional flags as needed, e.g. `-C knl`
         for key, default_value in SlurmScheduler.default_submit_kwargs.items():

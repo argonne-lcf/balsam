@@ -1,3 +1,7 @@
+import json
+import yaml
+
+
 class BalsamModelField:
     def __init__(self, name):
         self.name = name
@@ -129,17 +133,27 @@ class BalsamModel(metaclass=BalsamModelMeta):
         def __init__(self, nobj):
             super().__init__(f"Returned {nobj} objects; expected one!")
 
-    def __repr__(self):
+    def display_model(self):
         if self._state == "creating":
-            display_fields = self._create_model.dict()
+            return self._create_model
         elif self._state == "dirty":
-            display_fields = self._read_model.copy(
+            return self._read_model.copy(
                 update=self._update_model.dict(exclude_unset=True)
-            ).dict()
+            )
         else:
-            display_fields = self._read_model.dict()
-        args = ", ".join(f"{k}={v}" for k, v in display_fields.items())
+            return self._read_model
+
+    def display_dict(self):
+        """Prettify through smart JSON serializer"""
+        return json.loads(self.display_model().json())
+
+    def __repr__(self):
+        args = ", ".join(f"{k}={v}" for k, v in self.display_dict.items())
         return f"{self._modelname}({args})"
+
+    def __str__(self):
+        d = self.display_dict()
+        return yaml.dump(d, indent=4)
 
     def __eq__(self, other):
         return (

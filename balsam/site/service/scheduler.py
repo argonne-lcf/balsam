@@ -5,7 +5,7 @@ import os
 import stat
 from balsam.platform.job_template import ScriptTemplate
 from balsam.platform.scheduler import SchedulerSubmitError
-from balsam.api.models import BatchJob
+from balsam.api.models import BatchJob, Site
 from balsam.api import Manager
 from .service_base import BalsamService
 
@@ -104,9 +104,8 @@ class SchedulerService(BalsamService):
         api_jobs = BatchJob.objects.filter(
             site_id=self.site_id, state__ne=["submit_failed", "finished"]
         )
-        scheduler_jobs = self.scheduler.get_statuses(
-            user=self.username, active_only=True,
-        )
+        scheduler_jobs = self.scheduler.get_statuses(user=self.username)
+
         for job in api_jobs:
             if job.state == "pending_submission":
                 self.submit_launch(job, scheduler_jobs)
@@ -124,6 +123,15 @@ class SchedulerService(BalsamService):
             elif job.state != scheduler_jobs[job.scheduler_id].state:
                 job.state = scheduler_jobs[job.scheduler_id].state
         BatchJob.objects.bulk_update(api_jobs)
+        self.update_site_info()
+
+    def update_site_info(self):
+        """Update on Site from nodelist & qstat"""
+        site = Site.objects.get(id=self.site_id)
+        site.backfill_windows = []
+        site.num_nodes = 0
+        site.queued_jobs = []
+        site.save()
 
     def cleanup(self):
         logger.info("SchedulerService exiting")

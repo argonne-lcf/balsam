@@ -16,6 +16,9 @@ from .batchjob import (
     BatchJobOut,
     PaginatedBatchJobOut,
     BatchJobState,
+    SchedulerBackfillWindow,
+    SchedulerJobLog,
+    SchedulerJobStatus,
 )
 from .session import (
     SessionCreate,
@@ -79,4 +82,7 @@ __all__ = [
     "TransferItemBulkUpdate",
     "LogEventOut",
     "PaginatedLogEventOut",
+    "SchedulerBackfillWindow",
+    "SchedulerJobLog",
+    "SchedulerJobStatus",
 ]

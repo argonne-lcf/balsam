@@ -1,7 +1,7 @@
 import click
 from pathlib import Path
 import shutil
-from balsam.config import SiteConfig, ClientSettings
+from balsam.config import SiteConfig, ClientSettings, Settings
 from balsam.api import Site
 
 
@@ -22,11 +22,26 @@ def init(site_path, hostname):
 
     balsam site init path/to/site
     """
+    import inquirer
+
     site_path = Path(site_path).absolute()
+    default_dirs = {v.name: v for v in SiteConfig.load_default_config_dirs()}
+    site_prompt = inquirer.List(
+        "default_dir",
+        message=f"Select a default configuration to initialize your Site {site_path.name}",
+        choices=list(default_dirs.keys()),
+        carousel=True,
+    )
+
     if site_path.exists():
         raise click.BadParameter(f"{site_path} already exists")
 
-    SiteConfig.new_site_setup(site_path=site_path, hostname=hostname)
+    selected = inquirer.prompt([site_prompt])["default_dir"]
+    default_site_path = default_dirs[selected]
+
+    SiteConfig.new_site_setup(
+        site_path=site_path, default_site_path=default_site_path, hostname=hostname
+    )
 
     click.echo(f"New Balsam site set up at {site_path}")
 
@@ -42,10 +57,13 @@ def mv(src, dest):
     """
     cf = SiteConfig(src)
 
-    if Path(dest).exists():
+    src = Path(src).resolve()
+    dest = Path(dest).resolve()
+
+    if dest.exists():
         raise click.BadParameter(f"{dest} exists")
 
-    shutil.move(src, dest)
+    shutil.move(src.as_posix(), dest)
     ClientSettings.load_from_home().build_client()
 
     site = Site.objects.get(id=cf.settings.site_id)
@@ -95,4 +113,15 @@ def ls():
     ClientSettings.load_from_home().build_client()
     qs = Site.objects.all()
     for site in qs:
-        click.echo(f"{site.id} {site.hostname} {site.path}")
+        click.echo(str(site))
+        click.echo("---\n")
+
+
+@site.command()
+def sample_settings():
+    path = Path("balsam-sample-settings.yml")
+    if path.exists():
+        click.echo(f"{path} already exists")
+    else:
+        Settings().save(path)
+        click.echo(f"Wrote a sample settings file to {path}")

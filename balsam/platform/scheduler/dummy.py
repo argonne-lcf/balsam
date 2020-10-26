@@ -131,7 +131,9 @@ class DummyScheduler(SubprocessSchedulerInterface):
         # env['QSTAT_HEADER'] = ':'.join(fields)
         return env
 
-    def _render_submit_args(self, script_path, project, queue, num_nodes, time_minutes):
+    def _render_submit_args(
+        self, script_path, project, queue, num_nodes, wall_time_min
+    ):
         args = [
             self.submit_exe,
             script_path,
@@ -142,7 +144,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
             "--queue",
             queue,
             "--walltime",
-            str(time_minutes),
+            str(wall_time_min),
         ]
         return args
 

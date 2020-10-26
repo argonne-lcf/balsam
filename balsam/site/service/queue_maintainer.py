@@ -46,7 +46,7 @@ class QueueMaintainerService(BalsamService):
 
     def run_cycle(self):
         scheduler_jobs = self.scheduler.get_statuses(
-            user=self.username, queue=self.submit_queue, active_only=True,
+            user=self.username, queue=self.submit_queue
         )
         if len(scheduler_jobs) < self.num_queued_jobs:
             sub = self.get_next_submission()

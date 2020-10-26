@@ -115,7 +115,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return env
 
     @staticmethod
-    def _render_submit_args(script_path, project, queue, num_nodes, time_minutes):
+    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min):
         args = [
             CobaltScheduler.submit_exe,
             # '--cwd', site.job_path,
@@ -128,7 +128,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             "-n",
             str(int(num_nodes)),
             "-t",
-            str(int(time_minutes)),
+            str(int(wall_time_min)),
             script_path,
         ]
         return args
