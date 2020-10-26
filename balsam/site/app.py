@@ -1,11 +1,56 @@
-import importlib
-import pathlib
+import importlib.util
+from pathlib import Path
 import shlex
+from typing import Tuple
 import jinja2
 import jinja2.meta
 import logging
+from balsam.api import Job
 
 logger = logging.getLogger(__name__)
+
+
+def split_class_path(class_path: str) -> Tuple[str, str]:
+    """
+    'my_module.ClassName' --> ('my_module', 'ClassName')
+    """
+    filename, *class_name = class_path.split(".")
+    class_name = ".".join(class_name)
+    if not filename:
+        raise ValueError(
+            f"{class_path} must refer to a Python class with the form Module.Class"
+        )
+    if not class_name or "." in class_name:
+        raise ValueError(
+            f"{class_path} must refer to a Python class with the form Module.Class"
+        )
+    return filename, class_name
+
+
+def load_module(fpath):
+    if not Path(fpath).is_file():
+        raise FileNotFoundError(f"Could not find App definition file {fpath}")
+
+    fpath = str(fpath)
+    spec = importlib.util.spec_from_file_location(fpath, fpath)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        logger.exception(
+            f"Failed to load {fpath} because of an exception in the module:\n{exc}"
+        )
+        raise
+    return module
+
+
+def find_app_classes(module):
+    app_classes = []
+    for obj_name in dir(module):
+        attr = getattr(module, obj_name)
+        if issubclass(attr, ApplicationDefinition):
+            app_classes.append(attr)
+    return app_classes
 
 
 class ApplicationDefinitionMeta(type):
@@ -15,10 +60,9 @@ class ApplicationDefinitionMeta(type):
         if not bases:
             return cls
 
-        if "parameters" in attrs:
+        if "parameters" not in attrs:
             raise AttributeError(
-                "Do not set `parameters` directly on the ApplicationDefinition. "
-                "They are inferred from `command_template`."
+                "Must set `parameters` dict on the ApplicationDefinition class."
             )
         if "command_template" not in attrs or not isinstance(
             attrs["command_template"], str
@@ -29,7 +73,22 @@ class ApplicationDefinitionMeta(type):
 
         cls.command_template = " ".join(cls.command_template.strip().split())
         ctx = jinja2.Environment().parse(cls.command_template)
-        cls.parameters = jinja2.meta.find_undeclared_variables(ctx)
+
+        detected_params = jinja2.meta.find_undeclared_variables(ctx)
+        cls_params = set(cls.parameters.keys())
+
+        extraneous = cls_params.difference(detected_params)
+        if extraneous:
+            raise AttributeError(
+                f"App {name} has extraneous `parameters` not referenced "
+                f"in the command template: {extraneous}"
+            )
+        for param in detected_params.difference(cls_params):
+            cls.parameters[param] = {
+                "required": True,
+                "default": None,
+                "help": "",
+            }
         return cls
 
 
@@ -37,22 +96,24 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     class ModuleLoadError(Exception):
         pass
 
-    _loaded_apps = {}
-    environment_variables = {}
-    command_template = ""
+    _loaded_apps: dict = {}
+    environment_variables: dict = {}
+    command_template: str = ""
+    parameters: dict = {}
+    transfers: dict = {}
 
-    def __init__(self, job):
-        self.job = job
+    def __init__(self, job: Job):
+        self.job: Job = job
 
     @property
-    def arg_str(self):
+    def arg_str(self) -> str:
         return self._render_command(self.job.parameters)
 
     @property
-    def arg_list(self):
+    def arg_list(self) -> list:
         return shlex.split(self.arg_str)
 
-    def _render_command(self, arg_dict):
+    def _render_command(self, arg_dict: dict) -> str:
         """
         Args:
             - arg_dict: value for each required parameter
@@ -61,7 +122,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             Use shlex.split() to split the result into args list.
             Do *NOT* use string.join on the split list: unsafe!
         """
-        diff = self.parameters.difference(arg_dict.keys())
+        diff = set(self.parameters.keys()).difference(arg_dict.keys())
         if diff:
             raise ValueError(f"Missing required args: {diff}")
 
@@ -71,74 +132,42 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         return jinja2.Template(self.command_template).render(sanitized_args)
 
     def preprocess(self):
-        pass
+        self.job.state = "PREPROCESSED"
 
     def postprocess(self):
-        pass
+        self.job.state = "POSTPROCESSED"
 
     def shell_preamble(self):
-        pass
+        return []
 
     def handle_timeout(self):
-        pass
+        self.job.state = "RESTART_READY"
 
     def handle_error(self):
-        pass
+        self.job.state = "FAILED"
 
     @classmethod
-    def load_app_class(cls, app_path, class_name):
+    def load_app_class(cls, apps_dir, class_path):
         """
-        Load the ApplicationDefinition subclass located in directory app_path
+        Load the ApplicationDefinition subclass located in directory apps_dir
         """
-        key = (app_path, class_name)
+        key = (str(apps_dir), str(class_path))
         if key in cls._loaded_apps:
             return cls._loaded_apps[key]
 
-        app_path = pathlib.Path(app_path)
-        if not app_path.is_dir():
-            raise FileNotFoundError(f"No such directory {app_path}")
+        apps_dir = Path(apps_dir)
 
-        filename, *module_attr = class_name.split(".")
-        module_attr = ".".join(module_attr)
+        filename, class_name = split_class_path(class_path)
+        fpath = apps_dir.joinpath(filename + ".py")
+        module = load_module(fpath)
 
-        if not filename:
-            raise ValueError(
-                f"{class_name} must refer to a Python class with the form Module.Class"
-            )
-
-        if not module_attr or "." in module_attr:
-            raise ValueError(
-                f"{class_name} must refer to a Python class with the form Module.Class"
-            )
-
-        fpath = app_path.joinpath(filename + ".py")
-        if not fpath.is_file():
-            raise FileNotFoundError(f"Could not find App definition file {fpath}")
-
-        fpath = str(fpath)
-        spec = importlib.util.spec_from_file_location(fpath, fpath)
-        module = importlib.util.module_from_spec(spec)
-
-        try:
-            spec.loader.exec_module(module)
-        except Exception as exc:
-            logger.exception(
-                f"Failed to load {class_name} because of an exception in the module {fpath}:\n{exc}"
-            )
-            module = None
-
-        if module is None:
-            raise cls.ModuleLoadError(
-                f"Failed to load {class_name} because of an exception in the module {fpath}"
-            )
-
-        app_class = getattr(module, module_attr, None)
+        app_class = getattr(module, class_name, None)
         if app_class is None:
             raise AttributeError(
-                f"Loaded module at {fpath}, but it does not contain the class {module_attr}"
+                f"Loaded module at {fpath}, but it does not contain the class {class_name}"
             )
         if not issubclass(app_class, cls):
-            raise TypeError(f"{class_name} must subclass {cls.__name__}")
+            raise TypeError(f"{class_path} must subclass {cls.__name__}")
 
         cls._loaded_apps[key] = app_class
         return app_class
@@ -146,7 +175,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     @classmethod
     def as_dict(cls):
         return dict(
-            name=cls.__name__, description=cls.__doc__, parameters=cls.parameters,
+            description=cls.__doc__, parameters=cls.parameters, transfers=cls.transfers,
         )
 
 
@@ -159,22 +188,23 @@ class {{cls_name}}(ApplicationDefinition):
     """
     environment_variables = {}
     command_template = '{{command_template}}'
+    parameters = {}
+    transfers = {}
 
     def preprocess(self):
-        pass
+        self.job.state = "PREPROCESSED"
 
     def postprocess(self):
-        pass
+        self.job.state = "POSTPROCESSED"
 
     def shell_preamble(self):
         pass
 
     def handle_timeout(self):
         self.job.state = "RESTART_READY"
-        self.job.save()
 
     def handle_error(self):
-        pass
+        self.job.state = "FAILED"
 
 '''.lstrip()
 

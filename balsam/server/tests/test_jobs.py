@@ -1,1780 +1,1008 @@
 """APIClient-driven tests"""
-import uuid
 from datetime import datetime, timedelta
-from dateutil.parser import isoparse
-import time
-import pytz
 import random
-from rest_framework import status
-from balsam.server.models import (
-    User,
-    Site,
-    AppBackend,
-    Job,
-    TransferItem,
-    BatchJob,
-    EventLog,
-    JobLock,
+import time
+from uuid import uuid4
+from dateutil.parser import isoparse
+from fastapi import status
+import pytest
+
+from balsam.server import models
+from .util import (
+    create_site,
+    create_app,
 )
 
-from .mixins import (
-    SiteFactoryMixin,
-    BatchJobFactoryMixin,
-    AppFactoryMixin,
-    JobFactoryMixin,
-)
-from .clients import (
-    BalsamAPIClient,
-    TestCase,
-)
+FAST_EXPIRATION_PERIOD = 0.6
 
 
-class JobTests(
-    TestCase, SiteFactoryMixin, AppFactoryMixin, BatchJobFactoryMixin, JobFactoryMixin
-):
-    @classmethod
-    def setUpTestData(cls):
-        """Called once per entire class! Don't modify users"""
-        cls.user = User.objects.create_user(
-            username="user", email="user@aol.com", password="abc"
+@pytest.fixture(scope="function")
+def site(auth_client):
+    """Called before each test"""
+    return create_site(
+        auth_client,
+        hostname="site1",
+        transfer_locations={"MyCluster": f"globus://{uuid4()}"},
+    )
+
+
+@pytest.fixture(scope="function")
+def app(auth_client, site):
+    return create_app(auth_client, site_id=site["id"], class_path="DemoApp.hello")
+
+
+@pytest.fixture(scope="function")
+def job_dict(app):
+    def _job_dict(
+        app_id=None,
+        workdir="test/1",
+        tags={},
+        transfers={
+            "hello-input": {"location_alias": "MyCluster", "path": "/path/to/input.dat"}
+        },
+        parameters={"name": "world", "N": 4},
+        data={},
+        return_code=None,
+        parent_ids=[],
+        num_nodes=2,
+        ranks_per_node=4,
+        threads_per_rank=1,
+        threads_per_core=1,
+        launch_params={},
+        gpus_per_rank=0,
+        node_packing_count=1,
+        wall_time_min=0,
+    ):
+        if app_id is None:
+            app_id = app["id"]
+        return dict(
+            app_id=app_id,
+            workdir=workdir,
+            tags=tags,
+            transfers=transfers,
+            parameters=parameters,
+            data=data,
+            return_code=return_code,
+            parent_ids=parent_ids,
+            num_nodes=num_nodes,
+            ranks_per_node=ranks_per_node,
+            threads_per_rank=threads_per_rank,
+            threads_per_core=threads_per_core,
+            launch_params=launch_params,
+            gpus_per_rank=gpus_per_rank,
+            node_packing_count=node_packing_count,
+            wall_time_min=wall_time_min,
         )
 
-    def setUp(self):
-        """Called before each test"""
-        self.client = BalsamAPIClient(self)
-        self.client.login(username="user", password="abc")
-        self.site = self.create_site(hostname="site1")
-        self.default_app = self.create_app(sites=self.site, cls_names="DemoApp.hello",)
+    return _job_dict
 
-    def assertHistory(self, job, *states, **expected_messages):
-        """
-        Assert that `job` went through the sequence of `states` in order.
-        For each state:str pair in `expected_messages`, verify the str is contained
-        in the transition log message.
-        """
-        response = self.client.get_data(
-            "job-event-list", uri={"job_id": job["pk"]}, check=status.HTTP_200_OK
-        )
-        fail_msg = "\n".join(
-            f'{i}) {e["from_state"]} ->  {e["to_state"]} ({e["message"]})'
-            for i, e in enumerate(response["results"])
-        )
-        self.assertEqual(response["count"], len(states) - 1, msg="\n" + fail_msg)
-        eventlogs = response["results"]
 
-        for i, (from_state, to_state) in enumerate(zip(states[:-1], states[1:])):
-            expected_dict = {"from_state": from_state, "to_state": to_state}
-            event = eventlogs[i]
-            actual = {key: event[key] for key in ("from_state", "to_state")}
-            self.assertDictEqual(expected_dict, actual, msg=actual)
-            if to_state in expected_messages:
-                self.assertIn(expected_messages.pop(to_state), event["message"])
-
-    def setup_two_site_scenario(self, num_jobs):
-        self.site1 = self.create_site(hostname="siteX")
-        self.site2 = self.create_site(hostname="siteY")
-        self.session1 = self.create_session(self.site1, label="Site 1 session")
-        self.session2 = self.create_session(self.site2, label="Site 2 session")
-        self.dual_site_app = self.create_app(
-            sites=[self.site1, self.site2],
-            cls_names=["demo.Hello", "demo.Hello"],
-            name="Demo",
-        )
-        specs = [
-            self.job_dict(app=self.dual_site_app, workdir=f"./test/{i}")
-            for i in range(num_jobs)
-        ]
-        jobs = self.create_jobs(specs, check=status.HTTP_201_CREATED)
-        return jobs
-
-    def setup_one_site_two_launcher_scenario(self, num_jobs):
-        site = Site.objects.get(pk=self.site["pk"])
-        self.bjob1, self.bjob2 = [
-            BatchJob.objects.create(
-                site,
-                project="datascience",
-                queue="default",
-                num_nodes=128,
-                wall_time_min=30,
-                job_mode="mpi",
-                filter_tags={},
-            )
-            for i in range(2)
-        ]
-        self.session1 = self.create_session(
-            self.site, label="Launcher 1", batch_job=self.bjob1.pk
-        )
-        self.session2 = self.create_session(
-            self.site, label="Launcher 2", batch_job=self.bjob2.pk
-        )
-        specs = [
-            self.job_dict(app=self.default_app, workdir=f"./test/{i}")
-            for i in range(num_jobs)
-        ]
-        jobs = self.create_jobs(specs, check=status.HTTP_201_CREATED)
-        return jobs
-
-    def setup_varying_resources_scenario(self, *specs):
-        """Create many runnable jobs with varying resource requirements"""
-        site = Site.objects.get(pk=self.site["pk"])
-        self.bjob = BatchJob.objects.create(
-            site,
-            project="datascience",
+@pytest.fixture(scope="function")
+def create_session(job_dict, site, db_session):
+    def _create_session():
+        bjob = models.BatchJob(
+            site_id=site["id"],
+            scheduler_id=123,
+            project="foo",
             queue="default",
-            num_nodes=128,
-            wall_time_min=30,
+            state="running",
+            num_nodes=32,
+            wall_time_min=60,
             job_mode="mpi",
             filter_tags={},
         )
-        self.session = self.create_session(
-            self.site, label="Launcher 1", batch_job=self.bjob.pk
+        db_session.add(bjob)
+        session = models.Session(site_id=bjob.site_id, batch_job=bjob)
+        db_session.commit()
+        return session
+
+    return _create_session
+
+
+@pytest.fixture(scope="function")
+def fast_session_expiry():
+    old_expiry = models.crud.sessions.SESSION_EXPIRE_PERIOD
+    old_sweep = models.crud.sessions.SESSION_SWEEP_PERIOD
+    try:
+        models.crud.sessions.SESSION_EXPIRE_PERIOD = timedelta(
+            seconds=FAST_EXPIRATION_PERIOD
         )
-        jobs = []
-        for count, spec in specs:
-            d = self.job_dict(
-                num_nodes=spec.get("num_nodes", 1),
-                ranks_per_node=spec.get("ranks_per_node", 1),
-                threads_per_rank=spec.get("threads_per_rank", 1),
-                threads_per_core=spec.get("threads_per_core", 1),
-                gpus_per_rank=spec.get("gpus_per_rank", 0),
-                node_packing_count=spec.get("node_packing_count", 1),
-                wall_time_min=spec.get("wall_time_min", 0),
+        models.crud.sessions.SESSION_SWEEP_PERIOD = timedelta(seconds=0.1)
+        yield
+    finally:
+        models.crud.sessions.SESSION_EXPIRE_PERIOD = old_expiry
+        models.crud.sessions.SESSION_SWEEP_PERIOD = old_sweep
+
+
+def assertHistory(client, job, *states, **expected_messages):
+    """
+    Assert that `job` went through the sequence of `states` in order.
+    For each state:str pair in `expected_messages`, verify the str is contained
+    in the transition log message.
+    """
+    response = client.get("/events", job_id=job["id"])
+    fail_msg = "\n" + "\n".join(
+        f'{i}) {e["from_state"]} ->  {e["to_state"]} ({e["data"]})'
+        for i, e in enumerate(response["results"])
+    )
+    assert response["count"] == len(states) - 1, fail_msg
+    eventlogs = list(reversed(response["results"]))
+
+    for i, (from_state, to_state) in enumerate(zip(states[:-1], states[1:])):
+        expected_dict = {"from_state": from_state, "to_state": to_state}
+        event = eventlogs[i]
+        actual = {key: event[key] for key in ("from_state", "to_state")}
+        assert expected_dict == actual
+        if to_state in expected_messages:
+            assert expected_messages.pop(to_state) in event["data"]["message"]
+
+
+@pytest.fixture(scope="function")
+def linear_dag(auth_client, job_dict):
+    A = auth_client.bulk_post("/jobs/", [job_dict(tags={"step": "A", "dag": "dag1"})])[
+        0
+    ]
+    B = auth_client.bulk_post(
+        "/jobs/", [job_dict(tags={"step": "B", "dag": "dag1"}, parent_ids=[A["id"]])]
+    )[0]
+    C = auth_client.bulk_post(
+        "/jobs/", [job_dict(tags={"step": "C", "dag": "dag1"}, parent_ids=[B["id"]])]
+    )[0]
+    return A, B, C
+
+
+def test_add_jobs(auth_client, job_dict):
+    jobs = [
+        job_dict(parameters={"name": "foo", "N": i}, workdir=f"test/{i}",)
+        for i in range(3)
+    ]
+    jobs = auth_client.bulk_post("/jobs/", jobs)
+    for job in jobs:
+        assert job["state"] == "READY"
+        assertHistory(auth_client, job, "CREATED", "READY")
+
+
+def test_bad_job_parameters_refused(auth_client, job_dict):
+    jobs = [job_dict(parameters={})]
+    response = auth_client.bulk_post("/jobs/", jobs, check=status.HTTP_400_BAD_REQUEST)
+    assert "missing parameters" in str(response)
+
+    jobs = [job_dict(parameters={"name": "foo", "name2": "bar"})]
+    response = auth_client.bulk_post("/jobs/", jobs, check=status.HTTP_400_BAD_REQUEST)
+    assert "extraneous parameters" in str(response)
+
+
+def test_child_with_two_parents_state_update(auth_client, job_dict):
+    resp = auth_client.bulk_post("/jobs/", [job_dict()])
+    parent1 = resp[0]
+    resp = auth_client.bulk_post("/jobs/", [job_dict()])
+    parent2 = resp[0]
+    resp = auth_client.bulk_post(
+        "/jobs/", [job_dict(parent_ids=[parent1["id"], parent2["id"]])]
+    )
+    child = resp[0]
+    assert child["state"] == "AWAITING_PARENTS"
+
+    auth_client.bulk_patch("/jobs/", [{"id": parent1["id"], "state": "JOB_FINISHED"}])
+    child = auth_client.get(f"/jobs/{child['id']}")
+    assert child["state"] == "AWAITING_PARENTS"
+
+    auth_client.bulk_patch("/jobs/", [{"id": parent2["id"], "state": "JOB_FINISHED"}])
+    child = auth_client.get(f"/jobs/{child['id']}")
+    assert child["state"] == "READY"
+
+
+def test_parent_with_two_children_state_update(auth_client, job_dict):
+    resp = auth_client.bulk_post("/jobs/", [job_dict()])
+    parent = resp[0]
+    resp = auth_client.bulk_post("/jobs/", [job_dict(parent_ids=[parent["id"]])])
+    child1 = resp[0]
+    resp = auth_client.bulk_post("/jobs/", [job_dict(parent_ids=[parent["id"]])])
+    child2 = resp[0]
+
+    assert parent["state"] == "READY"
+    assert child1["state"] == "AWAITING_PARENTS" == child2["state"]
+
+    # POSTPROCESSED Job cascades to JOB_FINISHED:
+    auth_client.bulk_put("/jobs/", {"state": "POSTPROCESSED"}, id=parent["id"])
+    child1 = auth_client.get(f"/jobs/{child1['id']}")
+    child2 = auth_client.get(f"/jobs/{child2['id']}")
+    assert child1["state"] == "READY"
+    assert child2["state"] == "READY"
+
+
+def test_add_job_without_transfers_is_STAGED_IN(auth_client, job_dict):
+    """Ready and bound to backend"""
+    job = auth_client.bulk_post("/jobs/", [job_dict(transfers=[])])[0]
+    assert job["state"] == "STAGED_IN"
+
+
+def test_bulk_put(auth_client, job_dict):
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+    for job in jobs:
+        assert job["state"] == "STAGED_IN"
+    ids = [j["id"] for j in jobs]
+    jobs = auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=ids)
+    for job in jobs:
+        assert job["state"] == "PREPROCESSED"
+
+
+def test_bulk_patch(auth_client, job_dict):
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+    for job in jobs:
+        assert job["state"] == "STAGED_IN"
+    ids = [j["id"] for j in jobs]
+    jobs = auth_client.bulk_patch(
+        "/jobs/", [{"id": id, "state": "PREPROCESSED"} for id in ids]
+    )
+    for job in jobs:
+        assert job["state"] == "PREPROCESSED"
+
+
+def test_acquire_for_launch(auth_client, job_dict, create_session):
+    """Jobs become associated with BatchJob"""
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+    for job in jobs:
+        assert job["state"] == "STAGED_IN"
+        assert job["batch_job_id"] is None
+
+    # Mark jobs PREPROCESSED and ready to run
+    ids = [j["id"] for j in jobs]
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=ids)
+
+    session1, session2 = create_session(), create_session()
+
+    # Launcher1 acquires 2 runnable jobs:
+    acquired1 = auth_client.post(
+        f"/sessions/{session1.id}",
+        max_wall_time_min=120,
+        filter_tags={},
+        max_num_jobs=2,
+        max_nodes_per_job=32,
+        check=status.HTTP_200_OK,
+    )
+
+    # Launcher2 asks for up to 1000 and gets all the rest:
+    acquired2 = auth_client.post(
+        f"/sessions/{session2.id}",
+        max_wall_time_min=120,
+        filter_tags={},
+        max_num_jobs=1000,
+        max_nodes_per_job=32,
+        check=status.HTTP_200_OK,
+    )
+
+    # These jobs are now associated with the corresponding BatchJob
+    assert len(acquired1) == 2
+    assert len(acquired2) == 8
+    for job in acquired1:
+        assert job["batch_job_id"] == session1.batch_job_id
+    for job in acquired2:
+        assert job["batch_job_id"] == session2.batch_job_id
+
+
+def test_update_to_running_does_not_release_lock(
+    auth_client, job_dict, create_session, db_session
+):
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+
+    # Mark jobs PREPROCESSED
+    ids = [j["id"] for j in jobs]
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=ids)
+
+    session = create_session()
+    # Launcher1 acquires all of them
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=120,
+        filter_tags={},
+        max_num_jobs=100,
+        max_nodes_per_job=32,
+        check=status.HTTP_200_OK,
+    )
+
+    # Behind the scenes, the acquired jobs are locked:
+    for job in db_session.query(models.Job).all():
+        assert job.session_id == session.id
+
+    # The jobs start running in a staggered fashion; a bulk status update is made
+    run_start_times = [
+        datetime.utcnow() + timedelta(seconds=random.randint(0, 20)) for _ in acquired
+    ]
+    updates = [
+        {
+            "id": j["id"],
+            "state": "RUNNING",
+            "state_timestamp": ts,
+            "state_message": "Running on Theta nid00139",
+        }
+        for j, ts in zip(acquired, run_start_times)
+    ]
+    jobs = auth_client.bulk_patch("/jobs/", updates)
+
+    # The jobs are associated to batchjob and have the expected history:
+    for job in jobs:
+        assert job["batch_job_id"] == session.batch_job_id
+        assertHistory(
+            auth_client, job, "CREATED", "STAGED_IN", "PREPROCESSED", "RUNNING"
+        )
+
+    # Behind the scenes, the acquired jobs have changed state and are still locked:
+    for job in db_session.query(models.Job).all():
+        assert job.session_id == session.id
+
+    # The EventLogs were correctly recorded:
+    time_stamps_in_db = (
+        db_session.query(models.LogEvent.timestamp)
+        .filter(models.LogEvent.to_state == "RUNNING")
+        .all()
+    )
+    time_stamps_in_db = set(tup[0] for tup in time_stamps_in_db)
+    assert time_stamps_in_db == set(run_start_times)
+
+
+def test_acquire_for_launch_with_node_constraints(
+    auth_client, job_dict, create_session
+):
+    jobs = [
+        *[job_dict(num_nodes=1, ranks_per_node=1, wall_time_min=40) for _ in range(2)],
+        *[job_dict(num_nodes=1, ranks_per_node=1, wall_time_min=30) for _ in range(2)],
+        *[
+            job_dict(
+                num_nodes=1, ranks_per_node=1, node_packing_count=4, wall_time_min=30
             )
-            jobs += count * [d]
-        jobs = self.create_jobs(jobs)
-        Job.objects.bulk_update(
-            [{"pk": j["pk"], "state": "PREPROCESSED"} for j in jobs]
-        )
-        return
+            for _ in range(4)
+        ],
+        *[job_dict(num_nodes=1, ranks_per_node=1, wall_time_min=50) for _ in range(2)],
+        *[job_dict(num_nodes=1, ranks_per_node=4, wall_time_min=30) for _ in range(2)],
+        *[job_dict(num_nodes=3, wall_time_min=0) for _ in range(2)],
+        *[job_dict(num_nodes=8, wall_time_min=0) for _ in range(2)],
+        *[job_dict(num_nodes=16, wall_time_min=0) for _ in range(2)],
+    ]
+    jobs = auth_client.bulk_post("/jobs/", jobs)
+    auth_client.bulk_put(
+        "/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs]
+    )
+    session = create_session()
 
-    def prepare_linear_dag(self):
-        A = self.create_jobs(self.job_dict(tags={"step": "A"}))
-        B = self.create_jobs(self.job_dict(tags={"step": "B"}, parents=[A["pk"]]))
-        C = self.create_jobs(self.job_dict(tags={"step": "C"}, parents=[B["pk"]]))
-        return A, B, C
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=32,
+        max_nodes_per_job=1,
+        serial_only=True,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 8
+    assert all(job["num_nodes"] == 1 for job in acquired)
+    assert all(job["ranks_per_node"] == 1 for job in acquired)
+    assert acquired == sorted(
+        acquired, key=lambda job: (job["node_packing_count"], -1 * job["wall_time_min"])
+    )
 
-    def prepare_fanout_dag(self):
-        A = self.create_jobs(self.job_dict(tags={"step": "A"}))
-        B = self.create_jobs(self.job_dict(tags={"step": "B"}, parents=[A["pk"]]))
-        C = self.create_jobs(self.job_dict(tags={"step": "C"}, parents=[A["pk"]]))
-        return A, B, C
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=100,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 6
+    assert all(1 <= job["num_nodes"] <= 8 for job in acquired)
 
-    def prepare_reduce_dag(self):
-        A = self.create_jobs(self.job_dict(tags={"step": "A"}))
-        B = self.create_jobs(self.job_dict(tags={"step": "B"}))
-        C = self.create_jobs(
-            self.job_dict(tags={"step": "C"}, parents=[A["pk"], B["pk"]])
-        )
-        return A, B, C
 
-    def test_add_job(self):
-        """One backend, no parents, no transfers: straight to STAGED_IN"""
-        jobs = [
-            self.job_dict(
-                app=self.default_app,
-                parameters={"name": "foo", "N": i},
-                workdir=f"test/{i}",
+def test_acquire_by_tags(auth_client, job_dict, create_session):
+    jobs = [
+        *[job_dict(tags={"system": "H2O", "calc": "energy"}) for _ in range(3)],
+        *[job_dict(tags={"system": "H2O", "calc": "vib"}) for _ in range(3)],
+        *[job_dict(tags={"system": "D2O", "calc": "energy"}) for _ in range(3)],
+    ]
+    jobs = auth_client.bulk_post("/jobs/", jobs)
+    auth_client.bulk_put(
+        "/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs]
+    )
+    session = create_session()
+
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={"system": "T2O"},
+        max_nodes_per_job=8,
+        max_num_jobs=8,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 0
+
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={"system": "H2O", "calc": "vib"},
+        max_nodes_per_job=8,
+        max_num_jobs=8,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 3
+    assert all(job["tags"]["system"] == "H2O" for job in acquired)
+    assert all(job["tags"]["calc"] == "vib" for job in acquired)
+
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={"calc": "energy"},
+        max_nodes_per_job=8,
+        max_num_jobs=8,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 6
+    assert all(job["tags"]["calc"] == "energy" for job in acquired)
+
+
+def test_bulk_update_based_on_tags_filter_via_put(auth_client, job_dict):
+    specs = [
+        job_dict(tags={"mass": 1.0}, num_nodes=1),
+        job_dict(tags={"mass": 1.0}, num_nodes=1),
+        job_dict(tags={"mass": 2.0}, num_nodes=1),
+        job_dict(tags={"mass": 2.0}, num_nodes=1),
+    ]
+    auth_client.bulk_post("/jobs/", specs)
+    auth_client.bulk_put(
+        "/jobs/", {"num_nodes": 128}, tags=["mass:2.0"],
+    )
+    jobs = auth_client.get("/jobs/")["results"]
+    assert len(jobs) == 4
+    for j in jobs:
+        if j["tags"]["mass"] == "1.0":
+            assert j["num_nodes"] == 1
+        else:
+            assert j["tags"]["mass"] == "2.0"
+            assert j["num_nodes"] == 128
+
+
+def test_can_filter_on_id(auth_client, job_dict):
+    specs = [
+        job_dict(workdir="A"),
+        job_dict(workdir="B"),
+        job_dict(workdir="C"),
+    ]
+    A, B, C = auth_client.bulk_post("/jobs/", specs)
+    res = auth_client.get("/jobs/", id=[B["id"], C["id"]], ordering="workdir")
+    assert res["count"] == 2
+    workdirs = [job["workdir"] for job in res["results"]]
+    assert workdirs == ["B", "C"]
+
+
+def test_can_filter_on_parents(auth_client, job_dict):
+    specs = [job_dict(workdir="A"), job_dict(workdir="B")]
+    parentA, parentB = auth_client.bulk_post("/jobs/", specs)
+
+    child_specs = [
+        job_dict(workdir="A1", parent_ids=[parentA["id"]]),
+        job_dict(workdir="A2", parent_ids=[parentA["id"]]),
+        job_dict(workdir="B1", parent_ids=[parentB["id"]]),
+        job_dict(workdir="B2", parent_ids=[parentB["id"]]),
+        job_dict(workdir="B3", parent_ids=[parentB["id"]]),
+        job_dict(workdir="C1", parent_ids=[parentA["id"], parentB["id"]]),
+    ]
+    auth_client.bulk_post("/jobs/", child_specs)
+
+    children_of_B = auth_client.get(
+        "/jobs/", parent_id=[parentB["id"]], ordering="workdir",
+    )
+    assert children_of_B["count"] == 4
+    workdirs = [job["workdir"] for job in children_of_B["results"]]
+    assert workdirs == ["B1", "B2", "B3", "C1"]
+
+    children = auth_client.get(
+        "/jobs/", parent_id=[parentA["id"], parentB["id"]], ordering="workdir",
+    )
+    assert children["count"] == 6
+    workdirs = [job["workdir"] for job in children["results"]]
+    assert workdirs == ["A1", "A2", "B1", "B2", "B3", "C1"]
+
+
+def test_can_filter_on_last_update(auth_client, job_dict):
+    specs = [job_dict(workdir="A"), job_dict(workdir="B")]
+    A, B = auth_client.bulk_post("/jobs/", specs)
+    creation_time = datetime.utcnow()  # IMPORTANT! all times in UTC
+
+    time.sleep(0.1)
+    auth_client.bulk_patch("/jobs/", [{"id": B["id"], "state": "PREPROCESSED"}])
+
+    # Before the creation_timestamp: only A
+    jobs = auth_client.get("/jobs/", last_update_before=creation_time)
+    assert jobs["count"] == 1
+    assert jobs["results"][0]["workdir"] == "A"
+
+    # After the creation_timestamp: only B
+    jobs = auth_client.get("/jobs/", last_update_after=creation_time)
+    assert jobs["count"] == 1
+    assert jobs["results"][0]["workdir"] == "B"
+
+
+def test_update_to_run_done_releases_lock_but_not_batch_job(
+    auth_client, job_dict, create_session, db_session
+):
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(5)])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+
+    # Before acqusition: no locks, no batchjobs assigned
+    for job in db_session.query(models.Job):
+        assert job.session_id is None
+        assert job.batch_job_id is None
+
+    # Acquisition
+    session = create_session()
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_nodes_per_job=8,
+        max_num_jobs=8,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 5
+
+    # After acqusition: locks & batchjob assigned
+    for job in db_session.query(models.Job):
+        assert job.session_id == session.id
+        assert job.batch_job_id == session.batch_job_id
+
+    # Update all to RUNNING
+    auth_client.bulk_put("/jobs/", {"state": "RUNNING"})
+
+    # After RUNNING: locks & batchjob assigned
+    db_session.expire_all()
+    for job in db_session.query(models.Job):
+        assert job.state == "RUNNING"
+        assert job.session_id == session.id
+        assert job.batch_job_id == session.batch_job_id
+
+    # Update to RUN_DONE
+    auth_client.bulk_put("/jobs/", {"state": "RUN_DONE"})
+
+    # After RUN_DONE: locks freed; batchjob remains
+    db_session.expire_all()
+    for job in db_session.query(models.Job):
+        assert job.state == "RUN_DONE"
+        assert job.session_id is None
+        assert job.batch_job_id == session.batch_job_id
+
+
+def test_tick_heartbeat_extends_expiration(
+    auth_client, job_dict, create_session, db_session
+):
+    session = create_session()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(5)])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+
+    before_acquire = datetime.utcnow()
+    for job in db_session.query(models.Job):
+        assert job.session_id is None
+    db_session.expire_all()
+
+    # Acquire session lock on all jobs
+    auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_nodes_per_job=8,
+        max_num_jobs=8,
+        check=status.HTTP_200_OK,
+    )
+
+    db_session.refresh(session)
+    after_acquire = session.heartbeat
+    assert session.jobs.count() == 5
+    assert before_acquire < after_acquire
+
+    # Tick lock some time later
+    time.sleep(0.15)
+    auth_client.put(f"/sessions/{session.id}")
+
+    db_session.refresh(session)
+    after_tick = session.heartbeat
+    assert (after_tick - after_acquire) > timedelta(seconds=0.1)
+
+
+def test_clear_expired_sess(
+    auth_client, job_dict, create_session, db_session, fast_session_expiry
+):
+    session1, session2 = create_session(), create_session()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+
+    # Session1 acquires 5 jobs
+    auth_client.post(
+        f"/sessions/{session1.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=5,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+
+    # Session2 acquires the other 5
+    auth_client.post(
+        f"/sessions/{session2.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=5,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+
+    # All are locked
+    assert db_session.query(models.Job).filter_by(session_id=session1.id).count() == 5
+    assert db_session.query(models.Job).filter_by(session_id=session2.id).count() == 5
+
+    time.sleep(FAST_EXPIRATION_PERIOD / 2)
+
+    # Session2 ticks
+    auth_client.put(f"/sessions/{session2.id}")
+    time.sleep(FAST_EXPIRATION_PERIOD / 2)
+
+    # Session2 ticks again
+    auth_client.put(f"/sessions/{session2.id}")
+    time.sleep(FAST_EXPIRATION_PERIOD / 2)
+
+    # By now, session1 is cleared because it expired
+    sess1_id = session1.id
+    db_session.expire_all()
+    assert db_session.query(models.Job).filter_by(session_id=sess1_id).count() == 0
+    assert db_session.query(models.Job).filter_by(session_id=session2.id).count() == 5
+    assert db_session.query(models.Session).count() == 1
+
+    # If session1 tries to tick at this point, it will get a 404: lock is gone
+    auth_client.put(f"/sessions/{sess1_id}", check=status.HTTP_404_NOT_FOUND)
+
+
+def test_view_session_list(auth_client, job_dict, create_session):
+    session = create_session()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(5)])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+
+    before_acquire = datetime.utcnow()
+
+    # Session acquires 5 jobs
+    auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=5,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    after_acquire = datetime.utcnow()
+    sessions = auth_client.get("/sessions/")["results"]
+    assert len(sessions) == 1
+    sess = sessions[0]
+    assert sess["batch_job_id"] == session.batch_job_id
+    assert isoparse(sess["heartbeat"]) > before_acquire
+    assert isoparse(sess["heartbeat"]) < after_acquire
+
+
+def test_delete_session_frees_lock_on_all_jobs(
+    auth_client, job_dict, create_session, db_session
+):
+    session1, session2 = create_session(), create_session()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+
+    # Session1 acquires 5 jobs
+    auth_client.post(
+        f"/sessions/{session1.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=5,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    # Session2 acquires 5 jobs
+    auth_client.post(
+        f"/sessions/{session2.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=5,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    assert db_session.query(models.Job).filter_by(session_id=session1.id).count() == 5
+    assert db_session.query(models.Job).filter_by(session_id=session2.id).count() == 5
+
+    # Session1 is deleted, leaving its jobs unlocked
+    auth_client.delete(f"/sessions/{session1.id}")
+    db_session.expire_all()
+    unlocked = db_session.query(models.Job).filter(models.Job.session_id.is_(None))
+    assert unlocked.count() == 5
+    assert db_session.query(models.Job).filter_by(session_id=session2.id).count() == 5
+
+
+def test_update_transfer_item(auth_client, job_dict, db_session):
+    """Can update state, status_message, task_id"""
+    job = auth_client.bulk_post(
+        "/jobs/",
+        [
+            job_dict(
+                transfers={
+                    "hello-input": {
+                        "location_alias": "MyCluster",
+                        "path": "/path/to/input.dat",
+                    }
+                },
             )
-            for i in range(3)
-        ]
-        jobs = self.create_jobs(jobs, check=status.HTTP_201_CREATED)
-        for job in jobs:
-            self.assertEqual(job["state"], "STAGED_IN")
-            self.assertHistory(job, "CREATED", "READY", "STAGED_IN")
+        ],
+    )[0]
 
-    def test_bad_job_parameters_refused(self):
-        jobs = [
-            self.job_dict(
-                app=self.default_app,
-                parameters={"name": "foo", "N": 0, "Name1": 99},
-                workdir=f"test/0",
+    resp = auth_client.get("/transfers")
+    assert resp["count"] == 1
+
+    transfer_item = resp["results"][0]
+    assert transfer_item["state"] == "pending"
+    assert transfer_item["job_id"] == job["id"]
+    assert transfer_item["direction"] == "in"
+    assert transfer_item["source_path"] == "/path/to/input.dat"
+    assert transfer_item["task_id"] == ""
+    assert transfer_item["transfer_info"] == {}
+
+    # Update state and task id
+    tid = transfer_item["id"]
+    new_globus_task_id = uuid4().hex
+    auth_client.put(f"/transfers/{tid}", state="active", task_id=new_globus_task_id)
+
+    # TransferItem is indeed updated
+    transfer = db_session.query(models.TransferItem).one()
+    assert transfer.state == "active"
+    assert transfer.task_id == new_globus_task_id
+
+
+def test_finished_transfer_updates_job_state(auth_client, job_dict):
+    """Can update state, status_message, task_id"""
+    job = auth_client.bulk_post(
+        "/jobs/",
+        [
+            job_dict(
+                transfers={
+                    "hello-input": {
+                        "location_alias": "MyCluster",
+                        "path": "/path/to/input.dat",
+                    }
+                },
             )
-        ]
-        response = self.create_jobs(jobs, check=status.HTTP_400_BAD_REQUEST)
-        self.assertIn("extraneous parameters", str(response))
-        jobs = [
-            self.job_dict(
-                app=self.default_app, parameters={"name": "foo"}, workdir=f"test/0",
-            )
-        ]
-        response = self.create_jobs(jobs, check=status.HTTP_400_BAD_REQUEST)
-        self.assertIn("missing parameters", str(response))
+        ],
+    )[0]
 
-    def test_added_job_with_parents_is_AWAITING(self):
-        parent = self.create_jobs(self.job_dict())
-        child = self.create_jobs(self.job_dict(parents=[parent["pk"]]))
-        self.assertEqual(parent["state"], "STAGED_IN")
-        self.assertEqual(child["state"], "AWAITING_PARENTS")
+    assert job["state"] == "READY"
+    transfer_item = auth_client.get("/transfers")["results"][0]
+    tid = transfer_item["id"]
+    auth_client.put(f"/transfers/{tid}", state="done", task_id=uuid4().hex)
 
-    def test_add_job_with_bad_globus_uuids(self):
-        """Validate stage-in and stage-out items"""
-        job_spec = self.job_dict(
-            transfers=[
-                dict(
-                    source="globus://afaf/path/to/x", destination="./x2", direction="in"
-                )
-            ]
-        )
-        response = self.create_jobs(job_spec, check=status.HTTP_400_BAD_REQUEST)
-        self.assertIn("badly formed hexadecimal UUID string", response)
+    # After finishing stage-in, job was auto-marked STAGED_IN:
+    job = auth_client.get(f"/jobs/{job['id']}")
+    assert job["state"] == "STAGED_IN"
 
-    def test_add_job_with_transfers_is_READY(self):
-        """Ready and bound to backend"""
-        gid = uuid.uuid4()
-        job_spec = self.job_dict(
-            transfers=[
-                dict(
-                    source=f"globus://{gid}/path/to/x",
-                    destination="./x2",
-                    direction="in",
-                )
-            ]
-        )
-        job = self.create_jobs(job_spec, check=status.HTTP_201_CREATED)
-        self.assertEqual(job["state"], "READY")
-        self.assertEqual(job["site"], str(Site.objects.first()))
-        self.assertEqual(job["app_class"], AppBackend.objects.first().class_name)
 
-    def test_added_job_with_two_backends_is_READY_but_unbound(self):
-        site1 = self.create_site(hostname="siteX")
-        site2 = self.create_site(hostname="siteY")
-        two_backend_app = self.create_app(
-            sites=[site1, site2], cls_names=["demo.Hello", "demo.Hello"], name="Demo"
-        )
-        job_spec = self.job_dict(app=two_backend_app)
-        job = self.create_jobs(job_spec, check=status.HTTP_201_CREATED)
-        self.assertEqual(job["state"], "READY")
+# Viewing State History
+def test_aggregated_state_history(auth_client, job_dict):
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])
+    auth_client.bulk_put("/jobs/", {"state": "STAGED_IN"})
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+    events = auth_client.get("/events/")
+    assert events["count"] == 10 * 3
 
-        # site & app_class of None signify job is unbound
-        self.assertEqual(job["site"], None)
-        self.assertEqual(job["app_class"], None)
 
-    def test_cannot_create_job_with_invalid_resources(self):
-        # num_nodes at least 1
-        self.create_jobs(self.job_dict(num_nodes=0), check=status.HTTP_400_BAD_REQUEST)
-        # wall_time_min of 0 is ok
-        self.create_jobs(self.job_dict(wall_time_min=0), check=status.HTTP_201_CREATED)
+def test_aggregated_state_history_by_batch_job(auth_client, create_session, job_dict):
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(2)])
+    auth_client.bulk_put("/jobs/", {"state": "STAGED_IN"})
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
 
-    def test_acquire_unbound_for_stage_in(self):
-        all_jobs = self.setup_two_site_scenario(num_jobs=100)
-        self.assertEqual(len(all_jobs), 100)
+    session = create_session()
+    session2 = create_session()
 
-        # session1 acquires up to 20 jobs
-        sess_1_acquired = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=20,
-        )
-        self.assertEqual(len(sess_1_acquired), 20)
-        self.assertSetEqual(set(["READY"]), set(j["state"] for j in sess_1_acquired))
+    # Batch Job 1 started and acquired all jobs:
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=2,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 2
+    for job in acquired:
+        assert job["batch_job_id"] == session.batch_job_id
 
-        # session2 acquires up to 500 jobs; can only get the 80 unlocked
-        sess_2_acquired = self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=500,
-        )
-        self.assertEqual(len(sess_2_acquired), 80)
-        self.assertSetEqual(set(["READY"]), set(j["state"] for j in sess_2_acquired))
+    # Status updates:
+    auth_client.put(
+        f"/batch-jobs/{session.batch_job_id}", scheduler_id=31415, status="running"
+    )
+    auth_client.bulk_put("/jobs/", {"state": "RUNNING"})
 
-    def test_acquire_unbound_sorts_already_bound_jobs_first(self):
-        self.setup_two_site_scenario(num_jobs=100)
+    # Can look up events by scheduler id
+    events = auth_client.get("/events/", scheduler_id=31415)
+    assert events["count"] == 2 * 4
 
-        # Session1 acquires 50 unbound jobs
-        sess_1_acquired = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=50,
-        )
+    # Or by batch_job_id
+    events = auth_client.get("/events/", batch_job_id=session.batch_job_id)
+    print(*[(e["job_id"], e["to_state"]) for e in events["results"]], sep="\n")
+    print(len(events["results"]), "events received")
+    assert events["count"] == 2 * 4
 
-        # The first 3 are updated to STAGED_IN: nothing to do.
-        updates = [
-            {
-                "pk": j["pk"],
-                "state": "STAGED_IN",
-                "state_timestamp": datetime.utcnow(),
-                "state_message": "Skipped Stage-In: nothing to do.",
+    # Batch Job 2 has no associated events
+    events2 = auth_client.get("/events/", batch_job_id=session2.id)
+    assert events2["count"] == 0
+
+
+def test_aggregated_state_history_by_tags(auth_client, job_dict):
+    specs = [job_dict(tags={"foo": f"x{i}"}) for i in range(3)]
+    jobs = auth_client.bulk_post("/jobs/", specs)
+
+    for i in range(3):
+        events = auth_client.get("/events/", tags=f"foo:x{i}")
+        assert events["count"] == 1
+        for event in events["results"]:
+            assert event["job_id"] == jobs[i]["id"]
+
+    events = auth_client.get("/events/")
+    assert events["count"] == len(events["results"]) == 3
+
+
+def test_aggregated_state_history_by_date_range(auth_client, job_dict):
+    before_create = datetime.utcnow()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(3)])
+    time.sleep(0.1)
+    after_create = datetime.utcnow()
+
+    events = auth_client.get("/events/", timestamp_before=before_create)
+    assert events["count"] == 0
+
+    events = auth_client.get("/events/", timestamp_after=after_create)
+    assert events["count"] == 0
+
+    events = auth_client.get(
+        "/events/", timestamp_after=before_create, timestamp_before=after_create
+    )
+    assert events["count"] == 3
+
+
+def test_can_delete_job(auth_client, job_dict):
+    # Create 4 jobs: 2 PREPROCESSED, 2 STAGED_IN
+    jobs = auth_client.bulk_post("/jobs/", [job_dict() for _ in range(4)])
+    auth_client.bulk_put(
+        "/jobs/", {"state": "STAGED_IN"}, id=[j["id"] for j in jobs[:2]]
+    )
+    auth_client.bulk_put(
+        "/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs[2:]]
+    )
+    # Bulk-Delete the STAGED_IN
+    auth_client.bulk_delete("/jobs/", state="STAGED_IN")
+    jobs = auth_client.get("/jobs/")
+    assert jobs["count"] == 2
+    for job in jobs["results"]:
+        assert job["state"] == "PREPROCESSED"
+
+
+def test_can_do_multiple_lookup_by_pk(auth_client, linear_dag):
+    A, B, C = linear_dag
+    ids = [j["id"] for j in (A, C)]
+    jobs = auth_client.get("/jobs", id=ids)
+    assert jobs["count"] == len(jobs["results"]) == 2
+
+
+def test_can_traverse_dag(auth_client, linear_dag):
+    A, B, C = linear_dag
+
+    child_of_A = auth_client.get("/jobs", parent_id=A["id"])
+    assert child_of_A["results"][0] == B
+
+    child_of_B = auth_client.get("/jobs", parent_id=B["id"])
+    assert child_of_B["results"][0] == C
+
+
+def test_delete_recursively_deletes_children(auth_client, linear_dag, db_session):
+    A, B, C = linear_dag
+    assert db_session.query(models.Job).count() == 3
+    auth_client.delete(f"/jobs/{A['id']}")
+    db_session.expire_all()
+    assert db_session.query(models.Job).count() == 0
+
+
+def test_delete_recursively_deletes_children2(auth_client, linear_dag, db_session):
+    A, B, C = linear_dag
+    assert db_session.query(models.Job).count() == 3
+    auth_client.delete(f"/jobs/{B['id']}")
+    db_session.expire_all()
+    assert db_session.query(models.Job).count() == 1
+
+
+def test_cannot_acquire_with_another_lock_id(
+    auth_client, create_session, job_dict, create_user_client
+):
+    """Passing a lock id that belongs to another user results in acquire() error"""
+    # self.user (via self.client) has 10 jobs
+    session = create_session()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(3)])
+    assert auth_client.get("/jobs")["count"] == 3
+
+    other_client = create_user_client()
+    assert other_client.get("/jobs")["count"] == 0
+    other_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=120,
+        filter_tags={},
+        max_num_jobs=5,
+        max_nodes_per_job=32,
+        check=status.HTTP_404_NOT_FOUND,
+    )
+
+
+def test_postprocessed_job_with_stage_outs(site, auth_client, job_dict):
+    """POSTPROCESSED job is acquired for stage-out before marking FINISHED"""
+    app = create_app(
+        auth_client,
+        site["id"],
+        transfers={
+            "hello-input": {
+                "required": False,
+                "direction": "in",
+                "local_path": "hello.yml",
+                "description": "Input file for SayHello",
+            },
+            "hello-output": {
+                "required": True,
+                "direction": "out",
+                "local_path": "hello.results.xml",
+                "description": "Results of SayHello",
+            },
+        },
+    )
+    job1 = job_dict(
+        app_id=app["id"],
+        transfers={
+            "hello-input": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/input.dat",
+            },
+            "hello-output": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/result.xml",
+            },
+        },
+    )
+    job2 = job_dict(
+        app_id=app["id"],
+        transfers={
+            "hello-output": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/result.xml",
             }
-            for j in sess_1_acquired[:3]
-        ]
-        self.client.bulk_patch_data("job-list", updates, check=status.HTTP_200_OK)
-
-        # the event log looks correct:
-        for job in sess_1_acquired[:3]:
-            self.assertHistory(
-                job, "CREATED", "READY", "STAGED_IN", STAGED_IN="nothing to do"
-            )
-
-        # the remaining 47 jobs are still locked, while the first 3 unlocked:
-        locked_pks = [j["pk"] for j in sess_1_acquired[3:]]
-        for job in Job.objects.all():
-            if job.pk in locked_pks:
-                self.assertNotEqual(job.lock, None)
-            else:
-                self.assertEqual(job.lock, None)
-
-        # Then Session1 is suddenly over:
-        self.client.delete_data(
-            "session-detail",
-            uri={"pk": self.session1["pk"]},
-            check=status.HTTP_204_NO_CONTENT,
-        )
-
-        # All jobs are unlocked now
-        # But the 50 that were acquired remain bound to site1
-        acquired_pks = [j["pk"] for j in sess_1_acquired]
-        for job in Job.objects.all():
-            self.assertEqual(job.lock, None)
-            if job.pk in acquired_pks:
-                self.assertEqual(job.app_backend.site.pk, self.site1["pk"])
-
-        # Site1 starts up another session and acquires 60 jobs:
-        sess1_restarted = self.create_session(self.site1)
-        sess_1_acquired = self.acquire_jobs(
-            session=sess1_restarted,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=60,
-            order_by=["-wall_time_min"],
-        )
-
-        # Accounting for the 100 jobs:
-        # The first 47 READY jobs are the already-acquired ones (order matters!)
-        # 3 (not acquired in this query) are STAGED_IN
-        # 13 are newly acquired
-        # The last 37 are still unbound
-        for job in sess_1_acquired[:47]:
-            self.assertIn(job["pk"], acquired_pks)
-        for job in sess_1_acquired[47:]:
-            self.assertNotIn(job["pk"], acquired_pks)
-        self.assertEqual(Job.objects.filter(app_backend__isnull=True).count(), 37)
-
-        # When session2 tries to acquire 1000 jobs, it therefore only gets 37:
-        sess_2_acquired = self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=1000,
-        )
-        self.assertEqual(len(sess_2_acquired), 37)
-
-    def test_acquire_bound_only_for_transitions(self):
-        self.setup_two_site_scenario(num_jobs=10)
-
-        # Nothing can be acquired for pre/post-processing, because it's unbound:
-        acquired = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=False,
-            states=["STAGED_IN", "RUN_DONE", "RUN_ERROR", "RESTART_READY"],
-            max_num_acquire=20,
-        )
-        self.assertEqual(len(acquired), 0)
-
-        # Acquire unbound & Update to STAGED_IN
-        acquired = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=20,
-        )
-        self.assertEqual(len(acquired), 10)
-        updates = [{"pk": j["pk"], "state": "STAGED_IN"} for j in acquired]
-        self.client.bulk_patch_data("job-list", updates, check=status.HTTP_200_OK)
-
-        # Now the preprocess module can acquire all the jobs:
-        acquired = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=False,
-            states=["STAGED_IN", "RUN_DONE", "RUN_ERROR", "RESTART_READY"],
-            max_num_acquire=20,
-        )
-        self.assertEqual(len(acquired), 10)
-
-    def test_acquire_validates_state_list(self):
-        """Cannot provide an invalid state to acquire"""
-        self.setup_two_site_scenario(num_jobs=2)
-        acquired_jobs = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY", "GOOF"],
-            max_num_acquire=100,
-            check=status.HTTP_400_BAD_REQUEST,
-        )
-        self.assertEqual(acquired_jobs, None)
-
-    def test_acquire_for_launch(self):
-        """Jobs become associated with BatchJob"""
-        jobs = self.setup_one_site_two_launcher_scenario(num_jobs=10)
-
-        # At first, the jobs have no batch_job because they're not running yet
-        for job in jobs:
-            self.assertEqual(job["state"], "STAGED_IN")
-            self.assertEqual(job["batch_job"], None)
-
-        # Mark jobs PREPROCESSED and ready to run
-        pks = [j["pk"] for j in jobs]
-        Job.objects.bulk_update([{"pk": pk, "state": "PREPROCESSED"} for pk in pks])
-
-        # Launcher1 acquires 2 runnable jobs:
-        acquired1 = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=2,
-        )
-
-        # Launcher2 asks for up to 1000 and gets all the rest:
-        acquired2 = self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=1000,
-        )
-
-        # These jobs are now associated with the BatchJob that launcher1 runs under
-        for job in acquired1:
-            self.assertEqual(job["batch_job"], self.bjob1.pk)
-
-        for job in acquired2:
-            self.assertEqual(job["batch_job"], self.bjob2.pk)
-
-    def test_update_to_running_does_not_release_lock(self):
-        jobs = self.setup_one_site_two_launcher_scenario(num_jobs=10)
-
-        # Mark jobs PREPROCESSED
-        pks = [j["pk"] for j in jobs]
-        Job.objects.bulk_update([{"pk": pk, "state": "PREPROCESSED"} for pk in pks])
-
-        # Launcher1 acquires all of them
-        acquired = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=10,
-        )
-
-        # Behind the scenes, the acquired jobs are locked:
-        for job in Job.objects.all():
-            self.assertEqual(job.lock_id, self.session1["pk"])
-
-        # The jobs start running in a staggered fashion; a bulk status update is made
-        run_start_times = [
-            (datetime.utcnow() + timedelta(seconds=random.randint(0, 20))).replace(
-                tzinfo=pytz.UTC
-            )
-            for i in range(len(acquired))
-        ]
-        updates = [
-            {
-                "pk": j["pk"],
-                "state": "RUNNING",
-                "state_timestamp": ts,
-                "state_message": "Running on Theta nid00139",
-            }
-            for j, ts in zip(acquired, run_start_times)
-        ]
-        jobs = self.client.bulk_patch_data(
-            "job-list", updates, check=status.HTTP_200_OK
-        )
-
-        # The jobs are associated to batchjob and have the expected history:
-        for job in jobs:
-            self.assertEqual(job["batch_job"], self.bjob1.pk)
-            self.assertHistory(
-                job, "CREATED", "READY", "STAGED_IN", "PREPROCESSED", "RUNNING"
-            )
-
-        # Behind the scenes, the acquired jobs have changed state and are still locked:
-        for job in Job.objects.all():
-            self.assertEqual(job.lock_id, self.session1["pk"])
-
-        # The EventLogs were correctly recorded:
-        time_stamps = list(
-            EventLog.objects.filter(to_state="RUNNING").values_list(
-                "timestamp", flat=True
-            )
-        )
-        self.assertSetEqual(set(run_start_times), set(time_stamps))
-
-    def test_acquire_for_launch_with_node_constraints(self):
-        # DB has:
-        self.setup_varying_resources_scenario(
-            (2, dict(num_nodes=3, wall_time_min=0)),
-            (5, dict(num_nodes=1, wall_time_min=0)),
-            (5, dict(num_nodes=1, wall_time_min=30)),
-        )
-
-        # Scenario: 7 idle nodes & 20 minutes left
-        resources = {
-            "max_jobs_per_node": 1,
-            "max_wall_time_min": 20,
-            "running_job_counts": [1, 1] + 7 * [0] + [1, 1, 1],
-            "node_occupancies": [1, 1] + 7 * [0] + [1, 1, 1],
-            "idle_cores": [63, 63] + 7 * [64] + [63, 63, 63],
-            "idle_gpus": [0] * 12,
-        }
-
-        # Expected behavior: 2 3-node jobs & 1 1-node job are acquired: in *That* order
-        acquired = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=7,
-            node_resources=resources,
-            order_by=["-num_nodes", "-wall_time_min"],
-        )
-        self.assertEqual(len(acquired), 3)
-        self.assertEqual(acquired[0]["num_nodes"], 3)
-        self.assertEqual(acquired[1]["num_nodes"], 3)
-        self.assertEqual(acquired[2]["num_nodes"], 1)
-        self.assertListEqual([j["wall_time_min"] for j in acquired], 3 * [0])
-
-    def test_acquire_for_launch_respects_provided_ordering(self):
-        self.setup_varying_resources_scenario(
-            *[
-                (
-                    1,
-                    dict(
-                        num_nodes=random.randint(1, 4),
-                        wall_time_min=random.randint(0, 60),
-                    ),
-                )
-                for i in range(100)
-            ]
-        )
-
-        resources = {
-            "max_jobs_per_node": 1,
-            "max_wall_time_min": 20,
-            "running_job_counts": 128 * [0],
-            "node_occupancies": 128 * [0],
-            "idle_cores": 128 * [1],
-            "idle_gpus": 128 * [0],
-        }
-
-        acquired = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=128,
-            node_resources=resources,
-            order_by=["-num_nodes", "-wall_time_min"],
-        )
-        nodes_minutes = [(job["num_nodes"], job["wall_time_min"]) for job in acquired]
-        self.assertEqual(nodes_minutes, sorted(nodes_minutes, reverse=True))
-        self.assertLessEqual(max(n[1] for n in nodes_minutes), 20)
-        self.assertLessEqual(sum(n[0] for n in nodes_minutes), 128)
-
-    def test_acquire_for_launch_respects_idle_core_limits(self):
-        resources = {
-            "max_jobs_per_node": 16,
-            "max_wall_time_min": 20,
-            "running_job_counts": [2, 1],
-            "node_occupancies": [2.0 / 16, 1.0 / 16],
-            "idle_cores": [5, 7],
-            "idle_gpus": [0, 0],
-        }
-        self.setup_varying_resources_scenario(
-            (
-                2,
-                dict(
-                    num_nodes=1,
-                    threads_per_rank=2,
-                    threads_per_core=1,
-                    node_packing_count=16,
-                ),
-            ),
-            (
-                8,
-                dict(
-                    num_nodes=1,
-                    threads_per_rank=4,
-                    threads_per_core=2,
-                    node_packing_count=8,
-                ),
-            ),
-        )
-        acquired = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=128,
-            node_resources=resources,
-            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
-        )
-        packing_counts = [job["node_packing_count"] for job in acquired]
-        self.assertEqual(len(acquired), 5)
-        self.assertListEqual(packing_counts, 5 * [8])
-
-    def test_acquire_for_launch_respects_node_packing_counts(self):
-        resources = {
-            "max_jobs_per_node": 16,
-            "max_wall_time_min": 20,
-            "running_job_counts": [0, 0, 0],
-            "node_occupancies": [0, 0, 0],
-            "idle_cores": [8, 8, 8],
-            "idle_gpus": [0, 0, 0],
-        }
-        self.setup_varying_resources_scenario(
-            (8, dict(num_nodes=1, node_packing_count=4)),
-            (4, dict(num_nodes=1, node_packing_count=2)),
-        )
-        acquired = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=128,
-            node_resources=resources,
-            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
-        )
-        packing_counts = [job["node_packing_count"] for job in acquired]
-        self.assertEqual(len(acquired), 8)
-        self.assertListEqual(packing_counts, 4 * [2] + 4 * [4])
-
-    def test_acquire_for_launch_respects_gpu_limits(self):
-        resources = {
-            "max_jobs_per_node": 16,
-            "max_wall_time_min": 20,
-            "running_job_counts": [0, 0, 0],
-            "node_occupancies": [0, 0, 0],
-            "idle_cores": [8, 8, 8],
-            "idle_gpus": [1, 1, 1],
-        }
-        self.setup_varying_resources_scenario(
-            (10, dict(num_nodes=1, node_packing_count=16, gpus_per_rank=1)),
-        )
-        acquired = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=128,
-            node_resources=resources,
-            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
-        )
-        self.assertEqual(len(acquired), 3)
-
-    def test_acquire_for_launch_colocates_MPI_and_single_node_tasks(self):
-        """First job: 1 rpn, 128 nodes, packing_count=64.  2048 jobs: 1-node, single-rank, packing_count=2 and using 1 GPU"""
-        job_size = 16
-        resources = {
-            "max_jobs_per_node": 2,
-            "max_wall_time_min": 30,
-            "running_job_counts": job_size * [0],
-            "node_occupancies": job_size * [0],
-            "idle_cores": job_size * [64],
-            "idle_gpus": job_size * [6],
-        }
-
-        self.setup_varying_resources_scenario(
-            (1, dict(num_nodes=job_size, node_packing_count=64, gpus_per_rank=0)),
-            (2 * job_size, dict(num_nodes=1, node_packing_count=2, gpus_per_rank=1),),
-        )
-        acquired = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=1024,
-            node_resources=resources,
-            order_by=["-num_nodes", "-wall_time_min", "node_packing_count"],
-        )
-        self.assertEqual(len(acquired), 1 + job_size)
-        self.assertEqual(acquired[0]["num_nodes"], job_size)
-
-    def test_bulk_update_based_on_tags_filter_via_put(self):
-        specs = [
-            self.job_dict(tags={"mass": 1.0}, num_nodes=1),
-            self.job_dict(tags={"mass": 1.0}, num_nodes=1),
-            self.job_dict(tags={"mass": 2.0}, num_nodes=1),
-            self.job_dict(tags={"mass": 2.0}, num_nodes=1),
-        ]
-        self.create_jobs(specs)
-        self.client.bulk_put_data(
-            "job-list",
-            {"num_nodes": 128},
-            query={"tags__mass": "2.0"},
-            check=status.HTTP_200_OK,
-        )
-        for j in Job.objects.all():
-            if j.tags["mass"] == "1.0":
-                self.assertEqual(j.num_nodes, 1)
-            else:
-                self.assertEqual(j.tags["mass"], "2.0")
-                self.assertEqual(j.num_nodes, 128)
-
-    def test_can_filter_on_parameters(self):
-        specs = [
-            self.job_dict(parameters={"name": "Ed", "N": "50"}),
-            self.job_dict(parameters={"name": "Ed", "N": "40"}),
-            self.job_dict(parameters={"name": "World", "N": "60"}, ranks_per_node=31),
-            self.job_dict(parameters={"name": "World", "N": "70"}),
-        ]
-        self.create_jobs(specs)
-        jobs = self.client.get_data(
-            "job-list",
-            check=status.HTTP_200_OK,
-            parameters__name="World",
-            parameters__N="60",
-        )
-        self.assertEqual(jobs["count"], 1)
-        self.assertEqual(jobs["results"][0]["ranks_per_node"], 31)
-
-    def test_can_filter_on_data(self):
-        specs = [
-            self.job_dict(data={"energy": -40}),
-            self.job_dict(data={"energy": -50}),
-            self.job_dict(data={"energy": -60}),
-            self.job_dict(data={}),
-        ]
-        self.create_jobs(specs)
-        jobs = self.client.get_data(
-            "job-list", check=status.HTTP_200_OK, data__has_key="energy"
-        )
-        self.assertEqual(jobs["count"], 3)
-
-    def test_can_filter_on_pk(self):
-        specs = [
-            self.job_dict(workdir="A"),
-            self.job_dict(workdir="B"),
-            self.job_dict(workdir="C"),
-        ]
-        A, B, C = self.create_jobs(specs)
-        res = self.client.get_data(
-            "job-list",
-            check=status.HTTP_200_OK,
-            pk=[B["pk"], C["pk"]],
-            ordering="workdir",
-        )
-        self.assertEqual(res["count"], 2)
-        workdirs = [job["workdir"] for job in res["results"]]
-        self.assertListEqual(workdirs, ["B", "C"])
-
-    def test_can_filter_on_parents(self):
-        specs = [
-            self.job_dict(workdir="A"),
-            self.job_dict(workdir="B"),
-        ]
-        parentA, parentB = self.create_jobs(specs)
-
-        child_specs = [
-            self.job_dict(workdir="A1", parents=[parentA["pk"]]),
-            self.job_dict(workdir="A2", parents=[parentA["pk"]]),
-            self.job_dict(workdir="B1", parents=[parentB["pk"]]),
-            self.job_dict(workdir="B2", parents=[parentB["pk"]]),
-            self.job_dict(workdir="B3", parents=[parentB["pk"]]),
-            self.job_dict(workdir="C1", parents=[parentA["pk"], parentB["pk"]]),
-        ]
-        self.create_jobs(child_specs)
-
-        children_of_B = self.client.get_data(
-            "job-list",
-            check=status.HTTP_200_OK,
-            parents=[parentB["pk"]],
-            ordering="workdir",
-        )
-        self.assertEqual(children_of_B["count"], 4)
-        workdirs = [job["workdir"] for job in children_of_B["results"]]
-        self.assertListEqual(workdirs, ["B1", "B2", "B3", "C1"])
-
-        children = self.client.get_data(
-            "job-list",
-            check=status.HTTP_200_OK,
-            parents=[parentA["pk"], parentB["pk"]],
-            ordering="workdir",
-        )
-        self.assertEqual(children["count"], 6)
-        workdirs = [job["workdir"] for job in children["results"]]
-        self.assertListEqual(workdirs, ["A1", "A2", "B1", "B2", "B3", "C1"])
-
-    def test_can_filter_on_app_name(self):
-        app1 = self.create_app(sites=self.site, cls_names="chem.sim", name="Chem")
-        app2 = self.create_app(sites=self.site, cls_names="math.sim", name="Math")
-        specs = [
-            self.job_dict(workdir="A", app=app1),
-            self.job_dict(workdir="B", app=app2),
-        ]
-        self.create_jobs(specs)
-        empty = self.client.get_data(
-            "job-list", check=status.HTTP_200_OK, app_name="foo"
-        )
-        self.assertEqual(empty["count"], 0)
-        res = self.client.get_data(
-            "job-list", check=status.HTTP_200_OK, app_name="Math"
-        )
-        self.assertEqual(res["count"], 1)
-
-    def test_can_filter_on_site_path(self):
-        site1 = self.create_site(hostname="theta", path="/projects/foo")
-        site2 = self.create_site(hostname="theta", path="/projects/bar")
-        app1 = self.create_app(sites=site1, cls_names="chem.sim", name="Chem")
-        app2 = self.create_app(sites=site2, cls_names="math.sim", name="Math")
-        specs = [
-            self.job_dict(workdir="A1", app=app1),
-            self.job_dict(workdir="A2", app=app1),
-            self.job_dict(workdir="B1", app=app2),
-            self.job_dict(workdir="B2", app=app2),
-        ]
-        self.create_jobs(specs)
-        res = self.client.get_data(
-            "job-list", check=status.HTTP_200_OK, site_path="/projects/bar"
-        )
-        self.assertEqual(res["count"], 2)
-
-    def test_can_filter_on_last_update(self):
-        specs = [
-            self.job_dict(workdir="A"),
-            self.job_dict(workdir="B"),
-        ]
-        A, B = self.create_jobs(specs)
-        creation_time = datetime.utcnow()  # IMPORTANT! all times in UTC
-
-        time.sleep(0.1)
-        self.client.bulk_patch_data(
-            "job-list", [{"pk": B["pk"], "state": "PREPROCESSED"}]
-        )
-
-        # Before the creation_timestamp: only A
-        jobs = self.client.get_data(
-            "job-list", last_update_before=creation_time, check=status.HTTP_200_OK,
-        )
-        self.assertEqual(jobs["count"], 1)
-        self.assertEqual(jobs["results"][0]["workdir"], "A")
-
-        # After the creation_timestamp: only B
-        jobs = self.client.get_data(
-            "job-list", last_update_after=creation_time, check=status.HTTP_200_OK,
-        )
-        self.assertEqual(jobs["count"], 1)
-        self.assertEqual(jobs["results"][0]["workdir"], "B")
-
-    def test_filter_jobs_by_state(self):
-        specs = [
-            self.job_dict(workdir="A"),
-            self.job_dict(workdir="B"),
-        ]
-        A, B = self.create_jobs(specs)
-
-        # Job A bumped to "PREPROCESSED"
-        Job.objects.get(pk=A["pk"]).update(state="PREPROCESSED")
-
-        # Query should only match B now
-        jobs = self.client.get_data(
-            "job-list", state="STAGED_IN", check=status.HTTP_200_OK,
-        )
-        self.assertEqual(jobs["count"], 1)
-        self.assertEqual(jobs["results"][0]["workdir"], "B")
-
-        # Do not allow invalid state choice in query
-        res = self.client.get_data(
-            "job-list", state="NONSENSE", check=status.HTTP_400_BAD_REQUEST,
-        )
-        self.assertIn("invalid", str(res))
-
-    def test_update_to_run_done_releases_lock_but_not_batch_job(self):
-        self.setup_varying_resources_scenario((5, {}))  # 5 generic jobs
-
-        # Before acqusition: no locks, no batchjobs assigned
-        for job in Job.objects.all():
-            self.assertEqual(job.lock, None)
-            self.assertEqual(job.batch_job, None)
-
-        # Acquisition
-        acquired = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=5,
-        )
-        self.assertEqual(len(acquired), 5)
-
-        # After acqusition: locks & batchjob assigned
-        for job in Job.objects.all():
-            self.assertEqual(job.lock_id, self.session["pk"])
-            self.assertEqual(job.batch_job_id, self.bjob.pk)
-
-        # Update to RUNNING
-        self.client.bulk_put_data(
-            "job-list", {"state": "RUNNING"}, check=status.HTTP_200_OK
-        )
-
-        # After RUNNING: locks & batchjob assigned
-        for job in Job.objects.all():
-            self.assertEqual(job.state, "RUNNING")
-            self.assertEqual(job.lock_id, self.session["pk"])
-            self.assertEqual(job.batch_job_id, self.bjob.pk)
-
-        # Update to RUN_DONE
-        self.client.bulk_put_data(
-            "job-list", {"state": "RUN_DONE"}, check=status.HTTP_200_OK
-        )
-
-        # After RUN_DONE: locks freed; batchjob remains
-        for job in Job.objects.all():
-            self.assertEqual(job.state, "RUN_DONE")
-            self.assertEqual(job.lock_id, None)
-            self.assertEqual(job.batch_job_id, self.bjob.pk)
-
-    def test_can_set_data_and_return_code_on_locked_job(self):
-        self.setup_varying_resources_scenario((5, {}))  # 5 generic jobs
-        jobs = self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=5,
-        )
-        # Jobs RUNNING and locked
-        for job in Job.objects.all():
-            job.update(state="RUNNING")
-            self.assertEqual(job.lock_id, self.session["pk"])
-
-        # Client updates data mid-run
-        patches = [dict(pk=job["pk"], data={"foo": 1234, "bar": "12"}) for job in jobs]
-        self.client.bulk_patch_data(
-            "job-list", list_data=patches, check=status.HTTP_200_OK
-        )
-
-        # Data was updated; job still locked
-        for job in Job.objects.all():
-            self.assertEqual(job.data["foo"], 1234)
-            self.assertEqual(job.data["bar"], "12")
-            self.assertEqual(job.lock_id, self.session["pk"])
-            self.assertEqual(job.return_code, None)
-
-        # Client updates return_code, jobs marked RUN_DONE
-        patches = [dict(pk=job["pk"], return_code=1, state="RUN_ERROR") for job in jobs]
-        self.client.bulk_patch_data(
-            "job-list", list_data=patches, check=status.HTTP_200_OK
-        )
-
-        # Now Jobs unlocked, in state RUN_ERROR, with return_code set
-        for job in Job.objects.all():
-            self.assertEqual(job.state, "RUN_ERROR")
-            self.assertEqual(job.return_code, 1)
-            self.assertEqual(job.lock_id, None)
-
-        for job in jobs:
-            self.assertHistory(
-                job,
-                "CREATED",
-                "READY",
-                "STAGED_IN",
-                "PREPROCESSED",
-                "RUNNING",
-                "RUNNING",
-                "RUN_ERROR",
-            )
-
-    def test_can_read_locked_status(self):
-        """Read-only lock_status details current action when locked"""
-        self.setup_varying_resources_scenario((2, {}))
-        for job in self.client.get_data("job-list")["results"]:
-            self.assertEqual(job["lock_status"], "Unlocked")
-
-        for job in self.acquire_jobs(
-            session=self.session,
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=5,
-        ):
-            self.assertEqual(job["lock_status"], "Acquired by launcher")
-
-        for job in Job.objects.all():
-            job.update(state="RUNNING")
-            self.assertEqual(job.lock_id, self.session["pk"])
-
-        for job in self.client.get_data("job-list")["results"]:
-            self.assertEqual(job["lock_status"], "Running")
-
-        for job in Job.objects.all():
-            job.update(state="RUN_DONE", return_code=0)
-            self.assertEqual(job.lock_id, None)
-
-        for job in self.client.get_data("job-list")["results"]:
-            self.assertEqual(job["lock_status"], "Unlocked")
-
-    def test_tick_heartbeat_extends_expiration(self):
-        before_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
-        self.setup_two_site_scenario(num_jobs=5)  # Session lock is created here
-
-        for job in Job.objects.all():
-            self.assertEqual(job.lock, None)
-
-        # Acquire session1 lock on all jobs
-        self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=20,
-        )
-
-        lock = JobLock.objects.first()
-        after_acquire = lock.heartbeat
-        self.assertEqual(lock.jobs.count(), 5)
-        self.assertLess(before_acquire, after_acquire)
-
-        # Tick lock some time later
-        time.sleep(0.15)
-
-        self.client.patch_data(
-            "session-detail", uri={"pk": self.session1["pk"]}, check=status.HTTP_200_OK
-        )
-
-        lock = JobLock.objects.first()
-        after_tick = lock.heartbeat
-        self.assertGreater(after_tick - after_acquire, timedelta(seconds=0.1))
-
-    def test_tick_heartbeat_clears_expired_locks(self):
-        from balsam.server.models.job import JobLockManager
-
-        old_expiry = JobLockManager.EXPIRATION_PERIOD
-        old_sweep = JobLockManager.SWEEP_PERIOD
-        try:
-            JobLockManager.EXPIRATION_PERIOD = timedelta(seconds=0.6)
-            JobLockManager.SWEEP_PERIOD = timedelta(seconds=0.1)
-            self.run_expired_locks_test(expiration_period=0.6)
-        finally:
-            JobLockManager.EXPIRATION_PERIOD = old_expiry
-            JobLockManager.SWEEP_PERIOD = old_sweep
-
-    def run_expired_locks_test(self, expiration_period):
-        self.setup_two_site_scenario(num_jobs=10)
-
-        # Session1 acquires 5 jobs
-        self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=5,
-        )
-
-        # Session2 acquires the other 5
-        self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=5,
-        )
-
-        # All are locked
-        self.assertEqual(Job.objects.filter(lock_id=self.session1["pk"]).count(), 5)
-        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
-
-        time.sleep(expiration_period / 2)
-
-        # Session2 ticks
-        self.client.patch_data(
-            "session-detail", uri={"pk": self.session2["pk"]}, check=status.HTTP_200_OK
-        )
-
-        time.sleep(expiration_period / 2)
-
-        # Session2 ticks again
-        self.client.patch_data(
-            "session-detail", uri={"pk": self.session2["pk"]}, check=status.HTTP_200_OK
-        )
-
-        # By now, session1 is cleared because it expired
-        self.assertEqual(Job.objects.filter(lock_id=self.session1["pk"]).count(), 0)
-        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
-        self.assertEqual(JobLock.objects.count(), 1)
-
-        # If session1 tries to tick at this point, it will get a 404: lock is gone
-        self.client.patch_data(
-            "session-detail",
-            uri={"pk": self.session1["pk"]},
-            check=status.HTTP_404_NOT_FOUND,
-        )
-
-    def test_view_session_list(self):
-        self.setup_one_site_two_launcher_scenario(num_jobs=10)
-
-        before_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
-        # Session1 acquires 5 jobs
-        self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=5,
-        )
-        after_acquire = datetime.utcnow().replace(tzinfo=pytz.UTC)
-        sessions_resp = self.client.get_data("session-list", check=status.HTTP_200_OK)
-        self.assertEqual(sessions_resp["count"], 2)
-        sessions = sessions_resp["results"]
-        sess = sessions[0] if sessions[0]["pk"] == self.session1["pk"] else sessions[1]
-        self.assertEqual(sess["pk"], self.session1["pk"])
-        self.assertEqual(sess["batch_job"], self.bjob1.pk)
-        self.assertEqual(sess["site"], self.bjob1.site_id)
-        self.assertGreater(isoparse(sess["heartbeat"]), before_acquire)
-        self.assertLess(isoparse(sess["heartbeat"]), after_acquire)
-
-    def test_delete_session_frees_lock_on_all_jobs(self):
-        self.setup_two_site_scenario(num_jobs=10)
-        # Session1 acquires 5 jobs
-        self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=5,
-        )
-        # Session2 acquires 5 jobs
-        self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=5,
-        )
-        self.assertEqual(Job.objects.filter(lock_id=self.session1["pk"]).count(), 5)
-        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
-
-        # Session1 is deleted, leaving its jobs unlocked
-        self.client.delete_data(
-            "session-detail",
-            uri={"pk": self.session1["pk"]},
-            check=status.HTTP_204_NO_CONTENT,
-        )
-        self.assertEqual(Job.objects.filter(lock_id__isnull=True).count(), 5)
-        self.assertEqual(Job.objects.filter(lock_id=self.session2["pk"]).count(), 5)
-
-    def test_update_transfer_items_on_locked_job(self):
-        """Can update state, status_message, task_id"""
-        # Create a job with a Globus stage-in task
-        gid = uuid.uuid4()
-        job_spec = self.job_dict(
-            transfers=[
-                dict(
-                    source=f"globus://{gid}/path/to/x",
-                    destination="./x2",
-                    direction="in",
-                )
-            ]
-        )
-        job = self.create_jobs(job_spec, check=status.HTTP_201_CREATED)
-
-        # Acquire the job
-        session = self.create_session(self.site, label="Session")
-        acquired = self.acquire_jobs(
-            session=session,
-            acquire_unbound=True,
-            states=["READY", "STAGED_IN"],
-            max_num_acquire=50,
-        )
-        self.assertEqual(len(acquired), 1)
-        job = acquired[0]
-        transfer_item = job["transfer_items"][0]
-        self.assertIn("pk", transfer_item)
-        self.assertEqual(transfer_item["state"], "pending")
-        self.assertEqual(transfer_item["task_id"], "")
-
-        # Update state and task id
-        transfer_pk = transfer_item["pk"]
-        new_globus_task_id = uuid.uuid4().hex
-        transfer_patch = dict(
-            pk=transfer_pk, state="active", task_id=new_globus_task_id
-        )
-        patch = {"pk": job["pk"], "transfer_items": [transfer_patch]}
-        self.client.bulk_patch_data("job-list", [patch], check=status.HTTP_200_OK)
-
-        # TransferItem is indeed updated, and job remains locked
-        job = Job.objects.first()
-        transfer = job.transfer_items.first()
-        self.assertEqual(transfer.state, "active")
-        self.assertEqual(transfer.task_id, new_globus_task_id)
-        self.assertEqual(job.lock_id, session["pk"])
-
-    def test_cannot_alter_transfer_item_source_or_dest(self):
-        gid = uuid.uuid4()
-        job_spec = self.job_dict(
-            transfers=[
-                dict(
-                    source=f"globus://{gid}/path/to/x",
-                    destination="./x2",
-                    direction="in",
-                )
-            ]
-        )
-        jobs = self.create_jobs([job_spec], check=status.HTTP_201_CREATED)
-        job = jobs[0]
-
-        transfer_item = job["transfer_items"][0]
-        transfer_pk = transfer_item["pk"]
-
-        transfer_patch = dict(pk=transfer_pk, destination="./x3")
-        patch = {"pk": job["pk"], "transfer_items": [transfer_patch]}
-        resp = self.client.bulk_patch_data(
-            "job-list", [patch], check=status.HTTP_400_BAD_REQUEST
-        )
-        self.assertIn("Unexpected update kwarg destination", str(resp))
-
-    # Viewing State History
-    def test_aggregated_state_history(self):
-        self.setup_two_site_scenario(20)
-        self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=10,
-        )
-        self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=10,
-        )
-
-        self.client.bulk_put_data(
-            "job-list", {"state": "STAGED_IN"}, check=status.HTTP_200_OK
-        )
-        self.client.bulk_put_data(
-            "job-list", {"state": "PREPROCESSED"}, check=status.HTTP_200_OK
-        )
-
-        events = self.client.get_data("event-list", check=status.HTTP_200_OK)
-        self.assertEqual(events["count"], 20 * 3)
-
-    def test_aggregated_state_history_by_batch_job(self):
-        self.setup_one_site_two_launcher_scenario(20)
-
-        # Batch Job 1 started and acquired all jobs:
-        self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY", "STAGED_IN"],
-            max_num_acquire=20,
-        )
-        for job in Job.objects.all():
-            self.assertEqual(job.lock_id, self.session1["pk"])
-            self.assertEqual(job.batch_job_id, self.bjob1.pk)
-
-        # Status updates:
-        self.client.bulk_put_data(
-            "job-list", {"state": "PREPROCESSED"}, check=status.HTTP_200_OK
-        )
-        self.client.patch_data(
-            "batchjob-detail",
-            uri={"pk": self.bjob1.pk},
-            scheduler_id=31415,
-            check=status.HTTP_200_OK,
-        )
-        self.client.bulk_put_data(
-            "job-list", {"state": "RUNNING"}, check=status.HTTP_200_OK
-        )
-
-        # Batch Job 1 now has scheduler_id associated
-        self.assertEqual(BatchJob.objects.get(pk=self.bjob1.pk).scheduler_id, 31415)
-        self.assertEqual(BatchJob.objects.get(pk=self.bjob2.pk).scheduler_id, None)
-
-        # Can look up events by scheduler id
-        events1 = self.client.get_data(
-            "event-list", scheduler_id=31415, check=status.HTTP_200_OK
-        )
-        self.assertEqual(events1["count"], 20 * 4)
-
-        # Or by batch_job PK
-        events1_by_bjob_pk = self.client.get_data(
-            "event-list", batch_job_id=self.bjob1.pk, check=status.HTTP_200_OK
-        )
-        self.assertEqual(events1_by_bjob_pk["count"], 20 * 4)
-
-        # Batch Job 2 has no associated events
-        events2 = self.client.get_data(
-            "event-list", batch_job_id=self.bjob2.pk, check=status.HTTP_200_OK
-        )
-        self.assertEqual(events2["count"], 0)
-
-    def test_aggregated_state_history_by_tags(self):
-        specs = []
-        for i in range(3):
-            d = self.job_dict(tags={"foo": f"x{i}"})
-            specs.append(d)
-            d = self.job_dict(tags={})
-            specs.append(d)
-        self.create_jobs(specs)
-
-        for i in range(3):
-            events = self.client.get_data(
-                "event-list", job__tags__foo=f"x{i}", check=status.HTTP_200_OK
-            )
-            self.assertEqual(events["count"], 2)
-
-        events = self.client.get_data("event-list", check=status.HTTP_200_OK)
-        self.assertEqual(events["count"], 2 * 6)
-
-    def test_aggregated_state_history_by_date_range(self):
-        before_create = datetime.utcnow().isoformat() + "Z"
-        self.create_jobs([self.job_dict() for i in range(10)])
-        time.sleep(0.1)
-        after_create = datetime.utcnow().isoformat() + "Z"
-
-        events = self.client.get_data(
-            "event-list", timestamp_before=before_create, check=status.HTTP_200_OK
-        )
-        self.assertEqual(events["count"], 0)
-
-        events = self.client.get_data(
-            "event-list", timestamp_after=after_create, check=status.HTTP_200_OK
-        )
-        self.assertEqual(events["count"], 0)
-
-        events = self.client.get_data(
-            "event-list",
-            to_state="STAGED_IN",
-            timestamp_after=before_create,
-            timestamp_before=after_create,
-            check=status.HTTP_200_OK,
-        )
-        self.assertEqual(events["count"], 10)
-
-    def test_cannot_delete_locked_job(self):
-        self.setup_one_site_two_launcher_scenario(2)
-        jobs = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY", "STAGED_IN"],
-            max_num_acquire=20,
-        )
-        acquired_job = jobs[0]
-
-        # Cannot delete the job by hitting DELETE on detail URI
-        resp = self.client.delete_data(
-            "job-detail",
-            uri={"pk": acquired_job["pk"]},
-            check=status.HTTP_400_BAD_REQUEST,
-        )
-        self.assertIn("Can't delete active Job", str(resp))
-
-        # Bulk delete (Via query params) doesnt work either
-        resp = self.client.bulk_delete_data(
-            "job-list", check=status.HTTP_400_BAD_REQUEST, pk=acquired_job["pk"]
-        )
-        self.assertIn("Can't delete active Job", str(resp))
-
-    def test_can_delete_unlocked_job(self):
-        # Create 4 jobs: 2 PREPROCESSED, 2 STAGED_IN
-        self.setup_one_site_two_launcher_scenario(4)
-        for job in Job.objects.all()[:2]:
-            job.update(state="PREPROCESSED")
-        self.assertEqual(Job.objects.all().count(), 4)
-
-        # Bulk-Delete the STAGED_IN
-        self.client.bulk_delete_data(
-            "job-list", check=status.HTTP_204_NO_CONTENT, state="STAGED_IN"
-        )
-        self.assertEqual(Job.objects.all().count(), 2)
-        for job in Job.objects.all():
-            self.assertEqual(job.state, "PREPROCESSED")
-
-    def test_can_do_multiple_lookup_by_pk(self):
-        A, B, C = self.prepare_linear_dag()
-        pks = [j["pk"] for j in (A, C)]
-        jobs = self.client.get_data("job-list", pk=pks, check=status.HTTP_200_OK)
-        self.assertEqual(jobs["count"], 2)
-
-    def test_can_traverse_dag(self):
-        A, B, C = self.prepare_linear_dag()
-
-        # Retrieve A: has B as child
-        Aret = self.client.get_data(
-            "job-list", tags__step="A", check=status.HTTP_200_OK
-        )
-        Aret = Aret["results"][0]
-        self.assertEqual(Aret["parents"], [])
-        self.assertEqual(Aret["children"], [B["pk"]])
-
-        # Retrieve B: has A as parent and C as child
-        Bret = self.client.get_data(
-            "job-list", tags__step="B", check=status.HTTP_200_OK
-        )
-        Bret = Bret["results"][0]
-        self.assertEqual(Bret["parents"], [A["pk"]])
-        self.assertEqual(Bret["children"], [C["pk"]])
-
-        # Retrieve C: has B as parent
-        Cret = self.client.get_data(
-            "job-list", tags__step="C", check=status.HTTP_200_OK
-        )
-        Cret = Cret["results"][0]
-        self.assertEqual(Cret["parents"], [B["pk"]])
-        self.assertEqual(Cret["children"], [])
-
-    def test_delete_recursively_deletes_children(self):
-        A, B, C = self.prepare_linear_dag()
-        self.assertEqual(Job.objects.count(), 3)
-        self.client.delete_data(
-            "job-detail", uri={"pk": A["pk"]}, check=status.HTTP_204_NO_CONTENT
-        )
-        self.assertEqual(Job.objects.count(), 0)
-
-        A, B, C = self.prepare_linear_dag()
-        self.assertEqual(Job.objects.count(), 3)
-        self.client.delete_data(
-            "job-detail", uri={"pk": B["pk"]}, check=status.HTTP_204_NO_CONTENT
-        )
-        self.assertEqual(Job.objects.count(), 1)
-
-    def test_disallow_invalid_transition(self):
-        A, B, C = self.prepare_linear_dag()
-        resp = self.client.bulk_put_data(
-            "job-list", {"state": "JOB_FINISHED"}, check=status.HTTP_400_BAD_REQUEST
-        )
-        self.assertIn("Cannot transition from STAGED_IN to JOB_FINISHED", str(resp))
-
-    def test_resource_change_records_provenance_event_log(self):
-        A, B, C = self.prepare_linear_dag()
-        self.client.bulk_patch_data(
-            "job-list",
-            [{"pk": A["pk"], "num_nodes": 4096, "data": {"a": 1, "b": 2}}],
-            check=status.HTTP_200_OK,
-        )
-        events = self.client.get_data(
-            "job-event-list", uri={"job_id": A["pk"]}, check=status.HTTP_200_OK
-        )
-        last_two = events["results"][-2:]
-        messages = last_two[0]["message"] + last_two[1]["message"]
-        self.assertIn("Set data", messages)
-        self.assertIn("num_nodes changed", messages)
-
-    def test_cannot_acquire_with_another_lock_id(self):
-        """Passing a lock id that belongs to another user results in acquire() error"""
-        # self.user (via self.client) has 10 jobs
-        self.setup_one_site_two_launcher_scenario(10)
-
-        # User 2 calls acquire() with User1's session ID
-        User.objects.create_user(username="user2", email="user@aol.com", password="xyz")
-        client2 = BalsamAPIClient(self)
-        client2.login(username="user2", password="xyz")
-
-        self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY", "STAGED_IN"],
-            max_num_acquire=100,
-            client=client2,
-            check=status.HTTP_404_NOT_FOUND,
-        )
-        self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY", "STAGED_IN"],
-            max_num_acquire=100,
-            client=client2,
-            check=status.HTTP_404_NOT_FOUND,
-        )
-        self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY", "STAGED_IN"],
-            max_num_acquire=100,
-            client=self.client,
-            check=status.HTTP_200_OK,
-        )
-
-    def test_finished_job_triggers_children_ready_and_unbound(self):
-        """Job with one child FINISHED; child is READY but unbound (has 2 backends)"""
-        A = self.setup_two_site_scenario(1)[0]
-        B = self.create_jobs(self.job_dict(app=self.dual_site_app, parents=[A["pk"]]))
-
-        # A is ready; B is waiting
-        self.assertEqual(A["state"], "READY")
-        self.assertEqual(B["state"], "AWAITING_PARENTS")
-
-        # Acquire A & process until JOB_FINISHED
-        acquired = self.acquire_jobs(
-            session=self.session1,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=20,
-        )
-        self.assertEqual(len(acquired), 1)
-        self.client.bulk_patch_data(
-            "job-list",
-            [{"pk": A["pk"], "state": "STAGED_IN"}],
-            check=status.HTTP_200_OK,
-        )
-        self.client.bulk_patch_data(
-            "job-list",
-            [{"pk": A["pk"], "state": "PREPROCESSED"}],
-            check=status.HTTP_200_OK,
-        )
-        self.client.bulk_patch_data(
-            "job-list", [{"pk": A["pk"], "state": "RUNNING"}], check=status.HTTP_200_OK,
-        )
-        self.client.bulk_patch_data(
-            "job-list",
-            [{"pk": A["pk"], "state": "RUN_DONE"}],
-            check=status.HTTP_200_OK,
-        )
-        self.client.bulk_patch_data(
-            "job-list",
-            [{"pk": A["pk"], "state": "POSTPROCESSED"}],
-            check=status.HTTP_200_OK,
-        )
-
-        # Now A should be JOB_FINISHED
-        A = self.client.get_data("job-detail", uri={"pk": A["pk"]})
-        self.assertEqual(A["state"], "JOB_FINISHED")
-
-        # B should be READY but unbound
-        B = self.client.get_data("job-detail", uri={"pk": B["pk"]})
-        self.assertEqual(B["state"], "READY")
-        self.assertEqual(Job.objects.get(pk=B["pk"]).app_backend_id, None)
-
-    def test_finished_job_triggers_children_staged_in(self):
-        """Job with one child FINISHED; child goes all the way to STAGED_IN"""
-        self.prepare_linear_dag()
-        A = Job.objects.get(tags__step="A")
-        A.update(state="PREPROCESSED")
-        A.update(state="RUNNING")
-        A.update(state="RUN_DONE")
-        A.update(state="POSTPROCESSED")
-
-        B = Job.objects.get(tags__step="B")
-        C = Job.objects.get(tags__step="C")
-        self.assertEqual(B.state, "STAGED_IN")
-        self.assertEqual(C.state, "AWAITING_PARENTS")
-
-    def test_finished_job_triggers_children_staged_in_fanout(self):
-        """Job with two children FINISHED; both children go all the way to STAGED_IN"""
-        self.prepare_fanout_dag()
-        A = Job.objects.get(tags__step="A")
-        A.update(state="PREPROCESSED")
-        A.update(state="RUNNING")
-        A.update(state="RUN_DONE")
-        A.update(state="POSTPROCESSED")
-
-        B = Job.objects.get(tags__step="B")
-        C = Job.objects.get(tags__step="C")
-        self.assertEqual(B.state, "STAGED_IN")
-        self.assertEqual(C.state, "STAGED_IN")
-
-    def test_finished_job_triggers_children_ready(self):
-        """Job with one child FINISHED; child goes to READY because it has transfers"""
-        self.prepare_linear_dag()
-
-        # Add a stage-in task to B
-        B = Job.objects.get(tags__step="B")
-        TransferItem.objects.create(
-            direction="in",
-            source=f"globus://{uuid.uuid4()}/path/to/data",
-            destination="./input.dat",
-            job=B,
-        )
-        A = Job.objects.get(tags__step="A")
-        A.update(state="PREPROCESSED")
-        A.update(state="RUNNING")
-        A.update(state="RUN_DONE")
-        A.update(state="POSTPROCESSED")
-        B.refresh_from_db()
-        self.assertEqual(B.state, "READY")
-
-    def test_child_with_two_parents_still_waiting_when_one_parent_finished(self):
-        """Job C has two parents A and B"""
-        self.prepare_reduce_dag()
-
-        # Process A to completion
-        A = Job.objects.get(tags__step="A")
-        B = Job.objects.get(tags__step="B")
-        C = Job.objects.get(tags__step="C")
-        self.assertEqual(B.parents.count(), 0)
-        self.assertEqual(C.parents.count(), 2)
-
-        A.update(state="PREPROCESSED")
-        A.update(state="RUNNING")
-        A.update(state="RUN_DONE")
-        A.update(state="POSTPROCESSED")
-
-        # POSTPROCESSED Job cascades to JOB_FINISHED
-        A.refresh_from_db()
-        self.assertEqual(A.state, "JOB_FINISHED")
-
-        # C is still waiting because B is not processed yet
-        B = Job.objects.get(tags__step="B")
-        C = Job.objects.get(tags__step="C")
-        self.assertEqual(C.parents.count(), 2)
-        self.assertEqual(C.parents.filter(state="JOB_FINISHED").count(), 1)
-        self.assertEqual(B.state, "STAGED_IN")
-        self.assertEqual(C.state, "AWAITING_PARENTS")
-
-        # Process B to completion
-        B.update(state="PREPROCESSED")
-        B.update(state="RUNNING")
-        B.update(state="RUN_DONE")
-        B.update(state="POSTPROCESSED")
-        B.refresh_from_db()
-        C.refresh_from_db()
-        self.assertEqual(B.state, "JOB_FINISHED")
-        self.assertEqual(C.state, "STAGED_IN")
-
-    def test_postprocessed_job_with_stage_outs(self):
-        """POSTPROCESSED job is acquired for stage-out before marking FINISHED"""
-        # Dag A->B->C
-        self.prepare_linear_dag()
-
-        # Add a stage-out step to Job A
-        A = Job.objects.get(tags__step="A")
-        TransferItem.objects.create(
-            direction="out",
-            source="./results.hdf5",
-            destination=f"globus://{uuid.uuid4()}/path/to/result_dir",
-            job=A,
-        )
-
-        # Process A
-        A.update(state="PREPROCESSED")
-        A.update(state="RUNNING")
-        A.update(state="RUN_DONE")
-        A.update(state="POSTPROCESSED")
-        A.refresh_from_db()
-
-        # Since A has a stage-out task, it is not automatically marked as FINISHED
-        self.assertEqual(A.state, "POSTPROCESSED")
-
-        session = self.create_session(self.site, label="Stageout module")
-        acquired = self.acquire_jobs(
-            session=session,
-            acquire_unbound=False,
-            states=["POSTPROCESSED"],
-            max_num_acquire=20,
-        )
-        self.assertEqual(len(acquired), 1)
-        job = acquired[0]
-        self.assertEqual(job["lock_status"], "Staging out")
-
-    def test_reset_job_with_finished_parents(self):
-        # Dag A->B->C
-        self.prepare_linear_dag()
-        A = Job.objects.get(tags__step="A")
-        A.update(state="PREPROCESSED")
-        A.update(state="RUNNING")
-        A.update(state="RUN_DONE")
-        A.update(state="POSTPROCESSED")
-
-        # B fails in preprocessing; user fixes issue and does RESET
-        B = Job.objects.get(tags__step="B")
-        B.update(state="FAILED")
-        self.assertEqual(B.state, "FAILED")
-        self.client.bulk_patch_data(
-            "job-list", [{"pk": B.pk, "state": "RESET"}], check=status.HTTP_200_OK
-        )
-
-        # Now B is back to STAGED_IN
-        B.refresh_from_db()
-        self.assertEqual(B.state, "STAGED_IN")
-
-    def test_reset_parent_recursively_resets_children(self):
-        # Dag A->B->C
-        self.prepare_linear_dag()
-        A = Job.objects.get(tags__step="A")
-        A.update(state="PREPROCESSED")
-        A.update(state="RUNNING")
-        A.update(state="RUN_DONE")
-        A.update(state="POSTPROCESSED")
-
-        # B fails in preprocessing; user fixes the issue and does RESET on the whole DAG (A)
-        B = Job.objects.get(tags__step="B")
-        B.update(state="FAILED")
-        self.assertEqual(B.state, "FAILED")
-        self.client.bulk_patch_data(
-            "job-list", [{"pk": A.pk, "state": "RESET"}], check=status.HTTP_200_OK
-        )
-
-        # Now B is back to STAGED_IN
-        A.refresh_from_db()
-        B.refresh_from_db()
-        C = Job.objects.get(tags__step="C")
-        self.assertEqual(A.state, "STAGED_IN")
-        self.assertEqual(B.state, "AWAITING_PARENTS")
-        self.assertEqual(C.state, "AWAITING_PARENTS")
-
-    def test_reset_job_with_transfers_goes_to_ready(self):
-        self.prepare_linear_dag()
-
-        # Add a stage-in task to B
-        A = Job.objects.get(tags__step="A")
-        TransferItem.objects.create(
-            direction="in",
-            source=f"globus://{uuid.uuid4()}/path/to/data",
-            destination="./input.dat",
-            job=A,
-        )
-        A.update(state="FAILED")
-        self.client.bulk_patch_data(
-            "job-list", [{"pk": A.pk, "state": "RESET"}], check=status.HTTP_200_OK
-        )
-        A.refresh_from_db()
-        self.assertEqual(A.state, "READY")
-
-    def test_reset_job_with_two_backends_becomes_unbound(self):
-        self.setup_two_site_scenario(1)
-
-        # Job is acquired by Site2
-        job = self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["READY"],
-            max_num_acquire=20,
-        )[0]
-        self.assertEqual(Job.objects.count(), 1)
-        self.assertEqual(Job.objects.first().lock_id, self.session2["pk"])
-
-        # Job fails in preprocess
-        self.client.bulk_patch_data(
-            "job-list",
-            [{"pk": job["pk"], "state": "STAGED_IN"}],
-            check=status.HTTP_200_OK,
-        )
-        self.client.bulk_patch_data(
-            "job-list", [{"pk": job["pk"], "state": "FAILED"}], check=status.HTTP_200_OK
-        )
-
-        # The job is FAILED and bound to Site2
-        job = Job.objects.first()
-        self.assertEqual(job.state, "FAILED")
-        self.assertEqual(job.app_backend.site_id, self.site2["pk"])
-
-        # Client resets the job: now it is READY and unbound
-        self.client.bulk_patch_data(
-            "job-list", [{"pk": job.pk, "state": "RESET"}], check=status.HTTP_200_OK
-        )
-        job.refresh_from_db()
-        self.assertEqual(job.state, "READY")
-        self.assertEqual(job.app_backend, None)
-
-    def test_run_error__update_releases_lock_and_records_last_error(self):
-        self.setup_two_site_scenario(1)
-
-        job = Job.objects.first()
-        job.update(state="STAGED_IN")
-        job.update(state="PREPROCESSED")
-
-        # Job is acquired by a launcher for running
-        self.acquire_jobs(
-            session=self.session2,
-            acquire_unbound=True,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=20,
-        )
-        job.refresh_from_db()
-        self.assertEqual(job.lock_id, self.session2["pk"])
-        job.update(state="RUNNING")
-        job.refresh_from_db()
-        self.assertEqual(job.state, "RUNNING")
-        self.assertEqual(job.lock_id, self.session2["pk"])
-
-        # RUN_ERROR update causes lock to be released
-        job.update(
-            state="RUN_ERROR",
-            return_code=123,
-            state_message="this is the error message & traceback",
-        )
-        job.refresh_from_db()
-        self.assertEqual(job.lock_id, None)
-
-        # Also, the "last_error" attribute stores the most recent error
-        job = self.client.get_data(
-            "job-detail", uri={"pk": job.pk}, check=status.HTTP_200_OK
-        )
-        self.assertIn("this is the error message", job["last_error"])
-        self.assertEqual(job["return_code"], 123)
-        self.assertEqual(job["state"], "RUN_ERROR")
+        },
+    )
+    job1, job2 = auth_client.bulk_post("/jobs/", [job1, job2])
+    assert job1["state"] == "READY"
+    assert job2["state"] == "STAGED_IN"
+
+    job1 = auth_client.put(f"/jobs/{job1['id']}", state="POSTPROCESSED")
+    assert job1["state"] == "POSTPROCESSED"
+    job1 = auth_client.put(f"/jobs/{job1['id']}", state="STAGED_OUT")
+    assert job1["state"] == "JOB_FINISHED"
+
+    job2 = auth_client.put(f"/jobs/{job2['id']}", state="POSTPROCESSED")
+    assert job2["state"] == "POSTPROCESSED"
+    job2 = auth_client.put(f"/jobs/{job2['id']}", state="STAGED_OUT")
+    assert job2["state"] == "JOB_FINISHED"
+
+
+def test_reset_job_with_finished_parents(auth_client, linear_dag):
+    A, B, C = linear_dag
+    assert B["state"] == "AWAITING_PARENTS"
+
+    A = auth_client.put(f"jobs/{A['id']}", state="POSTPROCESSED")
+    assert A["state"] == "JOB_FINISHED"
+
+    B = auth_client.get(f"jobs/{B['id']}")
+    assert B["state"] == "READY"
+    B = auth_client.put(f"jobs/{B['id']}", state="FAILED")
+    B = auth_client.put(f"jobs/{B['id']}", state="RESET")
+    assert B["state"] == "READY"

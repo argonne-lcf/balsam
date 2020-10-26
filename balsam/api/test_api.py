@@ -1,190 +1,63 @@
-import os
 import pytest
-from urllib.parse import urlparse
-from requests import HTTPError
-from datetime import timedelta
-from balsam.client import BasicAuthRequestsClient, DirectAPIClient
-from .models import (  # noqa
-    TransferState,
-    TransferItem,
-    JobState,
+from datetime import timedelta, datetime
+import random
+from uuid import uuid4
+from .models import (
+    Transfer,
     Job,
-    SiteStatus,
     Site,
-    AppBackend,
     App,
-    BatchState,
     BatchJob,
-    NodeResources,
     Session,
     EventLog,
-    utc_datetime,
 )
-from .managers import (
-    JobManager,
-    SiteManager,
-    AppManager,
-    BatchJobManager,
-    SessionManager,
-    EventLogManager,
-)
-
-try:
-    test_db = os.environ["BALSAM_TEST_DB"]
-except KeyError:
-    raise KeyError("Environment BALSAM_TEST_DB must be set to host:port")
-try:
-    HOST, PORT = test_db.split(":")
-    PORT = int(PORT)
-except ValueError:
-    raise ValueError(f"{test_db} is not a valid HOST:PORT")
-
-
-def close_connections():
-    from django.db import connections
-
-    conn = connections["default"]
-    cursor = conn.cursor()
-
-    terminate_sql = (
-        """
-        SELECT pg_terminate_backend(pg_stat_activity.pid)
-        FROM pg_stat_activity
-        WHERE pg_stat_activity.datname = '%s'
-            AND pid <> pg_backend_pid();
-    """
-        % conn.settings_dict["NAME"]
-    )
-    cursor.execute(terminate_sql)
-
-
-@pytest.yield_fixture(scope="session")
-def django_db_setup(django_db_setup, django_db_blocker):
-    """
-    Fixture that will clean up remaining connections, that might be hanging
-    from threads or external processes. Extending pytest_django.django_db_setup
-    """
-    yield
-    with django_db_blocker.unblock():
-        close_connections()
-
-
-@pytest.fixture(scope="function")
-def requests_client(live_server, django_db_blocker):
-    url = live_server.url.rstrip("/") + "/api"
-    info = urlparse(url)
-    from balsam.server.models import User
-
-    try:
-        User.objects.get(username="user")
-    except User.DoesNotExist:
-        User.objects.create_user(
-            username="user",
-            email="f@f.net",
-            password="f",
-            is_staff=True,
-            is_superuser=True,
-        )
-    host = info.netloc.split(":")[0]
-    client = BasicAuthRequestsClient(
-        scheme=info.scheme,
-        host=host,
-        port=info.port,
-        api_root="/api",
-        username="user",
-        password="f",
-    )
-    yield client
-    with django_db_blocker.unblock():
-        close_connections()
-
-
-@pytest.fixture(scope="function")
-def direct_client(transactional_db, django_db_blocker):
-    url = "/api"
-    from balsam.server.models import User
-
-    try:
-        User.objects.get(username="user")
-    except User.DoesNotExist:
-        User.objects.create_user(
-            username="user",
-            email="f@f.net",
-            password="f",
-            is_staff=True,
-            is_superuser=True,
-        )
-    client = DirectAPIClient(
-        api_root=url, host=HOST, port=PORT, username="user", password="f"
-    )
-    yield client
-    with django_db_blocker.unblock():
-        close_connections()
-
-
-@pytest.fixture(scope="function", params=["requests_client", "direct_client"])
-def client(requests_client, direct_client, request):
-    """
-    Run each test twice:
-      1) Live server and real Requests Client
-      2) Without server; using rest_framework.test.APIClient
-    """
-    test_client = (
-        requests_client if request.param == "requests_client" else direct_client
-    )
-    SiteManager(test_client.sites)
-    AppManager(test_client.apps)
-    JobManager(test_client.jobs)
-    BatchJobManager(test_client.batch_jobs)
-    SessionManager(test_client.sessions)
-    EventLogManager(test_client.events)
-    yield test_client
 
 
 class TestSite:
-    def create_several_hostnames(self):
-        Site.objects.create(hostname="b3", path="/projects/foo")
-        Site.objects.create(hostname="b1", path="/projects/foo")
-        Site.objects.create(hostname="a2", path="/projects/foo")
-        Site.objects.create(hostname="a1", path="/projects/foo")
-        Site.objects.create(hostname="a3", path="/projects/foo")
-        Site.objects.create(hostname="b2", path="/projects/foo")
-
     def test_create_and_list(self, client):
         assert len(Site.objects.all()) == 0
-        Site.objects.create(hostname="theta", path="/projects/foo")
-        Site.objects.create(hostname="cooley", path="/projects/bar")
+        s1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        s2 = Site.objects.create(hostname="cooley", path="/projects/bar")
         assert len(Site.objects.all()) == 2
+        assert s1.id is not None
+        assert "foo" in s1.path.as_posix()
+        assert "bar" in s2.path.as_posix()
 
     def test_create_via_save(self, client):
         newsite = Site(hostname="theta", path="/projects/foo")
-        assert newsite.pk is None
+        assert newsite.id is None
+        assert newsite._state == "creating"
         newsite.save()
-        assert newsite.pk is not None
+        assert newsite._state == "clean"
+        assert newsite.id is not None
 
     def test_cannot_access_manager_from_instance(self, client):
         newsite = Site.objects.create(hostname="theta", path="/projects/foo")
         with pytest.raises(AttributeError):
             newsite.objects.count()
 
-    def test_update_nested_status(self, client):
+    def test_update_status(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        pk = site.pk
+        id = site.id
         creation_ts = site.last_refresh
 
-        site.status.num_nodes = 128
-        site.status.num_idle_nodes = 127
+        site.num_nodes = 128
+        site.backfill_windows = [
+            {"queue": "default", "num_nodes": 31, "wall_time_min": 45}
+        ]
+
         site.save()
         update_ts = site.last_refresh
-        assert site.pk == pk
+        assert site.id == id
         assert update_ts > creation_ts
+        assert len(site.backfill_windows) == 1
 
     def test_refresh_from_db(self, client):
         handle_1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        handle_2 = Site.objects.get(pk=handle_1.pk)
-        assert handle_2.pk == handle_1.pk
+        handle_2 = Site.objects.get(id=handle_1.id)
+        assert handle_2.id == handle_1.id
 
-        handle_2.status.num_nodes = 128
+        handle_2.num_nodes = 128
         handle_2.save()
         assert handle_2.last_refresh > handle_1.last_refresh
 
@@ -194,18 +67,18 @@ class TestSite:
     def test_delete(self, client):
         Site.objects.create(hostname="theta", path="/projects/foo")
         tempsite = Site.objects.create(hostname="cooley", path="/projects/bar")
-        assert tempsite.pk is not None
+        assert tempsite.id is not None
         assert len(Site.objects.all()) == 2
 
         tempsite.delete()
-        assert tempsite.pk is None
+        assert tempsite.id is None
         sites = Site.objects.all()
         assert len(sites) == 1
         assert sites[0].hostname == "theta"
 
     def test_filter_on_hostname(self, client):
-        Site.objects.create(hostname="theta", path="/projects/foo")
-        Site.objects.create(hostname="theta", path="/projects/bar")
+        Site.objects.create(hostname="thetalogin3.alcf.anl.gov", path="/projects/foo")
+        Site.objects.create(hostname="thetalogin4.alcf.anl.gov", path="/projects/bar")
         Site.objects.create(hostname="cooley", path="/projects/baz")
 
         cooley_only = Site.objects.filter(hostname="cooley")
@@ -214,35 +87,9 @@ class TestSite:
         theta_only = Site.objects.filter(hostname="theta")
         assert len(theta_only) == 2
 
-    def test_filter_on_pk_list(self, client):
+    def test_get_by_id_returns_match(self, client):
         site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
-        Site.objects.create(hostname="cooley", path="/projects/baz")
-        pks = [site1.pk, site2.pk]
-        qs = Site.objects.filter(pk=pks)
-        assert len(qs) == 2
-
-    def test_order_on_hostname(self, client):
-        self.create_several_hostnames()
-        qs = Site.objects.all().order_by("hostname")
-        hosts = [site.hostname for site in qs]
-        assert hosts == sorted(hosts)
-
-    def test_limit(self, client):
-        self.create_several_hostnames()
-        qs = Site.objects.all().order_by("hostname")[:3]
-        hosts = [site.hostname for site in qs]
-        assert hosts == ["a1", "a2", "a3"]
-
-    def test_limit_and_offset(self, client):
-        self.create_several_hostnames()
-        qs = Site.objects.all().order_by("hostname")[3:6]
-        hosts = [site.hostname for site in qs]
-        assert hosts == ["b1", "b2", "b3"]
-
-    def test_get_by_pk_returns_match(self, client):
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        retrieved = Site.objects.get(pk=site1.pk)
+        retrieved = Site.objects.get(id=site1.id)
         assert site1 == retrieved
 
     def test_get_by_host_and_path_returns_match(self, client):
@@ -250,7 +97,7 @@ class TestSite:
         site2 = Site.objects.create(hostname="theta", path="/projects/bar")
         retrieved = Site.objects.get(hostname="theta", path="/projects/bar")
         assert retrieved == site2
-        assert retrieved.pk != site1.pk
+        assert retrieved.id != site1.id
 
     def test_get_raises_doesnotexist(self, client):
         with pytest.raises(Site.DoesNotExist):
@@ -267,8 +114,8 @@ class TestSite:
         Site.objects.create(hostname="theta", path="/projects/bar")
         Site.objects.create(hostname="theta", path="/projects/baz")
         Site.objects.create(hostname="theta", path="/home/bar")
-        assert Site.objects.filter(path__contains="projects").count() == 3
-        assert Site.objects.filter(path__contains="home").count() == 1
+        assert Site.objects.filter(path="/projects/").count() == 3
+        assert Site.objects.filter(path="/home/").count() == 1
 
 
 class TestApps:
@@ -276,103 +123,45 @@ class TestApps:
         assert len(App.objects.all()) == 0
 
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
         App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
+            site_id=site.id,
+            class_path="nwchem.GeomOpt",
+            parameters={
+                "geometry": {"required": True},
+                "method": {"required": False, "default": "HF"},
+            },
         )
         assert len(App.objects.all()) == 1
 
-    def test_get_by_pk(self, client):
+    def test_get_by_id(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        new_app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
+        new_app = App(
+            site_id=site.id,
+            class_path="nwchem.GeomOpt",
+            parameters={"geometry": {"required": True}},
         )
-        assert App.objects.get(pk=new_app.pk) == new_app
-
-    def test_filter_by_owners_username(self, client):
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
-        )
-        assert App.objects.filter(owner="user2").count() == 0
-        assert App.objects.filter(owner="user1").count() == 0
+        new_app.save()
+        assert App.objects.get(id=new_app.id) == new_app
 
     def test_filter_by_site_id(self, client):
         site1 = Site.objects.create(hostname="theta", path="/projects/foo")
         site2 = Site.objects.create(hostname="summit", path="/projects/bar")
-        backend1 = AppBackend(site=site1, class_name="nwchem.GeomOpt")
-        backend2 = AppBackend(site=site2, class_name="nwchem.GeomOpt")
-        App.objects.create(
-            name="dual_site", backends=[backend1, backend2], parameters=["geometry"]
-        )
-        App.objects.create(name="app1", backends=[backend1], parameters=["geometry"])
-        App.objects.create(name="app2", backends=[backend2], parameters=["geometry"])
-        app_names = set(a.name for a in App.objects.filter(site=site1.pk))
-        assert app_names == {"dual_site", "app1"}
-        app_names = set(a.name for a in App.objects.filter(site=site2.pk))
-        assert app_names == {"dual_site", "app2"}
-
-    def test_filter_by_site_hostname(self, client):
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="summit", path="/projects/bar")
-        backend1 = AppBackend(site=site1, class_name="nwchem.GeomOpt")
-        backend2 = AppBackend(site=site2, class_name="nwchem.GeomOpt")
-        App.objects.create(
-            name="dual_site", backends=[backend1, backend2], parameters=["geometry"]
-        )
-        App.objects.create(name="app1", backends=[backend1], parameters=["geometry"])
-        App.objects.create(name="app2", backends=[backend2], parameters=["geometry"])
-        app_names = set(a.name for a in App.objects.filter(site_hostname="theta"))
-        assert app_names == {"dual_site", "app1"}
-        app_names = set(a.name for a in App.objects.filter(site_hostname="summit"))
-        assert app_names == {"dual_site", "app2"}
+        App.objects.create(site_id=site1.id, class_path="app.one", parameters={})
+        App.objects.create(site_id=site1.id, class_path="app.two", parameters={})
+        App.objects.create(site_id=site2.id, class_path="app.three", parameters={})
+        assert App.objects.filter(site_id=site1.id).count() == 2
+        assert App.objects.filter(site_id=site2.id).count() == 1
 
     def test_update_parameters(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        a = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry", "method"]
-        )
-        a.parameters = ["foo", "N", "w", "x"]
-        a.save()
-
-        assert App.objects.all().count() == 1
-        retrieved = App.objects.get(pk=a.pk)
-        assert retrieved.parameters == ["foo", "N", "w", "x"]
-
-    def test_update_backends(self, client):
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend1 = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend1], parameters=["geometry", "method"]
-        )
-
-        backend1.class_name = "NWCHEM.gopt"
-        site2 = Site.objects.create(hostname="cori", path="/projects/foo")
-        backend2 = AppBackend(site=site2, class_name="NW.optimizer")
-        app.backends = [backend1, backend2]
+        app = App.objects.create(site_id=site.id, class_path="app.one", parameters={})
+        assert app.parameters == {}
+        app.parameters = {"foo": {"required": "True"}}
         app.save()
 
-        retrieved = App.objects.get(pk=app.pk)
-        assert retrieved.backends == [backend1, backend2]
-        assert retrieved.backends[1].site_hostname == "cori"
-        assert retrieved.backends[1].site_path.as_posix() == "/projects/foo"
-
-    def test_app_merge(self, client):
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="summit", path="/projects/bar")
-        backend1 = AppBackend(site=site1, class_name="nwchem.GeomOpt")
-        backend2 = AppBackend(site=site2, class_name="nwchem.GeomOpt")
-        app1 = App.objects.create(
-            name="app1", backends=[backend1], parameters=["geometry"]
-        )
-        app2 = App.objects.create(
-            name="app2", backends=[backend2], parameters=["geometry"]
-        )
-        merged = App.objects.merge([app1, app2], name="dual_site")
-        assert merged.backends == [backend1, backend2]
+        assert App.objects.all().count() == 1
+        retrieved = App.objects.get(id=app.id)
+        assert "foo" in retrieved.parameters.keys()
 
 
 class TestJobs:
@@ -380,89 +169,92 @@ class TestJobs:
 
     def test_create(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
         app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
+            site_id=site.id,
+            class_path="app.one",
+            parameters={"geometry": {"required": True}},
         )
 
-        job = Job("test/say-hello", app, {"geometry": "test.xyz"}, ranks_per_node=64)
-        assert job.pk is None
+        job = Job(
+            "test/run1", app.id, parameters={"geometry": "test.xyz"}, ranks_per_node=64
+        )
+        assert job.id is None
         job.save()
-        assert job.pk is not None
-        assert job.state == JobState.staged_in == "STAGED_IN"
-        assert job.lock_status == "Unlocked"
+        assert job.id is not None
+        assert job.state == "STAGED_IN"
+
+    def test_order_limit_offset(self, client):
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        jobs = [Job(f"test/{i}", app.id) for i in range(8)]
+        random.shuffle(jobs)
+        Job.objects.bulk_create(jobs)
+
+        subset = Job.objects.all().order_by("workdir")[:4]
+        assert len(subset) == 4
+        assert set(job.workdir.as_posix() for job in subset) == {
+            f"test/{i}" for i in range(4)
+        }
+        subset = Job.objects.all().order_by("workdir")[5:]
+        assert len(subset) == 3
+        assert set(job.workdir.as_posix() for job in subset) == {
+            f"test/{i}" for i in range(5, 8)
+        }
+        subset = Job.objects.all().order_by("-workdir")[5:7]
+        assert len(subset) == 2
+        assert set(job.workdir.as_posix() for job in subset) == {"test/2", "test/1"}
+        subset = Job.objects.all().order_by("workdir")[5:7]
+        assert len(subset) == 2
+        assert set(job.workdir.as_posix() for job in subset) == {"test/5", "test/6"}
 
     def test_bulk_create_and_update(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-        jobs = [
-            Job(f"test/{i}", app, {"geometry": "test.xyz"}, ranks_per_node=64)
-            for i in range(3)
-        ]
-        assert all(job.state == "CREATED" for job in jobs)
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        jobs = [Job(f"test/{i}", app.id) for i in range(10)]
+
         jobs = Job.objects.bulk_create(jobs)
         assert all(job.state == "STAGED_IN" for job in jobs)
 
-        preproc_time = utc_datetime()
+        preproc_time = datetime.utcnow()
         for job in jobs:
             job.state = "PREPROCESSED"
-            job.state_message = "Skipped Preprocessing Step"
+            job.state_data = {"message": "Skipped Preprocessing Step"}
             job.state_timestamp = preproc_time
-        Job.objects.bulk_update(jobs, ["state", "state_message", "state_timestamp"])
 
+        Job.objects.bulk_update(jobs)
+
+        # Jobs were updated in-place:
+        for job in jobs:
+            assert job._state == "clean"
+            assert job.state == "PREPROCESSED"
+            assert job.last_update > preproc_time
+            assert job.state_data is None
+            assert job.state_timestamp is None
+
+        # Jobs also updated in fresh query:
         for job in Job.objects.all():
             assert job.state == "PREPROCESSED"
-            assert job.state_message == ""
-            assert job.state_timestamp is None
 
     def test_children_read(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-        parent = Job(f"test/parent", app, {"geometry": "test.xyz"}, ranks_per_node=64)
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        parent = Job(f"test/parent", app.id)
         parent.save()
-        child = Job(
-            f"test/child",
-            app,
-            {"geometry": "test.xyz"},
-            ranks_per_node=64,
-            parents=[parent],
-        )
+        child = Job(f"test/child", app.id, parent_ids=[parent.id])
         child.save()
 
         assert parent.state == "STAGED_IN"
         assert child.state == "AWAITING_PARENTS"
-        assert child.parents == [parent.pk]
-        assert parent.children == []
-        parent.refresh_from_db()
-        assert parent.children == [child.pk]
-
-    def test_app_properties_read_only(self, client):
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-        job = Job("test/say-hello", app, {"geometry": "test.xyz"}, ranks_per_node=64)
-        job.save()
-        assert job.app == app.pk
-        assert job.app_name == "nw-opt"
-        assert job.site == "theta:/projects/foo"
-        assert job.app_class == "nwchem.GeomOpt"
+        assert child.parent_ids == {parent.id}
 
     def test_last_update_prop_changed_on_update(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
         app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
+            site_id=site.id,
+            class_path="app.one",
+            parameters={"geometry": {"required": False, "default": "inp.xyz"}},
         )
-
-        job = Job("test/say-hello", app, {"geometry": "test.xyz"}, ranks_per_node=64)
+        job = Job("test/test", app.id, ranks_per_node=64)
         job.save()
         t1 = job.last_update
 
@@ -474,83 +266,64 @@ class TestJobs:
 
     def test_can_view_history(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-
-        job = Job("test/say-hello", app, {"geometry": "test.xyz"}, ranks_per_node=64)
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        job = Job("test/test", app.id)
         job.save()
         states = [event.to_state for event in job.history()]
-        assert states == ["STAGED_IN", "READY"]
+        assert states == ["STAGED_IN"]
 
-        update_time = utc_datetime()
+        update_time = datetime.utcnow()
         job.state = "PREPROCESSED"
-        job.state_message = "Skipped Preprocess: nothing to do"
+        job.state_data = {"message": "Skipped Preprocess: nothing to do"}
         job.state_timestamp = update_time
-        Job.objects.bulk_update([job], ["state", "state_message", "state_timestamp"])
+        Job.objects.bulk_update([job])
 
         assert job.state == "PREPROCESSED"
-        events = list(job.history())
-        assert events[0].to_state == "PREPROCESSED"
-        assert events[0].timestamp == update_time
-        assert len(events) == 3
+        latest_event = job.history()[0]
+        assert latest_event.to_state == "PREPROCESSED"
+        assert latest_event.timestamp == update_time
 
     def test_bulk_delete(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-
-        jobs = [Job(f"test/{i}", app, {"geometry": "test.xyz"}) for i in range(3)]
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        jobs = [Job(f"test/{i}", app.id) for i in range(3)]
         Job.objects.bulk_create(jobs)
         assert Job.objects.count() == 3
-        Job.objects.all().delete(allow_delete_all=True)
+        Job.objects.all().delete()
         assert Job.objects.count() == 0
 
     def test_filter_by_tags(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-
+        app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [
-            Job(f"test/{i}", app, {"geometry": "test.xyz"}, tags={"foo": str(i)})
-            for i in range(3)
+            Job(f"test/{i}", app.id, tags={"foo": i, "bar": i * 2}) for i in range(3)
         ]
         Job.objects.bulk_create(jobs)
         assert Job.objects.count() == 3
-        qs = Job.objects.filter(tags__foo="1")
+        qs = Job.objects.filter(tags="foo:1")
         assert qs.count() == 1
         assert qs[0].workdir.as_posix() == "test/1"
+        assert Job.objects.filter(tags=["foo:2", "bar:3"]).count() == 0
+        assert Job.objects.filter(tags=["foo:2", "bar:4"]).count() == 1
 
-    def test_filter_by_pk_list(self, client):
+    def test_filter_by_id_list(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
+        app = App.objects.create(site_id=site.id, class_path="app.one")
 
-        foo_jobs = [Job(f"foo/{i}", app, {"geometry": "foo"}) for i in range(3)]
+        foo_jobs = [Job(f"foo/{i}", app.id) for i in range(3)]
         foo_jobs = Job.objects.bulk_create(foo_jobs)
-        pks = [j.pk for j in foo_jobs]
+        ids = [j.id for j in foo_jobs]
 
-        bar_jobs = [Job(f"bar/{i}", app, {"geometry": "bar"}) for i in range(3)]
+        bar_jobs = [Job(f"bar/{i}", app.id) for i in range(3)]
         bar_jobs = Job.objects.bulk_create(bar_jobs)
 
         assert Job.objects.count() == 6
-        assert Job.objects.filter(pk=pks).count() == 3
+        assert Job.objects.filter(id=ids).count() == 3
 
     def test_state_ordering(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-
-        jobs = [Job(f"foo/{i}", app, {"geometry": "foo"}) for i in range(4)]
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
         jobs[2].state = "PREPROCESSED"
         jobs[2].save()
@@ -560,72 +333,55 @@ class TestJobs:
 
     def test_filter_by_workdir(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
-
-        jobs = [Job(f"foo/{i}", app, {"geometry": "foo"}) for i in range(4)]
-        jobs.append(Job(f"bar/99", app, {"geometry": "foo"}))
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
+        jobs.append(Job(f"bar/99", app.id))
         jobs = Job.objects.bulk_create(jobs)
 
-        assert Job.objects.filter(workdir="foo/2").count() == 1
-        assert Job.objects.filter(workdir="foo/8").count() == 0
+        assert Job.objects.filter(workdir__contains="foo/2").count() == 1
+        assert Job.objects.filter(workdir__contains="foo/8").count() == 0
         assert Job.objects.filter(workdir__contains="foo").count() == 4
         assert Job.objects.filter(workdir__contains="bar").count() == 1
 
     def test_filter_by_site(self, client):
         site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend1 = AppBackend(site=site1, class_name="nwchem.GeomOpt")
-        site2 = Site.objects.create(hostname="summit", path="/projects/foo")
-        backend2 = AppBackend(site=site2, class_name="nwchem.GeomOpt")
+        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
+        app1 = App.objects.create(site_id=site1.id, class_path="app.one")
+        app2 = App.objects.create(site_id=site2.id, class_path="app.one")
 
-        # Create a dual-backend app
-        app = App.objects.create(
-            name="nw-opt", backends=[backend1, backend2], parameters=["geometry"]
-        )
-
-        jobs = [Job(f"foo/{i}", app, {"geometry": "foo"}) for i in range(4)]
+        jobs = [Job(f"foo/{i}", app1.id) for i in range(2)] + [
+            Job(f"foo/{i}", app2.id) for i in range(2)
+        ]
         jobs = Job.objects.bulk_create(jobs)
 
-        # Site1 and Site 2 each acquire 2 jobs
-        sess1 = Session.objects.create(site=site1)
-        acquired1 = sess1.acquire_jobs(
-            acquire_unbound=True, states=["READY"], max_num_acquire=2
-        )
-        assert len(acquired1) == 2
-        sess2 = Session.objects.create(site=site2)
-        acquired2 = sess2.acquire_jobs(
-            acquire_unbound=True, states=["READY"], max_num_acquire=2
-        )
-        assert len(acquired2) == 2
-
         # Check site filters
-        Job.objects.filter(app_class="nwchem.GeomOpt").count() == 4
-        Job.objects.filter(site_hostname="theta").count() == 2
-        Job.objects.filter(site_hostname="summit").count() == 2
+        assert Job.objects.filter(site_id=site1.id).count() == 2
+        assert Job.objects.filter(site_id=site2.id).count() == 2
+        assert Job.objects.all().count() == 4
 
     def test_filter_by_parameters(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
         app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
+            site_id=site.id,
+            class_path="app.one",
+            parameters={"geometry": {"required": True}},
         )
-
-        jobs = [Job(f"foo/{i}", app, {"geometry": f"{i}"}) for i in range(4)]
+        jobs = [
+            Job(f"foo/{i}", app.id, parameters={"geometry": f"{i}.xyz"})
+            for i in range(4)
+        ]
+        jobs.append(Job(f"bar/2", app.id, parameters={"geometry": "xy:32.xyz"}))
         jobs = Job.objects.bulk_create(jobs)
 
-        assert Job.objects.filter(parameters__geometry="4").count() == 0
-        assert Job.objects.filter(parameters__geometry="3").count() == 1
+        assert Job.objects.filter(parameters="geometry:4.xyz").count() == 0
+        assert Job.objects.filter(parameters="geometry:3.xyz").count() == 1
+        assert Job.objects.filter(parameters="geometry:xy:32.xyz").count() == 1
 
     def test_filter_by_state(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
+        app = App.objects.create(site_id=site.id, class_path="app.one")
 
-        jobs = [Job(f"foo/{i}", app, {"geometry": "foo"}) for i in range(4)]
+        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
         jobs[2].state = "PREPROCESSED"
         jobs[2].save()
@@ -636,19 +392,109 @@ class TestJobs:
         assert Job.objects.filter(state__ne="PREPROCESSED").count() == 3
 
 
+class TestTransfers:
+    def create_app_with_transfers(self):
+        site = Site.objects.create(
+            hostname="theta",
+            path="/projects/foo",
+            transfer_locations={"laptop": f"globus://{uuid4()}"},
+        )
+        app = App.objects.create(
+            site_id=site.id,
+            class_path="app.one",
+            transfers={
+                "input_data": {
+                    "required": True,
+                    "direction": "in",
+                    "local_path": "inp.dat",
+                },
+                "output_results": {
+                    "required": False,
+                    "direction": "out",
+                    "local_path": "results.json",
+                },
+            },
+        )
+        return app
+
+    def test_stage_in_flow(self, client):
+        app = self.create_app_with_transfers()
+        job = Job.objects.create(
+            workdir="test/test",
+            app_id=app.id,
+            transfers={
+                "input_data": {"location_alias": "laptop", "path": "/path/to/input.dat"}
+            },
+        )
+        assert job.state == "READY"
+
+        transfer = Transfer.objects.get(job_id=job.id)
+        transfer.task_id = "abc"
+        transfer.state = "active"
+        transfer.save()
+
+        job.refresh_from_db()
+        assert job.state == "READY"
+
+        transfer.state = "done"
+        transfer.save()
+        job.refresh_from_db()
+        assert job.state == "STAGED_IN"
+
+        job.state = "POSTPROCESSED"
+        job.save()
+        assert job.state == "JOB_FINISHED"
+
+    def test_stage_out_flow(self, client):
+        app = self.create_app_with_transfers()
+        job = Job.objects.create(
+            workdir="test/test",
+            app_id=app.id,
+            transfers={
+                "input_data": {
+                    "location_alias": "laptop",
+                    "path": "/path/to/input.dat",
+                },
+                "output_results": {
+                    "location_alias": "laptop",
+                    "path": "/path/to/output.json",
+                },
+            },
+        )
+        assert job.state == "READY"
+        transfers = Transfer.objects.filter(job_id=job.id)
+        assert transfers.count() == 2
+        stage_in = [t for t in transfers if t.direction == "in"][0]
+        stage_out = [t for t in transfers if t.direction == "out"][0]
+        assert Transfer.objects.get(state="pending") == stage_in
+        assert Transfer.objects.get(state="awaiting_job") == stage_out
+
+        stage_in.state = "done"
+        stage_in.save()
+        job.refresh_from_db()
+        assert job.state == "STAGED_IN"
+
+        job.state = "POSTPROCESSED"
+        job.save()
+        assert job.state == "POSTPROCESSED"
+        stage_out.refresh_from_db()
+        assert stage_out.state == "pending"
+
+        stage_out.state = "done"
+        stage_out.save()
+        job.refresh_from_db()
+        assert job.state == "JOB_FINISHED"
+
+
 class TestEvents:
     def setup_scenario(self):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        before_creation = datetime.utcnow()
 
-        before_creation = utc_datetime()
-
-        j1 = Job.objects.create("foo/1", app, {"geometry": "foo"})
-        j2 = Job.objects.create("foo/2", app, {"geometry": "foo"})
-        j3 = Job.objects.create("foo/3", app, {"geometry": "foo"})
+        j1 = Job.objects.create(workdir="foo/1", app_id=app.id)
+        j2 = Job.objects.create(workdir="foo/2", app_id=app.id)
+        j3 = Job.objects.create(workdir="foo/3", app_id=app.id)
 
         j1.state = "PREPROCESSED"
         j1.save()
@@ -658,7 +504,7 @@ class TestEvents:
         j2.state = "RUNNING"
         j2.save()
         j2.state = "RUN_ERROR"
-        j2.state_timestamp = utc_datetime() + timedelta(minutes=1)
+        j2.state_timestamp = datetime.utcnow() + timedelta(minutes=1)
         j2.save()
 
         j3.state = "PREPROCESSED"
@@ -666,21 +512,21 @@ class TestEvents:
         j3.state = "RUNNING"
         j3.save()
         j3.state = "RUN_DONE"
-        j3.state_message = "OK: done!"
+        j3.state_data = {"message": "OK: done!"}
         j3.save()
         return before_creation
 
     def test_filter_by_job(self, client):
         self.setup_scenario()
-        pk = Job.objects.get(workdir="foo/2").pk
-        qs = EventLog.objects.filter(job_id=pk)
+        id = Job.objects.get(workdir__contains="foo/2").id
+        qs = EventLog.objects.filter(job_id=id)
         states = [event.to_state for event in qs]
-        assert states == ["RUN_ERROR", "RUNNING", "PREPROCESSED", "STAGED_IN", "READY"]
+        assert states == ["RUN_ERROR", "RUNNING", "PREPROCESSED", "STAGED_IN"]
 
     def test_filter_by_to_state(self, client):
         self.setup_scenario()
         assert EventLog.objects.filter(to_state="RUN_ERROR").count() == 1
-        assert EventLog.objects.filter(to_state="READY").count() == 3
+        assert EventLog.objects.filter(to_state="STAGED_IN").count() == 3
 
     def test_filter_by_from_state(self, client):
         self.setup_scenario()
@@ -694,33 +540,28 @@ class TestEvents:
 
     def test_filter_by_message(self, client):
         self.setup_scenario()
-        qs = EventLog.objects.filter(message__contains="done!")
+        qs = EventLog.objects.filter(data="message:OK: done!")
         assert qs.count() == 1
         assert qs[0].to_state == "RUN_DONE"
 
     def test_filter_by_timestamp_range(self, client):
         self.setup_scenario()
-        t = utc_datetime() + timedelta(seconds=30)
+        t = datetime.utcnow() + timedelta(seconds=30)
         assert EventLog.objects.filter(timestamp_after=t).count() == 1
-        assert EventLog.objects.filter(timestamp_before=t).count() == 12
 
     def test_cannot_create_or_update(self, client):
-        with pytest.raises(HTTPError) as e:
+        with pytest.raises(ValueError) as e:
             EventLog.objects.create(
-                job_id=1,
-                from_state="RUNNING",
-                to_state="RUN_DONE",
-                timestamp=utc_datetime(),
-                message="",
+                job_id=1, from_state="RUNNING", to_state="RUN_DONE",
             )
-        assert '"POST" not allowed' in str(e)
+        assert "EventLog is read only" in str(e)
 
 
 class TestBatchJobs:
     def test_create(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         bjob = BatchJob.objects.create(
-            site=site,
+            site_id=site.id,
             project="datascience",
             queue="default",
             num_nodes=128,
@@ -728,14 +569,14 @@ class TestBatchJobs:
             job_mode="mpi",
             filter_tags={"system": "H2O", "calc_type": "energy"},
         )
-        assert bjob.state == BatchState.pending_submission
-        assert bjob.pk is not None
+        assert bjob.state == "pending_submission"
+        assert bjob.id is not None
 
     def test_bulk_update(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         for i in range(3):
             BatchJob.objects.create(
-                site=site,
+                site_id=site.id,
                 project="datascience",
                 queue="default",
                 num_nodes=128,
@@ -746,65 +587,20 @@ class TestBatchJobs:
 
         assert BatchJob.objects.count() == 3
 
-        bjobs = BatchJob.objects.filter(site=site.pk)
+        bjobs = BatchJob.objects.filter(site=site.id)
         for job, sched_id in zip(bjobs, [123, 124, 125]):
-            job.state = BatchState.queued
+            job.state = "queued"
             job.scheduler_id = sched_id
-        BatchJob.objects.bulk_update(bjobs, ["state", "scheduler_id"])
+        BatchJob.objects.bulk_update(bjobs)
 
-        after_update = list(BatchJob.objects.filter(site=site.pk))
+        after_update = list(BatchJob.objects.filter(site=site.id))
         assert after_update == list(bjobs)
-
-    def test_bulk_update_with_revert(self, client):
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        for i in range(3):
-            BatchJob.objects.create(
-                site=site,
-                project="datascience",
-                queue="default",
-                num_nodes=128,
-                wall_time_min=30,
-                job_mode="mpi",
-                filter_tags={"system": "H2O", "calc_type": "energy"},
-            )
-
-        # Jobs are queued
-        updated = BatchJob.objects.all().update(state=BatchState.queued)
-        assert all(job.state == BatchState.queued for job in updated)
-
-        # Client updates wall_time
-        BatchJob.objects.all().update(wall_time_min=45)
-
-        # The job had already started running
-        jobs = BatchJob.objects.filter(site=site.pk)
-        for job in jobs:
-            job.state = BatchState.running
-
-        BatchJob.objects.bulk_update(jobs, ["state"])
-
-        # Revert wall time
-        jobs = BatchJob.objects.filter(site=site.pk)
-        for job in jobs:
-            assert job.wall_time_min == 45
-            job.wall_time_min = 30
-
-        # Without revert, update fails:
-        with pytest.raises(HTTPError):
-            BatchJob.objects.bulk_update(jobs, ["wall_time_min"])
-
-        for job in jobs:
-            assert job.wall_time_min == 30
-            job.revert = True
-        BatchJob.objects.bulk_update(jobs, ["wall_time_min", "revert"])
-
-        # Update worked:
-        assert all(job.wall_time_min == 30 for job in BatchJob.objects.all())
 
     def test_delete(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         for i in range(3):
             BatchJob.objects.create(
-                site=site,
+                site_id=site.id,
                 project="datascience",
                 queue="default",
                 num_nodes=128,
@@ -815,18 +611,17 @@ class TestBatchJobs:
         assert BatchJob.objects.count() == 3
 
         with pytest.raises(NotImplementedError):
-            BatchJob.objects.filter(site=site.pk).delete()
+            BatchJob.objects.filter(site=site.id).delete()
 
         for job in BatchJob.objects.all():
             job.delete()
-            assert job.pk is None
         assert BatchJob.objects.count() == 0
 
     def test_filter_by_tags(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         for system in ["H2O", "D2O", "NH3", "CH2O"]:
             BatchJob.objects.create(
-                site=site,
+                site_id=site.id,
                 project="datascience",
                 queue="default",
                 num_nodes=128,
@@ -835,163 +630,104 @@ class TestBatchJobs:
                 filter_tags={"system": system, "calc_type": "energy"},
             )
 
-        assert BatchJob.objects.filter(filter_tags__system="NH3").count() == 1
-
-    def test_get_by_scheduler_id(self, client):
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        job = BatchJob.objects.create(
-            site=site,
-            project="datascience",
-            queue="default",
-            num_nodes=128,
-            wall_time_min=30,
-            job_mode="mpi",
-            filter_tags={"system": "H2O", "calc_type": "energy"},
-        )
-        job.scheduler_id = 1234
-        job.state = "queued"
-        job.save()
-        job = BatchJob.objects.get(scheduler_id=1234)
-        assert job.num_nodes == 128
+        assert BatchJob.objects.filter(filter_tags="system:NH3").count() == 1
 
     def test_fetch_associated_jobs(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
+        app = App.objects.create(site_id=site.id, class_path="app.one")
 
         batch_job = BatchJob.objects.create(
-            site=site,
+            site_id=site.id,
             project="datascience",
             queue="default",
             num_nodes=128,
             wall_time_min=30,
             job_mode="mpi",
-            filter_tags={"system": "H2O", "calc_type": "energy"},
         )
         batch_job.scheduler_id = 1234
         batch_job.state = "running"
         batch_job.save()
 
         for i in range(3):
-            job = Job.objects.create(f"test/{i}", app, {"geometry": "a.xyz"})
-            assert job.batch_job is None
+            job = Job.objects.create(workdir=f"test/{i}", app_id=app.id)
+            job.state = "PREPROCESSED"
+            job.save()
+            assert job.batch_job_id is None
 
-        sess = Session.objects.create(site=site, batch_job=batch_job)
+        sess = Session.objects.create(
+            batch_job_id=batch_job.id, site_id=batch_job.site_id
+        )
         acquired = sess.acquire_jobs(
-            acquire_unbound=False, states=["STAGED_IN"], max_num_acquire=10
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8, filter_tags={},
         )
         assert len(acquired) == 3
 
-        related = sorted(list(batch_job.jobs()), key=lambda job: job.pk)
-        acquired = sorted(list(acquired), key=lambda job: job.pk)
-        assert len(related) == 3
-        assert related == acquired
+        related = Job.objects.filter(batch_job_id=batch_job.id)
+        assert sorted(related, key=lambda job: job.id) == sorted(
+            acquired, key=lambda job: job.id
+        )
 
 
 class TestSessions:
     def create_site_app(self):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        backend = AppBackend(site=site, class_name="nwchem.GeomOpt")
-        app = App.objects.create(
-            name="nw-opt", backends=[backend], parameters=["geometry"]
-        )
+        app = App.objects.create(site_id=site.id, class_path="app.one")
         return site, app
 
-    def job(self, name, app, args={"geometry": "test.xyz"}, **kwargs):
-        return Job(f"test/{name}", app, args, **kwargs)
+    def job(self, name, app, args={}, **kwargs):
+        return Job(f"test/{name}", app.id, parameters=args, **kwargs)
 
-    def create_jobs(self, app, num_jobs=3):
+    def create_jobs(self, app, num_jobs=3, state="PREPROCESSED"):
         jobs = [self.job(i, app) for i in range(num_jobs)]
-        return Job.objects.bulk_create(jobs)
-
-    def test_create(self, client):
-        before_create = utc_datetime()
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        sess = Session.objects.create(site=site)
-        assert sess.heartbeat > before_create
-
-    def test_acquire(self, client):
-        site, app = self.create_site_app()
-        jobs = self.create_jobs(app, num_jobs=3)
+        jobs = Job.objects.bulk_create(jobs)
         for job in jobs:
-            assert job.lock_status == "Unlocked"
+            job.state = state
+        Job.objects.bulk_update(jobs)
 
-        sess = Session.objects.create(site=site)
-        acquired = sess.acquire_jobs(
-            acquire_unbound=False, states=["STAGED_IN"], max_num_acquire=10
-        )
-        assert len(acquired) == 3
-        for job in acquired:
-            assert job.lock_status == "Preprocessing"
-
-    def test_acquire_with_batch_job(self, client):
-        site, app = self.create_site_app()
-        jobs = self.create_jobs(app, num_jobs=3)
-        for job in jobs:
-            job.state = "PREPROCESSED"
-        Job.objects.bulk_update(jobs, ["state"])
-        for job in jobs:
-            assert job.batch_job is None
-
-        bjob = BatchJob.objects.create(
-            site=site,
+    def create_sess(self, site):
+        batch_job = BatchJob.objects.create(
+            site_id=site.id,
             project="datascience",
             queue="default",
             num_nodes=128,
             wall_time_min=30,
             job_mode="mpi",
-            filter_tags={"system": "H2O", "calc_type": "energy"},
         )
+        sess = Session.objects.create(batch_job_id=batch_job.id, site_id=site.id)
+        return sess
 
-        sess = Session.objects.create(site=site, batch_job=bjob)
+    def test_create(self, client):
+        before_create = datetime.utcnow()
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        sess = self.create_sess(site)
+        assert sess.heartbeat > before_create
+
+    def test_acquire(self, client):
+        site, app = self.create_site_app()
+        self.create_jobs(app, num_jobs=3)
+        sess = self.create_sess(site)
+
         acquired = sess.acquire_jobs(
-            acquire_unbound=False, states=["PREPROCESSED"], max_num_acquire=10
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8, filter_tags={},
         )
         assert len(acquired) == 3
         for job in acquired:
-            assert job.lock_status == "Acquired by launcher"
-            assert job.batch_job == bjob.pk
+            assert job.batch_job_id > 0
 
-        for job in jobs:
-            job.refresh_from_db()
-
-        assert list(sorted(jobs, key=lambda x: x.pk)) == list(
-            sorted(acquired, key=lambda x: x.pk)
-        )
-
-    def test_acquire_with_node_resources(self, client):
+    def test_acquire_for_preprocessing(self, client):
         site, app = self.create_site_app()
-        job_reqs = [
-            dict(wall_time_min=31, threads_per_rank=4, node_packing_count=4),
-            dict(wall_time_min=40, threads_per_rank=1, node_packing_count=4),
-            dict(wall_time_min=32, threads_per_rank=4, node_packing_count=4),
-            dict(wall_time_min=33, threads_per_rank=4, node_packing_count=4),
-        ]
-        jobs = [self.job(i, app, **req) for i, req in enumerate(job_reqs)]
-        jobs = Job.objects.bulk_create(jobs)
-        Job.objects.all().update(state="PREPROCESSED", state_message="foo")
+        self.create_jobs(app, num_jobs=10, state="STAGED_IN")
+        sess = Session.objects.create(site_id=site.id)
+        assert sess.batch_job_id is None
 
-        sess = Session.objects.create(site=site)
-        available_resources = NodeResources(
-            max_jobs_per_node=8,
-            max_wall_time_min=35,
-            running_job_counts=[2, 0],
-            node_occupancies=[0.6, 0.0],
-            idle_cores=[3, 8],
-            idle_gpus=[0, 0],
-        )
         acquired = sess.acquire_jobs(
-            acquire_unbound=False,
-            states=["PREPROCESSED", "RESTART_READY"],
-            max_num_acquire=16,
-            node_resources=available_resources,
-            order_by=("-wall_time_min",),
+            max_wall_time_min=3600,
+            max_nodes_per_job=4096,
+            max_num_jobs=100,
+            states=["STAGED_IN", "RUN_DONE", "RUN_ERROR", "RUN_TIMEOUT"],
         )
-        assert len(acquired) == 2
-        wall_times = [j.wall_time_min for j in acquired]
-        assert wall_times == [33, 32]
+        assert len(acquired) == 10
+        assert all(j.state == "STAGED_IN" for j in acquired)
 
     def test_acquire_with_filter_tags(self, client):
         site, app = self.create_site_app()
@@ -1004,12 +740,13 @@ class TestSessions:
         ]
         jobs = [self.job(i, app, tags=tags) for i, tags in enumerate(job_tags)]
         jobs = Job.objects.bulk_create(jobs)
+        Job.objects.all().update(state="PREPROCESSED")
 
-        sess = Session.objects.create(site=site)
+        sess = self.create_sess(site)
         acquired = sess.acquire_jobs(
-            acquire_unbound=False,
-            states=["STAGED_IN"],
-            max_num_acquire=10,
+            max_wall_time_min=60,
+            max_nodes_per_job=8,
+            max_num_jobs=8,
             filter_tags={"system": "H2O", "type": "energy"},
         )
         assert len(acquired) == 1
@@ -1017,29 +754,28 @@ class TestSessions:
 
     def test_tick(self, client):
         site = Site.objects.create(hostname="theta", path="/projects/foo")
-        sess = Session.objects.create(site=site)
+        sess = self.create_sess(site)
         creation_time = sess.heartbeat
-        sess.save()
+        sess.tick()
+        sess.refresh_from_db()
         assert sess.heartbeat > creation_time
 
     def test_delete(self, client):
         site, app = self.create_site_app()
-        jobs = self.create_jobs(app, num_jobs=3)
-        for job in jobs:
-            assert job.lock_status == "Unlocked"
+        self.create_jobs(app, num_jobs=3)
 
-        sess = Session.objects.create(site=site)
+        sess = self.create_sess(site)
         acquired = sess.acquire_jobs(
-            acquire_unbound=False, states=["STAGED_IN"], max_num_acquire=10
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
         )
         assert len(acquired) == 3
-        for job in acquired:
-            assert job.lock_status == "Preprocessing"
-
-        assert sess.pk is not None
+        assert sess.id is not None
         sess.delete()
-        assert sess.pk is None
 
-        for job in acquired:
-            job.refresh_from_db()
-            assert job.lock_status == "Unlocked"
+        # After deleting session, the jobs can be re-acquired:
+        assert Session.objects.all().count() == 0
+        sess2 = self.create_sess(site)
+        acquired = sess2.acquire_jobs(
+            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
+        )
+        assert len(acquired) == 3

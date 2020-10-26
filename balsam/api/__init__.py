@@ -1,21 +1,21 @@
 from .models import (
-    TransferItem,
+    Transfer,
     Job,
     Site,
     App,
-    AppBackend,
     BatchJob,
     Session,
     EventLog,
 )
+from .manager_base import Manager
 
 __all__ = [
-    "TransferItem",
+    "Transfer",
     "Job",
     "Site",
-    "AppBackend",
     "App",
     "BatchJob",
     "Session",
     "EventLog",
+    "Manager",
 ]

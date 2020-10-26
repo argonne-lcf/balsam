@@ -7,6 +7,7 @@ from balsam.cmdline import (
     activate,
     site,
     app,
+    local_deploy,
 )
 
 # Monkey-patch make_default_short_help: cut off after first line
@@ -37,10 +38,12 @@ def main():
 
 LOAD_COMMANDS = [
     login.login,
+    login.register,
     activate.activate,
     db.db,
     site.site,
     app.app,
+    local_deploy.server,
 ]
 
 for cmd in LOAD_COMMANDS:

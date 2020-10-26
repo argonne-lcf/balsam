@@ -1,4 +1,4 @@
-from urllib.parse import urlencode
+from fastapi.encoders import jsonable_encoder
 
 
 class AuthError(Exception):
@@ -6,33 +6,6 @@ class AuthError(Exception):
 
 
 class RESTClient:
-    def __init__(self, api_root):
-        self.api_root = api_root.rstrip("/")
-        self.users = Resource(self, "users/")
-        self.sites = Resource(self, "sites/")
-        self.apps = AppResource(self, "apps/")
-        self.batch_jobs = BatchJobResource(self, "batchjobs/")
-        self.jobs = JobResource(self, "jobs/")
-        self.events = Resource(self, "events/")
-        self.sessions = SessionResource(self, "sessions/")
-
-    def build_url(self, url, **query_params):
-        result = self.api_root + "/" + url.lstrip("/")
-        if query_params:
-            query_seq = []
-            for k, v in query_params.items():
-                if isinstance(v, (list, tuple)):
-                    if k.endswith("__in"):
-                        # __in queries are parsed as a CSV (?name__in=foo,bar)
-                        query_seq.append((k, ",".join(item for item in v)))
-                    else:
-                        # all other multiple-choice values are AND'ed together in the query:
-                        query_seq.extend((k, item) for item in v)
-                else:
-                    query_seq.append((k, v))
-            result += "?" + urlencode(query_seq)
-        return result
-
     def interactive_login(self):
         """Initiate interactive login flow"""
         raise NotImplementedError
@@ -44,94 +17,44 @@ class RESTClient:
         """
         raise NotImplementedError
 
-    def request(self, absolute_url, http_method, payload=None):
+    def request(
+        self, url, http_method, params=None, json=None, data=None, authenticating=False
+    ):
         """
         Supports timeout retry, auto re-authentication, accepting DUPLICATE status
         Raises helfpul errors on 4**, 5**, TimeoutErrors, AuthErrors
         """
         raise NotImplementedError
 
-    def extract_data(self, response):
-        """Returns dict or list of Python primitive datatypes"""
-        raise NotImplementedError
+    def get(self, url, **kwargs):
+        """GET kwargs become URL query parameters (e.g. /?site=3)"""
+        return self.request(url, "GET", params=kwargs)
 
+    def post_form(self, url, **kwargs):
+        return self.request(url, "POST", data=kwargs)
 
-class Resource:
-    def __init__(self, client, path):
-        self.client = client
-        self.collection_path = path
+    def post(self, url, authenticating=False, **kwargs):
+        return self.request(
+            url, "POST", json=jsonable_encoder(kwargs), authenticating=authenticating
+        )
 
-    def list(self, **query_params):
-        url = self.client.build_url(self.collection_path, **query_params)
-        response = self.client.request(url, "GET")
-        return self.client.extract_data(response)
+    def bulk_post(self, url, list_data):
+        return self.request(url, "POST", json=jsonable_encoder(list_data))
 
-    def detail(self, uri, **query_params):
-        url = self.client.build_url(f"{self.collection_path}{uri}", **query_params)
-        response = self.client.request(url, "GET")
-        return self.client.extract_data(response)
+    def put(self, url, **kwargs):
+        return self.request(url, "PUT", json=jsonable_encoder(kwargs))
 
-    def create(self, **payload):
-        url = self.client.build_url(self.collection_path)
-        response = self.client.request(url, "POST", payload=payload)
-        return self.client.extract_data(response)
+    def bulk_put(self, url, payload, **kwargs):
+        return self.request(url, "PUT", json=jsonable_encoder(payload), params=kwargs)
 
-    def update(self, uri, payload, partial=False, **query_params):
-        url = self.client.build_url(f"{self.collection_path}{uri}", **query_params)
-        method = "PATCH" if partial else "PUT"
-        response = self.client.request(url, method, payload=payload)
-        return self.client.extract_data(response)
+    def patch(self, url, **kwargs):
+        return self.request(url, "PATCH", json=jsonable_encoder(kwargs))
 
-    def bulk_create(self, list_payload):
-        url = self.client.build_url(self.collection_path)
-        response = self.client.request(url, "POST", payload=list_payload)
-        return self.client.extract_data(response)
+    def bulk_patch(self, url, list_data):
+        return self.request(url, "PATCH", json=jsonable_encoder(list_data))
 
-    def bulk_update_query(self, patch, **query_params):
-        """Apply the same patch_payload to every item selected by query_params"""
-        url = self.client.build_url(self.collection_path, **query_params)
-        response = self.client.request(url, "PUT", payload=patch)
-        return self.client.extract_data(response)
+    def delete(self, url):
+        return self.request(url, "DELETE")
 
-    def bulk_update_patch(self, patch_list):
-        url = self.client.build_url(self.collection_path)
-        response = self.client.request(url, "PATCH", payload=patch_list)
-        return self.client.extract_data(response)
-
-    def destroy(self, uri, **query_params):
-        url = self.client.build_url(f"{self.collection_path}{uri}", **query_params)
-        self.client.request(url, "DELETE")
-        return
-
-    def bulk_destroy(self, **query_params):
-        url = self.client.build_url(self.collection_path, **query_params)
-        self.client.request(url, "DELETE")
-        return
-
-
-class JobResource(Resource):
-    def history(self, uri):
-        url = self.client.build_url(f"{self.collection_path}{uri}/events")
-        response = self.client.request(url, "GET")
-        return self.client.extract_data(response)
-
-
-class AppResource(Resource):
-    def merge(self, **payload):
-        url = self.client.build_url(f"{self.collection_path}merge")
-        response = self.client.request(url, "POST", payload=payload)
-        return self.client.extract_data(response)
-
-
-class BatchJobResource(Resource):
-    def list_jobs(self, uri, **query_params):
-        url = self.client.build_url(f"{self.collection_path}{uri}/jobs", **query_params)
-        response = self.client.request(url, "GET")
-        return self.client.extract_data(response)
-
-
-class SessionResource(Resource):
-    def acquire_jobs(self, uri, **payload):
-        url = self.client.build_url(f"{self.collection_path}{uri}")
-        response = self.client.request(url, "POST", payload=payload)
-        return self.client.extract_data(response)
+    def bulk_delete(self, url, **kwargs):
+        return self.request(url, "DELETE", params=kwargs)

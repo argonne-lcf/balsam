@@ -1,7 +1,7 @@
 import click
 from pathlib import Path
 import shutil
-from balsam.config import BalsamComponentFactory, ClientSettings
+from balsam.config import SiteConfig, ClientSettings
 from balsam.api import Site
 
 
@@ -26,7 +26,7 @@ def init(site_path, hostname):
     if site_path.exists():
         raise click.BadParameter(f"{site_path} already exists")
 
-    BalsamComponentFactory.new_site_setup(site_path=site_path, hostname=hostname)
+    SiteConfig.new_site_setup(site_path=site_path, hostname=hostname)
 
     click.echo(f"New Balsam site set up at {site_path}")
 
@@ -40,7 +40,7 @@ def mv(src, dest):
 
     balsam site mv /path/to/src /path/to/destination
     """
-    cf = BalsamComponentFactory(src)
+    cf = SiteConfig(src)
 
     if Path(dest).exists():
         raise click.BadParameter(f"{dest} exists")
@@ -48,7 +48,7 @@ def mv(src, dest):
     shutil.move(src, dest)
     ClientSettings.load_from_home().build_client()
 
-    site = Site.objects.get(pk=cf.settings.site_id)
+    site = Site.objects.get(id=cf.settings.site_id)
     site.path = dest
     site.save()
     click.echo(f"Moved site to new path {dest}")
@@ -62,9 +62,9 @@ def rm(path):
 
     balsam site rm /path/to/site
     """
-    cf = BalsamComponentFactory(path)
+    cf = SiteConfig(path)
     ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(pk=cf.settings.site_id)
+    site = Site.objects.get(id=cf.settings.site_id)
 
     if click.confirm(f"Do you really want to destroy {path}?"):
         site.delete()
@@ -79,12 +79,12 @@ def rename(path, name):
     """
     Change the hostname of a balsam site
     """
-    cf = BalsamComponentFactory(path)
+    cf = SiteConfig(path)
     ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(pk=cf.settings.site_id)
+    site = Site.objects.get(id=cf.settings.site_id)
     site.hostname = name
     site.save()
-    click.echo("Renamed site {site.pk} to {site.hostname}")
+    click.echo("Renamed site {site.id} to {site.hostname}")
 
 
 @site.command()
@@ -95,4 +95,4 @@ def ls():
     ClientSettings.load_from_home().build_client()
     qs = Site.objects.all()
     for site in qs:
-        click.echo(f"{site.pk} {site.hostname} {site.path}")
+        click.echo(f"{site.id} {site.hostname} {site.path}")

@@ -5,6 +5,7 @@ __pycache__
 balsam/*/__pycache__*
 
 .*
+!.env.test
 !.gitignore
 !.readthedocs.yml
 !.readthedocs.yaml

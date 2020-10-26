@@ -2,10 +2,10 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-import importlib.util
 import socket
 import shutil
-from typing import Optional
+from typing import Optional, Dict
+from uuid import UUID
 import yaml
 
 from pydantic import (
@@ -16,16 +16,12 @@ from pydantic import (
     ValidationError,
 )
 from typing import List
-from balsam.client import RESTClient
+from balsam.client import RESTClient, NotAuthenticatedError
 from balsam.api import Site
-from balsam.api.managers import (
-    JobManager,
-    SiteManager,
-    AppManager,
-    BatchJobManager,
-    SessionManager,
-    EventLogManager,
-)
+from balsam.api import Manager
+from balsam.schemas import AllowedQueue
+
+from balsam.util import config_logging
 
 
 def balsam_home():
@@ -33,16 +29,11 @@ def balsam_home():
 
 
 class ClientSettings(BaseSettings):
-    client_class: PyObject
-    host: str
-    port: int
+    api_root: str
     username: str
-    password: str
-    scheme: str
+    client_class: PyObject = "balsam.client.BasicAuthRequestsClient"
     token: Optional[str] = None
     token_expiry: Optional[datetime] = None
-    database: str = "balsam"
-    api_root: str = "/api"
     connect_timeout: float = 3.1
     read_timeout: float = 5.0
     retry_count: int = 3
@@ -53,36 +44,20 @@ class ClientSettings(BaseSettings):
             raise TypeError(f"client_class must subclass balsam.client.RESTClient")
         return v
 
-    @classmethod
-    def from_url(cls, url):
-        if url.scheme == "postgres":
-            return cls(
-                client_class="balsam.client.DirectAPIClient",
-                host=url.host,
-                port=url.port,
-                username=url.user,
-                password=url.password,
-                scheme=url.scheme,
-            )
-        else:
-            return cls(
-                client_class="balsam.client.BasicAuthRequestsClient",
-                host=url.host,
-                port=url.port,
-                username=url.user,
-                password=url.password,
-                api_root=url.path or "/api",
-                scheme=url.scheme,
-            )
-
     @staticmethod
     def settings_path():
         return balsam_home().joinpath("client.yml")
 
     @classmethod
     def load_from_home(cls):
-        with open(cls.settings_path()) as fp:
-            data = yaml.safe_load(fp)
+        try:
+            with open(cls.settings_path()) as fp:
+                data = yaml.safe_load(fp)
+        except FileNotFoundError:
+            raise NotAuthenticatedError(
+                f"Client credentials {cls.settings_path()} do not exist. "
+                f"Please authenticate with `balsam login`."
+            )
         return cls(**data)
 
     def save_to_home(self):
@@ -91,6 +66,8 @@ class ClientSettings(BaseSettings):
         data["client_class"] = cls.__module__ + "." + cls.__name__
 
         settings_path = self.settings_path()
+        if not settings_path.parent.is_dir():
+            settings_path.parent.mkdir()
         if settings_path.exists():
             os.chmod(settings_path, 0o600)
         else:
@@ -100,19 +77,48 @@ class ClientSettings(BaseSettings):
             yaml.dump(data, fp)
 
     def build_client(self):
-        client = self.client_class(**self.dict())
-        SiteManager(client.sites)
-        AppManager(client.apps)
-        JobManager(client.jobs)
-        BatchJobManager(client.batch_jobs)
-        SessionManager(client.sessions)
-        EventLogManager(client.events)
+        client = self.client_class(**self.dict(exclude={"client_class"}))
+        Manager.set_client(client)
         return client
+
+
+class LoggingConfig(BaseSettings):
+    level: str = "DEBUG"
+    format: str = "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
+    datefmt: str = "%d-%b-%Y %H:%M:%S"
+    buffer_num_records: int = 1024
+    flush_period: int = 30
+
+
+class SchedulerSettings(BaseSettings):
+    scheduler_class: PyObject
+    sync_period: int
+    allowed_queues: Dict[str, AllowedQueue]
+    allowed_projects: List[str] = []
+    optional_batch_job_params = Dict[str, str]
+    job_template_path: Path
+
+
+class ProcessingSettings(BaseSettings):
+    prefetch_depth: int
+    filter_tags: Dict[str, str]
+    num_workers: Dict[str, str]
+
+
+class TransferInterfaceSettings(BaseSettings):
+    trusted_locations: Dict[str, AnyUrl] = {}
+    max_concurrent_transfers: int
+    globus_endpoint_id: UUID
 
 
 class Settings(BaseSettings):
     site_id: int
-    trusted_data_sources: List[AnyUrl] = []
+    scheduler: SchedulerSettings
+    processing: ProcessingSettings
+    mpi_launcher: PyObject
+    resource_manager: PyObject
+    transfers: Optional[TransferInterfaceSettings]
+    logging: LoggingConfig = LoggingConfig()
 
     def save(self, path):
         with open(path, "w") as fp:
@@ -125,31 +131,15 @@ class Settings(BaseSettings):
         return cls(**raw_data)
 
 
-class BalsamComponentFactory:
+class SiteConfig:
     """
-    This class plays the role of Dependency Injector
-        https://en.wikipedia.org/wiki/Dependency_injection
-    Uses validated settings to build components and provide dependencies:
-        - Client
-        - Client <-- API (build Client first; provide Client to API)
-        - Scheduler Interface
-        - MPIRun Interface
-        - NodeTracker Interface
-        - JobTemplate (setting chooses template file)
-        - Service modules:
-            - Queue Submitter <-- SchedulerInterface
-            - App Watchdog
-            - Acquisition & Stage-in module
-            - Transitions Module
-    NO Component should refer to external settings or set its own dependencies
+    Uses above settings to build components and provide dependencies
+    No component should refer to external settings or set its own dependencies
     Instead, this class builds and injects needed settings/dependencies at runtime
     """
 
     def __init__(self, site_path=None, settings=None):
-        """
-        Load Settings from BALSAM_SITE_PATH/settings.py or settings.yml
-        """
-        self.site_path = self.resolve_site_path(site_path, raise_exc=True)
+        self.site_path: Path = self.resolve_site_path(site_path)
 
         if settings is not None:
             if not isinstance(settings, Settings):
@@ -160,19 +150,34 @@ class BalsamComponentFactory:
             self.settings = settings
             return
 
-        py_settings = self.site_path.joinpath("settings.py")
-        py_settings = py_settings if py_settings.is_file() else None
         yaml_settings = self.site_path.joinpath("settings.yml")
-        yaml_settings = yaml_settings if yaml_settings.is_file() else None
 
-        if not (py_settings or yaml_settings):
-            raise FileNotFoundError(
-                f"{site_path} must contain a settings.py or settings.yml"
-            )
-        elif py_settings:
-            self.settings = self._load_py_settings(py_settings)
-        else:
-            self.settings = self._load_yaml_settings(yaml_settings)
+        if not yaml_settings.is_file():
+            raise FileNotFoundError(f"{site_path} must contain a settings.yml")
+        self.settings = self._load_yaml_settings(yaml_settings)
+
+    def build_services(self):
+        from balsam.site.service import SchedulerService, ProcessingService
+
+        services = []
+        client = ClientSettings.load_from_home().build_client()
+
+        scheduler_service = SchedulerService(
+            client=client,
+            site_id=self.settings.site_id,
+            submit_directory=self.job_path,
+            **self.settings.scheduler.dict(),
+        )
+        services.append(scheduler_service)
+
+        processing_service = ProcessingService(
+            client=client,
+            site_id=self.site_id,
+            apps_path=self.apps_path,
+            **self.settings.processing.dict(),
+        )
+        services.append(processing_service)
+        return services
 
     @classmethod
     def new_site_setup(cls, site_path, hostname=None):
@@ -183,6 +188,7 @@ class BalsamComponentFactory:
         """
         site_path = Path(site_path)
         site_path.mkdir(exist_ok=True, parents=True)
+        site_path.joinpath(".balsam-site").touch()
 
         here = Path(__file__).parent
         with open(here.joinpath("default-site.yml")) as fp:
@@ -193,14 +199,13 @@ class BalsamComponentFactory:
             default_site_path.joinpath("settings.yml"), validate=False
         )
 
-        client = ClientSettings.load_from_home().build_client()
-        SiteManager(client.sites)
+        ClientSettings.load_from_home().build_client()
 
         site = Site.objects.create(
             hostname=socket.gethostname() if hostname is None else hostname,
             path=site_path,
         )
-        settings.site_id = site.pk
+        settings.site_id = site.id
         settings.save(path=site_path.joinpath("settings.yml"))
         cf = cls(site_path=site_path, settings=settings)
         for path in [cf.log_path, cf.job_path, cf.data_path]:
@@ -212,29 +217,31 @@ class BalsamComponentFactory:
         shutil.copy(
             src=default_site_path.joinpath("job-template.sh"), dst=cf.site_path,
         )
-        cf.site_path.joinpath(".balsam-site").touch()
 
     @staticmethod
-    def resolve_site_path(site_path=None, raise_exc=False):
+    def resolve_site_path(site_path=None) -> Path:
         # Site determined from either passed argument, environ,
         # or walking up parent directories, in that order
         site_path = (
             site_path
             or os.environ.get("BALSAM_SITE_PATH")
-            or BalsamComponentFactory.search_site_dir()
+            or SiteConfig.search_site_dir()
         )
         if site_path is None:
-            if raise_exc:
-                raise ValueError(
-                    "Initialize BalsamComponentFactory with a `site_path` or set env BALSAM_SITE_PATH "
-                    "to a Balsam site directory containing a settings.py file."
-                )
-            return None
+            raise ValueError(
+                "Initialize SiteConfig with a `site_path` or set env BALSAM_SITE_PATH "
+                "to a Balsam site directory containing a settings.py file."
+            )
 
         site_path = Path(site_path).resolve()
         if not site_path.is_dir():
             raise FileNotFoundError(
                 f"BALSAM_SITE_PATH {site_path} must point to an existing Balsam site directory"
+            )
+        if not site_path.joinpath(".balsam-site").is_file():
+            raise FileNotFoundError(
+                f"BALSAM_SITE_PATH {site_path} is not a valid Balsam site directory "
+                f"(does not contain a .balsam-site file)"
             )
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
         return site_path
@@ -266,31 +273,14 @@ class BalsamComponentFactory:
     def data_path(self):
         return self.site_path.joinpath("data")
 
-    @staticmethod
-    def _load_py_settings(file_path):
-        strpath = str(file_path)
-        spec = importlib.util.spec_from_file_location(strpath, strpath)
-        module = importlib.util.module_from_spec(spec)
-
-        try:
-            spec.loader.exec_module(module)
-        except ValidationError as exc:
-            print(f"Please fix the issues in settings file: {file_path}")
-            print(exc, file=sys.stderr)
-            sys.exit(1)
-
-        settings = getattr(module, "BALSAM_SETTINGS", None)
-        if settings is None:
-            raise AttributeError(
-                f"Your settings module {file_path} is missing a BALSAM_SETTINGS object."
-                f" Be sure to create an instance of balsam.config.Settings in this file, with the "
-                "exact name BALSAM_SETTINGS."
-            )
-        if not isinstance(settings, Settings):
-            raise TypeError(
-                f"The BALSAM_SETTINGS object in {file_path} must be an instance of balsam.site.Settings"
-            )
-        return settings
+    def enable_logging(self, basename, filename=None):
+        if filename is None:
+            ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            filename = f"{basename}_{ts}.log"
+        log_path = self.log_path.joinpath(filename)
+        config_logging(
+            filename=log_path, **self.settings.logging.dict(),
+        )
 
     @staticmethod
     def _load_yaml_settings(file_path, validate=True):

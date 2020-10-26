@@ -1,77 +1,118 @@
-import atexit
-import json
-import logging
-import os
-
-from django.template import Template, Context
-from django.conf import settings
-from django.db import connection, reset_queries
+from fastapi import status
+from fastapi.encoders import jsonable_encoder
 
 
-class QueryLogger:
-    def __init__(self):
-        logger = logging.getLogger("django.db.backends")
-        logger.addHandler(logging.StreamHandler())
-        self.logger = logger
+class BalsamTestClient:
+    def __init__(self, client):
+        self._client = client
 
-    def __enter__(self):
-        if os.environ.get("LOG_SQL"):
-            self.logger.setLevel(logging.DEBUG)
-            settings.DEBUG = True
+    @property
+    def headers(self):
+        return self._client.headers
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.logger.setLevel(logging.INFO)
-        settings.DEBUG = False
+    def check_stat(self, expect_code, response):
+        if expect_code is None:
+            return
+        if isinstance(expect_code, (list, tuple)):
+            assert response.status_code in expect_code, response.text
+        else:
+            assert response.status_code == expect_code, response.text
+
+    def get(self, url, check=status.HTTP_200_OK, **kwargs):
+        """GET kwargs become URL query parameters (e.g. /?site=3)"""
+        response = self._client.get(url, params=kwargs)
+        self.check_stat(check, response)
+        return response.json()
+
+    def post_form(self, url, check=status.HTTP_201_CREATED, **kwargs):
+        response = self._client.post(url, data=kwargs)
+        self.check_stat(check, response)
+        return response.json()
+
+    def post(self, url, check=status.HTTP_201_CREATED, **kwargs):
+        response = self._client.post(url, json=jsonable_encoder(kwargs))
+        self.check_stat(check, response)
+        return response.json()
+
+    def bulk_post(self, url, list_data, check=status.HTTP_201_CREATED):
+        response = self._client.post(url, json=jsonable_encoder(list_data))
+        self.check_stat(check, response)
+        return response.json()
+
+    def put(self, url, check=status.HTTP_200_OK, **kwargs):
+        response = self._client.put(url, json=jsonable_encoder(kwargs))
+        self.check_stat(check, response)
+        return response.json()
+
+    def bulk_put(self, url, payload, check=status.HTTP_200_OK, **kwargs):
+        response = self._client.put(url, json=payload, params=kwargs)
+        self.check_stat(check, response)
+        return response.json()
+
+    def patch(self, url, check=status.HTTP_200_OK, **kwargs):
+        response = self._client.patch(url, json=jsonable_encoder(kwargs))
+        self.check_stat(check, response)
+        return response.json()
+
+    def bulk_patch(self, url, list_data, check=status.HTTP_200_OK):
+        response = self._client.patch(url, json=jsonable_encoder(list_data))
+        self.check_stat(check, response)
+        return response.json()
+
+    def delete(self, url, check=status.HTTP_204_NO_CONTENT):
+        response = self._client.delete(url)
+        self.check_stat(check, response)
+        return response.json()
+
+    def bulk_delete(self, url, check=status.HTTP_204_NO_CONTENT, **kwargs):
+        response = self._client.delete(url, params=kwargs)
+        self.check_stat(check, response)
+        return response.json()
 
 
-class QueryProfiler:
-    is_enabled = os.environ.get("QUERY_REPORT", False)
-    atexit_registered = False
-    template = Template(
-        """{{title}}: {{count}} quer{{count|pluralize:\"y,ies\"}} in {{time}} seconds:
-        {% for sql in sqllog %}[{{forloop.counter}}] {{sql.time}}s: {{sql.sql|safe}}{% if not forloop.last %}
-        {% endif %}{% endfor %}"""
+def create_site(
+    client,
+    hostname="baz",
+    path="/foo",
+    transfer_locations={},
+    check=status.HTTP_201_CREATED,
+):
+    return client.post(
+        "/sites/",
+        hostname=hostname,
+        path=path,
+        transfer_locations=transfer_locations,
+        check=check,
     )
-    reports = []
-
-    def __init__(self, title):
-        self.title = title
-        if not QueryProfiler.atexit_registered:
-            atexit.register(QueryProfiler.print_reports)
-            QueryProfiler.atexit_registered = True
-
-    def __enter__(self):
-        if self.is_enabled:
-            settings.DEBUG = True
-            reset_queries()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.is_enabled:
-            self.add_report()
-            reset_queries()
-            settings.DEBUG = False
-
-    def add_report(self):
-        elapsed = sum([float(q["time"]) for q in connection.queries])
-        report = self.template.render(
-            Context(
-                {
-                    "title": self.title,
-                    "sqllog": connection.queries,
-                    "count": len(connection.queries),
-                    "time": elapsed,
-                }
-            )
-        )
-        self.reports.append(report)
-
-    @classmethod
-    def print_reports(cls):
-        if cls.is_enabled:
-            print("\n  SUMMARY OF SQL QUERIES\n" + "*" * 24)
-            for report in cls.reports:
-                print(report)
 
 
-def pretty_data(data):
-    return "\n" + json.dumps(data, indent=2)
+def create_app(
+    client,
+    site_id,
+    class_path="demo.SayHello",
+    check=status.HTTP_201_CREATED,
+    parameters=None,
+    transfers=None,
+):
+    if parameters is None:
+        parameters = {
+            "name": {"required": True},
+            "N": {"required": False, "default": 1},
+        }
+    if transfers is None:
+        transfers = {
+            "hello-input": {
+                "required": False,
+                "direction": "in",
+                "local_path": "hello.yml",
+                "description": "Input file for SayHello",
+            }
+        }
+    return client.post(
+        "/apps/",
+        site_id=site_id,
+        class_path=class_path,
+        parameters=parameters,
+        transfers=transfers,
+        check=check,
+    )

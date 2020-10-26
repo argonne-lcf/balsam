@@ -69,6 +69,16 @@ def load_pwfile(db_path, filename=SERVER_INFO_FILENAME):
     return pw_dict
 
 
+def load_dsn(db_path, filename=SERVER_INFO_FILENAME):
+    pw_dict = load_pwfile(db_path, filename)
+    user = pw_dict["username"]
+    pwd = pw_dict["password"]
+    host = pw_dict["host"]
+    port = pw_dict["port"]
+    db = pw_dict["database"]
+    return f"postgresql://{user}:{pwd}@{host}:{port}/{db}"
+
+
 def create_new_db(db_path="balsamdb", database="balsam"):
     """
     Create & start a new PostgresDB cluster inside `db_path`
@@ -132,6 +142,17 @@ def run_django_migrations():
 
     isatty = sys.stdout.isatty()
     call_command("migrate", interactive=isatty, verbosity=2)
+
+
+def run_alembic_migrations(migrations_path, dsn):
+    from alembic.config import Config
+    from alembic import command
+
+    logger.info(f"Running DB migrations in {migrations_path}")
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option("script_location", str(migrations_path))
+    # alembic_cfg.set_main_option("sqlalchemy.url", dsn)
+    command.upgrade(alembic_cfg, "head")
 
 
 # *******************************

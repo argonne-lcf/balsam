@@ -1,43 +1,65 @@
-from balsam import site
-from .util import file_watcher
-import threading
+from pathlib import Path
 import logging
+import signal
+from balsam.config import SiteConfig
+import os
+import socket
+import sys
+import time
 
 logger = logging.getLogger(__name__)
 
-FILE_WATCHER_DELAY = 2
+EXIT_FLAG = False
 
 
-def sandbox_exec_file(path):
-    local_vars, global_vars = {}, {}
-    try:
-        with open(path) as fp:
-            module_contents = fp.read()
-        exec(module_contents, globals=global_vars, locals=local_vars)
-    except Exception:
-        logger.exception(
-            f"An exception occured inside {path}. " "Please fix and re-save the file."
+def handler(signum, stack):
+    global EXIT_FLAG
+    EXIT_FLAG = True
+
+
+def check_and_set_pidfile(site_path):
+    pidfile: Path = site_path.joinpath("balsam-service.pid")
+    if pidfile.exists():
+        sys.stderr.write(
+            f"{pidfile} already exists: will not start Balsam service because it's already running"
         )
-        return {}
+        sys.stderr.write(
+            "To restart, first stop the Balsam service with `balsam service stop`"
+        )
+        sys.exit(1)
     else:
-        return global_vars
-
-
-def app_modified(filepath):
-    global_vars = sandbox_exec_file(filepath)
-    for k, v in global_vars.items():
-        pass
+        with open(pidfile, "w") as fp:
+            fp.write(f"{socket.gethostname()} {os.getpid()}")
 
 
 def main():
-    site.setup()
+    config = SiteConfig()
+    check_and_set_pidfile(config.site_path)
+    config.enable_logging(basename="service")
 
-    app_watcher = threading.Thread(
-        target=file_watcher.watcher,
-        args=(app_modified, site.APPS_PATH, "*.py", FILE_WATCHER_DELAY),
-        daemon=True,
-    )
-    app_watcher.start()
+    services = config.build_services()
+
+    signal.signal(signal.SIGINT, handler)
+    signal.signal(signal.SIGTERM, handler)
+
+    for service in services:
+        logger.info(f"Starting service: {service.__name__}")
+        service.start()
+
+    while not EXIT_FLAG:
+        time.sleep(1)
+
+    logger.info(f"Signal: terminating services")
+
+    for service in services:
+        service.terminate()
+
+    logger.info(f"Waiting for service processes to join")
+
+    for service in services:
+        service.join()
+
+    logger.info(f"Balsam service: exit graceful")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,10 @@ class SchedulerNonZeroReturnCode(Exception):
     pass
 
 
+class SchedulerSubmitError(Exception):
+    pass
+
+
 """ JobStatus contains the status of a pending or running job """
 JobStatus = collections.namedtuple(
     "JobStatus",

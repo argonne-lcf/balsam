@@ -1,8 +1,23 @@
+import logging
 import textwrap
 import sys
-from balsam.site import ApplicationDefinition
 
 __version__ = "0.0.1"
+
+root_logger = logging.getLogger("balsam")
+root_logger.setLevel(logging.DEBUG)
+stderr_handler = logging.StreamHandler()
+formatter = logging.Formatter("%(levelname)s|%(name)s:%(lineno)s] %(message)s")
+stderr_handler.setFormatter(formatter)
+if root_logger.hasHandlers():
+    root_logger.handlers.clear()
+root_logger.addHandler(stderr_handler)
+
+sqa_logger = logging.getLogger("sqlalchemy")
+sqa_logger.setLevel(logging.WARN)
+sqa_logger.handlers.clear()
+sqa_logger.addHandler(stderr_handler)
+logging.getLogger("sqlalchemy.engine").propagate = True
 
 
 def banner(message, color="HEADER"):
@@ -30,4 +45,4 @@ def banner(message, color="HEADER"):
         print(msg)
 
 
-__all__ = ["ApplicationDefinition", "banner"]
+__all__ = ["banner"]
