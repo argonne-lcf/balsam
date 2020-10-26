@@ -44,11 +44,19 @@ def load_module(fpath):
     return module
 
 
+def is_appdef(attr):
+    return (
+        isinstance(attr, type)
+        and issubclass(attr, ApplicationDefinition)
+        and attr.__name__ != "ApplicationDefinition"
+    )
+
+
 def find_app_classes(module):
     app_classes = []
     for obj_name in dir(module):
         attr = getattr(module, obj_name)
-        if issubclass(attr, ApplicationDefinition):
+        if is_appdef(attr):
             app_classes.append(attr)
     return app_classes
 
@@ -180,7 +188,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
 
 
 app_template = '''
-from balsam import ApplicationDefinition
+from balsam.site import ApplicationDefinition
 
 class {{cls_name}}(ApplicationDefinition):
     """

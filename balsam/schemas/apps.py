@@ -11,7 +11,7 @@ class AppParameter(BaseModel):
 
     @validator("default")
     def is_required_or_has_default(cls, default_value, values):
-        if values["required"]:
+        if values.get("required", True):
             if default_value:
                 raise ValueError("cannot be required and have default")
         else:

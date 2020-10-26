@@ -105,7 +105,7 @@ def sync_app(app_class, class_path, mtime, registered_app, site_id):
         click.echo(f"CREATED    {class_path} (app_id={app.id})")
     # App out of date; update it:
     elif registered_app.last_modified is None or registered_app.last_modified < mtime:
-        for k, v in app_class.as_dict():
+        for k, v in app_class.as_dict().items():
             setattr(registered_app, k, v)
         registered_app.last_modified = mtime
         registered_app.save()
@@ -122,7 +122,7 @@ def app_deletion_prompt(app):
     click.echo(f"   --> You either renamed this ApplicationDefinition or deleted it.")
     click.echo(f"   --> There are {job_count} Jobs associated with this App")
     delete = click.confirm(
-        "  --> Do you wish to unregister this App (this will ERASE {job_count} jobs!)"
+        f"  --> Do you wish to unregister this App (this will ERASE {job_count} jobs!)"
     )
     if delete:
         app.delete()
@@ -134,8 +134,7 @@ def app_deletion_prompt(app):
 
 
 @app.command()
-@click.argument("app-class-name")
-def sync(app_class_name):
+def sync():
     """
     Sync local ApplicationDefinitions with Balsam
     """
@@ -151,7 +150,6 @@ def sync(app_class_name):
             registered_app = next(
                 (a for a in registered_apps if a.class_path == class_path), None
             )
-            registered_apps.remove(registered_app)
             sync_app(
                 app_class,
                 class_path,
@@ -159,6 +157,8 @@ def sync(app_class_name):
                 registered_app,
                 cf.settings.site_id,
             )
+            if registered_app is not None:
+                registered_apps.remove(registered_app)
 
     # Remaining registered_apps are no longer in the apps_path
     # They could have been deleted or renamed
@@ -172,5 +172,5 @@ def ls():
     List my Apps
     """
     ClientSettings.load_from_home().build_client()
-    reprs = [yaml.dump(app.dict(), indent=4) for app in App.objects.all()]
+    reprs = [yaml.dump(app.display_dict(), indent=4) for app in App.objects.all()]
     print(*reprs, sep="\n----\n")

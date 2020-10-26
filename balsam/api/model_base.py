@@ -156,6 +156,8 @@ class BalsamModel(metaclass=BalsamModelMeta):
         return yaml.dump(d, indent=4)
 
     def __eq__(self, other):
+        if not isinstance(other, BalsamModel):
+            return False
         return (
             self._state == "clean"
             and other._state == "clean"
