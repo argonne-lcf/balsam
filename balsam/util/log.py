@@ -37,15 +37,14 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
         self.target = target
         self.capacity = capacity
         self.flushOnClose = flushOnClose
-        self._flushing_thread = None
-        self._schedule_flush()
-
-    def _schedule_flush(self):
-        self.flush()
-        self._flushing_thread = threading.Timer(
-            interval=self.flush_period, function=self._schedule_flush,
+        self._flushing_thread = threading.Thread(
+            target=self.periodic_flush, daemon=True,
         )
-        self._flushing_thread.start()
+
+    def periodic_flush(self):
+        while True:
+            time.sleep(self.flush_period)
+            self.flush()
 
     def flush(self):
         super().flush()
@@ -82,6 +81,7 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
         root_logger.handlers.clear()
     root_logger.removeHandler(stderr_handler)
     root_logger.addHandler(mem_handler)
+    print("CALLED CONFIG_LOGGING ONCE", flush=True)
     root_logger.info(f"Logging on {socket.gethostname()}")
     sys.excepthook = log_uncaught_exceptions
 

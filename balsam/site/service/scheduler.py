@@ -36,6 +36,7 @@ class SchedulerService(BalsamService):
         self.job_template = ScriptTemplate(job_template_path)
         self.submit_directory = submit_directory
         self.username = getpass.getuser()
+        logger.info(f"Initialized SchedulerService:\n{self.__dict__}")
 
     def fail_submit(self, job, msg):
         job.state = "submit_failed"

@@ -113,7 +113,6 @@ class SchedulerSettings(BaseSettings):
 class ProcessingSettings(BaseSettings):
     num_workers: int = 5
     prefetch_depth: int = 1000
-    filter_tags: Dict[str, str] = {"workflow": "test-1", "system": "H2O"}
 
 
 class TransferSettings(BaseSettings):
@@ -128,10 +127,13 @@ class Settings(BaseSettings):
     site_id: int = -1
     mpi_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
     resource_manager: PyObject = "balsam.platform.nodespec.DefaultNode"
-    scheduler: SchedulerSettings = SchedulerSettings()
-    processing: ProcessingSettings = ProcessingSettings()
-    transfers: Optional[TransferSettings] = TransferSettings()
     logging: LoggingConfig = LoggingConfig()
+    filter_tags: Dict[str, str] = {"workflow": "test-1", "system": "H2O"}
+
+    # Balsam service modules
+    scheduler: Optional[SchedulerSettings] = SchedulerSettings()
+    processing: Optional[ProcessingSettings] = ProcessingSettings()
+    transfers: Optional[TransferSettings] = TransferSettings()
 
     def save(self, path):
         with open(path, "w") as fp:
@@ -182,21 +184,24 @@ class SiteConfig:
         services = []
         client = ClientSettings.load_from_home().build_client()
 
-        scheduler_service = SchedulerService(
-            client=client,
-            site_id=self.settings.site_id,
-            submit_directory=self.job_path,
-            **self.settings.scheduler.dict(),
-        )
-        services.append(scheduler_service)
+        if self.settings.scheduler:
+            scheduler_service = SchedulerService(
+                client=client,
+                site_id=self.settings.site_id,
+                submit_directory=self.job_path,
+                **self.settings.scheduler.dict(),
+            )
+            services.append(scheduler_service)
 
-        processing_service = ProcessingService(
-            client=client,
-            site_id=self.site_id,
-            apps_path=self.apps_path,
-            **self.settings.processing.dict(),
-        )
-        services.append(processing_service)
+        if self.settings.processing:
+            processing_service = ProcessingService(
+                client=client,
+                site_id=self.site_id,
+                apps_path=self.apps_path,
+                filter_tags=self.settings.filter_tags,
+                **self.settings.processing.dict(),
+            )
+            services.append(processing_service)
         return services
 
     @staticmethod
