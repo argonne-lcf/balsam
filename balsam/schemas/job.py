@@ -33,6 +33,10 @@ class JobState(str, Enum):
     job_finished = "JOB_FINISHED"
     failed = "FAILED"
 
+    @classmethod
+    def is_valid(cls, state):
+        return state in cls._value2member_map_
+
 
 RUNNABLE_STATES = {JobState.preprocessed, JobState.restart_ready}
 

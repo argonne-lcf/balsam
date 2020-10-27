@@ -4,6 +4,7 @@ import click
 from .utils import load_site_config
 from balsam.config import ClientSettings
 from balsam.api import App, Job
+from balsam.schemas import JobState
 
 
 @click.group()
@@ -25,6 +26,14 @@ def validate_tags(ctx, param, value):
         return list_to_dict(value)
     except ValueError:
         raise click.BadParameter("needs to be in format KEY=VALUE")
+
+
+def validate_state(ctx, param, value):
+    if value is None:
+        return value
+    if not JobState.is_valid(value):
+        raise click.BadParameter(f"Invalid state {value}")
+    return value
 
 
 def validate_app(ctx, param, value):
@@ -169,21 +178,65 @@ def create(
         parent_ids=parent_ids,
         transfers=transfers,
     )
-    print("CREATE JOB:")
-    print(yaml.dump(job.display_dict(), indent=4))
+    click.echo(yaml.dump(job.display_dict(), indent=4))
+    if click.confirm("Do you want to create this Job?"):
+        job.save()
+        click.echo(f"Added Job id={job.id}")
 
 
 @job.command()
-def ls(tags, state, workdir, verbose, history):
+@click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
+@click.option("-s", "--state", type=str, callback=validate_state)
+@click.option("-ns", "--exclude-state", type=str, callback=validate_state)
+@click.option("-w", "--workdir", type=str)
+@click.option("-v", "--verbose", is_flag=True)
+@click.pass_context
+def ls(ctx, tags, state, exclude_state, workdir, verbose):
     """
     List Balsam Jobs
     """
-    pass
+    site_id = ctx.obj.settings.site_id
+    jobs = Job.objects.filter(site_id=site_id)
+    if tags:
+        jobs = jobs.filter(tags=tags)
+    if state:
+        jobs = jobs.filter(state=state)
+    if exclude_state:
+        jobs = jobs.filter(state__ne=exclude_state)
+    if workdir:
+        jobs = jobs.filter(workdir__contains=workdir)
+
+    result = list(jobs)
+    if verbose:
+        for j in result:
+            click.echo(yaml.dump(j.display_dict(), indent=4))
+            click.echo("---\n")
+    else:
+        click.echo(f"{'ID':5}   {'Job Dir':14}   {'State':16}   {'Tags':40}")
+        for j in result:
+            click.echo(
+                f"{j.id:5d}   {j.workdir.as_posix():14}   {j.state:16}   {str(j.tags):40}"
+            )
 
 
 @job.command()
-def rm(id, tags):
+@click.option("-i", "--id", "job_ids", multiple=True, type=int)
+@click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
+@click.pass_context
+def rm(ctx, job_ids, tags):
     """
     Remove Jobs
     """
-    pass
+    site_id = ctx.obj.settings.site_id
+    jobs = Job.objects.filter(site_id=site_id)
+    if job_ids:
+        jobs = jobs.filter(id=job_ids)
+    elif tags:
+        jobs = jobs.filter(tags=tags)
+    else:
+        raise click.BadParameter("Provide either list of Job ids or tags to delete")
+    count = jobs.count()
+    if count < 1:
+        click.echo("No jobs match deletion query")
+    elif click.confirm(f"Really delete {count} jobs?"):
+        jobs.delete()

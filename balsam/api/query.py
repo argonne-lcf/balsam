@@ -118,6 +118,10 @@ class Query:
         if self.is_sliced:
             raise AttributeError("Cannot filter a sliced Query")
         clone = self._clone()
+
+        for key, val in kwargs.items():
+            if isinstance(val, dict):
+                kwargs[key] = [f"{k}:{v}" for k, v in val.items()]
         clone._filters.update(kwargs)
         return clone
 
