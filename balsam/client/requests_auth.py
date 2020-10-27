@@ -32,20 +32,21 @@ class BasicAuthRequestsClient(RequestsClient):
         self.password = password
         self.token = token
         self.token_expiry = token_expiry
+        self.expires_in = timedelta(hours=240)
         if self.token is not None:
             self._session.auth = None
             self._session.headers["Authorization"] = f"Bearer {self.token}"
             self._authenticated = True
         if self.token_expiry:
-            expires_in = self.token_expiry - datetime.utcnow()
-            if expires_in.total_seconds() <= 1:
+            self.expires_in = self.token_expiry - datetime.utcnow()
+            if self.expires_in.total_seconds() <= 1:
                 self._authenticated = False
                 logger.warning(
                     "Auth Token is expired; please refresh with `balsam login`"
                 )
-            elif expires_in < timedelta(hours=24):
+            elif self.expires_in < timedelta(hours=24):
                 logger.warning(
-                    f"Auth Token will expire in {expires_in}; please refresh with `balsam login`"
+                    f"Auth Token will expire in {self.expires_in}; please refresh with `balsam login`"
                 )
 
     def refresh_auth(self):

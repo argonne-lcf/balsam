@@ -9,6 +9,7 @@ from balsam.cmdline import (
     app,
     local_deploy,
     job,
+    service,
 )
 
 # Monkey-patch make_default_short_help: cut off after first line
@@ -45,6 +46,7 @@ LOAD_COMMANDS = [
     site.site,
     app.app,
     job.job,
+    service.service,
     local_deploy.server,
 ]
 
