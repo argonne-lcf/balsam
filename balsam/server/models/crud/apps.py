@@ -3,12 +3,22 @@ from balsam.server import models, ValidationError
 from sqlalchemy.exc import IntegrityError
 
 
-def fetch(db, owner, paginator=None, app_id=None, filter_site_ids=None, ids=None):
+def fetch(
+    db,
+    owner,
+    paginator=None,
+    app_id=None,
+    filter_site_ids=None,
+    ids=None,
+    class_path=None,
+):
     qs = db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)
     if filter_site_ids:
         qs = qs.filter(models.App.site_id.in_(filter_site_ids))
     if ids is not None:
         qs = qs.filter(models.App.id.in_(ids))
+    if class_path is not None:
+        qs = qs.filter(models.App.class_path == class_path)
     if app_id is not None:
         qs = qs.filter(models.App.id == app_id).one()
         return (1, qs)

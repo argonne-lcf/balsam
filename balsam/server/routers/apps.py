@@ -1,3 +1,4 @@
+import json
 from typing import List
 
 from fastapi import Depends, APIRouter, status, Query
@@ -19,9 +20,15 @@ def list(
     paginator=Depends(Paginator),
     site_id: List[int] = Query(None),
     id: List[int] = Query(None),
+    class_path: str = Query(None),
 ):
     count, apps = crud.apps.fetch(
-        db, owner=user, paginator=paginator, filter_site_ids=site_id, ids=id,
+        db,
+        owner=user,
+        paginator=paginator,
+        filter_site_ids=site_id,
+        ids=id,
+        class_path=class_path,
     )
     return {"count": count, "results": apps}
 
@@ -48,7 +55,7 @@ def create(app: schemas.AppCreate, db=Depends(get_session), user=Depends(auth)):
 def update(
     app_id: int, app: schemas.AppUpdate, db=Depends(get_session), user=Depends(auth)
 ):
-    data = app.dict(exclude_unset=True)
+    data = json.loads(app.json(exclude_unset=True))
     updated_app = crud.apps.update(db, owner=user, app_id=app_id, update_data=data)
     data["id"] = app_id
     db.commit()

@@ -148,7 +148,7 @@ class BalsamModel(metaclass=BalsamModelMeta):
         return json.loads(self.display_model().json())
 
     def __repr__(self):
-        args = ", ".join(f"{k}={v}" for k, v in self.display_dict.items())
+        args = ", ".join(f"{k}={v}" for k, v in self.display_dict().items())
         return f"{self._modelname}({args})"
 
     def __str__(self):
