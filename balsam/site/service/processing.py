@@ -1,6 +1,7 @@
 from datetime import datetime
 from balsam.site import FixedDepthJobSource, BulkStatusUpdater
 from balsam.site import ApplicationDefinition
+from balsam.util import config_logging
 from balsam.api.models import App
 import multiprocessing
 import signal
@@ -31,34 +32,34 @@ def transition(app):
         }
 
 
-class ProcessingWorker(multiprocessing.Process):
-    def run(self, job_source, status_updater, app_cache):
-        EXIT_FLAG = False
+def run_worker(job_source, status_updater, app_cache, log_conf):
+    config_logging(**log_conf)
+    EXIT_FLAG = False
 
-        def sig_handler(signum, stack):
-            nonlocal EXIT_FLAG
-            EXIT_FLAG = True
+    def sig_handler(signum, stack):
+        nonlocal EXIT_FLAG
+        EXIT_FLAG = True
 
-        signal.signal(signal.SIGINT, sig_handler)
-        signal.signal(signal.SIGTERM, sig_handler)
-        while not EXIT_FLAG:
-            try:
-                job = job_source.get(timeout=1)
-            except queue.Empty:
-                continue
-            else:
-                app_cls = app_cache[job.app_id]
-                app = app_cls(job)
-                transition(app)
-                job.state_timestamp = datetime.utcnow()
-                status_updater.put(
-                    id=job.id,
-                    state=job.state,
-                    state_timestamp=datetime.utcnow(),
-                    state_data=job.state_data if job.state_data else None,
-                )
-                logger.debug(f"{job.id} advanced to {job.state}")
-        logger.info("Signal: ProcessingWorker exit")
+    signal.signal(signal.SIGINT, sig_handler)
+    signal.signal(signal.SIGTERM, sig_handler)
+    while not EXIT_FLAG:
+        try:
+            job = job_source.get(timeout=1)
+        except queue.Empty:
+            continue
+        else:
+            app_cls = app_cache[job.app_id]
+            app = app_cls(job)
+            transition(app)
+            job.state_timestamp = datetime.utcnow()
+            status_updater.put(
+                id=job.id,
+                state=job.state,
+                state_timestamp=datetime.utcnow(),
+                state_data=job.state_data if job.state_data else None,
+            )
+            logger.debug(f"{job.id} advanced to {job.state}")
+    logger.info("Signal: ProcessingWorker exit")
 
 
 class ProcessingService(object):
@@ -68,6 +69,7 @@ class ProcessingService(object):
         site_id,
         prefetch_depth,
         apps_path,
+        log_conf,
         filter_tags=None,
         num_workers=5,
     ):
@@ -77,9 +79,10 @@ class ProcessingService(object):
             site_id=site_id,
             prefetch_depth=prefetch_depth,
             filter_tags=filter_tags,
+            log_conf=log_conf,
             states={"STAGED_IN", "RUN_DONE", "RUN_ERROR", "RUN_TIMEOUT"},
         )
-        self.status_updater = BulkStatusUpdater(client)
+        self.status_updater = BulkStatusUpdater(client, log_conf=log_conf)
 
         app_cache = {
             app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
@@ -87,7 +90,10 @@ class ProcessingService(object):
         }
 
         self.workers = [
-            ProcessingWorker(args=(self.job_source, self.status_updater, app_cache))
+            multiprocessing.Process(
+                target=run_worker,
+                args=(self.job_source, self.status_updater, app_cache, log_conf),
+            )
             for _ in range(num_workers)
         ]
         self._started = False

@@ -57,8 +57,8 @@ def update_site_from_config(site: Site, settings: Settings):
 
 
 def main(config: SiteConfig, run_time_sec: int):
-    # start_time = time.time()
-    config.enable_logging(basename="service")
+    start_time = time.time()
+    log_conf = config.enable_logging(basename="service")
     m, s = divmod(run_time_sec, 60)
     h, m = divmod(m, 60)
     logger.info(f"Launching service for {h:02d}h:{m:02d}m:{s:02d}s")
@@ -66,23 +66,20 @@ def main(config: SiteConfig, run_time_sec: int):
     site = Site.objects.get(id=config.settings.site_id)
     update_site_from_config(site, config.settings)
 
-    services = config.build_services()
+    services = config.build_services(log_conf=log_conf)
 
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
 
-    logger.error("Not actually starting any services!")
-    # for service in services:
-    #    logger.info(f"Starting service: {service.__class__.__name__}")
-    #    service.start()
+    for service in services:
+        logger.info(f"Starting service: {service.__class__.__name__}")
+        service.start()
 
-    # while not EXIT_FLAG and (time.time() - start_time) < run_time_sec:
-    for i in range(5):
-        logger.error("Service sleeping 2...")
+    while not EXIT_FLAG and (time.time() - start_time) < run_time_sec:
+        logger.debug("Service sleeping 2...")
         time.sleep(2)
-    logger.error(f"returning from service main()")
 
-    return
+    logger.info(f"terminating services...")
 
     for service in services:
         service.terminate()
@@ -101,5 +98,5 @@ if __name__ == "__main__":
     config = SiteConfig()
     with PIDFile(config.site_path):
         main(config, run_time_sec)
-    print(f"PID {os.getpid()} Goodbye: exited PIDFile context manager.", flush=True)
+    logger.info(f"PID {os.getpid()} Goodbye: exited PIDFile context manager.")
     sys.exit(0)

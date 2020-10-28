@@ -3,9 +3,8 @@ import logging.handlers
 import sys
 import socket
 import time
-import threading
 
-from balsam import root_logger, stderr_handler
+from balsam import root_logger
 
 __version__ = "0.1"
 
@@ -37,14 +36,6 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
         self.target = target
         self.capacity = capacity
         self.flushOnClose = flushOnClose
-        self._flushing_thread = threading.Thread(
-            target=self.periodic_flush, daemon=True,
-        )
-
-    def periodic_flush(self):
-        while True:
-            time.sleep(self.flush_period)
-            self.flush()
 
     def flush(self):
         super().flush()
@@ -79,10 +70,8 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     mem_handler.setFormatter(formatter)
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
-    root_logger.removeHandler(stderr_handler)
     root_logger.addHandler(mem_handler)
-    print("CALLED CONFIG_LOGGING ONCE", flush=True)
-    root_logger.info(f"Logging on {socket.gethostname()}")
+    root_logger.info(f"Configured logging on {socket.gethostname()}")
     sys.excepthook = log_uncaught_exceptions
 
 

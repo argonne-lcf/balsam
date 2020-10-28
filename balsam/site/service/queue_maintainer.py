@@ -12,6 +12,7 @@ class QueueMaintainerService(BalsamService):
         client,
         site_id,
         scheduler_class,
+        log_conf,
         service_period=60,
         submit_project="datascience",
         submit_queue="balsam",
@@ -21,7 +22,7 @@ class QueueMaintainerService(BalsamService):
         num_nodes=20,
         wall_time_min=127,
     ):
-        super().__init__(service_period=service_period)
+        super().__init__(log_conf=log_conf, service_period=service_period)
         Manager.set_client(client)
         self.site_id = site_id
         self.scheduler = scheduler_class()

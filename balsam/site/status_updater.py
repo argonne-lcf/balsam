@@ -7,17 +7,20 @@ from datetime import datetime
 
 from typing import List, Dict, Any, Optional
 from balsam.schemas import JobState
+from balsam.util import config_logging
 from .util import Queue
 
 logger = logging.getLogger(__name__)
 
 
 class StatusUpdater(multiprocessing.Process):
-    def __init__(self):
+    def __init__(self, log_conf):
         super().__init__()
         self.queue = Queue()
+        self.log_conf = log_conf
 
     def run(self):
+        config_logging(**self.log_conf)
         EXIT_FLAG = False
 
         def handler(signum, stack):
@@ -78,8 +81,8 @@ class StatusUpdater(multiprocessing.Process):
 
 
 class BulkStatusUpdater(StatusUpdater):
-    def __init__(self, client):
-        super().__init__()
+    def __init__(self, client, log_conf):
+        super().__init__(log_conf)
         self.client = client
 
     def _perform_updates(self, updates: List[dict]):
