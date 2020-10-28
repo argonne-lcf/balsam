@@ -1,6 +1,5 @@
 import getpass
 from .service_base import BalsamService
-from balsam.api import Manager, BatchJob
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,8 +20,7 @@ class QueueMaintainerService(BalsamService):
         num_nodes=20,
         wall_time_min=127,
     ):
-        super().__init__(service_period=service_period)
-        Manager.set_client(client)
+        super().__init__(client=client, service_period=service_period)
         self.site_id = site_id
         self.scheduler = scheduler_class()
         self.project = submit_project
@@ -50,7 +48,7 @@ class QueueMaintainerService(BalsamService):
         )
         if len(scheduler_jobs) < self.num_queued_jobs:
             sub = self.get_next_submission()
-            new_job = BatchJob(**sub)
+            new_job = self.client.BatchJob(**sub)
             new_job.save()
             logger.info(f"Submitted new BatchJob: {new_job}")
 

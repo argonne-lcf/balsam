@@ -2,7 +2,6 @@ import click
 from pathlib import Path
 import shutil
 from balsam.config import SiteConfig, ClientSettings, Settings
-from balsam.api import Site
 
 
 @click.group()
@@ -64,9 +63,9 @@ def mv(src, dest):
         raise click.BadParameter(f"{dest} exists")
 
     shutil.move(src.as_posix(), dest)
-    ClientSettings.load_from_home().build_client()
+    client = ClientSettings.load_from_home().build_client()
 
-    site = Site.objects.get(id=cf.settings.site_id)
+    site = client.Site.objects.get(id=cf.settings.site_id)
     site.path = dest
     site.save()
     click.echo(f"Moved site to new path {dest}")
@@ -81,8 +80,8 @@ def rm(path):
     balsam site rm /path/to/site
     """
     cf = SiteConfig(path)
-    ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(id=cf.settings.site_id)
+    client = ClientSettings.load_from_home().build_client()
+    site = client.Site.objects.get(id=cf.settings.site_id)
 
     if click.confirm(f"Do you really want to destroy {path}?"):
         site.delete()
@@ -98,8 +97,8 @@ def rename(path, name):
     Change the hostname of a balsam site
     """
     cf = SiteConfig(path)
-    ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(id=cf.settings.site_id)
+    client = ClientSettings.load_from_home().build_client()
+    site = client.Site.objects.get(id=cf.settings.site_id)
     site.hostname = name
     site.save()
     click.echo("Renamed site {site.id} to {site.hostname}")
@@ -110,8 +109,8 @@ def ls():
     """
     List my balsam sites
     """
-    ClientSettings.load_from_home().build_client()
-    qs = Site.objects.all()
+    client = ClientSettings.load_from_home().build_client()
+    qs = client.Site.objects.all()
     for site in qs:
         click.echo(str(site))
         click.echo("---\n")

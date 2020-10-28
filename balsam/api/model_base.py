@@ -67,7 +67,6 @@ class BalsamModelMeta(type):
             field = BalsamModelField(field_name)
             attrs[field_name] = field
         cls = super().__new__(mcls, name, bases, attrs)
-        cls.objects.model_class = cls
         return cls
 
 

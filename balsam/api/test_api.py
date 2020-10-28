@@ -2,19 +2,11 @@ import pytest
 from datetime import timedelta, datetime
 import random
 from uuid import uuid4
-from .models import (
-    Transfer,
-    Job,
-    Site,
-    App,
-    BatchJob,
-    Session,
-    EventLog,
-)
 
 
 class TestSite:
     def test_create_and_list(self, client):
+        Site = client.Site
         assert len(Site.objects.all()) == 0
         s1 = Site.objects.create(hostname="theta", path="/projects/foo")
         s2 = Site.objects.create(hostname="cooley", path="/projects/bar")
@@ -24,6 +16,7 @@ class TestSite:
         assert "bar" in s2.path.as_posix()
 
     def test_create_via_save(self, client):
+        Site = client.Site
         newsite = Site(hostname="theta", path="/projects/foo")
         assert newsite.id is None
         assert newsite._state == "creating"
@@ -32,11 +25,13 @@ class TestSite:
         assert newsite.id is not None
 
     def test_cannot_access_manager_from_instance(self, client):
+        Site = client.Site
         newsite = Site.objects.create(hostname="theta", path="/projects/foo")
         with pytest.raises(AttributeError):
             newsite.objects.count()
 
     def test_update_status(self, client):
+        Site = client.Site
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         id = site.id
         creation_ts = site.last_refresh
@@ -53,6 +48,7 @@ class TestSite:
         assert len(site.backfill_windows) == 1
 
     def test_refresh_from_db(self, client):
+        Site = client.Site
         handle_1 = Site.objects.create(hostname="theta", path="/projects/foo")
         handle_2 = Site.objects.get(id=handle_1.id)
         assert handle_2.id == handle_1.id
@@ -65,6 +61,7 @@ class TestSite:
         assert handle_2 == handle_1
 
     def test_delete(self, client):
+        Site = client.Site
         Site.objects.create(hostname="theta", path="/projects/foo")
         tempsite = Site.objects.create(hostname="cooley", path="/projects/bar")
         assert tempsite.id is not None
@@ -77,6 +74,7 @@ class TestSite:
         assert sites[0].hostname == "theta"
 
     def test_filter_on_hostname(self, client):
+        Site = client.Site
         Site.objects.create(hostname="thetalogin3.alcf.anl.gov", path="/projects/foo")
         Site.objects.create(hostname="thetalogin4.alcf.anl.gov", path="/projects/bar")
         Site.objects.create(hostname="cooley", path="/projects/baz")
@@ -88,11 +86,13 @@ class TestSite:
         assert len(theta_only) == 2
 
     def test_get_by_id_returns_match(self, client):
+        Site = client.Site
         site1 = Site.objects.create(hostname="theta", path="/projects/foo")
         retrieved = Site.objects.get(id=site1.id)
         assert site1 == retrieved
 
     def test_get_by_host_and_path_returns_match(self, client):
+        Site = client.Site
         site1 = Site.objects.create(hostname="theta", path="/projects/foo")
         site2 = Site.objects.create(hostname="theta", path="/projects/bar")
         retrieved = Site.objects.get(hostname="theta", path="/projects/bar")
@@ -100,16 +100,19 @@ class TestSite:
         assert retrieved.id != site1.id
 
     def test_get_raises_doesnotexist(self, client):
+        Site = client.Site
         with pytest.raises(Site.DoesNotExist):
             Site.objects.get(hostname="nonsense")
 
     def test_get_raises_multipleobj(self, client):
+        Site = client.Site
         Site.objects.create(hostname="theta", path="/projects/foo")
         Site.objects.create(hostname="theta", path="/projects/bar")
         with pytest.raises(Site.MultipleObjectsReturned):
             Site.objects.get(hostname="theta")
 
     def test_count_queryset(self, client):
+        Site = client.Site
         Site.objects.create(hostname="theta", path="/projects/foo")
         Site.objects.create(hostname="theta", path="/projects/bar")
         Site.objects.create(hostname="theta", path="/projects/baz")
@@ -120,6 +123,8 @@ class TestSite:
 
 class TestApps:
     def test_create_and_list(self, client):
+        App = client.App
+        Site = client.Site
         assert len(App.objects.all()) == 0
 
         site = Site.objects.create(hostname="theta", path="/projects/foo")
@@ -134,6 +139,8 @@ class TestApps:
         assert len(App.objects.all()) == 1
 
     def test_get_by_id(self, client):
+        App = client.App
+        Site = client.Site
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         new_app = App(
             site_id=site.id,
@@ -144,6 +151,8 @@ class TestApps:
         assert App.objects.get(id=new_app.id) == new_app
 
     def test_filter_by_site_id(self, client):
+        App = client.App
+        Site = client.Site
         site1 = Site.objects.create(hostname="theta", path="/projects/foo")
         site2 = Site.objects.create(hostname="summit", path="/projects/bar")
         App.objects.create(site_id=site1.id, class_path="app.one", parameters={})
@@ -153,6 +162,8 @@ class TestApps:
         assert App.objects.filter(site_id=site2.id).count() == 1
 
     def test_update_parameters(self, client):
+        App = client.App
+        Site = client.Site
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one", parameters={})
         assert app.parameters == {}
@@ -168,6 +179,9 @@ class TestJobs:
     """Jobs and TransferItems"""
 
     def test_create(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
@@ -184,6 +198,9 @@ class TestJobs:
         assert job.state == "STAGED_IN"
 
     def test_order_limit_offset(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"test/{i}", app.id) for i in range(8)]
@@ -208,6 +225,9 @@ class TestJobs:
         assert set(job.workdir.as_posix() for job in subset) == {"test/5", "test/6"}
 
     def test_bulk_create_and_update(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"test/{i}", app.id) for i in range(10)]
@@ -236,6 +256,9 @@ class TestJobs:
             assert job.state == "PREPROCESSED"
 
     def test_children_read(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         parent = Job(f"test/parent", app.id)
@@ -248,6 +271,9 @@ class TestJobs:
         assert child.parent_ids == {parent.id}
 
     def test_last_update_prop_changed_on_update(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
@@ -265,11 +291,16 @@ class TestJobs:
         assert job.last_update > t1
 
     def test_can_view_history(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
+        EventLog = client.EventLog
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         job = Job("test/test", app.id)
         job.save()
-        states = [event.to_state for event in job.history()]
+        history = EventLog.objects.filter(job_id=job.id)
+        states = [event.to_state for event in history]
         assert states == ["STAGED_IN"]
 
         update_time = datetime.utcnow()
@@ -279,11 +310,14 @@ class TestJobs:
         Job.objects.bulk_update([job])
 
         assert job.state == "PREPROCESSED"
-        latest_event = job.history()[0]
+        latest_event = EventLog.objects.filter(job_id=job.id)[0]
         assert latest_event.to_state == "PREPROCESSED"
         assert latest_event.timestamp == update_time
 
     def test_bulk_delete(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"test/{i}", app.id) for i in range(3)]
@@ -293,6 +327,9 @@ class TestJobs:
         assert Job.objects.count() == 0
 
     def test_filter_by_tags(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [
@@ -307,6 +344,9 @@ class TestJobs:
         assert Job.objects.filter(tags=["foo:2", "bar:4"]).count() == 1
 
     def test_filter_by_id_list(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
@@ -321,6 +361,9 @@ class TestJobs:
         assert Job.objects.filter(id=ids).count() == 3
 
     def test_state_ordering(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
@@ -332,6 +375,9 @@ class TestJobs:
         assert states == ["PREPROCESSED"] + ["STAGED_IN"] * 3
 
     def test_filter_by_workdir(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
@@ -344,6 +390,9 @@ class TestJobs:
         assert Job.objects.filter(workdir__contains="bar").count() == 1
 
     def test_filter_by_site(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site1 = Site.objects.create(hostname="theta", path="/projects/foo")
         site2 = Site.objects.create(hostname="theta", path="/projects/bar")
         app1 = App.objects.create(site_id=site1.id, class_path="app.one")
@@ -360,6 +409,9 @@ class TestJobs:
         assert Job.objects.all().count() == 4
 
     def test_filter_by_parameters(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
@@ -378,6 +430,9 @@ class TestJobs:
         assert Job.objects.filter(parameters="geometry:xy:32.xyz").count() == 1
 
     def test_filter_by_state(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
@@ -393,13 +448,13 @@ class TestJobs:
 
 
 class TestTransfers:
-    def create_app_with_transfers(self):
-        site = Site.objects.create(
+    def create_app_with_transfers(self, client):
+        site = client.Site.objects.create(
             hostname="theta",
             path="/projects/foo",
             transfer_locations={"laptop": f"globus://{uuid4()}"},
         )
-        app = App.objects.create(
+        app = client.App.objects.create(
             site_id=site.id,
             class_path="app.one",
             transfers={
@@ -418,7 +473,9 @@ class TestTransfers:
         return app
 
     def test_stage_in_flow(self, client):
-        app = self.create_app_with_transfers()
+        Job = client.Job
+        Transfer = client.Transfer
+        app = self.create_app_with_transfers(client)
         job = Job.objects.create(
             workdir="test/test",
             app_id=app.id,
@@ -446,7 +503,9 @@ class TestTransfers:
         assert job.state == "JOB_FINISHED"
 
     def test_stage_out_flow(self, client):
-        app = self.create_app_with_transfers()
+        Job = client.Job
+        Transfer = client.Transfer
+        app = self.create_app_with_transfers(client)
         job = Job.objects.create(
             workdir="test/test",
             app_id=app.id,
@@ -487,7 +546,10 @@ class TestTransfers:
 
 
 class TestEvents:
-    def setup_scenario(self):
+    def setup_scenario(self, client):
+        Site = client.Site
+        App = client.App
+        Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         before_creation = datetime.utcnow()
@@ -517,39 +579,48 @@ class TestEvents:
         return before_creation
 
     def test_filter_by_job(self, client):
-        self.setup_scenario()
+        self.setup_scenario(client)
+        Job = client.Job
+        EventLog = client.EventLog
         id = Job.objects.get(workdir__contains="foo/2").id
         qs = EventLog.objects.filter(job_id=id)
         states = [event.to_state for event in qs]
         assert states == ["RUN_ERROR", "RUNNING", "PREPROCESSED", "STAGED_IN"]
 
     def test_filter_by_to_state(self, client):
-        self.setup_scenario()
+        self.setup_scenario(client)
+        EventLog = client.EventLog
         assert EventLog.objects.filter(to_state="RUN_ERROR").count() == 1
         assert EventLog.objects.filter(to_state="STAGED_IN").count() == 3
 
     def test_filter_by_from_state(self, client):
-        self.setup_scenario()
+        self.setup_scenario(client)
+        EventLog = client.EventLog
         assert EventLog.objects.filter(from_state="CREATED").count() == 3
 
     def test_filter_by_to_and_from_state(self, client):
-        self.setup_scenario()
+        self.setup_scenario(client)
+        EventLog = client.EventLog
         qs = EventLog.objects.filter(from_state="RUNNING").filter(to_state="RUN_ERROR")
         assert qs.count() == 1
         assert qs[0] == EventLog.objects.get(from_state="RUNNING", to_state="RUN_ERROR")
 
     def test_filter_by_message(self, client):
-        self.setup_scenario()
+        self.setup_scenario(client)
+        EventLog = client.EventLog
         qs = EventLog.objects.filter(data="message:OK: done!")
         assert qs.count() == 1
         assert qs[0].to_state == "RUN_DONE"
 
     def test_filter_by_timestamp_range(self, client):
-        self.setup_scenario()
+        self.setup_scenario(client)
+        EventLog = client.EventLog
         t = datetime.utcnow() + timedelta(seconds=30)
         assert EventLog.objects.filter(timestamp_after=t).count() == 1
 
     def test_cannot_create_or_update(self, client):
+        self.setup_scenario(client)
+        EventLog = client.EventLog
         with pytest.raises(ValueError) as e:
             EventLog.objects.create(
                 job_id=1, from_state="RUNNING", to_state="RUN_DONE",
@@ -559,6 +630,8 @@ class TestEvents:
 
 class TestBatchJobs:
     def test_create(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         bjob = BatchJob.objects.create(
             site_id=site.id,
@@ -573,6 +646,8 @@ class TestBatchJobs:
         assert bjob.id is not None
 
     def test_bulk_update(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         for i in range(3):
             BatchJob.objects.create(
@@ -597,6 +672,8 @@ class TestBatchJobs:
         assert after_update == list(bjobs)
 
     def test_delete(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         for i in range(3):
             BatchJob.objects.create(
@@ -618,6 +695,8 @@ class TestBatchJobs:
         assert BatchJob.objects.count() == 0
 
     def test_filter_by_tags(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         for system in ["H2O", "D2O", "NH3", "CH2O"]:
             BatchJob.objects.create(
@@ -633,6 +712,11 @@ class TestBatchJobs:
         assert BatchJob.objects.filter(filter_tags="system:NH3").count() == 1
 
     def test_fetch_associated_jobs(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
+        App = client.App
+        Job = client.Job
+        Session = client.Session
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
@@ -669,23 +753,25 @@ class TestBatchJobs:
 
 
 class TestSessions:
-    def create_site_app(self):
+    def create_site_app(self, client):
+        Site = client.Site
+        App = client.App
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         return site, app
 
-    def job(self, name, app, args={}, **kwargs):
-        return Job(f"test/{name}", app.id, parameters=args, **kwargs)
+    def job(self, client, name, app, args={}, **kwargs):
+        return client.Job(f"test/{name}", app.id, parameters=args, **kwargs)
 
-    def create_jobs(self, app, num_jobs=3, state="PREPROCESSED"):
-        jobs = [self.job(i, app) for i in range(num_jobs)]
-        jobs = Job.objects.bulk_create(jobs)
+    def create_jobs(self, client, app, num_jobs=3, state="PREPROCESSED"):
+        jobs = [self.job(client, i, app) for i in range(num_jobs)]
+        jobs = client.Job.objects.bulk_create(jobs)
         for job in jobs:
             job.state = state
-        Job.objects.bulk_update(jobs)
+        client.Job.objects.bulk_update(jobs)
 
-    def create_sess(self, site):
-        batch_job = BatchJob.objects.create(
+    def create_sess(self, client, site):
+        batch_job = client.BatchJob.objects.create(
             site_id=site.id,
             project="datascience",
             queue="default",
@@ -693,19 +779,19 @@ class TestSessions:
             wall_time_min=30,
             job_mode="mpi",
         )
-        sess = Session.objects.create(batch_job_id=batch_job.id, site_id=site.id)
+        sess = client.Session.objects.create(batch_job_id=batch_job.id, site_id=site.id)
         return sess
 
     def test_create(self, client):
         before_create = datetime.utcnow()
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        sess = self.create_sess(site)
+        site = client.Site.objects.create(hostname="theta", path="/projects/foo")
+        sess = self.create_sess(client, site)
         assert sess.heartbeat > before_create
 
     def test_acquire(self, client):
-        site, app = self.create_site_app()
-        self.create_jobs(app, num_jobs=3)
-        sess = self.create_sess(site)
+        site, app = self.create_site_app(client)
+        self.create_jobs(client, app, num_jobs=3)
+        sess = self.create_sess(client, site)
 
         acquired = sess.acquire_jobs(
             max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8, filter_tags={},
@@ -715,9 +801,9 @@ class TestSessions:
             assert job.batch_job_id > 0
 
     def test_acquire_for_preprocessing(self, client):
-        site, app = self.create_site_app()
-        self.create_jobs(app, num_jobs=10, state="STAGED_IN")
-        sess = Session.objects.create(site_id=site.id)
+        site, app = self.create_site_app(client)
+        self.create_jobs(client, app, num_jobs=10, state="STAGED_IN")
+        sess = client.Session.objects.create(site_id=site.id)
         assert sess.batch_job_id is None
 
         acquired = sess.acquire_jobs(
@@ -730,7 +816,7 @@ class TestSessions:
         assert all(j.state == "STAGED_IN" for j in acquired)
 
     def test_acquire_with_filter_tags(self, client):
-        site, app = self.create_site_app()
+        site, app = self.create_site_app(client)
 
         job_tags = [
             dict(system="H2O", type="energy"),
@@ -738,11 +824,11 @@ class TestSessions:
             dict(system="NO2", type="energy"),
             dict(system="H2O", type="gradient"),
         ]
-        jobs = [self.job(i, app, tags=tags) for i, tags in enumerate(job_tags)]
-        jobs = Job.objects.bulk_create(jobs)
-        Job.objects.all().update(state="PREPROCESSED")
+        jobs = [self.job(client, i, app, tags=tags) for i, tags in enumerate(job_tags)]
+        jobs = client.Job.objects.bulk_create(jobs)
+        client.Job.objects.all().update(state="PREPROCESSED")
 
-        sess = self.create_sess(site)
+        sess = self.create_sess(client, site)
         acquired = sess.acquire_jobs(
             max_wall_time_min=60,
             max_nodes_per_job=8,
@@ -753,18 +839,18 @@ class TestSessions:
         assert acquired[0].tags == dict(system="H2O", type="energy")
 
     def test_tick(self, client):
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
-        sess = self.create_sess(site)
+        site = client.Site.objects.create(hostname="theta", path="/projects/foo")
+        sess = self.create_sess(client, site)
         creation_time = sess.heartbeat
         sess.tick()
         sess.refresh_from_db()
         assert sess.heartbeat > creation_time
 
     def test_delete(self, client):
-        site, app = self.create_site_app()
-        self.create_jobs(app, num_jobs=3)
+        site, app = self.create_site_app(client)
+        self.create_jobs(client, app, num_jobs=3)
 
-        sess = self.create_sess(site)
+        sess = self.create_sess(client, site)
         acquired = sess.acquire_jobs(
             max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
         )
@@ -773,8 +859,8 @@ class TestSessions:
         sess.delete()
 
         # After deleting session, the jobs can be re-acquired:
-        assert Session.objects.all().count() == 0
-        sess2 = self.create_sess(site)
+        assert client.Session.objects.all().count() == 0
+        sess2 = self.create_sess(client, site)
         acquired = sess2.acquire_jobs(
             max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
         )

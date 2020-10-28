@@ -5,8 +5,6 @@ import os
 import stat
 from balsam.platform.job_template import ScriptTemplate
 from balsam.platform.scheduler import SchedulerSubmitError
-from balsam.api.models import BatchJob, Site
-from balsam.api import Manager
 from .service_base import BalsamService
 
 
@@ -26,8 +24,7 @@ class SchedulerService(BalsamService):
         job_template_path,
         submit_directory,
     ):
-        super().__init__(service_period=sync_period)
-        Manager.set_client(client)
+        super().__init__(client=client, service_period=sync_period)
         self.site_id = site_id
         self.scheduler = scheduler_class()
         self.allowed_queues = allowed_queues
@@ -102,6 +99,7 @@ class SchedulerService(BalsamService):
             logger.info(f"Submit OK: {job}")
 
     def run_cycle(self):
+        BatchJob = self.client.BatchJob
         api_jobs = BatchJob.objects.filter(
             site_id=self.site_id, state__ne=["submit_failed", "finished"]
         )
@@ -128,7 +126,7 @@ class SchedulerService(BalsamService):
 
     def update_site_info(self):
         """Update on Site from nodelist & qstat"""
-        site = Site.objects.get(id=self.site_id)
+        site = self.client.Site.objects.get(id=self.site_id)
         site.backfill_windows = []
         site.num_nodes = 0
         site.queued_jobs = []

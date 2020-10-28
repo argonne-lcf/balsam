@@ -1,6 +1,5 @@
 import getpass
 from .service_base import BalsamService
-from balsam.api import Manager, BatchJob, Job
 from balsam.schemas import RUNNABLE_STATES
 import logging
 
@@ -25,7 +24,7 @@ class AutoscaleService(BalsamService):
         max_queued_jobs=20,
     ):
         super().__init__(service_period=service_period)
-        Manager.set_client(client)
+        self.client = client
         self.site_id = site_id
         self.scheduler = scheduler_class()
         self.project = submit_project
@@ -48,6 +47,7 @@ class AutoscaleService(BalsamService):
         return windows[0] if windows else None
 
     def get_next_submission(self, scheduler_jobs):
+        Job = self.client.Job
         queued_jobs = [
             j for j in scheduler_jobs if j.state in ("queued", "pending_submission")
         ]
@@ -93,7 +93,7 @@ class AutoscaleService(BalsamService):
         )
         sub = self.get_next_submission(scheduler_jobs)
         if sub:
-            new_job = BatchJob(**sub)
+            new_job = self.client.BatchJob(**sub)
             new_job.save()
             logger.info(f"Submitted new BatchJob: {new_job}")
 

@@ -10,7 +10,6 @@ import balsam.server
 from balsam.server import models
 from balsam.server.models import crud
 from balsam.client import BasicAuthRequestsClient
-from .manager_base import Manager
 
 BALSAM_TEST_DB = "postgresql://postgres@localhost:5432/balsam-test"
 
@@ -81,5 +80,4 @@ def create_user_client(setup_database, db_session, live_server):
 
 @pytest.fixture(scope="function")
 def client(create_user_client):
-    client = create_user_client()
-    Manager.set_client(client)
+    return create_user_client()

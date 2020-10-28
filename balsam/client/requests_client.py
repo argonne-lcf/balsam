@@ -26,6 +26,13 @@ class RequestsClient(RESTClient):
 
     @property
     def session(self):
+        """
+        !!! WARNING !!!
+        requests.Session is not multiprocessing-safe. You will get
+        crossed-wires and mixed up responses; leading to strange and
+        near-impossible-to-debug issues. As an extra precaution here we start
+        a new Session if a PID change is detected.
+        """
         pid = os.getpid()
         if pid != self._pid or self._session is None:
             self._session = requests.Session()

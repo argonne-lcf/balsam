@@ -8,11 +8,10 @@ class Manager:
     bulk_delete_enabled = False
     paginated_list_response = True
     path = ""
-    _client = None
 
-    @staticmethod
-    def set_client(client):
-        Manager._client = client
+    def __init__(self, client):
+        self._client = client
+        self.model_class.objects = self
 
     def __get__(self, instance, cls=None):
         if instance is not None:

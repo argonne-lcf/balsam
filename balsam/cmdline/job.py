@@ -2,8 +2,6 @@ import yaml
 from pathlib import Path
 import click
 from .utils import load_site_config
-from balsam.config import ClientSettings
-from balsam.api import App, Job
 from balsam.schemas import JobState
 
 
@@ -14,7 +12,6 @@ def job(ctx):
     Create and monitor Balsam Jobs
     """
     ctx.obj = load_site_config()
-    ClientSettings.load_from_home().build_client()
 
 
 def list_to_dict(arg_list):
@@ -38,6 +35,7 @@ def validate_state(ctx, param, value):
 
 def validate_app(ctx, param, value):
     site_id = ctx.obj.settings.site_id
+    App = ctx.obj.client.App
     lookup = {"site_id": site_id}
     if value.isdigit():
         lookup["id"] = int(value)
@@ -90,10 +88,11 @@ def validate_transfers(ctx, param, value):
 
 
 def validate_parents(ctx, param, value):
+    client = ctx.obj.client
     parent_ids = value
     if not parent_ids:
         return []
-    jobs = list(Job.objects.filter(id=parent_ids))
+    jobs = list(client.Job.objects.filter(id=parent_ids))
     if len(jobs) < len(parent_ids):
         job_ids = [j.id for j in jobs]
         missing_ids = [i for i in parent_ids if i not in job_ids]
@@ -139,7 +138,9 @@ def validate_parents(ctx, param, value):
     type=str,
     callback=validate_transfers,
 )
+@click.pass_context
 def create(
+    ctx,
     workdir,
     app,
     tags,
@@ -158,11 +159,12 @@ def create(
     """
     Add a new Balsam Job to run an App at this Site
     """
+    client = ctx.obj.client
     if Path(workdir).is_absolute():
         raise click.BadParameter(
             f"workdir must be a relative path: cannot start with '/'"
         )
-    job = Job(
+    job = client.Job(
         workdir=workdir,
         app_id=app.id,
         tags=tags,
@@ -195,8 +197,9 @@ def ls(ctx, tags, state, exclude_state, workdir, verbose):
     """
     List Balsam Jobs
     """
+    client = ctx.obj.client
     site_id = ctx.obj.settings.site_id
-    jobs = Job.objects.filter(site_id=site_id)
+    jobs = client.Job.objects.filter(site_id=site_id)
     if tags:
         jobs = jobs.filter(tags=tags)
     if state:
@@ -228,7 +231,8 @@ def rm(ctx, job_ids, tags):
     Remove Jobs
     """
     site_id = ctx.obj.settings.site_id
-    jobs = Job.objects.filter(site_id=site_id)
+    client = ctx.obj.client
+    jobs = client.Job.objects.filter(site_id=site_id)
     if job_ids:
         jobs = jobs.filter(id=job_ids)
     elif tags:

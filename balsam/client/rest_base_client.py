@@ -1,4 +1,13 @@
 from fastapi.encoders import jsonable_encoder
+from balsam.api.models import (
+    SiteManager,
+    AppManager,
+    BatchJobManager,
+    JobManager,
+    TransferManager,
+    SessionManager,
+    EventLogManager,
+)
 
 
 class AuthError(Exception):
@@ -58,3 +67,31 @@ class RESTClient:
 
     def bulk_delete(self, url, **kwargs):
         return self.request(url, "DELETE", params=kwargs)
+
+    @property
+    def Site(self):
+        return SiteManager(client=self).model_class
+
+    @property
+    def App(self):
+        return AppManager(client=self).model_class
+
+    @property
+    def BatchJob(self):
+        return BatchJobManager(client=self).model_class
+
+    @property
+    def Job(self):
+        return JobManager(client=self).model_class
+
+    @property
+    def Transfer(self):
+        return TransferManager(client=self).model_class
+
+    @property
+    def Session(self):
+        return SessionManager(client=self).model_class
+
+    @property
+    def EventLog(self):
+        return EventLogManager(client=self).model_class

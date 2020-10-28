@@ -1,7 +1,6 @@
 from datetime import datetime
 from balsam.site import FixedDepthJobSource, BulkStatusUpdater
 from balsam.site import ApplicationDefinition
-from balsam.api.models import App
 import multiprocessing
 import signal
 import queue
@@ -84,7 +83,7 @@ class ProcessingService(object):
 
         app_cache = {
             app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
-            for app in App.objects.filter(site_id=self.site_id)
+            for app in client.App.objects.filter(site_id=self.site_id)
         }
 
         self.workers = [

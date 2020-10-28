@@ -13,59 +13,16 @@ JobState = schemas.JobState
 RUNNABLE_STATES = schemas.RUNNABLE_STATES
 
 
-class SiteManager(Manager):
-    path = "sites/"
-
-
-class AppManager(Manager):
-    path = "apps/"
-
-
-class BatchJobManager(Manager):
-    path = "batch-jobs/"
-    bulk_update_enabled = True
-
-
-class JobManager(Manager):
-    path = "jobs/"
-    bulk_create_enabled = True
-    bulk_update_enabled = True
-    bulk_delete_enabled = True
-
-
-class TransferManager(Manager):
-    path = "transfers/"
-    bulk_update_enabled = True
-
-
-class SessionManager(Manager):
-    path = "sessions/"
-
-    def _do_acquire(self, instance, **kwargs):
-        acquired_raw = self._client.post(self.path + f"{instance.id}", **kwargs)
-        jobs = [Job.from_api(dat) for dat in acquired_raw]
-        return jobs
-
-    def _do_tick(self, instance):
-        self._client.put(self.path + f"{instance.id}")
-
-
-class EventLogManager(Manager):
-    path = "events/"
-
-
 class Site(BalsamModel):
     create_model_cls = schemas.SiteCreate
     update_model_cls = schemas.SiteUpdate
     read_model_cls = schemas.SiteOut
-    objects = SiteManager()
 
 
 class App(BalsamModel):
     create_model_cls = schemas.AppCreate
     update_model_cls = schemas.AppUpdate
     read_model_cls = schemas.AppOut
-    objects = AppManager()
 
     def __init__(
         self,
@@ -92,14 +49,12 @@ class BatchJob(BalsamModel):
     create_model_cls = schemas.BatchJobCreate
     update_model_cls = schemas.BatchJobUpdate
     read_model_cls = schemas.BatchJobOut
-    objects = BatchJobManager()
 
 
 class Job(BalsamModel):
     create_model_cls = schemas.JobCreate
     update_model_cls = schemas.JobUpdate
     read_model_cls = schemas.JobOut
-    objects = JobManager()
 
     def __init__(
         self,
@@ -139,22 +94,17 @@ class Job(BalsamModel):
             **kwargs,
         )
 
-    def history(self):
-        return EventLog.objects.filter(job_id=self.id)
-
 
 class Transfer(BalsamModel):
     create_model_cls = None
     update_model_cls = schemas.TransferItemUpdate
     read_model_cls = schemas.TransferItemOut
-    objects = TransferManager()
 
 
 class Session(BalsamModel):
     create_model_cls = schemas.SessionCreate
     update_model_cls = None
     read_model_cls = schemas.SessionOut
-    objects = SessionManager()
 
     def acquire_jobs(
         self,
@@ -187,4 +137,51 @@ class EventLog(BalsamModel):
     create_model_cls = None
     update_model_cls = None
     read_model_cls = schemas.LogEventOut
-    objects = EventLogManager()
+
+
+class SiteManager(Manager):
+    path = "sites/"
+    model_class = Site
+
+
+class AppManager(Manager):
+    path = "apps/"
+    model_class = App
+
+
+class BatchJobManager(Manager):
+    path = "batch-jobs/"
+    bulk_update_enabled = True
+    model_class = BatchJob
+
+
+class JobManager(Manager):
+    path = "jobs/"
+    bulk_create_enabled = True
+    bulk_update_enabled = True
+    bulk_delete_enabled = True
+    model_class = Job
+
+
+class TransferManager(Manager):
+    path = "transfers/"
+    bulk_update_enabled = True
+    model_class = Transfer
+
+
+class SessionManager(Manager):
+    path = "sessions/"
+    model_class = Session
+
+    def _do_acquire(self, instance, **kwargs):
+        acquired_raw = self._client.post(self.path + f"{instance.id}", **kwargs)
+        jobs = [Job.from_api(dat) for dat in acquired_raw]
+        return jobs
+
+    def _do_tick(self, instance):
+        self._client.put(self.path + f"{instance.id}")
+
+
+class EventLogManager(Manager):
+    path = "events/"
+    model_class = EventLog

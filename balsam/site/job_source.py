@@ -6,8 +6,6 @@ import queue
 import signal
 import time
 
-from balsam.api.models import Session
-from balsam.api import Manager
 from .util import Queue
 
 logger = logging.getLogger(__name__)
@@ -20,8 +18,8 @@ class SessionThread:
 
     TICK_PERIOD = timedelta(minutes=1)
 
-    def __init__(self, site_id, batch_job_id=None):
-        self.session = Session.objects.create(
+    def __init__(self, client, site_id, batch_job_id=None):
+        self.session = client.Session.objects.create(
             site_id=site_id, batch_job_id=batch_job_id
         )
         self._schedule_next_tick()
@@ -68,7 +66,7 @@ class FixedDepthJobSource(multiprocessing.Process):
         self.queue = Queue()
         self.prefetch_depth = prefetch_depth
 
-        Manager.set_client(client)
+        self.client = client
         self.site_id = site_id
         self.session_thread = None
         self.session = None
@@ -94,6 +92,7 @@ class FixedDepthJobSource(multiprocessing.Process):
 
     def run(self):
         EXIT_FLAG = False
+        self.client.close_session()
 
         def handler(signum, stack):
             nonlocal EXIT_FLAG
@@ -103,7 +102,9 @@ class FixedDepthJobSource(multiprocessing.Process):
         signal.signal(signal.SIGTERM, handler)
 
         if self.session_thread is None:
-            self.session_thread = SessionThread(site_id=self.site_id)
+            self.session_thread = SessionThread(
+                client=self.client, site_id=self.site_id
+            )
             self.session = self.session_thread.session
 
         while not EXIT_FLAG:
@@ -162,7 +163,7 @@ class SynchronousJobSource(object):
         serial_only=False,
         max_wall_time_min=None,
     ):
-        Manager.set_client(client)
+        self.client = client
         self.site_id = site_id
         self.filter_tags = {} if filter_tags is None else filter_tags
         self.states = states
@@ -170,7 +171,7 @@ class SynchronousJobSource(object):
         self.max_wall_time_min = max_wall_time_min
         self.start_time = time.time()
 
-        self.session_thread = SessionThread(site_id=self.site_id)
+        self.session_thread = SessionThread(client=self.client, site_id=self.site_id)
         self.session = self.session_thread.session
 
     def start(self):

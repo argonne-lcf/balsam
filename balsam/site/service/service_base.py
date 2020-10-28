@@ -3,8 +3,9 @@ import signal
 
 
 class BalsamService(multiprocessing.Process):
-    def __init__(self, *args, service_period=1.0, **kwargs):
+    def __init__(self, client, *args, service_period=1.0, **kwargs):
         super().__init__(*args, **kwargs)
+        self.client = client
         self._exit_event = multiprocessing.Event()
         self._service_period = service_period
 
@@ -14,6 +15,7 @@ class BalsamService(multiprocessing.Process):
     def run(self, *args, **kwargs):
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
+        self.client.close_session()
         while True:
             self.run_cycle()
             try:

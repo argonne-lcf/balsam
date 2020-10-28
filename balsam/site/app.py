@@ -5,7 +5,6 @@ from typing import Tuple
 import jinja2
 import jinja2.meta
 import logging
-from balsam.api import Job
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +109,8 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     parameters: dict = {}
     transfers: dict = {}
 
-    def __init__(self, job: Job):
-        self.job: Job = job
+    def __init__(self, job):
+        self.job = job
 
     @property
     def arg_str(self) -> str:

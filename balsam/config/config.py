@@ -17,8 +17,6 @@ from pydantic import (
 )
 from typing import List
 from balsam.client import RESTClient, NotAuthenticatedError
-from balsam.api import Site
-from balsam.api import Manager
 from balsam.schemas import AllowedQueue
 
 from balsam.util import config_logging
@@ -82,7 +80,6 @@ class ClientSettings(BaseSettings):
 
     def build_client(self):
         client = self.client_class(**self.dict(exclude={"client_class"}))
-        Manager.set_client(client)
         return client
 
 
@@ -177,16 +174,16 @@ class SiteConfig:
         if not yaml_settings.is_file():
             raise FileNotFoundError(f"{site_path} must contain a settings.yml")
         self.settings = self._load_yaml_settings(yaml_settings)
+        self.client = ClientSettings.load_from_home().build_client()
 
     def build_services(self):
         from balsam.site.service import SchedulerService, ProcessingService
 
         services = []
-        client = ClientSettings.load_from_home().build_client()
 
         if self.settings.scheduler:
             scheduler_service = SchedulerService(
-                client=client,
+                client=self.client,
                 site_id=self.settings.site_id,
                 submit_directory=self.job_path,
                 **self.settings.scheduler.dict(),
@@ -195,7 +192,7 @@ class SiteConfig:
 
         if self.settings.processing:
             processing_service = ProcessingService(
-                client=client,
+                client=self.client,
                 site_id=self.site_id,
                 apps_path=self.apps_path,
                 filter_tags=self.settings.filter_tags,
@@ -228,8 +225,8 @@ class SiteConfig:
             default_site_path.joinpath("settings.yml"), validate=False
         )
 
-        ClientSettings.load_from_home().build_client()
-        site = Site.objects.create(
+        client = ClientSettings.load_from_home().build_client()
+        site = client.Site.objects.create(
             hostname=socket.gethostname() if hostname is None else hostname,
             path=site_path,
         )

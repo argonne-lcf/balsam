@@ -5,8 +5,7 @@ import os
 import socket
 import time
 
-from balsam.config import SiteConfig, Settings, ClientSettings
-from balsam.api import Site
+from balsam.config import SiteConfig, Settings
 
 logger = logging.getLogger("balsam.site.service.main")
 
@@ -35,7 +34,7 @@ class PIDFile:
         self.path.unlink()
 
 
-def update_site_from_config(site: Site, settings: Settings):
+def update_site_from_config(site, settings: Settings):
     old_dict = site.display_dict()
     if settings.scheduler:
         site.allowed_projects = settings.scheduler.allowed_projects
@@ -62,7 +61,7 @@ def main(config: SiteConfig, run_time_sec: int):
     h, m = divmod(m, 60)
     logger.info(f"Launching service for {h:02d}h:{m:02d}m:{s:02d}s")
 
-    site = Site.objects.get(id=config.settings.site_id)
+    site = config.client.Site.objects.get(id=config.settings.site_id)
     update_site_from_config(site, config.settings)
 
     services = config.build_services()
@@ -90,9 +89,8 @@ def main(config: SiteConfig, run_time_sec: int):
 
 
 if __name__ == "__main__":
-    client = ClientSettings.load_from_home().build_client()
-    run_time_sec = int(client.expires_in.total_seconds() - 60)
     config = SiteConfig()
+    run_time_sec = int(config.client.expires_in.total_seconds() - 60)
     with PIDFile(config.site_path):
         main(config, run_time_sec)
     logger.info(

@@ -3,7 +3,6 @@ from pathlib import Path
 import click
 from .utils import load_site_config
 from balsam.config import ClientSettings
-from balsam.api import App, Job
 from balsam.site import app_template, ApplicationDefinition
 from balsam.site.app import load_module, find_app_classes
 
@@ -56,7 +55,7 @@ def create(name, command_template, description):
         balsam app create --name demo.Hello --command-template 'echo hello, {{name}}!'
     """
     cf = load_site_config()
-    ClientSettings.load_from_home().build_client()
+    client = ClientSettings.load_from_home().build_client()
 
     try:
         module_name, cls_name = name.split(".")
@@ -85,7 +84,7 @@ def create(name, command_template, description):
     click.echo(f"Created App {cls_name} in {app_file}")
     app_cls = ApplicationDefinition.load_app_class(cf.apps_path, name)
 
-    App.objects.create(
+    client.App.objects.create(
         site_id=cf.settings.site_id,
         class_path=name,
         last_modified=mtime,
@@ -93,10 +92,10 @@ def create(name, command_template, description):
     )
 
 
-def sync_app(app_class, class_path, mtime, registered_app, site_id):
+def sync_app(client, app_class, class_path, mtime, registered_app, site_id):
     # App not in DB: create it
     if registered_app is None:
-        app = App.objects.create(
+        app = client.App.objects.create(
             site_id=site_id,
             class_path=class_path,
             last_modified=mtime,
@@ -116,8 +115,8 @@ def sync_app(app_class, class_path, mtime, registered_app, site_id):
     return
 
 
-def app_deletion_prompt(app):
-    job_count = Job.objects.filter(app_id=app.id).count()
+def app_deletion_prompt(client, app):
+    job_count = client.Job.objects.filter(app_id=app.id).count()
     click.echo(f"DELETED/RENAMED {app.class_path} (app_id={app.id})")
     click.echo(f"   --> You either renamed this ApplicationDefinition or deleted it.")
     click.echo(f"   --> There are {job_count} Jobs associated with this App")
@@ -139,9 +138,9 @@ def sync():
     Sync local ApplicationDefinitions with Balsam
     """
     cf = load_site_config()
-    ClientSettings.load_from_home().build_client()
+    client = ClientSettings.load_from_home().build_client()
 
-    registered_apps = list(App.objects.filter(site_id=cf.settings.site_id))
+    registered_apps = list(client.App.objects.filter(site_id=cf.settings.site_id))
     app_classes, mtimes = load_apps(cf.apps_path)
 
     for module_name, app_class_list in app_classes.items():
@@ -151,6 +150,7 @@ def sync():
                 (a for a in registered_apps if a.class_path == class_path), None
             )
             sync_app(
+                client,
                 app_class,
                 class_path,
                 mtimes[module_name],
@@ -163,7 +163,7 @@ def sync():
     # Remaining registered_apps are no longer in the apps_path
     # They could have been deleted or renamed
     for app in registered_apps:
-        app_deletion_prompt(app)
+        app_deletion_prompt(client, app)
 
 
 @app.command()
@@ -171,6 +171,8 @@ def ls():
     """
     List my Apps
     """
-    ClientSettings.load_from_home().build_client()
-    reprs = [yaml.dump(app.display_dict(), indent=4) for app in App.objects.all()]
+    client = ClientSettings.load_from_home().build_client()
+    reprs = [
+        yaml.dump(app.display_dict(), indent=4) for app in client.App.objects.all()
+    ]
     print(*reprs, sep="\n----\n")
