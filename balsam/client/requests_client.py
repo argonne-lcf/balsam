@@ -1,3 +1,4 @@
+import os
 import logging
 import requests
 from pprint import pformat
@@ -18,8 +19,23 @@ class RequestsClient(RESTClient):
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         self.retry_count = retry_count
-        self._session = requests.Session()
+        self._session = None
+        self._pid = os.getpid()
         self._authenticated = False
+        self.token = None
+
+    @property
+    def session(self):
+        pid = os.getpid()
+        if pid != self._pid or self._session is None:
+            self._session = requests.Session()
+            self._pid = pid
+            if self.token:
+                self._session.headers["Authorization"] = f"Bearer {self.token}"
+        return self._session
+
+    def close_session(self):
+        self._session = None
 
     def request(
         self, url, http_method, params=None, json=None, data=None, authenticating=False
@@ -50,7 +66,7 @@ class RequestsClient(RESTClient):
                     return None
 
     def _do_request(self, absolute_url, http_method, params, json, data):
-        response = self._session.request(
+        response = self.session.request(
             http_method,
             url=absolute_url,
             params=params,

@@ -24,8 +24,12 @@ class BalsamModelField:
         else:
             if self.name in obj._dirty_fields:
                 return getattr(obj._update_model, self.name)
-            else:
+            elif hasattr(obj._read_model, self.name):
                 return getattr(obj._read_model, self.name)
+            elif obj.update_model_cls and self.name in obj.update_model_cls.__fields__:
+                return None
+            else:
+                raise AttributeError(f"Cannot access Field {self.name}")
 
     def __set__(self, obj, value):
         if obj._state == "creating":

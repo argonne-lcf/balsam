@@ -7,20 +7,19 @@ from datetime import datetime
 
 from typing import List, Dict, Any, Optional
 from balsam.schemas import JobState
-from balsam.util import config_logging
 from .util import Queue
 
 logger = logging.getLogger(__name__)
 
 
 class StatusUpdater(multiprocessing.Process):
-    def __init__(self, log_conf):
+    def __init__(self, client):
         super().__init__()
+        self.client = client
         self.queue = Queue()
-        self.log_conf = log_conf
 
     def run(self):
-        config_logging(**self.log_conf)
+        self.client.close_session()
         EXIT_FLAG = False
 
         def handler(signum, stack):
@@ -67,6 +66,8 @@ class StatusUpdater(multiprocessing.Process):
         state_timestamp: Optional[datetime] = None,
         state_data: Dict[str, Any] = None,
     ):
+        if state_data is None:
+            state_data = {}
         self.queue.put_nowait(
             {
                 "id": id,
@@ -81,10 +82,6 @@ class StatusUpdater(multiprocessing.Process):
 
 
 class BulkStatusUpdater(StatusUpdater):
-    def __init__(self, client, log_conf):
-        super().__init__(log_conf)
-        self.client = client
-
     def _perform_updates(self, updates: List[dict]):
         """
         In case two job updates occur in the same window,

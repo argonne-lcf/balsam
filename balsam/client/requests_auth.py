@@ -34,8 +34,8 @@ class BasicAuthRequestsClient(RequestsClient):
         self.token_expiry = token_expiry
         self.expires_in = timedelta(hours=240)
         if self.token is not None:
-            self._session.auth = None
-            self._session.headers["Authorization"] = f"Bearer {self.token}"
+            self.session.auth = None
+            self.session.headers["Authorization"] = f"Bearer {self.token}"
             self._authenticated = True
         if self.token_expiry:
             self.expires_in = self.token_expiry - datetime.utcnow()
@@ -73,8 +73,8 @@ class BasicAuthRequestsClient(RequestsClient):
             raise AuthError(f"Could not authenticate: {resp}")
 
         # Unset BasicAuth; set Token Authorization header
-        self._session.auth = None
-        self._session.headers["Authorization"] = f"Bearer {self.token}"
+        self.session.auth = None
+        self.session.headers["Authorization"] = f"Bearer {self.token}"
         self._authenticated = True
 
     def interactive_login(self):

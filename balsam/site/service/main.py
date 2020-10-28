@@ -2,7 +2,6 @@ from pathlib import Path
 import logging
 import signal
 import os
-import sys
 import socket
 import time
 
@@ -58,7 +57,7 @@ def update_site_from_config(site: Site, settings: Settings):
 
 def main(config: SiteConfig, run_time_sec: int):
     start_time = time.time()
-    log_conf = config.enable_logging(basename="service")
+    config.enable_logging(basename="service")
     m, s = divmod(run_time_sec, 60)
     h, m = divmod(m, 60)
     logger.info(f"Launching service for {h:02d}h:{m:02d}m:{s:02d}s")
@@ -66,7 +65,7 @@ def main(config: SiteConfig, run_time_sec: int):
     site = Site.objects.get(id=config.settings.site_id)
     update_site_from_config(site, config.settings)
 
-    services = config.build_services(log_conf=log_conf)
+    services = config.build_services()
 
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
@@ -79,17 +78,15 @@ def main(config: SiteConfig, run_time_sec: int):
         logger.debug("Service sleeping 2...")
         time.sleep(2)
 
-    logger.info(f"terminating services...")
-
+    logger.info(f"Terminating services...")
     for service in services:
         service.terminate()
 
     logger.info(f"Waiting for service processes to join")
-
     for service in services:
         service.join()
 
-    logger.info(f"Balsam service: exit graceful")
+    logger.info(f"Balsam service: exit main loop")
 
 
 if __name__ == "__main__":
@@ -98,5 +95,6 @@ if __name__ == "__main__":
     config = SiteConfig()
     with PIDFile(config.site_path):
         main(config, run_time_sec)
-    logger.info(f"PID {os.getpid()} Goodbye: exited PIDFile context manager.")
-    sys.exit(0)
+    logger.info(
+        f"Balsam service [pid {os.getpid()}] goodbye: exited PIDFile context manager."
+    )

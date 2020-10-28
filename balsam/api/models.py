@@ -3,6 +3,9 @@ from typing import List, Dict, Set, Optional
 from .model_base import BalsamModel
 from .manager_base import Manager
 from balsam import schemas
+import logging
+
+logger = logging.getLogger(__name__)
 
 AppParameter = schemas.AppParameter
 TransferSlot = schemas.TransferSlot

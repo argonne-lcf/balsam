@@ -3,6 +3,7 @@ import logging.handlers
 import sys
 import socket
 import time
+import multiprocessing_logging
 
 from balsam import root_logger
 
@@ -71,11 +72,13 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
     root_logger.addHandler(mem_handler)
-    root_logger.info(f"Configured logging on {socket.gethostname()}")
     sys.excepthook = log_uncaught_exceptions
+    multiprocessing_logging.install_mp_handler(logger=root_logger)
+    root_logger.info(f"Configured logging on {socket.gethostname()}")
 
 
 def log_uncaught_exceptions(exctype, value, tb):
+    root_logger = logging.getLogger("balsam")
     root_logger.error(
         f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb)
     )

@@ -8,7 +8,6 @@ import time
 
 from balsam.api.models import Session
 from balsam.api import Manager
-from balsam.util import config_logging
 from .util import Queue
 
 logger = logging.getLogger(__name__)
@@ -58,7 +57,6 @@ class FixedDepthJobSource(multiprocessing.Process):
         client,
         site_id,
         prefetch_depth,
-        log_conf,
         filter_tags=None,
         states={"PREPROCESSED", "RESTART_READY"},
         serial_only=False,
@@ -81,7 +79,6 @@ class FixedDepthJobSource(multiprocessing.Process):
         self.max_nodes_per_job = max_nodes_per_job
         self.max_aggregate_nodes = max_aggregate_nodes
         self.start_time = time.time()
-        self.log_conf = log_conf
 
     def get_jobs(self, max_num_jobs):
         fetched = []
@@ -96,7 +93,6 @@ class FixedDepthJobSource(multiprocessing.Process):
         return self.queue.get(block=True, timeout=timeout)
 
     def run(self):
-        config_logging(**self.log_conf)
         EXIT_FLAG = False
 
         def handler(signum, stack):
@@ -120,6 +116,8 @@ class FixedDepthJobSource(multiprocessing.Process):
             if fetch_count:
                 params = self._get_acquire_parameters(fetch_count)
                 jobs = self.session.acquire_jobs(**params)
+                if jobs:
+                    logger.info(f"JobSource acquired {len(jobs)} jobs:")
                 for job in jobs:
                     self.queue.put_nowait(job)
         logger.info("Signal: JobSource cancelling tick thread and deleting API Session")

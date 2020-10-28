@@ -52,6 +52,7 @@ def _clear_stale_sessions(db, owner):
         synchronize_session=False
     )
     db.flush()
+    print("CLEARING STALE SESSIONS:", expired_sessions)
     return expired_jobs, expiry_events
 
 
@@ -92,6 +93,7 @@ def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
     qs = qs.filter(models.App.site_id == session.site_id)  # At site
     qs = qs.filter(models.Job.session_id.is_(None))  # Unlocked
     qs = qs.filter(models.Job.state.in_(spec.states))  # Matching states
+    print("Acquire: filtering for jobs with states:", spec.states)
     qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # Matching tags
     if spec.max_wall_time_min:
         qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
@@ -137,6 +139,7 @@ def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
         job.batch_job_id = session.batch_job_id
         job.parent_ids = [parent.id for parent in job.parents]
     db.flush()
+    print("Acquired jobs with states:", [job.state for job in acquired_jobs])
     return acquired_jobs, expired_jobs, expiry_events
 
 

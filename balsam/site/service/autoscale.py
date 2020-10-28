@@ -13,7 +13,6 @@ class AutoscaleService(BalsamService):
         client,
         site_id,
         scheduler_class,
-        log_conf,
         service_period=60,
         submit_project="datascience",
         submit_queue="balsam",
@@ -25,7 +24,7 @@ class AutoscaleService(BalsamService):
         max_queue_wait_time_min=10,
         max_queued_jobs=20,
     ):
-        super().__init__(log_conf=log_conf, service_period=service_period)
+        super().__init__(service_period=service_period)
         Manager.set_client(client)
         self.site_id = site_id
         self.scheduler = scheduler_class()

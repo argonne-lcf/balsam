@@ -343,6 +343,7 @@ def delete_query(db, owner, filterset=None, job_id=None):
     qs = qs.filter(models.Job.session_id.is_(None)).with_for_update(of=models.Job)
     ids = [job.id for job in qs.options(orm.load_only(models.Job.id))]
     delete_ids = set(_select_children(db, ids))
+    print("Deleting job ids:", delete_ids)
     db.query(models.Job).filter(models.Job.id.in_(delete_ids)).delete(
         synchronize_session=False
     )

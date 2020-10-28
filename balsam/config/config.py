@@ -178,7 +178,7 @@ class SiteConfig:
             raise FileNotFoundError(f"{site_path} must contain a settings.yml")
         self.settings = self._load_yaml_settings(yaml_settings)
 
-    def build_services(self, log_conf):
+    def build_services(self):
         from balsam.site.service import SchedulerService, ProcessingService
 
         services = []
@@ -189,7 +189,6 @@ class SiteConfig:
                 client=client,
                 site_id=self.settings.site_id,
                 submit_directory=self.job_path,
-                log_conf=log_conf,
                 **self.settings.scheduler.dict(),
             )
             services.append(scheduler_service)
@@ -200,7 +199,6 @@ class SiteConfig:
                 site_id=self.site_id,
                 apps_path=self.apps_path,
                 filter_tags=self.settings.filter_tags,
-                log_conf=log_conf,
                 **self.settings.processing.dict(),
             )
             services.append(processing_service)

@@ -1,7 +1,6 @@
 from datetime import datetime
 from balsam.site import FixedDepthJobSource, BulkStatusUpdater
 from balsam.site import ApplicationDefinition
-from balsam.util import config_logging
 from balsam.api.models import App
 import multiprocessing
 import signal
@@ -19,7 +18,7 @@ def transition(app):
         "RUN_TIMEOUT": app.handle_timeout,
     }[app.job.state]
     try:
-        logger.debug(f"Running {transition_func} for Job {app.job.id}")
+        logger.debug(f"Running {transition_func.__name__} for Job {app.job.id}")
         transition_func()
     except Exception as exc:
         logger.exception(
@@ -32,8 +31,7 @@ def transition(app):
         }
 
 
-def run_worker(job_source, status_updater, app_cache, log_conf):
-    config_logging(**log_conf)
+def run_worker(job_source, status_updater, app_cache):
     EXIT_FLAG = False
 
     def sig_handler(signum, stack):
@@ -53,12 +51,14 @@ def run_worker(job_source, status_updater, app_cache, log_conf):
             transition(app)
             job.state_timestamp = datetime.utcnow()
             status_updater.put(
-                id=job.id,
-                state=job.state,
-                state_timestamp=datetime.utcnow(),
-                state_data=job.state_data if job.state_data else None,
+                dict(
+                    id=job.id,
+                    state=job.state,
+                    state_timestamp=datetime.utcnow(),
+                    state_data=job.state_data if job.state_data else {},
+                )
             )
-            logger.debug(f"{job.id} advanced to {job.state}")
+            logger.debug(f"Job {job.id} advanced to {job.state}")
     logger.info("Signal: ProcessingWorker exit")
 
 
@@ -69,7 +69,6 @@ class ProcessingService(object):
         site_id,
         prefetch_depth,
         apps_path,
-        log_conf,
         filter_tags=None,
         num_workers=5,
     ):
@@ -79,10 +78,9 @@ class ProcessingService(object):
             site_id=site_id,
             prefetch_depth=prefetch_depth,
             filter_tags=filter_tags,
-            log_conf=log_conf,
             states={"STAGED_IN", "RUN_DONE", "RUN_ERROR", "RUN_TIMEOUT"},
         )
-        self.status_updater = BulkStatusUpdater(client, log_conf=log_conf)
+        self.status_updater = BulkStatusUpdater(client)
 
         app_cache = {
             app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
@@ -92,7 +90,7 @@ class ProcessingService(object):
         self.workers = [
             multiprocessing.Process(
                 target=run_worker,
-                args=(self.job_source, self.status_updater, app_cache, log_conf),
+                args=(self.job_source.queue, self.status_updater.queue, app_cache,),
             )
             for _ in range(num_workers)
         ]
