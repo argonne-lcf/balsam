@@ -102,7 +102,9 @@ def validate_parents(ctx, param, value):
 
 @job.command()
 @click.option("-w", "--workdir", required=True, type=str)
-@click.option("-a", "--app", required=True, type=str, callback=validate_app)
+@click.option(
+    "-a", "--app", required=True, type=str, callback=validate_app, is_eager=True
+)
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
 @click.option(
     "-p", "--param", "parameters", multiple=True, type=str, callback=validate_parameters
