@@ -63,7 +63,7 @@ def mv(src, dest):
         raise click.BadParameter(f"{dest} exists")
 
     shutil.move(src.as_posix(), dest)
-    client = ClientSettings.load_from_home().build_client()
+    client = cf.client
 
     site = client.Site.objects.get(id=cf.settings.site_id)
     site.path = dest
@@ -80,7 +80,7 @@ def rm(path):
     balsam site rm /path/to/site
     """
     cf = SiteConfig(path)
-    client = ClientSettings.load_from_home().build_client()
+    client = cf.client
     site = client.Site.objects.get(id=cf.settings.site_id)
 
     if click.confirm(f"Do you really want to destroy {path}?"):
@@ -97,7 +97,7 @@ def rename(path, name):
     Change the hostname of a balsam site
     """
     cf = SiteConfig(path)
-    client = ClientSettings.load_from_home().build_client()
+    client = cf.client
     site = client.Site.objects.get(id=cf.settings.site_id)
     site.hostname = name
     site.save()

@@ -7,7 +7,6 @@ import subprocess
 import socket
 import click
 from .utils import load_site_config
-from balsam.config import ClientSettings
 from balsam.site.service import main
 
 service_main = Path(main.__file__)
@@ -19,7 +18,6 @@ PID_FILENAME = "balsam-service.pid"
 def service(ctx):
     """Start/stop a Site's Balsam service"""
     ctx.obj = load_site_config()
-    ClientSettings.load_from_home().build_client()
 
 
 @service.command()

@@ -55,7 +55,7 @@ def create(name, command_template, description):
         balsam app create --name demo.Hello --command-template 'echo hello, {{name}}!'
     """
     cf = load_site_config()
-    client = ClientSettings.load_from_home().build_client()
+    client = cf.client
 
     try:
         module_name, cls_name = name.split(".")
@@ -138,7 +138,7 @@ def sync():
     Sync local ApplicationDefinitions with Balsam
     """
     cf = load_site_config()
-    client = ClientSettings.load_from_home().build_client()
+    client = cf.client
 
     registered_apps = list(client.App.objects.filter(site_id=cf.settings.site_id))
     app_classes, mtimes = load_apps(cf.apps_path)
