@@ -1,3 +1,4 @@
+from abc import ABCMeta
 import json
 import os
 import sys
@@ -147,6 +148,7 @@ class Settings(BaseSettings):
     class Config:
         json_encoders = {
             type: get_class_path,
+            ABCMeta: get_class_path,
         }
 
 
@@ -186,7 +188,8 @@ class SiteConfig:
                 client=self.client,
                 site_id=self.settings.site_id,
                 submit_directory=self.job_path,
-                **self.settings.scheduler.dict(),
+                filter_tags=self.settings.filter_tags,
+                **dict(self.settings.scheduler),  # does not convert sub-models to dicts
             )
             services.append(scheduler_service)
 
@@ -196,7 +199,9 @@ class SiteConfig:
                 site_id=self.site_id,
                 apps_path=self.apps_path,
                 filter_tags=self.settings.filter_tags,
-                **self.settings.processing.dict(),
+                **dict(
+                    self.settings.processing
+                ),  # does not convert sub-models to dicts
             )
             services.append(processing_service)
         return services
@@ -221,9 +226,7 @@ class SiteConfig:
         site_path.mkdir(exist_ok=False, parents=True)
         site_path.joinpath(".balsam-site").touch()
 
-        settings = cls._load_yaml_settings(
-            default_site_path.joinpath("settings.yml"), validate=False
-        )
+        settings = cls._load_yaml_settings(default_site_path.joinpath("settings.yml"))
 
         client = ClientSettings.load_from_home().build_client()
         site = client.Site.objects.create(
@@ -241,7 +244,8 @@ class SiteConfig:
                 src=default_site_path.joinpath("apps"), dst=cf.apps_path,
             )
             shutil.copy(
-                src=default_site_path.joinpath("job-template.sh"), dst=cf.site_path,
+                src=default_site_path.joinpath(settings.scheduler.job_template_path),
+                dst=cf.site_path,
             )
         except Exception:
             site.delete()

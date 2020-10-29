@@ -1,4 +1,7 @@
 from .query import Query
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Manager:
@@ -86,13 +89,21 @@ class Manager:
         patch_list = [
             {"id": obj.id, **obj._update_model.dict(exclude_unset=True)}
             for obj in instances
-            if hasattr(obj, "_update_model")
+            if getattr(obj, "_update_model", None) is not None
         ]
+        if not patch_list:
+            logger.debug("bulk-update: patch_list is empty (nothing to update!)")
+            return
+
+        logger.debug(f"Performing bulk-update to {self.path}\n{patch_list}")
         response_data = self._client.bulk_patch(self.path, patch_list)
         response_map = {item["id"]: item for item in response_data}
+        logger.debug(f"bulk-update response map: {response_map}")
         # Use response_map to update instances in-place
         for obj in instances:
-            obj._refresh_from_dict(response_map[obj.id])
+            if obj.id in response_map:
+                logger.debug(f"refreshing object id={obj.id} from response_map")
+                obj._refresh_from_dict(response_map[obj.id])
 
     def _build_query_params(self, filters, ordering=None, limit=None, offset=None):
         d = {}

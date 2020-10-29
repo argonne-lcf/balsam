@@ -49,9 +49,9 @@ def submit(
     try:
         validate_batch_job(
             job,
-            settings.allowed_queues,
-            settings.allowed_projects,
-            settings.optional_batch_job_params,
+            settings.scheduler.allowed_queues,
+            settings.scheduler.allowed_projects,
+            settings.scheduler.optional_batch_job_params,
         )
     except ValueError as e:
         raise click.BadArgumentUsage(str(e))
@@ -65,17 +65,21 @@ def ls(ctx):
     BatchJob = ctx.obj.client.BatchJob
     site_id = ctx.obj.settings.site_id
 
-    query = BatchJob.objects.filter(site_id=site_id)
+    jobs = [j.display_dict() for j in BatchJob.objects.filter(site_id=site_id)]
     fields = [
-        "filter_tags",
+        "id",
+        "scheduler_id",
         "state",
+        "filter_tags",
         "project",
         "queue",
-        "num_nodes" "wall_time_min",
+        "num_nodes",
+        "wall_time_min",
         "job_mode",
-        "optional_params",
+        # "optional_params",
+        # "status_info",
     ]
-    rows = [[str(j[field]) for field in fields] for j in query]
+    rows = [[str(j[field]) for field in fields] for j in jobs]
 
     col_widths = [len(f) for f in fields]
     for row in rows:

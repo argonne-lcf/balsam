@@ -82,10 +82,16 @@ def stop(ctx):
         )
     click.echo(f"Sent SIGTERM to Balsam service [pid {service_pid}]")
     click.echo(f"Waiting for service to shutdown...")
-    try:
-        service_proc.wait(timeout=5)
-    except psutil.TimeoutExpired:
-        raise click.BadArgumentUsage(
-            f"Service did not shut down gracefully on its own; please kill it manually "
-            f"and delete {pid_file}"
-        )
+    with click.progressbar(range(12)) as bar:
+        for i in bar:
+            try:
+                service_proc.wait(timeout=1)
+            except psutil.TimeoutExpired:
+                if i == 11:
+                    raise click.BadArgumentUsage(
+                        f"Service did not shut down gracefully on its own; please kill it manually "
+                        f"and delete {pid_file}"
+                    )
+            else:
+                click.echo("\nService shutdown OK")
+                break

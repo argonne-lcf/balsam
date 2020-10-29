@@ -15,6 +15,13 @@ from .scheduler import (
 
 
 class LocalProcessScheduler(SchedulerInterface):
+    _state_map = {
+        psutil.STATUS_ZOMBIE: "finished",
+        psutil.STATUS_DEAD: "finished",
+    }
+
+    _subprocesses = []
+
     @classmethod
     def submit(
         cls,
@@ -35,6 +42,7 @@ class LocalProcessScheduler(SchedulerInterface):
             p = subprocess.Popen(
                 f"bash {script_path}", shell=True, stdout=fp, stderr=subprocess.STDOUT,
             )
+        cls._subprocesses.append(p)
         return p.pid
 
     @classmethod
@@ -49,18 +57,20 @@ class LocalProcessScheduler(SchedulerInterface):
           job belonging to current user, project, and/or queue
         """
         results = {}
-        for p in psutil.process_iter(attrs=["pid", "username"]):
+        for p in psutil.process_iter(attrs=["pid", "username", "status"]):
             if p.info["username"] == user:
                 pid = int(p.info["pid"])
+                status = p.info["status"]
                 results[pid] = SchedulerJobStatus(
                     scheduler_id=pid,
-                    state="running",
+                    state=cls._state_map.get(status, "running"),
                     queue="local",
                     num_nodes=1,
                     wall_time_min=0,
-                    project="",
+                    project="local",
                     time_remaining_min=1000,
                 )
+        cls._subprocesses = [p for p in cls._subprocesses if p.poll() is None]
         return results
 
     @classmethod

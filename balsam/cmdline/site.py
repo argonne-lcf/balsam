@@ -12,6 +12,16 @@ def site():
     pass
 
 
+def load_settings_comments(settings_dirs):
+    descriptions = {name: "" for name in settings_dirs}
+    for name, dir in settings_dirs.items():
+        firstline = dir.joinpath("settings.yml").read_text().split("\n")[0]
+        firstline = firstline.strip()
+        if firstline.startswith("#"):
+            descriptions[name] = f'({firstline.lstrip("#").strip()})'
+    return descriptions
+
+
 @site.command()
 @click.argument("site-path", type=click.Path(writable=True))
 @click.option("-h", "--hostname")
@@ -25,10 +35,13 @@ def init(site_path, hostname):
 
     site_path = Path(site_path).absolute()
     default_dirs = {v.name: v for v in SiteConfig.load_default_config_dirs()}
+    descriptions = load_settings_comments(default_dirs)
+    choices = [f"{name}  {description}" for name, description in descriptions.items()]
+
     site_prompt = inquirer.List(
         "default_dir",
         message=f"Select a default configuration to initialize your Site {site_path.name}",
-        choices=list(default_dirs.keys()),
+        choices=choices,
         carousel=True,
     )
 
@@ -36,6 +49,7 @@ def init(site_path, hostname):
         raise click.BadParameter(f"{site_path} already exists")
 
     selected = inquirer.prompt([site_prompt])["default_dir"]
+    selected = selected.split()[0]
     default_site_path = default_dirs[selected]
 
     SiteConfig.new_site_setup(
@@ -82,8 +96,10 @@ def rm(path):
     cf = SiteConfig(path)
     client = cf.client
     site = client.Site.objects.get(id=cf.settings.site_id)
+    jobcount = client.Job.objects.filter(site_id=site.id).count()
+    warning = f"This will wipe out {jobcount} jobs inside!" if jobcount else ""
 
-    if click.confirm(f"Do you really want to destroy {path}?"):
+    if click.confirm(f"Do you really want to destroy {Path(path).name}? {warning}"):
         site.delete()
         shutil.rmtree(path)
         click.echo(f"Deleted site {path}")

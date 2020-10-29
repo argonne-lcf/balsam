@@ -57,6 +57,7 @@ class SchedulerService(BalsamService):
         optional_batch_job_params,
         job_template_path,
         submit_directory,
+        filter_tags,
     ):
         super().__init__(client=client, service_period=sync_period)
         self.site_id = site_id
@@ -67,11 +68,12 @@ class SchedulerService(BalsamService):
         self.job_template = ScriptTemplate(job_template_path)
         self.submit_directory = submit_directory
         self.username = getpass.getuser()
+        self.filter_tags = filter_tags
         logger.info(f"Initialized SchedulerService:\n{self.__dict__}")
 
     def fail_submit(self, job, msg):
         job.state = "submit_failed"
-        job.status_info["error"] = msg
+        job.status_info = {**job.status_info, "error": msg}
         logger.error(f"Submit failed for BatchJob {job.id}: {msg}")
 
     def submit_launch(self, job, scheduler_jobs):
@@ -85,7 +87,7 @@ class SchedulerService(BalsamService):
         except ValueError as e:
             return self.fail_submit(job, str(e))
 
-        num_queued = len([j for j in scheduler_jobs if j.queue == job.queue])
+        num_queued = len([j for j in scheduler_jobs.values() if j.queue == job.queue])
         queue = self.allowed_queues[job.queue]
         if num_queued >= queue.max_queued_jobs:
             return self.fail_submit(
@@ -106,6 +108,8 @@ class SchedulerService(BalsamService):
         with open(script_path, "w") as fp:
             fp.write(script)
 
+        logger.info(f"Generated script for batch_job {job.id} in {script_path}")
+
         st = os.stat(script_path)
         os.chmod(script_path, st.st_mode | stat.S_IEXEC)
 
@@ -123,33 +127,58 @@ class SchedulerService(BalsamService):
         else:
             job.scheduler_id = scheduler_id
             job.state = "queued"
-            job.status_info["submit_script"] = script_path
-            job.status_info["submit_time"] = datetime.utcnow()
+            job.status_info = {
+                **job.status_info,
+                "submit_script": script_path,
+                "submit_time": datetime.utcnow(),
+            }
             logger.info(f"Submit OK: {job}")
 
     def run_cycle(self):
         BatchJob = self.client.BatchJob
         api_jobs = BatchJob.objects.filter(
-            site_id=self.site_id, state__ne=["submit_failed", "finished"]
+            site_id=self.site_id,
+            state=["pending_submission", "queued", "running", "pending_deletion"],
         )
+        api_jobs = list(api_jobs)
+        logger.info(f"Fetched API BatchJobs: {[(j.id, j.state) for j in api_jobs]}")
         scheduler_jobs = self.scheduler.get_statuses(user=self.username)
 
         for job in api_jobs:
+            if job.state == "finished":
+                continue
             if job.state == "pending_submission":
-                self.submit_launch(job, scheduler_jobs)
+                if all(
+                    item in job.filter_tags.items() for item in self.filter_tags.items()
+                ):
+                    self.submit_launch(job, scheduler_jobs)
+                else:
+                    logger.debug(
+                        f"Will not submit batchjob {job.id}: does not match "
+                        f"the current filter_tags criteria: {self.filter_tags}"
+                    )
             elif job.state == "pending_deletion" and job.scheduler_id in scheduler_jobs:
+                logger.info(f"Performing queue-deletion of batch job {job.id}")
                 self.scheduler.delete_job(job.scheduler_id)
             elif job.scheduler_id not in scheduler_jobs:
+                logger.info(
+                    f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses: finished"
+                )
                 job.state = "finished"
-                job_log = self.scheduler.parse_logs(job.scheduler_id)
-                start_time = job_log.get("start_time")
-                end_time = job_log.get("end_time")
+                job_log = self.scheduler.parse_logs(
+                    job.scheduler_id, job.status_info.get("submit_script", None)
+                )
+                start_time = job_log.start_time
+                end_time = job_log.end_time
                 if start_time:
                     job.start_time = start_time
                 if end_time:
                     job.end_time = end_time
             elif job.state != scheduler_jobs[job.scheduler_id].state:
                 job.state = scheduler_jobs[job.scheduler_id].state
+                logger.info(
+                    f"Job {job.id} (sched_id {job.scheduler_id}) advanced to state {job.state}"
+                )
         BatchJob.objects.bulk_update(api_jobs)
         self.update_site_info()
 
@@ -160,6 +189,7 @@ class SchedulerService(BalsamService):
         site.num_nodes = 0
         site.queued_jobs = []
         site.save()
+        logger.info(f"Updated Site info: {site.display_dict()}")
 
     def cleanup(self):
         logger.info("SchedulerService exiting")

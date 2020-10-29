@@ -1,3 +1,4 @@
+# Default local setup for Mac OS
 filter_tags: {}
 logging:
     buffer_num_records: 1024
