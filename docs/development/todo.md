@@ -1,5 +1,45 @@
 # Roadmap
 
+## Short Todo
+
+- Scheduler Interface
+  - finish refactoring; use balsam.schema
+- Local scheduler class
+- Test queue_maintainer and scheduler service modules with local sched; dummy job template
+
+
+- Transfer service module
+- test with a dummy app that bypasses launcher; skip state in preproc
+
+- Double check autoscaler & scheduler service modules: test on theta
+
+- Launcher & NodeDetection interfaces
+- Test launchers / local-only workflow on Theta/generic-02
+
+- Test end-to-end (transfer; preproc; run; postproc; stageout) on Theta with backfill autoscaler
+- Test on ThetaGPU
+- Test on Bebop
+- Test on Cooley
+- Test on Cori
+- Test on Summit
+
+- Push on Auth & secure hosting solution
+- API Benchmarking and optimization of key endpoints
+- API "DAG" capability: creating prototype dags and instances of dags
+
+- Merge latest balsam0 features (ZMQ/etc...) into master: get a final tagged release of 0.x
+- Incorporate balsam0 features into balsam1 
+  - push to new "main" branch 
+  - make "main" the new default branch on GitHub
+  - master will continue to point to the last commit of 0.x
+
+- Improve CLI:  incorporate balsam0 features, refactor, prettify
+- Improve API: 
+  - Models, ModelFields, Managers should have useful signatures, type hints, not failing in PyLance
+	- use ABC abstractmethod in Base Model, Manager
+
+- Nuxt / Vuetify project skeleton using VueX:websocket plugin
+
 ## REST API
 
 - [ ] Login Auth
@@ -36,17 +76,17 @@
 
 ## Balsam Site Components
 
-- [ ] `JobSource` interface
+- [X ] `JobSource` interface
   - Wraps `Session` API: acquire jobs, tick heartbeat
   - not concerned with dispatch of jobs or assignment of jobs to resources
   - On init, create a new Session (pass `site_id` and `batch_job`)
   - Manage `tick` daemon thread and `release` session on exit
   - Provide `acquire` wrapper method that wraps client.sessions.acquire() directly
-- [ ] `StatusUpdater` interface
+- [X ] `StatusUpdater` interface
   - 1 thread + queue for pooling status updates into bulk updates
-- [ ] Balsam Service module interface
+- [X ] Balsam Service module interface
 - [ ] Transfer service module
-- [ ] Processing service module
+- [X ] Processing service module
 - [ ] Scheduler service module
 - [ ] Auto-scaler service module
 

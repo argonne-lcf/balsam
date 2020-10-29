@@ -90,7 +90,7 @@ class SchedulerTestMixin(object):
         for queue, windows in windows.items():
             for window in windows:
                 self.assertIsInstance(window.num_nodes, int)
-                self.assertIsInstance(window.backfill_time_min, int)
+                self.assertIsInstance(window.wall_time_min, int)
 
 
 class DummyTest(SchedulerTestMixin, unittest.TestCase):

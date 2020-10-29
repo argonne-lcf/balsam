@@ -1,4 +1,8 @@
-from .scheduler import SubprocessSchedulerInterface, JobStatus
+from .scheduler import (
+    SubprocessSchedulerInterface,
+    SchedulerJobStatus,
+    SchedulerJobLog,
+)
 import os
 import logging
 
@@ -68,7 +72,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     # maps Balsam status fields to the scheduler fields
     # should be a comprehensive list of scheduler status fields
     _status_fields = {
-        "id": "jobid",
+        "scheduler_id": "jobid",
         "state": "state",
         "queue": "partition",
         "num_nodes": "numnodes",
@@ -82,7 +86,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _status_field_map(balsam_field):
         status_field_map = {
-            "id": lambda id: int(id),
+            "scheduler_id": lambda id: int(id),
             "state": SlurmScheduler._job_state_map,
             "queue": lambda queue: str(queue),
             "num_nodes": lambda n: int(n),
@@ -260,9 +264,14 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             if callable(func):
                 status[name] = func(value)
 
-        return JobStatus(**status)
+        return SchedulerJobStatus(**status)
 
     @staticmethod
     def _parse_backfill_output(stdout):
-        # NERSC currently does not provide this kind of information
+        # TODO: NERSC currently does not provide this kind of information
         return {}
+
+    @staticmethod
+    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+        # TODO: return job start/stop time from files?
+        return SchedulerJobLog()
