@@ -103,11 +103,6 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return status_field_map.get(balsam_field, None)
 
     @staticmethod
-    def _get_envs():
-        env = {}
-        return env
-
-    @staticmethod
     def _render_submit_args(
         script_path, project, queue, num_nodes, wall_time_min, **kwargs
     ):

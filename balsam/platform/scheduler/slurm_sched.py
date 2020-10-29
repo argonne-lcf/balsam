@@ -168,7 +168,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return nodelist_field_map.get(balsam_field, lambda x: x)
 
     @staticmethod
-    def _get_envs():
+    def _set_envs():
         env = {}
         fields = SlurmScheduler._status_fields.values()
         env["SQUEUE_FORMAT2"] = ",".join(fields)
@@ -176,6 +176,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         env["SINFO_FORMAT"] = " ".join(
             SlurmScheduler._fields_encondings[field] for field in fields
         )
+        os.environ.update(env)
         return env
 
     @staticmethod
@@ -208,6 +209,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_status_args(project=None, user=None, queue=None):
+        SlurmScheduler._set_envs()
         args = [SlurmScheduler.status_exe]
         if user is not None:
             args += ["-u", user]
@@ -223,6 +225,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_backfill_args():
+        SlurmScheduler._set_envs()
         return [SlurmScheduler.backfill_exe]
 
     @staticmethod

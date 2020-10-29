@@ -2,9 +2,6 @@
 
 ## Short Todo
 
-- Scheduler Interface
-  - finish refactoring; use balsam.schema
-- Local scheduler class
 - Test queue_maintainer and scheduler service modules with local sched; dummy job template
 
 
@@ -174,3 +171,35 @@
 ## Jupyter Interface
 
 - Widgets and plotting convenience functions
+
+
+## CI
+Portable CI pipeline (to deploy at Summit, Cori, Theta):
+
+- Server setup
+	Download
+	Install in venv
+	Deploy server at known host:port
+
+- Server tests
+	Suite of tests directly against server
+
+- Client API Tests
+
+- Real computing system integration tests: 
+	Download
+	Install in venv
+	Register & login to known host:port
+	Create a Site
+	Populate Apps and Jobs
+		app testing end-to-end flow
+	Activate Globus endpoints
+	Configure settings to run a queue_maintainer with depth of 1
+	Run service
+
+- Monitor logs, job and batchjob states
+	report failures in any step
+	report ERROR from log
+	report failed state in API
+	transmit logs, state history, job outputs as artifacts
+	Test that transfers actually occurred

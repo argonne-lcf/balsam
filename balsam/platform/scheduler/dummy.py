@@ -129,12 +129,6 @@ class DummyScheduler(SubprocessSchedulerInterface):
  48   FINISHED  120  default 60  p2  40
  50   FINISHED  55 debug  2  p3  NA"""
 
-    def _get_envs(self):
-        env = {}
-        # fields = self.status_fields.values()
-        # env['QSTAT_HEADER'] = ':'.join(fields)
-        return env
-
     def _render_submit_args(
         self, script_path, project, queue, num_nodes, wall_time_min
     ):

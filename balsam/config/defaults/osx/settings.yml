@@ -1,6 +1,4 @@
-filter_tags:
-    system: H2O
-    workflow: test-1
+filter_tags: {}
 logging:
     buffer_num_records: 1024
     datefmt: '%d-%b-%Y %H:%M:%S'
@@ -10,27 +8,22 @@ logging:
     level: DEBUG
 mpi_launcher: balsam.platform.mpirun.theta.ThetaAprun
 processing:
-    num_workers: 5
+    num_workers: 1
     prefetch_depth: 1000
 resource_manager: balsam.platform.nodespec.default.DefaultNode
 scheduler:
     allowed_projects:
-    - datascience
-    - magstructsADSP
+    - local
     allowed_queues:
-        debug-cache-quad:
-            max_nodes: 8
-            max_queued_jobs: 1
+        local:
+            max_nodes: 1
+            max_queued_jobs: 1000
             max_walltime: 60
-        default:
-            max_nodes: 4010
-            max_queued_jobs: 20
-            max_walltime: 1440
-    job_template_path: job-template.sh
+    job_template_path: job-template.sh.tmpl
     optional_batch_job_params:
-        singularity_prime_cache: 'no'
-    scheduler_class: balsam.platform.scheduler.cobalt_sched.CobaltScheduler
-    sync_period: 60
+        shout: 'no'
+    scheduler_class: balsam.platform.scheduler.LocalProcessScheduler
+    sync_period: 10
 site_id: -1
 transfers:
     globus_endpoint_id: null
