@@ -2,6 +2,17 @@ import click
 from balsam.config import SiteConfig
 
 
+def list_to_dict(arg_list):
+    return dict(arg.split("=") for arg in arg_list)
+
+
+def validate_tags(ctx, param, value):
+    try:
+        return list_to_dict(value)
+    except ValueError:
+        raise click.BadParameter("needs to be in format KEY=VALUE")
+
+
 def load_site_config() -> SiteConfig:
     try:
         cf = SiteConfig()

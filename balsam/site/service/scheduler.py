@@ -11,6 +11,40 @@ from .service_base import BalsamService
 logger = logging.getLogger(__name__)
 
 
+def validate_batch_job(
+    job, allowed_queues, allowed_projects, optional_batch_job_params
+):
+    if job.queue not in allowed_queues:
+        raise ValueError(
+            f"Unknown queue {job.queue} " f"(known: {list(allowed_queues.keys())})"
+        )
+    queue = allowed_queues[job.queue]
+    if job.num_nodes > queue.max_nodes:
+        raise ValueError(
+            f"{job.num_nodes} exceeds queue max num_nodes {queue.max_nodes}"
+        )
+    if job.num_nodes < 1:
+        raise ValueError(f"Job size must be at least 1 node")
+    if job.wall_time_min > queue.max_walltime:
+        raise ValueError(
+            f"{job.wall_time_min} exceeds queue max wall_time_min {queue.max_walltime}"
+        )
+
+    if job.project not in allowed_projects:
+        raise ValueError(
+            f"Unknown project {job.project} " f"(known: {allowed_projects})"
+        )
+
+    extras = set(job.optional_params.keys())
+    allowed_extras = set(optional_batch_job_params.keys())
+    extraneous = extras.difference(allowed_extras)
+    if extraneous:
+        raise ValueError(
+            f"Extraneous optional_params: {extraneous} "
+            f"(allowed extras: {allowed_extras})"
+        )
+
+
 class SchedulerService(BalsamService):
     def __init__(
         self,
@@ -41,23 +75,18 @@ class SchedulerService(BalsamService):
         logger.error(f"Submit failed for BatchJob {job.id}: {msg}")
 
     def submit_launch(self, job, scheduler_jobs):
-        if job.project not in self.allowed_projects:
-            return self.fail_submit(job, f"Invalid project {job.project}")
-        if job.queue not in self.allowed_queues:
-            return self.fail_submit(job, f"Invalid queue {job.queue}")
-        extraneous_params = set(job.optional_params).difference(
-            self.optional_batch_job_params
-        )
-        if extraneous_params:
-            return self.fail_submit(
-                job, f"Invalid optional_params: {extraneous_params}"
+        try:
+            validate_batch_job(
+                job,
+                self.allowed_queues,
+                self.allowed_projects,
+                self.optional_batch_job_params,
             )
-        queue = self.allowed_queues[job.queue]
-        if job.num_nodes < 1 or job.num_nodes > queue.max_nodes:
-            return self.fail_submit(job, f"Invalid num_nodes: {job.num_nodes}")
-        if job.wall_time_min > queue.max_walltime:
-            return self.fail_submit(job, f"Invalid wall_time_min: {job.wall_time_min}")
+        except ValueError as e:
+            return self.fail_submit(job, str(e))
+
         num_queued = len([j for j in scheduler_jobs if j.queue == job.queue])
+        queue = self.allowed_queues[job.queue]
         if num_queued >= queue.max_queued_jobs:
             return self.fail_submit(
                 job, f"Exceeded max {queue.max_queued_jobs} jobs in queue {job.queue}"

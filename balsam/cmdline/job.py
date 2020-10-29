@@ -1,7 +1,7 @@
 import yaml
 from pathlib import Path
 import click
-from .utils import load_site_config
+from .utils import load_site_config, validate_tags
 from balsam.schemas import JobState
 
 
@@ -12,17 +12,6 @@ def job(ctx):
     Create and monitor Balsam Jobs
     """
     ctx.obj = load_site_config()
-
-
-def list_to_dict(arg_list):
-    return dict(arg.split("=") for arg in arg_list)
-
-
-def validate_tags(ctx, param, value):
-    try:
-        return list_to_dict(value)
-    except ValueError:
-        raise click.BadParameter("needs to be in format KEY=VALUE")
 
 
 def validate_state(ctx, param, value):
@@ -105,7 +94,7 @@ def validate_parents(ctx, param, value):
 @click.option(
     "-a", "--app", required=True, type=str, callback=validate_app, is_eager=True
 )
-@click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
+@click.option("-tag", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
 @click.option(
     "-p", "--param", "parameters", multiple=True, type=str, callback=validate_parameters
 )
