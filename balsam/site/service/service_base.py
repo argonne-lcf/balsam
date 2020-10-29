@@ -1,12 +1,12 @@
-import multiprocessing
 import signal
 import time
 import logging
+from balsam.util import Process
 
 logger = logging.getLogger(__name__)
 
 
-class BalsamService(multiprocessing.Process):
+class BalsamService(Process):
     def __init__(self, client, *args, service_period=1.0, **kwargs):
         super().__init__(*args, **kwargs)
         self.client = client
@@ -16,7 +16,7 @@ class BalsamService(multiprocessing.Process):
     def sig_handler(self, signum, stack):
         self._EXIT_FLAG = True
 
-    def run(self, *args, **kwargs):
+    def _run(self, *args, **kwargs):
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
         self.client.close_session()

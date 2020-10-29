@@ -1,11 +1,11 @@
 from datetime import timedelta
 import logging
 import threading
-import multiprocessing
 import queue
 import signal
 import time
 
+from balsam.util import Process
 from .util import Queue
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class SessionThread:
         logger.debug("Ticked session")
 
 
-class FixedDepthJobSource(multiprocessing.Process):
+class FixedDepthJobSource(Process):
     """
     A background process maintains a queue of `prefetch_depth` jobs meeting
     the criteria below. Prefer this JobSource to hide API latency for
@@ -90,7 +90,7 @@ class FixedDepthJobSource(multiprocessing.Process):
     def get(self, timeout=None):
         return self.queue.get(block=True, timeout=timeout)
 
-    def run(self):
+    def _run(self):
         EXIT_FLAG = False
         self.client.close_session()
 

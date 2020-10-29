@@ -1,5 +1,4 @@
 from collections import defaultdict
-import multiprocessing
 import queue
 import signal
 import logging
@@ -7,18 +6,19 @@ from datetime import datetime
 
 from typing import List, Dict, Any, Optional
 from balsam.schemas import JobState
+from balsam.util import Process
 from .util import Queue
 
 logger = logging.getLogger(__name__)
 
 
-class StatusUpdater(multiprocessing.Process):
+class StatusUpdater(Process):
     def __init__(self, client):
         super().__init__()
         self.client = client
         self.queue = Queue()
 
-    def run(self):
+    def _run(self):
         self.client.close_session()
         EXIT_FLAG = False
 

@@ -72,9 +72,9 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
     root_logger.addHandler(mem_handler)
-    sys.excepthook = log_uncaught_exceptions
     multiprocessing_logging.install_mp_handler(logger=root_logger)
     root_logger.info(f"Configured logging on {socket.gethostname()}")
+    sys.excepthook = log_uncaught_exceptions
 
 
 def log_uncaught_exceptions(exctype, value, tb):
@@ -82,5 +82,3 @@ def log_uncaught_exceptions(exctype, value, tb):
     root_logger.error(
         f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb)
     )
-    for handler in root_logger.handlers:
-        handler.flush()

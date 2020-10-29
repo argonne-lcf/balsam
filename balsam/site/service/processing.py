@@ -1,7 +1,7 @@
 from datetime import datetime
 from balsam.site import FixedDepthJobSource, BulkStatusUpdater
 from balsam.site import ApplicationDefinition
-import multiprocessing
+from balsam.util import Process
 import signal
 import queue
 import logging
@@ -87,7 +87,7 @@ class ProcessingService(object):
         }
 
         self.workers = [
-            multiprocessing.Process(
+            Process(
                 target=run_worker,
                 args=(self.job_source.queue, self.status_updater.queue, app_cache,),
             )
