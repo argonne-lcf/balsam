@@ -108,6 +108,16 @@ class SchedulerSettings(BaseSettings):
     job_template_path: Path = Path("job-template.sh")
 
 
+class QueueMaintainerSettings(BaseSettings):
+    submit_period: int = 60
+    submit_project: str = "local"
+    submit_queue: str = "local"
+    job_mode: str = "mpi"
+    num_queued_jobs: int = 5
+    num_nodes: int = 1
+    wall_time_min: int = 1
+
+
 class ProcessingSettings(BaseSettings):
     num_workers: int = 5
     prefetch_depth: int = 1000
@@ -132,6 +142,7 @@ class Settings(BaseSettings):
     scheduler: Optional[SchedulerSettings] = SchedulerSettings()
     processing: Optional[ProcessingSettings] = ProcessingSettings()
     transfers: Optional[TransferSettings] = TransferSettings()
+    queue_maintainer: Optional[QueueMaintainerSettings] = QueueMaintainerSettings()
 
     def save(self, path):
         with open(path, "w") as fp:
@@ -179,7 +190,11 @@ class SiteConfig:
         self.client = ClientSettings.load_from_home().build_client()
 
     def build_services(self):
-        from balsam.site.service import SchedulerService, ProcessingService
+        from balsam.site.service import (
+            SchedulerService,
+            ProcessingService,
+            QueueMaintainerService,
+        )
 
         services = []
 
@@ -192,6 +207,17 @@ class SiteConfig:
                 **dict(self.settings.scheduler),  # does not convert sub-models to dicts
             )
             services.append(scheduler_service)
+
+        if self.settings.queue_maintainer:
+            queue_maintainer = QueueMaintainerService(
+                client=self.client,
+                site_id=self.settings.site_id,
+                filter_tags=self.settings.filter_tags,
+                **dict(
+                    self.settings.queue_maintainer
+                ),  # does not convert sub-models to dicts
+            )
+            services.append(queue_maintainer)
 
         if self.settings.processing:
             processing_service = ProcessingService(

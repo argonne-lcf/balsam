@@ -23,6 +23,7 @@ class BatchJobOrdering(str, Enum):
 class BatchJobQuery:
     site_id: List[int] = Query(None)
     state: List[str] = Query(None)
+    queue: str = Query(None)
     ordering: BatchJobOrdering = Query(None)
     start_time_before: datetime = Query(None)
     start_time_after: datetime = Query(None)
@@ -35,6 +36,8 @@ class BatchJobQuery:
             qs = qs.filter(BatchJob.site_id.in_(self.site_id))
         if self.state:
             qs = qs.filter(BatchJob.state.in_(self.state))
+        if self.queue:
+            qs = qs.filter(BatchJob.queue == self.queue)
 
         if self.start_time_before:
             qs = qs.filter(BatchJob.start_time <= self.start_time_before)

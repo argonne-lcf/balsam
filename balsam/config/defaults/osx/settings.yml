@@ -25,6 +25,7 @@ scheduler:
         shout: 'no'
     scheduler_class: balsam.platform.scheduler.LocalProcessScheduler
     sync_period: 10
+queue_maintainer: null
 site_id: -1
 transfers:
     globus_endpoint_id: null
