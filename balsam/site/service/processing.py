@@ -1,3 +1,7 @@
+import os
+import sys
+from contextlib import contextmanager
+from pathlib import Path
 from datetime import datetime
 from balsam.site import FixedDepthJobSource, BulkStatusUpdater
 from balsam.site import ApplicationDefinition
@@ -9,6 +13,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+@contextmanager
+def job_context(workdir: Path, stdout_filename):
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(workdir)
+    except FileNotFoundError:
+        workdir.mkdir(parents=True, exist_ok=True)
+        os.chdir(workdir)
+
+    try:
+        with open(workdir.joinpath(stdout_filename), "a") as fp:
+            sys.stdout = fp
+            sys.stderr = fp
+            yield
+    finally:
+        os.chdir(old_cwd)
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+
+
 def transition(app):
     transition_func = {
         "STAGED_IN": app.preprocess,
@@ -17,7 +43,9 @@ def transition(app):
         "RUN_TIMEOUT": app.handle_timeout,
     }[app.job.state]
     try:
-        logger.debug(f"Running {transition_func.__name__} for Job {app.job.id}")
+        msg = f"Running {transition_func.__name__} for Job {app.job.id}"
+        logger.debug(msg)
+        sys.stdout.write(f"#BALSAM {msg}")
         transition_func()
     except Exception as exc:
         logger.exception(
@@ -30,7 +58,7 @@ def transition(app):
         }
 
 
-def run_worker(job_source, status_updater, app_cache):
+def run_worker(job_source, status_updater, app_cache, data_path):
     EXIT_FLAG = False
 
     def sig_handler(signum, stack):
@@ -39,6 +67,8 @@ def run_worker(job_source, status_updater, app_cache):
 
     signal.signal(signal.SIGINT, sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
+    data_path = Path(data_path).resolve()
+
     while not EXIT_FLAG:
         try:
             job = job_source.get(timeout=1)
@@ -47,7 +77,9 @@ def run_worker(job_source, status_updater, app_cache):
         else:
             app_cls = app_cache[job.app_id]
             app = app_cls(job)
-            transition(app)
+            workdir = data_path.joinpath(app.job.workdir)
+            with job_context(workdir, "balsam.log"):
+                transition(app)
             job.state_timestamp = datetime.utcnow()
             status_updater.put(
                 dict(
@@ -68,6 +100,7 @@ class ProcessingService(object):
         site_id,
         prefetch_depth,
         apps_path,
+        data_path,
         filter_tags=None,
         num_workers=5,
     ):
@@ -89,7 +122,12 @@ class ProcessingService(object):
         self.workers = [
             Process(
                 target=run_worker,
-                args=(self.job_source.queue, self.status_updater.queue, app_cache,),
+                args=(
+                    self.job_source.queue,
+                    self.status_updater.queue,
+                    app_cache,
+                    data_path,
+                ),
             )
             for _ in range(num_workers)
         ]

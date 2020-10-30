@@ -95,22 +95,6 @@ Modes:
         * number of expected-soon-to-be-available nodes (recently queued in backfill)
     * deletes BatchJobs that did not go through within X minutes
 
-## Transfer
-
-* Workdir existence is ensured/double-checked before Stage-in, Preproc, Run
-* Syncs with `TransferItems` in the API
-* Posts transfer tasks to the Globus API and updates the `TransferItem.globus_transfer_id` in Balsam API
-* Does not need to acquire Jobs: directly GET Transfers for `READY` Jobs at the current Site
-
-Settings:
-
-* stage in batch size
-* max active transfers
-* max submitted transfers
-* poll interval
-* max backlog: const or callable
-    * heuristic: max(20, num_running)
-
 
 ## Processing
 

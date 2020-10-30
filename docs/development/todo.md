@@ -2,9 +2,6 @@
 
 ## Short Todo
 
-- Test queue_maintainer and scheduler service modules with local sched; dummy job template
-
-
 - Transfer service module
 - test with a dummy app that bypasses launcher; skip state in preproc
 
