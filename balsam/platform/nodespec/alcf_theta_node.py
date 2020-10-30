@@ -1,4 +1,3 @@
-import socket
 import os
 from compute_node import ComputeNode
 
@@ -10,8 +9,8 @@ class ThetaNode(ComputeNode):
     cpu_identifiers = list(range(num_cpu))
     gpu_identifiers = list(range(num_gpu))
     allow_multi_mpirun = True
-    cpu_type = 'Intel KNL'
-    cpu_mem_gb = 1000
+    cpu_type = 'Intel Xeon Phi 7230'
+    cpu_mem_gb = 196
     gpu_type = ''
     gpu_mem_gb = 0
 
@@ -45,6 +44,6 @@ class ThetaNode(ComputeNode):
 if __name__ == '__main__':
 
     if 'COBALT_PARTNAME' not in os.environ:
-        so.environ['COBALT_PARTNAME'] = '1001-1005,1030,1034-1200'
+        os.environ['COBALT_PARTNAME'] = '1001-1005,1030,1034-1200'
 
     print([ str(x) for x in ThetaNode.get_job_nodelist()])
