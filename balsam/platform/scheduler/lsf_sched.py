@@ -1,6 +1,9 @@
-from .scheduler import SubprocessSchedulerInterface
-from .scheduler import JobStatus
-from .scheduler import BackfillWindow
+from .scheduler import (
+    SubprocessSchedulerInterface,
+    SchedulerJobStatus,
+    SchedulerBackfillWindow,
+    SchedulerJobLog,
+)
 import os
 import re
 import logging
@@ -40,7 +43,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     _queue_name = "batch"
 
     # maps scheduler states to Balsam states
-    job_states = {
+    _job_states = {
         "PEND": "queued",
         "RUN": "running",
         "BLOCKED": "failed",
@@ -53,7 +56,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     # maps Balsam status fields to the scheduler fields
     # should be a comprehensive list of scheduler status fields
     _status_run_fields = {
-        "id": "JobID",
+        "scheduler_id": "JobID",
         "username": "Username",
         "project": "Project",
         "num_nodes": "Nodes",
@@ -65,7 +68,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     # maps Balsam status fields to the scheduler fields
     # should be a comprehensive list of scheduler status fields
     _status_pend_fields = {
-        "id": "JobID",
+        "scheduler_id": "JobID",
         "username": "Username",
         "project": "Project",
         "num_nodes": "Nodes",
@@ -76,7 +79,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     }
 
     _status_block_fields = {
-        "id": "JobID",
+        "scheduler_id": "JobID",
         "username": "Username",
         "project": "Project",
         "num_nodes": "Nodes",
@@ -89,7 +92,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _status_field_map(balsam_field):
         status_field_map = {
-            "id": lambda id: int(id),
+            "scheduler_id": lambda id: int(id),
             "state": lambda state: str(state),
             "queue": lambda queue: str(queue),
             "num_nodes": lambda n: 0 if n == "-" else int(n),
@@ -100,13 +103,8 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return status_field_map.get(balsam_field, None)
 
     @staticmethod
-    def _get_envs():
-        env = {}
-        return env
-
-    @staticmethod
     def _render_submit_args(
-        script_path, project, queue, num_nodes, time_minutes, **kwargs
+        script_path, project, queue, num_nodes, wall_time_min, **kwargs
     ):
         args = [
             LsfScheduler.submit_exe,
@@ -121,7 +119,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
             "-nnodes",
             str(int(num_nodes)),
             "-W",
-            str(int(time_minutes)),
+            str(int(wall_time_min)),
         ]
         # adding additional flags as needed, e.g. `-C knl`
         for key, default_value in LsfScheduler.default_submit_kwargs.items():
@@ -231,7 +229,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
                 else:
                     raise NotImplementedError
 
-                status_dict[job_stat.id] = job_stat
+                status_dict[job_stat.scheduler_id] = job_stat
         return status_dict
 
     @staticmethod
@@ -247,7 +245,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
             func = LsfScheduler._status_field_map(name)
             if callable(func):
                 status[name] = func(value)
-        return JobStatus(**status)
+        return SchedulerJobStatus(**status)
 
     @staticmethod
     def _parse_backfill_output(stdout):
@@ -273,4 +271,9 @@ class LsfScheduler(SubprocessSchedulerInterface):
         elif len(re.findall("minutes.*seconds", line)) > 0:
             backfill_time += int(parts[1])
 
-        return BackfillWindow(num_nodes=nodes, backfill_time_min=backfill_time)
+        return SchedulerBackfillWindow(num_nodes=nodes, wall_time_min=backfill_time)
+
+    @staticmethod
+    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+        # TODO: Return job start/stop time from log file or command
+        return SchedulerJobLog()

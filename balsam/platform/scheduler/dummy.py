@@ -1,4 +1,8 @@
-from .scheduler import SubprocessSchedulerInterface, JobStatus, BackfillWindow
+from .scheduler import (
+    SubprocessSchedulerInterface,
+    SchedulerJobStatus,
+    SchedulerBackfillWindow,
+)
 
 
 def parse_time_minutes(t_str):
@@ -125,13 +129,9 @@ class DummyScheduler(SubprocessSchedulerInterface):
  48   FINISHED  120  default 60  p2  40
  50   FINISHED  55 debug  2  p3  NA"""
 
-    def _get_envs(self):
-        env = {}
-        # fields = self.status_fields.values()
-        # env['QSTAT_HEADER'] = ':'.join(fields)
-        return env
-
-    def _render_submit_args(self, script_path, project, queue, num_nodes, time_minutes):
+    def _render_submit_args(
+        self, script_path, project, queue, num_nodes, wall_time_min
+    ):
         args = [
             self.submit_exe,
             script_path,
@@ -142,7 +142,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
             "--queue",
             queue,
             "--walltime",
-            str(time_minutes),
+            str(wall_time_min),
         ]
         return args
 
@@ -172,21 +172,21 @@ class DummyScheduler(SubprocessSchedulerInterface):
         for line in job_lines:
             job_stat = self._parse_status_line(line)
             if job_stat:
-                id = int(job_stat.id)
+                id = int(job_stat.scheduler_id)
                 status_dict[id] = job_stat
         return status_dict
 
     def _parse_status_line(self, line):
         fields = line.split()
         if len(fields) != len(self.status_fields):
-            return JobStatus()
+            return SchedulerJobStatus()
 
         status = {}
         for name, value in zip(self.status_fields, fields):
             func = DummyScheduler._status_field_map(name)
             status[name] = func(value)
 
-        return JobStatus(**status)
+        return SchedulerJobStatus(**status)
 
     def _render_delete_args(self, job_id):
         args = [
@@ -209,12 +209,12 @@ class DummyScheduler(SubprocessSchedulerInterface):
         # build example output dictionary
         windows = {
             "default_queue": [
-                BackfillWindow(num_nodes=5, backfill_time_min=60),
-                BackfillWindow(num_nodes=15, backfill_time_min=45),
+                SchedulerBackfillWindow(num_nodes=5, wall_time_min=60),
+                SchedulerBackfillWindow(num_nodes=15, wall_time_min=45),
             ],
             "debug_queue": [
-                BackfillWindow(num_nodes=1, backfill_time_min=60),
-                BackfillWindow(num_nodes=3, backfill_time_min=20),
+                SchedulerBackfillWindow(num_nodes=1, wall_time_min=60),
+                SchedulerBackfillWindow(num_nodes=3, wall_time_min=20),
             ],
         }
         return windows

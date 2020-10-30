@@ -30,11 +30,10 @@ class ScriptTemplate:
         project,
         queue,
         num_nodes,
-        time_minutes,
+        wall_time_min,
         job_mode,
-        wf_exact=None,
-        wf_contains=None,
-        tags_filter=None,
+        filter_tags=None,
+        **kwargs,
     ):
         """
         Returns string contained filled batch job script
@@ -43,11 +42,10 @@ class ScriptTemplate:
             project=project,
             queue=queue,
             num_nodes=num_nodes,
-            time_minutes=time_minutes,
+            wall_time_min=wall_time_min,
             job_mode=job_mode,
-            wf_exact=wf_exact,
-            wf_contains=wf_contains,
-            tags_filter=tags_filter,
+            filter_tags=filter_tags,
+            optional_params=kwargs,
         )
         conf["balsam_site_path"] = os.environ["BALSAM_SITE_PATH"]
         conf["balsam_bin"] = self.locate_balsam()

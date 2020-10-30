@@ -1,6 +1,6 @@
+import os
 import logging
 import requests
-from rest_framework import status
 from pprint import pformat
 from json import JSONDecodeError
 
@@ -9,40 +9,76 @@ from .rest_base_client import RESTClient
 logger = logging.getLogger(__name__)
 
 
+class NotAuthenticatedError(Exception):
+    pass
+
+
 class RequestsClient(RESTClient):
-    def __init__(self, api_root, connect_timeout=3.1, read_timeout=5, retry_count=3):
-        super().__init__(api_root)
+    def __init__(self, api_root, connect_timeout=3.1, read_timeout=60, retry_count=3):
+        self.api_root = api_root
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         self.retry_count = retry_count
-        self._session = requests.Session()
+        self._session = None
+        self._pid = os.getpid()
+        self._authenticated = False
+        self.token = None
 
-    def request(self, absolute_url, http_method, payload=None):
+    @property
+    def session(self):
+        """
+        !!! WARNING !!!
+        requests.Session is not multiprocessing-safe. You will get
+        crossed-wires and mixed up responses; leading to strange and
+        near-impossible-to-debug issues. As an extra precaution here we start
+        a new Session if a PID change is detected.
+        """
+        pid = os.getpid()
+        if pid != self._pid or self._session is None:
+            self._session = requests.Session()
+            self._pid = pid
+            if self.token:
+                self._session.headers["Authorization"] = f"Bearer {self.token}"
+        return self._session
+
+    def close_session(self):
+        self._session = None
+
+    def request(
+        self, url, http_method, params=None, json=None, data=None, authenticating=False
+    ):
+        if not self._authenticated and not authenticating:
+            raise NotAuthenticatedError(
+                "Cannot perform unauthenticated request. Please login with `balsam login`"
+            )
+        absolute_url = self.api_root.rstrip("/") + "/" + url.lstrip("/")
         attempt = 0
-        tried_reauth = False
         while attempt < self.retry_count:
             try:
-                response = self._do_request(absolute_url, http_method, payload)
+                logger.debug(f"{http_method}: {absolute_url}")
+                response = self._do_request(
+                    absolute_url, http_method, params, json, data
+                )
             except requests.Timeout as exc:
+                logger.warning(f"Timed out request {http_method} {absolute_url}")
                 attempt += 1
                 if attempt == self.retry_count:
                     raise requests.Timeout(f"Timed-out {attempt} times.") from exc
-            except requests.HTTPError as exc:
-                if (
-                    exc.response.status_code != status.HTTP_401_UNAUTHORIZED
-                    or tried_reauth
-                ):
-                    raise
-                self.refresh_auth()
-                tried_reauth = True
             else:
-                return response
+                try:
+                    return response.json()
+                except JSONDecodeError:
+                    if http_method != "DELETE":
+                        raise
+                    return None
 
-    def _do_request(self, absolute_url, http_method, payload=None):
-        response = self._session.request(
+    def _do_request(self, absolute_url, http_method, params, json, data):
+        response = self.session.request(
             http_method,
             url=absolute_url,
-            json=payload,
+            params=params,
+            json=json,
+            data=data,
             timeout=(self.connect_timeout, self.read_timeout),
         )
         if response.status_code >= 400:
@@ -67,10 +103,3 @@ class RequestsClient(RESTClient):
         else:
             response.reason += explanation
         response.raise_for_status()
-
-    def extract_data(self, response):
-        """
-        Return response payload
-        """
-        logger.debug(f"Response: {response.json()}")
-        return response.json()

@@ -10,6 +10,7 @@ digraph model {
     TransferItem -> Job;
     LogEvent -> Job;
 
-    Job -> Lock;
+    Job -> Session;
+    Session -> BatchJob;
 
 }

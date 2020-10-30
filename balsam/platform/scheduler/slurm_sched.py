@@ -1,4 +1,8 @@
-from .scheduler import SubprocessSchedulerInterface, JobStatus
+from .scheduler import (
+    SubprocessSchedulerInterface,
+    SchedulerJobStatus,
+    SchedulerJobLog,
+)
 import os
 import logging
 
@@ -68,7 +72,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     # maps Balsam status fields to the scheduler fields
     # should be a comprehensive list of scheduler status fields
     _status_fields = {
-        "id": "jobid",
+        "scheduler_id": "jobid",
         "state": "state",
         "queue": "partition",
         "num_nodes": "numnodes",
@@ -82,7 +86,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _status_field_map(balsam_field):
         status_field_map = {
-            "id": lambda id: int(id),
+            "scheduler_id": lambda id: int(id),
             "state": SlurmScheduler._job_state_map,
             "queue": lambda queue: str(queue),
             "num_nodes": lambda n: int(n),
@@ -164,7 +168,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return nodelist_field_map.get(balsam_field, lambda x: x)
 
     @staticmethod
-    def _get_envs():
+    def _set_envs():
         env = {}
         fields = SlurmScheduler._status_fields.values()
         env["SQUEUE_FORMAT2"] = ",".join(fields)
@@ -172,11 +176,12 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         env["SINFO_FORMAT"] = " ".join(
             SlurmScheduler._fields_encondings[field] for field in fields
         )
+        os.environ.update(env)
         return env
 
     @staticmethod
     def _render_submit_args(
-        script_path, project, queue, num_nodes, time_minutes, **kwargs
+        script_path, project, queue, num_nodes, wall_time_min, **kwargs
     ):
         args = [
             SlurmScheduler.submit_exe,
@@ -191,7 +196,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             "-N",
             str(int(num_nodes)),
             "-t",
-            str(int(time_minutes)),
+            str(int(wall_time_min)),
         ]
         # adding additional flags as needed, e.g. `-C knl`
         for key, default_value in SlurmScheduler.default_submit_kwargs.items():
@@ -204,6 +209,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_status_args(project=None, user=None, queue=None):
+        SlurmScheduler._set_envs()
         args = [SlurmScheduler.status_exe]
         if user is not None:
             args += ["-u", user]
@@ -219,6 +225,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_backfill_args():
+        SlurmScheduler._set_envs()
         return [SlurmScheduler.backfill_exe]
 
     @staticmethod
@@ -260,9 +267,14 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             if callable(func):
                 status[name] = func(value)
 
-        return JobStatus(**status)
+        return SchedulerJobStatus(**status)
 
     @staticmethod
     def _parse_backfill_output(stdout):
-        # NERSC currently does not provide this kind of information
+        # TODO: NERSC currently does not provide this kind of information
         return {}
+
+    @staticmethod
+    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+        # TODO: return job start/stop time from files?
+        return SchedulerJobLog()

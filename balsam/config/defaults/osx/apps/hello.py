@@ -1,6 +1,10 @@
-from balsam import App
+from balsam.site import ApplicationDefinition
 
 
-class Hello(App):
-    template = 'echo "Hello, {{ name }}!"'
-    name: str
+class Hello(ApplicationDefinition):
+    """
+    Hello world app demo
+    """
+
+    command_template = 'echo "Hello, {{ name }}!"'
+    parameters = {}

@@ -92,7 +92,8 @@ class Query:
         if start is None:
             start = 0
         self._offset = start
-        self._limit = stop - start
+        if stop is not None:
+            self._limit = stop - start
 
     def __iter__(self):
         self._fetch_cache()
@@ -117,6 +118,10 @@ class Query:
         if self.is_sliced:
             raise AttributeError("Cannot filter a sliced Query")
         clone = self._clone()
+
+        for key, val in kwargs.items():
+            if isinstance(val, dict):
+                kwargs[key] = [f"{k}:{v}" for k, v in val.items()]
         clone._filters.update(kwargs)
         return clone
 
@@ -157,7 +162,5 @@ class Query:
         # TODO: kwargs should expand to a set of allowed update_fields
         return self._manager._do_bulk_update_query(patch=kwargs, filters=self._filters)
 
-    def delete(self, allow_delete_all=False):
-        return self._manager._do_bulk_delete(
-            filters=self._filters, allow_delete_all=allow_delete_all
-        )
+    def delete(self):
+        return self._manager._do_bulk_delete(filters=self._filters)

@@ -1,6 +1,14 @@
+import dateutil.parser
 from collections import defaultdict, Counter
-from .scheduler import SubprocessSchedulerInterface, JobStatus, BackfillWindow
+from typing import Dict, List
+from .scheduler import (
+    SubprocessSchedulerInterface,
+    SchedulerJobStatus,
+    SchedulerBackfillWindow,
+    SchedulerJobLog,
+)
 import os
+from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,7 +30,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     backfill_exe = "nodelist"
 
     # maps scheduler states to Balsam states
-    job_states = {
+    _job_states = {
         "queued": "queued",
         "starting": "starting",
         "running": "running",
@@ -37,12 +45,12 @@ class CobaltScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _job_state_map(scheduler_state):
-        return CobaltScheduler.job_states.get(scheduler_state, "unknown")
+        return CobaltScheduler._job_states.get(scheduler_state, "unknown")
 
     # maps Balsam status fields to the scheduler fields
     # should be a comprehensive list of scheduler status fields
     _status_fields = {
-        "id": "JobID",
+        "scheduler_id": "JobID",
         "state": "State",
         "wall_time_min": "WallTime",
         "queue": "Queue",
@@ -56,7 +64,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _status_field_map(balsam_field):
         status_field_map = {
-            "id": lambda id: int(id),
+            "scheduler_id": lambda id: int(id),
             "state": CobaltScheduler._job_state_map,
             "queue": lambda queue: str(queue),
             "num_nodes": lambda n: int(n),
@@ -92,7 +100,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         "state": "Status",
         "mem": "MCDRAM",
         "numa": "NUMA",
-        "backfill_time_min": "Backfill",
+        "wall_time_min": "Backfill",
     }
 
     # when reading these fields from the scheduler apply
@@ -103,7 +111,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             "id": lambda id: int(id),
             "state": CobaltScheduler._node_state_map,
             "queues": lambda x: x.split(":"),
-            "backfill_time_min": lambda x: parse_cobalt_time_minutes(x),
+            "wall_time_min": lambda x: parse_cobalt_time_minutes(x),
         }
         return nodelist_field_map.get(balsam_field, lambda x: x)
 
@@ -115,12 +123,13 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return env
 
     @staticmethod
-    def _render_submit_args(script_path, project, queue, num_nodes, time_minutes):
+    def _render_submit_args(
+        script_path, project, queue, num_nodes, wall_time_min, **kwargs
+    ):
         args = [
             CobaltScheduler.submit_exe,
-            # '--cwd', site.job_path,
             "-O",
-            os.path.basename(os.path.splitext(script_path)[0]),
+            Path(script_path).with_suffix("").name,
             "-A",
             project,
             "-q",
@@ -128,13 +137,14 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             "-n",
             str(int(num_nodes)),
             "-t",
-            str(int(time_minutes)),
+            str(int(wall_time_min)),
             script_path,
         ]
         return args
 
     @staticmethod
-    def _render_status_args(project=None, user=None, queue=None):
+    def _render_status_args(project, user, queue):
+        os.environ.update(CobaltScheduler._get_envs())
         args = [CobaltScheduler.status_exe]
         if user is not None:
             args += ["-u", user]
@@ -172,7 +182,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
                 logger.debug(f"Cannot parse job status: {line}")
                 continue
             else:
-                status_dict[job_stat.id] = job_stat
+                status_dict[job_stat.scheduler_id] = job_stat
         return status_dict
 
     @staticmethod
@@ -190,10 +200,10 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             func = CobaltScheduler._status_field_map(name)
             if callable(func):
                 status[name] = func(value)
-        return JobStatus(**status)
+        return SchedulerJobStatus(**status)
 
     @staticmethod
-    def _parse_backfill_output(stdout):
+    def _parse_backfill_output(stdout) -> Dict[str, List[SchedulerBackfillWindow]]:
         raw_lines = stdout.split("\n")
         nodelist = []
         node_lines = raw_lines[2:]
@@ -203,7 +213,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             except (ValueError, TypeError):
                 logger.debug(f"Cannot parse nodelist line: {line}")
             else:
-                if line_dict["backfill_time_min"] > 0 and line_dict["state"] == "idle":
+                if line_dict["wall_time_min"] > 0 and line_dict["state"] == "idle":
                     nodelist.append(line_dict)
 
         windows = CobaltScheduler._nodelist_to_backfill(nodelist)
@@ -227,12 +237,14 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return status
 
     @staticmethod
-    def _nodelist_to_backfill(nodelist):
+    def _nodelist_to_backfill(
+        nodelist: List[dict],
+    ) -> Dict[str, List[SchedulerBackfillWindow]]:
         queue_bf_times = defaultdict(list)
         windows = defaultdict(list)
 
         for entry in nodelist:
-            bf_time = entry["backfill_time_min"]
+            bf_time = entry["wall_time_min"]
             queues = entry["queues"]
             for queue in queues:
                 queue_bf_times[queue].append(bf_time)
@@ -247,6 +259,36 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             for bf_time, num_nodes in bf_counter:
                 running_total += num_nodes
                 windows[queue].append(
-                    BackfillWindow(num_nodes=running_total, backfill_time_min=bf_time)
+                    SchedulerBackfillWindow(
+                        num_nodes=running_total, wall_time_min=bf_time
+                    )
                 )
         return windows
+
+    @staticmethod
+    def _parse_time(line):
+        time_str = line[: line.find("(UTC)")]
+        return dateutil.parser.parse(time_str)
+
+    @staticmethod
+    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+        logfile = Path(job_script_path).with_suffix(".cobaltlog")
+        try:
+            cobalt_log = logfile.read_text()
+        except FileNotFoundError:
+            logger.warning(f"Could not parse log: no file {logfile}")
+            return SchedulerJobLog()
+
+        lines = cobalt_log.split("\n")
+        start_time = None
+        for line in lines:
+            if "COBALT_STARTTIME" in line:
+                start_time = CobaltScheduler._parse_time(line)
+                break
+        if start_time:
+            end_time = CobaltScheduler._parse_time(lines[-1])
+            return SchedulerJobLog(start_time=start_time, end_time=end_time)
+        logger.warning(
+            f"Could not parse log: no line containing COBALT_STARTTIME in {logfile}"
+        )
+        return SchedulerJobLog()

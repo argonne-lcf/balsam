@@ -90,7 +90,7 @@ class SchedulerTestMixin(object):
         for queue, windows in windows.items():
             for window in windows:
                 self.assertIsInstance(window.num_nodes, int)
-                self.assertIsInstance(window.backfill_time_min, int)
+                self.assertIsInstance(window.wall_time_min, int)
 
 
 class DummyTest(SchedulerTestMixin, unittest.TestCase):
@@ -114,7 +114,7 @@ echo [$SECONDS] JOBID=4
             "project": "local_project",
             "queue": "local_queue",
             "num_nodes": 5,
-            "time_minutes": 50,
+            "wall_time_min": 50,
         }
         self.status_params = {
             "user": "tiberius",
@@ -150,7 +150,7 @@ echo [$SECONDS] All Done! Great Test!
             "project": "datascience",
             "queue": "debug-flat-quad",
             "num_nodes": 1,
-            "time_minutes": 10,
+            "wall_time_min": 10,
         }
 
         self.status_params = {
@@ -196,7 +196,7 @@ echo [$SECONDS] All Done! Great Test!
             "project": "m3512",
             "queue": "debug",
             "num_nodes": 1,
-            "time_minutes": 10,
+            "wall_time_min": 10,
         }
 
         self.status_params = {
@@ -244,7 +244,7 @@ echo [$SECONDS] All Done! Great Test!
             "project": "CSC388",
             "queue": "batch",
             "num_nodes": 1,
-            "time_minutes": 10,
+            "wall_time_min": 10,
         }
 
         self.status_params = {

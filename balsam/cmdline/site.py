@@ -1,8 +1,7 @@
 import click
 from pathlib import Path
 import shutil
-from balsam.config import BalsamComponentFactory, ClientSettings
-from balsam.api import Site
+from balsam.config import SiteConfig, ClientSettings, Settings
 
 
 @click.group()
@@ -11,6 +10,16 @@ def site():
     Setup or manage your Balsam sites
     """
     pass
+
+
+def load_settings_comments(settings_dirs):
+    descriptions = {name: "" for name in settings_dirs}
+    for name, dir in settings_dirs.items():
+        firstline = dir.joinpath("settings.yml").read_text().split("\n")[0]
+        firstline = firstline.strip()
+        if firstline.startswith("#"):
+            descriptions[name] = f'({firstline.lstrip("#").strip()})'
+    return descriptions
 
 
 @site.command()
@@ -22,11 +31,30 @@ def init(site_path, hostname):
 
     balsam site init path/to/site
     """
+    import inquirer
+
     site_path = Path(site_path).absolute()
+    default_dirs = {v.name: v for v in SiteConfig.load_default_config_dirs()}
+    descriptions = load_settings_comments(default_dirs)
+    choices = [f"{name}  {description}" for name, description in descriptions.items()]
+
+    site_prompt = inquirer.List(
+        "default_dir",
+        message=f"Select a default configuration to initialize your Site {site_path.name}",
+        choices=choices,
+        carousel=True,
+    )
+
     if site_path.exists():
         raise click.BadParameter(f"{site_path} already exists")
 
-    BalsamComponentFactory.new_site_setup(site_path=site_path, hostname=hostname)
+    selected = inquirer.prompt([site_prompt])["default_dir"]
+    selected = selected.split()[0]
+    default_site_path = default_dirs[selected]
+
+    SiteConfig.new_site_setup(
+        site_path=site_path, default_site_path=default_site_path, hostname=hostname
+    )
 
     click.echo(f"New Balsam site set up at {site_path}")
 
@@ -40,15 +68,18 @@ def mv(src, dest):
 
     balsam site mv /path/to/src /path/to/destination
     """
-    cf = BalsamComponentFactory(src)
+    cf = SiteConfig(src)
 
-    if Path(dest).exists():
+    src = Path(src).resolve()
+    dest = Path(dest).resolve()
+
+    if dest.exists():
         raise click.BadParameter(f"{dest} exists")
 
-    shutil.move(src, dest)
-    ClientSettings.load_from_home().build_client()
+    shutil.move(src.as_posix(), dest)
+    client = cf.client
 
-    site = Site.objects.get(pk=cf.settings.site_id)
+    site = client.Site.objects.get(id=cf.settings.site_id)
     site.path = dest
     site.save()
     click.echo(f"Moved site to new path {dest}")
@@ -62,11 +93,13 @@ def rm(path):
 
     balsam site rm /path/to/site
     """
-    cf = BalsamComponentFactory(path)
-    ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(pk=cf.settings.site_id)
+    cf = SiteConfig(path)
+    client = cf.client
+    site = client.Site.objects.get(id=cf.settings.site_id)
+    jobcount = client.Job.objects.filter(site_id=site.id).count()
+    warning = f"This will wipe out {jobcount} jobs inside!" if jobcount else ""
 
-    if click.confirm(f"Do you really want to destroy {path}?"):
+    if click.confirm(f"Do you really want to destroy {Path(path).name}? {warning}"):
         site.delete()
         shutil.rmtree(path)
         click.echo(f"Deleted site {path}")
@@ -79,12 +112,12 @@ def rename(path, name):
     """
     Change the hostname of a balsam site
     """
-    cf = BalsamComponentFactory(path)
-    ClientSettings.load_from_home().build_client()
-    site = Site.objects.get(pk=cf.settings.site_id)
+    cf = SiteConfig(path)
+    client = cf.client
+    site = client.Site.objects.get(id=cf.settings.site_id)
     site.hostname = name
     site.save()
-    click.echo("Renamed site {site.pk} to {site.hostname}")
+    click.echo("Renamed site {site.id} to {site.hostname}")
 
 
 @site.command()
@@ -92,7 +125,18 @@ def ls():
     """
     List my balsam sites
     """
-    ClientSettings.load_from_home().build_client()
-    qs = Site.objects.all()
+    client = ClientSettings.load_from_home().build_client()
+    qs = client.Site.objects.all()
     for site in qs:
-        click.echo(f"{site.pk} {site.hostname} {site.path}")
+        click.echo(str(site))
+        click.echo("---\n")
+
+
+@site.command()
+def sample_settings():
+    path = Path("balsam-sample-settings.yml")
+    if path.exists():
+        click.echo(f"{path} already exists")
+    else:
+        Settings().save(path)
+        click.echo(f"Wrote a sample settings file to {path}")

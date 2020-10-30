@@ -1,35 +1,22 @@
-from getpass import getuser
+import getpass
+import abc
+from typing import Optional, Union, Dict, List
+from pathlib import Path
 import subprocess
-import os
-import collections
+from balsam.schemas import SchedulerJobStatus, SchedulerBackfillWindow, SchedulerJobLog
+
+PathLike = Union[Path, str]
 
 
 class SchedulerNonZeroReturnCode(Exception):
     pass
 
 
-""" JobStatus contains the status of a pending or running job """
-JobStatus = collections.namedtuple(
-    "JobStatus",
-    [
-        "id",
-        "state",
-        "queue",
-        "num_nodes",
-        "wall_time_min",
-        "project",
-        "time_remaining_min",
-    ],
-)
+class SchedulerSubmitError(Exception):
+    pass
 
 
-""" BackfillWindow contains a number of nodes which are free for some available time """
-BackfillWindow = collections.namedtuple(
-    "BackfillWindow", ["num_nodes", "backfill_time_min"]
-)
-
-
-def scheduler_subproc(args, cwd=None):
+def scheduler_subproc(args: list, cwd: Optional[PathLike] = None) -> str:
     p = subprocess.run(
         args,
         stdout=subprocess.PIPE,
@@ -42,72 +29,152 @@ def scheduler_subproc(args, cwd=None):
     return p.stdout
 
 
-class SchedulerInterface(object):
-    def __init__(self):
-        self._username = None
-        sched_envs = self._get_envs()
-        os.environ.update(sched_envs)
-
-    @property
-    def username(self):
-        if self._username is None:
-            self._username = getuser()
-        return self._username
-
+class SchedulerInterface(abc.ABC):
+    @classmethod
+    @abc.abstractmethod
     def submit(
-        self, script_path, project, queue, num_nodes, time_minutes, cwd=None, **kwargs
-    ):
+        cls,
+        script_path: PathLike,
+        project: str,
+        queue: str,
+        num_nodes: int,
+        wall_time_min: int,
+        cwd: Optional[PathLike] = None,
+        **kwargs
+    ) -> int:
         """
         Submit the script at `script_path` to a local job queue.
         Returns scheduler ID of the submitted job.
         """
         raise NotImplementedError
 
-    def get_statuses(self, project=None, user=None, queue=None):
+    @classmethod
+    @abc.abstractmethod
+    def get_statuses(
+        cls,
+        project: Optional[str] = None,
+        user: Optional[str] = getpass.getuser(),
+        queue: Optional[str] = None,
+    ) -> Dict[int, SchedulerJobStatus]:
         """
         Returns dictionary keyed on scheduler job id and a value of JobStatus for each
           job belonging to current user, project, and/or queue
         """
         raise NotImplementedError
 
-    def delete_job(self, scheduler_id):
+    @classmethod
+    @abc.abstractmethod
+    def delete_job(cls, scheduler_id: int):
         """
         Deletes the batch job matching `scheduler_id`
         """
         raise NotImplementedError
 
-    def get_backfill_windows(self):
+    @classmethod
+    @abc.abstractmethod
+    def get_backfill_windows(cls) -> Dict[str, List[SchedulerBackfillWindow]]:
         """
         Returns a dictionary keyed on queue name and a value of list of
           BackfillWindow on the system for available scheduling windows
         """
         raise NotImplementedError
 
+    @classmethod
+    @abc.abstractmethod
+    def parse_logs(cls, scheduler_id: int, job_script_path: str) -> SchedulerJobLog:
+        """
+        Reads the scheduler logs to determine job metadata like start_time and end_time
+        """
+        raise NotImplementedError
 
-class SubprocessSchedulerInterface(SchedulerInterface):
+
+class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
+    @classmethod
     def submit(
-        self, script_path, project, queue, num_nodes, time_minutes, cwd=None, **kwargs
-    ):
-        submit_args = self._render_submit_args(
-            script_path, project, queue, num_nodes, time_minutes, **kwargs
+        cls,
+        script_path: PathLike,
+        project: str,
+        queue: str,
+        num_nodes: int,
+        wall_time_min: int,
+        cwd: Optional[PathLike] = None,
+        **kwargs
+    ) -> int:
+        submit_args = cls._render_submit_args(
+            script_path, project, queue, num_nodes, wall_time_min, **kwargs
         )
-        stdout = scheduler_subproc(submit_args, cwd)
-        scheduler_id = self._parse_submit_output(stdout)
+        stdout = scheduler_subproc(submit_args, cwd=cwd)
+        scheduler_id = cls._parse_submit_output(stdout)
         return scheduler_id
 
-    def get_statuses(self, project=None, user=None, queue=None):
-        stat_args = self._render_status_args(project, user, queue)
+    @classmethod
+    def get_statuses(
+        cls,
+        project: Optional[str] = None,
+        user: Optional[str] = getpass.getuser(),
+        queue: Optional[str] = None,
+    ) -> Dict[int, SchedulerJobStatus]:
+        stat_args = cls._render_status_args(project, user, queue)
         stdout = scheduler_subproc(stat_args)
-        stat_dict = self._parse_status_output(stdout)
+        stat_dict = cls._parse_status_output(stdout)
         return stat_dict
 
-    def delete_job(self, scheduler_id):
-        delete_args = self._render_delete_args(scheduler_id)
+    @classmethod
+    def delete_job(cls, scheduler_id: int):
+        delete_args = cls._render_delete_args(scheduler_id)
         stdout = scheduler_subproc(delete_args)
         return stdout
 
-    def get_backfill_windows(self):
-        backfill_args = self._render_backfill_args()
+    @classmethod
+    def get_backfill_windows(cls) -> Dict[str, List[SchedulerBackfillWindow]]:
+        backfill_args = cls._render_backfill_args()
         stdout = scheduler_subproc(backfill_args)
-        backfill_windows = self._parse_backfill_output(stdout)
+        backfill_windows = cls._parse_backfill_output(stdout)
         return backfill_windows
+
+    @classmethod
+    def parse_logs(cls, scheduler_id: int, job_script_path: str) -> SchedulerJobLog:
+        log_data = cls._parse_logs(scheduler_id, job_script_path)
+        return log_data
+
+    @staticmethod
+    @abc.abstractmethod
+    def _render_submit_args(
+        script_path, project, queue, num_nodes, wall_time_min, **kwargs
+    ) -> List[str]:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _parse_submit_output(output) -> int:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _render_status_args(project, user, queue) -> List[str]:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _parse_status_output(output) -> Dict[int, SchedulerJobStatus]:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _render_delete_args(scheduler_id) -> List[str]:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _render_backfill_args() -> List[str]:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _parse_backfill_output(output) -> Dict[str, List[SchedulerBackfillWindow]]:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+        pass

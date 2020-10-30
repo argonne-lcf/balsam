@@ -2,9 +2,9 @@
 
 ![Database Schema](../graphs/db.png)
 
-This graph shows the Django models, or database schema, of the Balsam
+This graph shows the database schema of the Balsam
 application. Each node is a table in the database, represented by one
-of the model classes in the Django ORM.
+of the model classes in the ORM.
 Each arrow represents a ForeignKey 
 (or [many-to-one](https://docs.djangoproject.com/en/3.0/topics/db/examples/many_to_one/))
 relationship between two tables.
@@ -118,22 +118,22 @@ Generally, Balsam will need two types of Auth to function:
 
 ### Model Fields
 
-| Field Name  | Description |
-| -----------  | ----------- |
-| `id ` | Unique Site ID | 
-| `hostname ` | The server address or hostname like `thetalogin3.theta.alcf.anl.gov` |
-| `path ` | Absolute POSIX path to the Site directory |
-| `last_refresh ` | Automatically updated timestamp: last update to Site information |
-| `creation_date ` | Timestamp when Site was created             |
-| `owner ` | ForeignKey to `User` model             |
-| `globus_endpoint_id ` | Optional `UUID`: setting an associated endpoint for data transfer |
-| `num_nodes`  | Number of compute nodes available at the Site           |
-| `backfill_windows`  | JSONField: array of `[queue, num_nodes, wall_time_min]` tuples indicating backfill slots |
-| `queued_jobs` | JSONField: array of `[queue, num_nodes, wall_time_min, state]` indicating currently queued and running jobs |
-| `optional_batch_job_params` | JSONField used in BatchJob forms/validation `{name: default_value}`. Taken from site config. |
-| `allowed_projects` | JSONField used in BatchJob forms/validation: `[ name: str ]` |
-| `allowed_queues` | JSONField used in BatchJob forms/validation: `{name: {max_nodes, max_walltime, max_queued}}` |
-| `transfer_locations` | JSONField used in Job stage-in/stage-out validation: `{alias: {protocol, netloc}}`
+| Field Name                  | Description                                                                                                 |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `id `                       | Unique Site ID                                                                                              |
+| `hostname `                 | The server address or hostname like `thetalogin3.theta.alcf.anl.gov`                                        |
+| `path `                     | Absolute POSIX path to the Site directory                                                                   |
+| `last_refresh `             | Automatically updated timestamp: last update to Site information                                            |
+| `creation_date `            | Timestamp when Site was created                                                                             |
+| `owner `                    | ForeignKey to `User` model                                                                                  |
+| `globus_endpoint_id `       | Optional `UUID`: setting an associated endpoint for data transfer                                           |
+| `num_nodes`                 | Number of compute nodes available at the Site                                                               |
+| `backfill_windows`          | JSONField: array of `[queue, num_nodes, wall_time_min]` tuples indicating backfill slots                    |
+| `queued_jobs`               | JSONField: array of `[queue, num_nodes, wall_time_min, state]` indicating currently queued and running jobs |
+| `optional_batch_job_params` | JSONField used in BatchJob forms/validation `{name: default_value}`. Taken from site config.                |
+| `allowed_projects`          | JSONField used in BatchJob forms/validation: `[ name: str ]`                                                |
+| `allowed_queues`            | JSONField used in BatchJob forms/validation: `{name: {max_nodes, max_walltime, max_queued}}`                |
+| `transfer_locations`        | JSONField used in Job stage-in/stage-out validation: `{alias: {protocol, netloc}}`                          |
 
 ### API
 
@@ -144,25 +144,25 @@ sites that belong to them.
 
 ##### URLs
 
-| HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | -----   |
-| GET | /api/sites/ | Retrieve the current user's list of sites | A user checks their Balsam site statuses on dashboard | 
-| POST | /api/sites/ | Create a new Site | `balsam init` creates a Site and stores new `id` locally |
-| PUT | /api/sites/{id} | Update Site information | Service daemon syncs `backfill_windows` periodically |
-| DELETE | /api/sites/{id} | Delete Site | User deletes their Site with `balsam rm site` |
+| HTTP Method | URL             | Description                               | Example usage                                            |
+| ----------- | --------------- | ----------------------------------------- | -------------------------------------------------------- |
+| GET         | /api/sites/     | Retrieve the current user's list of sites | A user checks their Balsam site statuses on dashboard    |
+| POST        | /api/sites/     | Create a new Site                         | `balsam init` creates a Site and stores new `id` locally |
+| PUT         | /api/sites/{id} | Update Site information                   | Service daemon syncs `backfill_windows` periodically     |
+| DELETE      | /api/sites/{id} | Delete Site                               | User deletes their Site with `balsam rm site`            |
 
 ## App
 
 ### Model Fields
-| Field Name  | Description |
-| -----------  | ----------- |
-| `id ` | Unique App ID |
-| `site` | Foreign Key to `Site` instance containing this App | 
-| `name` | Short name identifying the app. |
-| `description` | Text description (useful in generating Web forms) |
-| `class_path` | Name of `ApplicationDefinition` class in the format: `{module_name}.{class_name}` |
-| `parameters` | Command line template parameters. A dict of dicts with the structure: `{name: {required: bool, default: str, help: str}}` |
-| `transfers` | A dict of stage-in/stage-out slots with the structure: `{name: {required: bool, direction: ["in"|"out"], target_path: str, help: str}}` |
+| Field Name    | Description                                                                                                                             |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `id `         | Unique App ID                                                                                                                           |
+| `site`        | Foreign Key to `Site` instance containing this App                                                                                      |
+| `name`        | Short name identifying the app.                                                                                                         |
+| `description` | Text description (useful in generating Web forms)                                                                                       |
+| `class_path`  | Name of `ApplicationDefinition` class in the format: `{module_name}.{class_name}`                                                       |
+| `parameters`  | Command line template parameters. A dict of dicts with the structure: `{name: {required: bool, default: str, help: str}}`               |
+| `transfers`   | A dict of stage-in/stage-out slots with the structure: `{name: {required: bool, direction: ["in"|"out"], target_path: str, help: str}}` |
 
 The `App` model is used to merely *index* the `ApplicationDefinition` classes
 that a user has registered at their Balsam Sites. 
@@ -187,38 +187,38 @@ be able to successfully run a Job with injected parameters.
 A user only sees Apps linked to Sites which belong to them.
 
 ##### URLs
-| HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | -----   |
-| GET | /api/apps/ | Retrieve the current user's list of Apps | `balsam ls apps` shows Apps across sites |
-| POST | /api/apps/ | Create a new `App` | `balsam app sync` creates new `Apps` from local `ApplicationDefinitions`  |
-| PUT | /api/apps/{id} | Update `App` information | `balsam app sync` updates existing `Apps` with changes from local `ApplicationDefinitions` |
-| DELETE | /api/apps/{id} | Delete `App` | User deletes an `App`; all related `Jobs` are deleted |
+| HTTP Method | URL            | Description                              | Example usage                                                                              |
+| ----------- | -------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| GET         | /api/apps/     | Retrieve the current user's list of Apps | `balsam ls apps` shows Apps across sites                                                   |
+| POST        | /api/apps/     | Create a new `App`                       | `balsam app sync` creates new `Apps` from local `ApplicationDefinitions`                   |
+| PUT         | /api/apps/{id} | Update `App` information                 | `balsam app sync` updates existing `Apps` with changes from local `ApplicationDefinitions` |
+| DELETE      | /api/apps/{id} | Delete `App`                             | User deletes an `App`; all related `Jobs` are deleted                                      |
 
 ## Job
 
 ### Model Fields
-| Field Name  | Description |
-| -----------  | ----------- |
-| `id ` | Unique Job ID |
-| `workdir` | Working directory, *relative* to the Site `data/` directory |
-| `tags` | JSON `{str: str}` mappings for tagging and selecting jobs | 
-| `session` | ForeignKey to `Session` instance | 
-| `app` | ForeignKey to `App` instance | 
-| `parameters` | JSON `{paramName: paramValue}` for the `App` command template parameters |
-| `batch_job` | ForeignKey to current or most recent `BatchJob` instance in which this `Job` ran |
-| `state` | Current state of the `Job` |
-| `last_update` | Timestamp of last modification to Job | 
-| `data` | Arbitrary JSON data storage |
-| `return_code` | Most recent return code of job | 
-| `parents` | Non-symmetric ManyToMany  Parent --> Child relations between Jobs |
-| `num_nodes` | Number of compute nodes required (> 1 implies MPI usage) |
-| `ranks_per_node` | Number of ranks per node (> 1 implies MPI usage) |
-| `threads_per_rank` | Number of logical threads per MPI rank |
-| `threads_per_core` | Number of logical threads per hardware core | 
-| `launch_params` | Optional pass-through parameters to MPI launcher (e.g -cc depth) | 
-| `gpus_per_rank` | Number of GPUs per MPI rank |
-| `node_packing_count` | Maximum number of instances that can run on a single node | 
-| `wall_time_min` | Lower bound estimate for runtime of the Job (leaving at default 0 is allowed) |
+| Field Name           | Description                                                                      |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `id `                | Unique Job ID                                                                    |
+| `workdir`            | Working directory, *relative* to the Site `data/` directory                      |
+| `tags`               | JSON `{str: str}` mappings for tagging and selecting jobs                        |
+| `session`            | ForeignKey to `Session` instance                                                 |
+| `app`                | ForeignKey to `App` instance                                                     |
+| `parameters`         | JSON `{paramName: paramValue}` for the `App` command template parameters         |
+| `batch_job`          | ForeignKey to current or most recent `BatchJob` instance in which this `Job` ran |
+| `state`              | Current state of the `Job`                                                       |
+| `last_update`        | Timestamp of last modification to Job                                            |
+| `data`               | Arbitrary JSON data storage                                                      |
+| `return_code`        | Most recent return code of job                                                   |
+| `parents`            | Non-symmetric ManyToMany  Parent --> Child relations between Jobs                |
+| `num_nodes`          | Number of compute nodes required (> 1 implies MPI usage)                         |
+| `ranks_per_node`     | Number of ranks per node (> 1 implies MPI usage)                                 |
+| `threads_per_rank`   | Number of logical threads per MPI rank                                           |
+| `threads_per_core`   | Number of logical threads per hardware core                                      |
+| `launch_params`      | Optional pass-through parameters to MPI launcher (e.g -cc depth)                 |
+| `gpus_per_rank`      | Number of GPUs per MPI rank                                                      |
+| `node_packing_count` | Maximum number of instances that can run on a single node                        |
+| `wall_time_min`      | Lower bound estimate for runtime of the Job (leaving at default 0 is allowed)    |
 
 
 Let workdir uniqueness be the user's problem.  If they put 2
@@ -275,15 +275,15 @@ they can be accessed through separate API endpoints.
 
 The related entities are represented in JSON as follows:
 
-| Field | Serialized  | Deserialized |
-| ----  | ----------  | ------------ |
-| `id`  | Primary Key | Fetch Job from user-filtered queryset |
-| `app_id`  | Primary Key | Fetch App from user-filtered queryset |
-| `batch_job_id`  | Primary Key | Fetch BatchJob from user-filtered queryset |
-| `parent_ids` | Primary Key list | Fetch parent jobs from user-filtered queryset |
-| `transfers` | **N/A** | *Create only:* Dict of `{transfer_item_name: {location_alias: str, path: str}}`  |
-| `events` | **N/A** | **N/A** |
-| `session`  | **N/A** | **N/A** |
+| Field          | Serialized       | Deserialized                                                                    |
+| -------------- | ---------------- | ------------------------------------------------------------------------------- |
+| `id`           | Primary Key      | Fetch Job from user-filtered queryset                                           |
+| `app_id`       | Primary Key      | Fetch App from user-filtered queryset                                           |
+| `batch_job_id` | Primary Key      | Fetch BatchJob from user-filtered queryset                                      |
+| `parent_ids`   | Primary Key list | Fetch parent jobs from user-filtered queryset                                   |
+| `transfers`    | **N/A**          | *Create only:* Dict of `{transfer_item_name: {location_alias: str, path: str}}` |
+| `events`       | **N/A**          | **N/A**                                                                         |
+| `session`      | **N/A**          | **N/A**                                                                         |
 
 `transfers` are nested in the Job for `POST` only: `Job` creation is an atomic transaction grouping addition of the `Job` with its related `TransferItems`.
 The API fetches the related `App.transfers`  and `Site.transfer_locations` to validate each transfer item:
@@ -296,34 +296,34 @@ The API fetches the related `App.transfers`  and `Site.transfer_locations` to va
 ##### URLs
 
 
-| HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | -----   |
-| GET | /api/jobs/ | Get paginated Job lists, filtered by site, state, tags, BatchJob, or App | `balsam ls` |
-| POST | /api/jobs/ | Bulk-create `Jobs` | Create 1k jobs with single API call |
-| PUT | /api/jobs/{id} | Update `Job` information | Tweak a single job in web UI |
-| DELETE | /api/jobs/{id} | Delete `Job` | Delete a single job in web UI |
-| PUT | /api/jobs/ | Bulk-update Jobs: apply same update to all jobs matching query | Restart all jobs at Site X with tag workflow="foo" |
-| PATCH | /api/jobs/ | Bulk-update Jobs: apply list of patches job-wise | Balsam StatusUpdater component sends a list of status updates to API |
+| HTTP Method | URL            | Description                                                              | Example usage                                                        |
+| ----------- | -------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| GET         | /api/jobs/     | Get paginated Job lists, filtered by site, state, tags, BatchJob, or App | `balsam ls`                                                          |
+| POST        | /api/jobs/     | Bulk-create `Jobs`                                                       | Create 1k jobs with single API call                                  |
+| PUT         | /api/jobs/{id} | Update `Job` information                                                 | Tweak a single job in web UI                                         |
+| DELETE      | /api/jobs/{id} | Delete `Job`                                                             | Delete a single job in web UI                                        |
+| PUT         | /api/jobs/     | Bulk-update Jobs: apply same update to all jobs matching query           | Restart all jobs at Site X with tag workflow="foo"                   |
+| PATCH       | /api/jobs/     | Bulk-update Jobs: apply list of patches job-wise                         | Balsam StatusUpdater component sends a list of status updates to API |
 
 ## BatchJob
 
 ### Model Fields
-| Field Name  | Description |
-| -----------  | ----------- |
-| `id ` | Unique ID. Not to be confused with Scheduler ID, which is not necessarily unique across Sites! |
-| `site ` | ForeignKey to `Site` where submitted |
-| `scheduler_id ` | ID assigned by Site's batch scheduler (null if unassigned) |
-| `project ` | Project/allocation to be charged for the job submission |
-| `queue ` | Which scheduler queue the batchjob is submitted to |
-| `num_nodes` | Number of nodes requested for batchjob |
-| `wall_time_min` | Wall time, in minutes, requested |
-| `job_mode` | Balsam launcher job mode |
-| `optional_params` | Extra pass-through parameters to Job Template |
-| `filter_tags` | Restrict launcher to run jobs with matching tags. JSONField dict: `{tag_key: tag_val}` |
-| `state` | Current status of BatchJob |
-| `status_info` | JSON: Error or custom data received from scheduler |
-| `start_time` | DateTime when BatchJob started running |
-| `end_time` | DateTime when BatchJob ended |
+| Field Name        | Description                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| `id `             | Unique ID. Not to be confused with Scheduler ID, which is not necessarily unique across Sites! |
+| `site `           | ForeignKey to `Site` where submitted                                                           |
+| `scheduler_id `   | ID assigned by Site's batch scheduler (null if unassigned)                                     |
+| `project `        | Project/allocation to be charged for the job submission                                        |
+| `queue `          | Which scheduler queue the batchjob is submitted to                                             |
+| `num_nodes`       | Number of nodes requested for batchjob                                                         |
+| `wall_time_min`   | Wall time, in minutes, requested                                                               |
+| `job_mode`        | Balsam launcher job mode                                                                       |
+| `optional_params` | Extra pass-through parameters to Job Template                                                  |
+| `filter_tags`     | Restrict launcher to run jobs with matching tags. JSONField dict: `{tag_key: tag_val}`         |
+| `state`           | Current status of BatchJob                                                                     |
+| `status_info`     | JSON: Error or custom data received from scheduler                                             |
+| `start_time`      | DateTime when BatchJob started running                                                         |
+| `end_time`        | DateTime when BatchJob ended                                                                   |
 
 ### State flow
 
@@ -354,22 +354,22 @@ A user can only see `BatchJobs` belonging to their `Sites`. All fields included 
 ##### URLs
 
 
-| HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | ----------   |
-| GET | /api/batch-jobs/ | Get BatchJobs | Web client lists recent BatchJobs  |
-| POST | /api/batch-jobs/ | Create BatchJob | Web client or AutoScaler submits a new BatchJob |
-| PUT | /api/batch-jobs/{id} | Alter BatchJob by ID | Web client alters job runtime while queued |
-| DELETE | /api/batch-jobs/{id} | Delete BatchJob by ID | User deletes job before it was ever submitted |
-| PATCH | /api/batch-jobs/ | Bulk Update batch jobs by patch list | Service syncs BatchJob states |
+| HTTP Method | URL                  | Description                          | Example usage                                   |
+| ----------- | -------------------- | ------------------------------------ | ----------------------------------------------- |
+| GET         | /api/batch-jobs/     | Get BatchJobs                        | Web client lists recent BatchJobs               |
+| POST        | /api/batch-jobs/     | Create BatchJob                      | Web client or AutoScaler submits a new BatchJob |
+| PUT         | /api/batch-jobs/{id} | Alter BatchJob by ID                 | Web client alters job runtime while queued      |
+| DELETE      | /api/batch-jobs/{id} | Delete BatchJob by ID                | User deletes job before it was ever submitted   |
+| PATCH       | /api/batch-jobs/     | Bulk Update batch jobs by patch list | Service syncs BatchJob states                   |
 
 ## Session
 
 ### Model Fields
-| Field Name  | Description |
-| -----------  | ----------- |
-| `id ` | Unique ID |
-| `heartbeat ` | DateTime of last session tick API call |
-| `batch_job` | Non-nullable ForeignKey to `BatchJob` this Session is running under |
+| Field Name   | Description                                                         |
+| ------------ | ------------------------------------------------------------------- |
+| `id `        | Unique ID                                                           |
+| `heartbeat ` | DateTime of last session tick API call                              |
+| `batch_job`  | Non-nullable ForeignKey to `BatchJob` this Session is running under |
 
 ### API
 ##### Representation
@@ -380,13 +380,13 @@ are represented by their primary keys.
 * `Session` tick has empty payload
 * `Session` **acquire** endpoint uses a special `JobAcquireSerializer` representation:
 
-| Field | Description |
-| ----- | ----------  |
-| `states`| `list` of states to acquire |
-| `max_num_acquire`| limit number of jobs to acquire |
-| `filter_tags`| filter `Jobs` for which `job.tags` contains all `{tag_name: tag_value}` pairs |
-| `node_resources`| Nested `NodeResource` representation placing resource constraints on what Jobs may be acquired |
-| `order_by`| order returned jobs according to a set of Job fields (may include ascending or descending `num_nodes`, `node_packing_count`, `wall_time_min`) |
+| Field             | Description                                                                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `states`          | `list` of states to acquire                                                                                                                   |
+| `max_num_acquire` | limit number of jobs to acquire                                                                                                               |
+| `filter_tags`     | filter `Jobs` for which `job.tags` contains all `{tag_name: tag_value}` pairs                                                                 |
+| `node_resources`  | Nested `NodeResource` representation placing resource constraints on what Jobs may be acquired                                                |
+| `order_by`        | order returned jobs according to a set of Job fields (may include ascending or descending `num_nodes`, `node_packing_count`, `wall_time_min`) |
 
 The nested `NodeResource` representation is provided as a dict with the structure:
 ```py3
@@ -403,29 +403,29 @@ The nested `NodeResource` representation is provided as a dict with the structur
 ##### URLs
 
 
-| HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | -----   |
-| GET | /api/sessions | Get Sessions List | BatchJob Web view shows "Last Heartbeat" for each running |
-| POST | /api/sessions | Create new `Session` | Launcher `JobSource` initialized |
-| **POST** | /api/sessions/{id}/acquire | **Acquire** Jobs for launcher | `JobSource` acquires new jobs to run |
-| PUT | /api/sessions/{id} | Tick `Session` heartbeat | `JobSource` ticks Session periodically |
-| DELETE | /api/sessions/{id} | Destroy `Session` and release Jobs | Final `JobSource` `release()` call |
+| HTTP Method | URL                        | Description                        | Example usage                                             |
+| ----------- | -------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| GET         | /api/sessions              | Get Sessions List                  | BatchJob Web view shows "Last Heartbeat" for each running |
+| POST        | /api/sessions              | Create new `Session`               | Launcher `JobSource` initialized                          |
+| **POST**    | /api/sessions/{id}/acquire | **Acquire** Jobs for launcher      | `JobSource` acquires new jobs to run                      |
+| PUT         | /api/sessions/{id}         | Tick `Session` heartbeat           | `JobSource` ticks Session periodically                    |
+| DELETE      | /api/sessions/{id}         | Destroy `Session` and release Jobs | Final `JobSource` `release()` call                        |
 
 ## TransferItem
 
 ### Model Fields
-| Field Name  | Description |
-| -----------  | ----------- |
-| `id ` | Unique TransferItem ID |
-| `job` | ForeignKey to Job | 
-| `protocol` | `globus` or `rsync` |
-| `direction` | `in` or `out`. If `in`, the transfer is from `remote_netloc:source_path` to `Job.workdir/destination_path`. If `out`, the transfer is from `Job.workdir/src_path` to `remote_netloc:dest_path`. |
-| `remote_netloc` | The Globus endpoint UUID or user@hostname of the remote data location |
-| `source_path` | If stage-`in`: the remote path. If stage-`out`: the local path |
-| `destination_path` | If stage-`in`: the local path. If stage-`out`: the remote path. |
-| `state` | `pending` -> `active` -> `done` or `error` |
-| `task_id` | Unique identifier of the Transfer task (e.g. Globus Task UUID) |
-| `transfer_info` | JSONField for Error messages, average bandwidth, transfer time, etc... |
+| Field Name         | Description                                                                                                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id `              | Unique TransferItem ID                                                                                                                                                                          |
+| `job`              | ForeignKey to Job                                                                                                                                                                               |
+| `protocol`         | `globus` or `rsync`                                                                                                                                                                             |
+| `direction`        | `in` or `out`. If `in`, the transfer is from `remote_netloc:source_path` to `Job.workdir/destination_path`. If `out`, the transfer is from `Job.workdir/src_path` to `remote_netloc:dest_path`. |
+| `remote_netloc`    | The Globus endpoint UUID or user@hostname of the remote data location                                                                                                                           |
+| `source_path`      | If stage-`in`: the remote path. If stage-`out`: the local path                                                                                                                                  |
+| `destination_path` | If stage-`in`: the local path. If stage-`out`: the remote path.                                                                                                                                 |
+| `state`            | `pending` -> `active` -> `done` or `error`                                                                                                                                                      |
+| `task_id`          | Unique identifier of the Transfer task (e.g. Globus Task UUID)                                                                                                                                  |
+| `transfer_info`    | JSONField for Error messages, average bandwidth, transfer time, etc...                                                                                                                          |
 
 ### API
 ##### Representation
@@ -446,23 +446,23 @@ For `update` (PUT and PATCH), *only* `state`, `task_id`, and `transfer_info` may
 ##### URLs
 
 
-| HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | -----   |
-| GET | /api/transfers/ | List `TransferItems`  | Transfer module gets list of pending Transfers |
-| PUT | /api/transfers/{id} | Update `TransferItem`  State | Transfer module updates status |
-| PATCH | /api/transfers/ | Bulk update `TransferItems` via patch list | Transfer module bulk-updates statuses of finished transfers |
+| HTTP Method | URL                 | Description                                | Example usage                                               |
+| ----------- | ------------------- | ------------------------------------------ | ----------------------------------------------------------- |
+| GET         | /api/transfers/     | List `TransferItems`                       | Transfer module gets list of pending Transfers              |
+| PUT         | /api/transfers/{id} | Update `TransferItem`  State               | Transfer module updates status                              |
+| PATCH       | /api/transfers/     | Bulk update `TransferItems` via patch list | Transfer module bulk-updates statuses of finished transfers |
 
 ## LogEvent
 
 ### Model Fields
-| Field Name  | Description |
-| -----------  | ----------- |
-| `id ` | Unique ID |
-| `job` | ForeignKey to `Job` undergoing event |
-| `timestamp ` | DateTime of event |
-| `from_state ` | Job state before transition |
-| `to_state ` | Job state after transition |
-| `data` | JSONField containing `{message: str}` and other optional data |
+| Field Name    | Description                                                   |
+| ------------- | ------------------------------------------------------------- |
+| `id `         | Unique ID                                                     |
+| `job`         | ForeignKey to `Job` undergoing event                          |
+| `timestamp `  | DateTime of event                                             |
+| `from_state ` | Job state before transition                                   |
+| `to_state `   | Job state after transition                                    |
+| `data`        | JSONField containing `{message: str}` and other optional data |
 
 For transitions to or from `RUNNING`, the `data` includes `nodes` as a fractional
 number of occupied nodes. This enables clients to generate throughput and utilization views without having to fetch entire related Jobs.
@@ -476,6 +476,6 @@ This is a read only-API with all fields included.  The related Job is represente
 This is a read-only API with a single endpoint for querying history.
 
 
-| HTTP Method | URL | Description | Example usage |
-| ------------| ----- | ---------- | -----   |
-| GET | /api/events | Fetch EventLogs | Web client filters by Job `tags` and last 24 hours to get a quick view at throughput/utilization for a particular job type |
+| HTTP Method | URL         | Description     | Example usage                                                                                                              |
+| ----------- | ----------- | --------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| GET         | /api/events | Fetch EventLogs | Web client filters by Job `tags` and last 24 hours to get a quick view at throughput/utilization for a particular job type |
