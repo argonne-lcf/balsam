@@ -13,8 +13,9 @@ class ComputeNode:
     gpu_identifiers = []
     allow_multi_mpirun = True
 
-    def __init__(self, node_id, job_mode):
+    def __init__(self, node_id, hostname, job_mode):
         self.node_id = node_id
+        self.hostname = hostname
         self.occupancy = 0.0
         self.cpu_occ = {label: 0.0 for label in self.cpu_identifiers}
         self.gpu_occ = {label: 0.0 for label in self.gpu_identifiers}
@@ -41,3 +42,4 @@ class ComputeNode:
         Get all compute nodes allocated in the current job context
         """
         return [cls("localhost")]
+
