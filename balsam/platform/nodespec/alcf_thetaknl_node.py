@@ -2,7 +2,7 @@ import os
 from compute_node import ComputeNode
 
 
-class ThetaNode(ComputeNode):
+class ThetaKnlNode(ComputeNode):
 
     num_cpu = 64
     num_gpu = 0
@@ -15,7 +15,7 @@ class ThetaNode(ComputeNode):
     gpu_mem_gb = 0
 
     def __init__(self, node_id, hostname, job_mode=''):
-        super(ThetaNode, self).__init__(node_id, hostname, job_mode)
+        super(ThetaKnlNode, self).__init__(node_id, hostname, job_mode)
 
     def __str__(self):
         return f'{self.hostname}:cpu{self.num_cpu}:gpu{self.num_gpu}'
@@ -46,4 +46,4 @@ if __name__ == '__main__':
     if 'COBALT_PARTNAME' not in os.environ:
         os.environ['COBALT_PARTNAME'] = '1001-1005,1030,1034-1200'
 
-    print([ str(x) for x in ThetaNode.get_job_nodelist()])
+    print([ str(x) for x in ThetaKnlNode.get_job_nodelist()])
