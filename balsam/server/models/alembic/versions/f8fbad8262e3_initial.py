@@ -165,18 +165,13 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("job_id", sa.Integer(), nullable=False),
         sa.Column(
-            "protocol",
-            sa.Enum("globus", "rsync", name="transferprotocol"),
-            nullable=False,
-        ),
-        sa.Column(
             "direction",
             sa.Enum("stage_in", "stage_out", name="transferdirection"),
             nullable=False,
         ),
-        sa.Column("remote_netloc", sa.String(length=128), nullable=True),
-        sa.Column("source_path", sa.String(length=256), nullable=True),
-        sa.Column("destination_path", sa.String(length=256), nullable=True),
+        sa.Column("remote_path", sa.String(length=256), nullable=True),
+        sa.Column("local_path", sa.String(length=256), nullable=True),
+        sa.Column("location_alias", sa.String(length=256), nullable=True),
         sa.Column(
             "state",
             sa.Enum(

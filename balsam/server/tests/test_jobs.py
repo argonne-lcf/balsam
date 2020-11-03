@@ -742,7 +742,8 @@ def test_update_transfer_item(auth_client, job_dict, db_session):
     assert transfer_item["state"] == "pending"
     assert transfer_item["job_id"] == job["id"]
     assert transfer_item["direction"] == "in"
-    assert transfer_item["source_path"] == "/path/to/input.dat"
+    assert transfer_item["local_path"] == "hello.yml"
+    assert str(transfer_item["remote_path"]) == "/path/to/input.dat"
     assert transfer_item["task_id"] == ""
     assert transfer_item["transfer_info"] == {}
 
@@ -935,6 +936,68 @@ def test_cannot_acquire_with_another_lock_id(
         max_nodes_per_job=32,
         check=status.HTTP_404_NOT_FOUND,
     )
+
+
+def test_filter_transfers_by_state(site, auth_client, job_dict):
+    """Can filter TransferItems by state list"""
+    app = create_app(
+        auth_client,
+        site["id"],
+        transfers={
+            "hello-input": {
+                "required": False,
+                "direction": "in",
+                "local_path": "hello.yml",
+                "description": "Input file for SayHello",
+            },
+            "hello-output": {
+                "required": True,
+                "direction": "out",
+                "local_path": "hello.results.xml",
+                "description": "Results of SayHello",
+            },
+        },
+    )
+    job1 = job_dict(
+        app_id=app["id"],
+        transfers={
+            "hello-input": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/input.dat",
+            },
+            "hello-output": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/result.xml",
+            },
+        },
+    )
+    job2 = job_dict(
+        app_id=app["id"],
+        transfers={
+            "hello-output": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/result.xml",
+            }
+        },
+    )
+    job1, job2 = auth_client.bulk_post("/jobs/", [job1, job2])
+    assert job1["state"] == "READY"
+    assert job2["state"] == "STAGED_IN"
+
+    transfers = auth_client.get("/transfers", state="pending")
+    assert transfers["count"] == 1
+
+    transfers = auth_client.get("/transfers", state=["pending"])
+    assert transfers["count"] == 1
+
+    transfers = auth_client.get("/transfers", state=["awaiting_job"])
+    assert transfers["count"] == 2
+
+    transfers = auth_client.get("/transfers", state=["done", "error"])
+    assert transfers["count"] == 0
+
+    transfers = auth_client.get("/transfers", state=["awaiting_job", "pending"])
+    assert transfers["count"] == 3
 
 
 def test_postprocessed_job_with_stage_outs(site, auth_client, job_dict):

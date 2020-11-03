@@ -1,6 +1,4 @@
 from datetime import datetime
-from urllib.parse import urlparse
-
 from balsam.server import models, ValidationError
 from balsam.schemas.job import JobState
 from sqlalchemy import orm, func, case, literal_column
@@ -68,14 +66,12 @@ def populate_transfers(db_job, job_spec):
         url = db_job.app.site.transfer_locations.get(location_alias)
         if url is None:
             raise ValidationError(f"Site has no Transfer URL named {location_alias}")
-        url = urlparse(url)
 
         transfer_item = models.TransferItem(
-            protocol=url.scheme,
-            remote_netloc=url.netloc,
             direction=direction,
-            source_path=remote_path if direction == "in" else local_path,
-            destination_path=local_path if direction == "in" else remote_path,
+            local_path=local_path,
+            remote_path=remote_path,
+            location_alias=location_alias,
             state="pending" if direction == "in" else "awaiting_job",
             task_id="",
             transfer_info={},

@@ -40,6 +40,8 @@ from .transfer import (
     TransferItemUpdate,
     PaginatedTransferItemOut,
     TransferItemBulkUpdate,
+    TransferItemState,
+    TransferDirection,
 )
 from .logevent import LogEventOut, PaginatedLogEventOut
 
@@ -80,6 +82,8 @@ __all__ = [
     "PaginatedTransferItemOut",
     "TransferItemUpdate",
     "TransferItemBulkUpdate",
+    "TransferItemState",
+    "TransferDirection",
     "LogEventOut",
     "PaginatedLogEventOut",
     "SchedulerBackfillWindow",

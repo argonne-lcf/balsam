@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Set
 from fastapi import Depends, APIRouter, Query
 
 from balsam.server import settings
@@ -16,7 +16,8 @@ auth = settings.auth.get_auth_method()
 class TransferQuery:
     id: List[int] = Query(None)
     job_id: List[int] = Query(None)
-    state: str = Query(None)
+    state: Set[schemas.TransferItemState] = Query(None)
+    direction: schemas.TransferDirection = Query(None)
     job_state: str = Query(None)
     tags: str = Query(None)
 
@@ -26,7 +27,9 @@ class TransferQuery:
         if self.job_id:
             qs = qs.filter(Job.id.in_(self.job_id))
         if self.state:
-            qs = qs.filter(TransferItem.state == self.state)
+            qs = qs.filter(TransferItem.state.in_(self.state))
+        if self.direction:
+            qs = qs.filter(TransferItem.direction == self.direction)
         if self.job_state:
             qs = qs.filter(Job.state == self.job_state)
         if self.tags:

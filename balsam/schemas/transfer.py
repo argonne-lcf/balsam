@@ -1,3 +1,4 @@
+from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List
 from enum import Enum
@@ -8,6 +9,7 @@ class TransferItemState(str, Enum):
     awaiting_job = "awaiting_job"
     pending = "pending"
     active = "active"
+    inactive = "inactive"
     done = "done"
     error = "error"
 
@@ -31,11 +33,10 @@ class TransferItemBase(BaseModel):
 class TransferItemOut(TransferItemBase):
     id: int
     job_id: int
-    protocol: TransferProtocol
     direction: TransferDirection
-    remote_netloc: str
-    source_path: str
-    destination_path: str
+    local_path: Path
+    remote_path: Path
+    location_alias: str
 
     class Config:
         orm_mode = True

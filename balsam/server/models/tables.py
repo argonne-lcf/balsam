@@ -19,7 +19,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql as pg
 from .base import Base
 from balsam.schemas.transfer import (
-    TransferProtocol,
     TransferDirection,
     TransferItemState,
 )
@@ -212,11 +211,10 @@ class TransferItem(Base):
 
     id = Column(Integer, primary_key=True)
     job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
-    protocol = Column(Enum(TransferProtocol), nullable=False)
     direction = Column(Enum(TransferDirection), nullable=False)
-    remote_netloc = Column(String(128))
-    source_path = Column(String(256))
-    destination_path = Column(String(256))
+    local_path = Column(String(256))
+    remote_path = Column(String(256))
+    location_alias = Column(String(256))
     state = Column(Enum(TransferItemState), nullable=False)
     task_id = Column(String(100))
     transfer_info = Column(JSON, default=dict)
