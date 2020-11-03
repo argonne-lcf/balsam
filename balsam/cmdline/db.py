@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import click
 
 # NOTE: lazy-import balsam.util.postgres inside each CLI handler
@@ -35,8 +36,8 @@ def init(db_path):
         raise click.BadParameter(f"The path {db_path} already exists")
 
     pw_dict = postgres.create_new_db(db_path, database="balsam")
-    postgres.configure_django_database(**pw_dict)
-    postgres.run_django_migrations()
+    dsn = postgres.configure_balsam_server(**pw_dict)
+    postgres.run_alembic_migrations(dsn)
 
 
 @db.command()
@@ -46,6 +47,7 @@ def migrate(db_path):
     Update DB schema (run after upgrading Balsam version)
     """
     from balsam.util import postgres
+    import balsam.server
 
     db_path = Path(db_path)
     try:
@@ -55,8 +57,18 @@ def migrate(db_path):
             f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}"
         )
 
-    postgres.configure_django_database(**pw_dict)
-    postgres.run_django_migrations()
+    user = pw_dict["username"]
+    passwd = pw_dict["password"]
+    host = pw_dict["host"]
+    port = pw_dict["port"]
+    database = pw_dict["database"]
+    dsn = f"postgresql://{user}:{passwd}@{host}:{port}/{database}"
+    os.environ["balsam_database_url"] = dsn
+    balsam.server.settings.database_url = dsn
+
+    click.echo("Running alembic migrations")
+    postgres.run_alembic_migrations(dsn)
+    click.echo("Migrations complete!")
 
 
 @db.command()

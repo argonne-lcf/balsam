@@ -7,9 +7,7 @@ import tempfile
 import subprocess
 import click
 import balsam.server
-import balsam.server.models.alembic as alembic
 
-MIGRATION_DIR = Path(alembic.__file__).parent
 REDIS_TMPL = Path(balsam.server.__file__).parent.joinpath("redis.conf.tmpl")
 
 
@@ -67,7 +65,7 @@ def up(path, bind, log_level, num_workers):
     db_path = path.joinpath("balsamdb").as_posix()
     pg.start_db(db_path)
     dsn = pg.load_dsn(db_path)
-    os.environ["balsam_database_url"] = dsn
+    pg.configure_balsam_server_from_dsn(dsn)
     start_gunicorn(path, bind, log_level, num_workers)
 
 
@@ -93,18 +91,10 @@ def deploy(path, bind, log_level, num_workers):
     click.echo("Database created!")
 
     # Point balsam.server.settings at new DSN:
-    user = pw_dict["username"]
-    passwd = pw_dict["password"]
-    host = pw_dict["host"]
-    port = pw_dict["port"]
-    database = pw_dict["database"]
-    dsn = f"postgresql://{user}:{passwd}@{host}:{port}/{database}"
-    os.environ["balsam_database_url"] = dsn
-
-    balsam.server.settings.database_url = dsn
+    dsn = pg.configure_balsam_server(**pw_dict)
 
     click.echo("Running alembic migrations")
-    pg.run_alembic_migrations(MIGRATION_DIR, dsn)
+    pg.run_alembic_migrations(dsn)
     click.echo("Migrations complete!")
 
     write_redis_conf(path.joinpath("redis.conf"))

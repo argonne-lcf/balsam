@@ -11,6 +11,7 @@ import sys
 import socket
 import yaml
 from balsam import banner
+import balsam.server
 
 SERVER_INFO_FILENAME = "server-info.yml"
 MIN_VERSION = (10, 0, 0)
@@ -106,6 +107,18 @@ def create_new_db(db_path="balsamdb", database="balsam"):
     return pw_dict
 
 
+def configure_balsam_server(username, password, host, port, database, **kwargs):
+    dsn = f"postgresql://{username}:{password}@{host}:{port}/{database}"
+    os.environ["balsam_database_url"] = dsn
+    balsam.server.settings.database_url = dsn
+    return dsn
+
+
+def configure_balsam_server_from_dsn(dsn):
+    os.environ["balsam_database_url"] = dsn
+    balsam.server.settings.database_url = dsn
+
+
 def configure_django_database(
     username,
     password,
@@ -144,9 +157,12 @@ def run_django_migrations():
     call_command("migrate", interactive=isatty, verbosity=2)
 
 
-def run_alembic_migrations(migrations_path, dsn):
+def run_alembic_migrations(dsn):
     from alembic.config import Config
     from alembic import command
+    import balsam.server.models.alembic as alembic
+
+    migrations_path = str(Path(alembic.__file__).parent)
 
     logger.info(f"Running DB migrations in {migrations_path}")
     alembic_cfg = Config()
