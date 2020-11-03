@@ -129,8 +129,8 @@ class TransferSettings(BaseSettings):
     }
     max_concurrent_transfers: int = 5
     globus_endpoint_id: Optional[UUID] = None
-    transfer_batch_size: int = 1
-    service_period: int = 1
+    transfer_batch_size: int = 100
+    service_period: int = 5
 
 
 class Settings(BaseSettings):

@@ -8,6 +8,10 @@ from pydantic import BaseModel
 TransferTaskID = Union[str, int, UUID]
 
 
+class TransferSubmitError(Exception):
+    pass
+
+
 class TaskState(str, Enum):
     active = "active"
     inactive = "inactive"
@@ -18,6 +22,18 @@ class TaskState(str, Enum):
 class TaskInfo(BaseModel):
     state: TaskState
     error_info: Dict[str, Any]
+
+
+def all_absolute(*paths):
+    for p in paths:
+        if not Path(p).is_absolute():
+            raise ValueError(f"{p} must be an absolute path")
+
+
+def all_relative(*paths):
+    for p in paths:
+        if Path(p).is_absolute():
+            raise ValueError(f"{p} must be a relative path")
 
 
 class TransferInterface(ABC.ABC):
