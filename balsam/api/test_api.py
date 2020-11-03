@@ -544,6 +544,29 @@ class TestTransfers:
         job.refresh_from_db()
         assert job.state == "JOB_FINISHED"
 
+    def test_filter_transfers_by_state(self, client):
+        Job = client.Job
+        Transfer = client.Transfer
+        app = self.create_app_with_transfers(client)
+        Job.objects.create(
+            workdir="test/test",
+            app_id=app.id,
+            transfers={
+                "input_data": {
+                    "location_alias": "laptop",
+                    "path": "/path/to/input.dat",
+                },
+                "output_results": {
+                    "location_alias": "laptop",
+                    "path": "/path/to/output.json",
+                },
+            },
+        )
+        pending = Transfer.objects.filter(state="pending")
+        assert pending.count() == 1
+        all_t = Transfer.objects.filter(state=["pending", "awaiting_job"])
+        assert all_t.count() == 2
+
 
 class TestEvents:
     def setup_scenario(self, client):
