@@ -1,4 +1,5 @@
 import ABC
+from collections import defaultdict
 from pathlib import Path
 from enum import Enum
 from typing import List, Tuple, Union, Dict, Any
@@ -20,8 +21,9 @@ class TaskState(str, Enum):
 
 
 class TaskInfo(BaseModel):
+    task_id: TransferTaskID
     state: TaskState
-    error_info: Dict[str, Any]
+    info: Dict[str, Any]
 
 
 def all_absolute(*paths):
@@ -37,6 +39,8 @@ def all_relative(*paths):
 
 
 class TransferInterface(ABC.ABC):
+    _registry = {}
+
     @ABC.abstractstaticmethod
     def submit_task(
         src_loc: str,
@@ -48,5 +52,19 @@ class TransferInterface(ABC.ABC):
         raise NotImplementedError
 
     @ABC.abstractstaticmethod
-    def poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
         raise NotImplementedError
+
+    @staticmethod
+    def poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+        ids_by_protocol = defaultdict(list)
+        for task_id in task_ids:
+            protocol, id = str(task_id).split(":")
+            ids_by_protocol[protocol].append(id)
+
+        result = []
+        for protocol, id_list in ids_by_protocol.items():
+            cls = TransferInterface._registry[protocol]
+            task_infos = cls._poll_tasks(id_list)
+            result.extend(task_infos)
+        return result

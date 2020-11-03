@@ -67,11 +67,24 @@ def submit_subproc(src_endpoint, dest_endpoint, batch):
         stderr=subprocess.STDOUT,
         encoding="utf-8",
         env=env,
+        check=True,
     )
+    for line in proc.stdout.split("\n"):
+        if "Task ID" in line:
+            return "globus:" + line.split()[-1]
     return proc
 
 
 class GlobusTransferInterface(TransferInterface):
+    @staticmethod
+    def _state_map(status):
+        return {
+            "active": "active",
+            "inactive": "inactive",
+            "succeeded": "done",
+            "failed": "error",
+        }[status.strip().lower()]
+
     @staticmethod
     def submit_task(
         src_loc: str,
@@ -95,5 +108,18 @@ class GlobusTransferInterface(TransferInterface):
         return task_id
 
     @staticmethod
-    def poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
-        return []
+    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+        client = get_client()
+        filter_values = {"task_id": ",".join(map(str, task_ids))}
+        filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())
+        result = []
+        for d in client.task_list(num_results=None, filter=filter_str):
+            state = GlobusTransferInterface._state_map(d["status"])
+            info = {}
+            if d.get("fatal_error"):
+                info["error"] = d["fatal_error"]
+            result.append(TaskInfo(task_id=d["task_id"], state=state, info=info,))
+        return result
+
+
+TransferInterface._registry["globus"] = GlobusTransferInterface
