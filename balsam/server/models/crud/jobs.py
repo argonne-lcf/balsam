@@ -58,6 +58,7 @@ def populate_transfers(db_job, job_spec):
                 f"App {db_job.app.name} has no Transfer slot named {transfer_name}"
             )
         direction, local_path = transfer_slot["direction"], transfer_slot["local_path"]
+        recursive = transfer_slot["recursive"]
         assert direction in ["in", "out"]
         location_alias, remote_path = (
             transfer_spec.location_alias,
@@ -71,6 +72,7 @@ def populate_transfers(db_job, job_spec):
             direction=direction,
             local_path=local_path,
             remote_path=remote_path,
+            recursive=recursive,
             location_alias=location_alias,
             state="pending" if direction == "in" else "awaiting_job",
             task_id="",

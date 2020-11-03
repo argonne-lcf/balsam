@@ -3,6 +3,7 @@ from sqlalchemy import (
     Table,
     Column,
     Enum,
+    Boolean,
     Index,
     Integer,
     String,
@@ -214,6 +215,7 @@ class TransferItem(Base):
     direction = Column(Enum(TransferDirection), nullable=False)
     local_path = Column(String(256))
     remote_path = Column(String(256))
+    recursive = Column(Boolean, default=False)
     location_alias = Column(String(256))
     state = Column(Enum(TransferItemState), nullable=False)
     task_id = Column(String(100))

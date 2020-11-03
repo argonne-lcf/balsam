@@ -30,6 +30,7 @@ class TransferSlot(BaseModel):
     direction: TransferDirection
     local_path: Path
     description: str = ""
+    recursive: bool = False
 
     @validator("local_path")
     def path_is_relative(cls, v):
@@ -60,6 +61,7 @@ class AppBase(BaseModel):
                 "direction": "in",
                 "local_path": "input.nw",
                 "description": "Input Deck",
+                "recursive": "False",
             }
         },
     )

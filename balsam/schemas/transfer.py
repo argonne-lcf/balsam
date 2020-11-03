@@ -37,6 +37,7 @@ class TransferItemOut(TransferItemBase):
     local_path: Path
     remote_path: Path
     location_alias: str
+    recursive: bool
 
     class Config:
         orm_mode = True

@@ -171,6 +171,7 @@ def upgrade():
         ),
         sa.Column("remote_path", sa.String(length=256), nullable=True),
         sa.Column("local_path", sa.String(length=256), nullable=True),
+        sa.Column("recursive", sa.Boolean(), nullable=False),
         sa.Column("location_alias", sa.String(length=256), nullable=True),
         sa.Column(
             "state",
