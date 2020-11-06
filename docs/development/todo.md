@@ -2,9 +2,6 @@
 
 ## Short Todo
 
-- Transfer service module
-- test with a dummy app that bypasses launcher; skip state in preproc
-
 - Double check autoscaler & scheduler service modules: test on theta
 
 - Launcher & NodeDetection interfaces
@@ -37,7 +34,7 @@
 ## REST API
 
 - [ ] Login Auth
-- [ ] Token Auth
+- [X] Token Auth
 - [ ] Idempotent updates
 - [ ] `POST` with `submission_id`, response caching, optimizstic lock & rollback mechanism
 - [ ] DB query profiling & optimization: prefetch loads & bulk writes 
@@ -57,35 +54,35 @@
 
 ## CLI
 
-- [ ] Auth & Client configuration (`login`)
-- [ ] DB management (`db`)
-- [ ] Site management (`init mv rm ls rename-host`)
-  - [ ] Interactive setup: choose a preset config
-- [ ] App management (`sync`)
-- [ ] Job List with tag selectors (handling "name" and "workflow" as tags)
-- [ ] Job create, update, delete, reset, dep
+- [X] Auth & Client configuration (`login`)
+- [X] DB management (`db`)
+- [X] Site management (`init mv rm ls rename-host`)
+  - [X] Interactive setup: choose a preset config
+- [X] App management (`sync`)
+- [X] Job List with tag selectors (handling "name" and "workflow" as tags)
+- [X] Job create, update, delete, reset, dep
 - [ ] BatchJob (`submit-launch`)
-- [ ] Service
-- [ ] `which`
+- [X] Service
+- [X] `which`
 
 ## Balsam Site Components
 
-- [X ] `JobSource` interface
-  - Wraps `Session` API: acquire jobs, tick heartbeat
-  - not concerned with dispatch of jobs or assignment of jobs to resources
-  - On init, create a new Session (pass `site_id` and `batch_job`)
-  - Manage `tick` daemon thread and `release` session on exit
-  - Provide `acquire` wrapper method that wraps client.sessions.acquire() directly
-- [X ] `StatusUpdater` interface
-  - 1 thread + queue for pooling status updates into bulk updates
-- [X ] Balsam Service module interface
-- [ ] Transfer service module
-- [X ] Processing service module
-- [ ] Scheduler service module
+- [X] `JobSource` interface
+- [X] `StatusUpdater` interface
+- [X] Balsam Service module interface
+- [X] Transfer service module
+- [X] Processing service module
+- [X] Scheduler service module
 - [ ] Auto-scaler service module
 
 ## Launcher
 
+- [ ] "Thin" platform interfaces: maximize logic in generic launcher code; minimize effort in platform interfaces 
+- [ ] Carefully avoid any platform-dependent objects or even patterns in the generic launcher code
+  - [ ] No assumptions about 1 mpirun per node in MPI mode; etc...
+  - [ ] Do not even assume that an MPIRun has to be a subprocess!
+
+- [ ] Plan Launcher, ComputeNode, and MPIRun interfaces
 - [ ] Using only `JobSource` and `StatusUpdater` interfaces
 - [ ] `ResourceManager` interface & implementation
   - Tracks `Node` resources
@@ -95,8 +92,20 @@
 - [ ] Dispatch jobs
 - [ ] Aggregating updates with `StatusUpdater`; handling timeouts/fails
 - [ ] Checking stopping criteria
-- [ ] Safe Popens using App Jinja template
+- [ ] SAFE args to Popen using App Jinja template
+- [ ] Simplified exit criterion: nothing to run for N seconds (configurable TTL)
+
+
+- [ ] Clean launcher cmdline entry point calls into a specific job mode
 - [ ] tags-aware. supports "workflow" as a legacy arg (via tag).
+
+- [ ] Support serial and MPI mode
+- [ ] Serial mode supports either ZeroMQ or MPI communicator, automatic multi-master (N/128)
+
+- [ ] Both serial and MPI modes support subdividing a node and node-packing, if the ComputeNode allows it
+    If the MPIRun is sub-node, set GPU & CPU affinities in the launch command and track allocated/free slots
+
+- [ ] Test launchers on Theta with simple App
 
 ## Platform Interfaces
 

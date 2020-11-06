@@ -42,7 +42,8 @@ def init(db_path):
 
 @db.command()
 @click.argument("db-path", type=click.Path(exists=True))
-def migrate(db_path):
+@click.option("--downgrade", default=None)
+def migrate(db_path, downgrade):
     """
     Update DB schema (run after upgrading Balsam version)
     """
@@ -67,7 +68,7 @@ def migrate(db_path):
     balsam.server.settings.database_url = dsn
 
     click.echo("Running alembic migrations")
-    postgres.run_alembic_migrations(dsn)
+    postgres.run_alembic_migrations(dsn, downgrade=downgrade)
     click.echo("Migrations complete!")
 
 

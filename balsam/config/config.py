@@ -228,6 +228,7 @@ class SiteConfig:
             processing_service = ProcessingService(
                 client=self.client,
                 site_id=self.site_id,
+                data_path=self.data_path,
                 apps_path=self.apps_path,
                 filter_tags=self.settings.filter_tags,
                 **dict(
@@ -247,7 +248,7 @@ class SiteConfig:
                 site_id=self.settings.site_id,
                 data_path=self.data_path,
                 transfer_interfaces=transfer_interfaces,
-                **dict(self.settings.transfers),
+                **dict(transfer_settings),
             )
             services.append(transfer_service)
         return services

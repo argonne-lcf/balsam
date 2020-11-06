@@ -11,9 +11,12 @@ from pathlib import Path
 import subprocess
 from globus_cli.services.transfer import get_client
 from globus_sdk import TransferData
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-def submit_sdk(src_endpoint, dest_endpoint, batch):
+def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch):
     client = get_client()
     notify_opts = {
         "notify_on_succeeded": False,
@@ -41,6 +44,7 @@ def submit_sdk(src_endpoint, dest_endpoint, batch):
     task_id = res.get("task_id", None)
     if task_id is None:
         raise TransferSubmitError(str(res))
+    logger.info(f"Submitted Globus transfer task {task_id}")
     return "globus:" + str(task_id)
 
 
@@ -74,8 +78,8 @@ def submit_subproc(src_endpoint, dest_endpoint, batch):
 
 
 class GlobusTransferInterface(TransferInterface):
-    def __init__(self, endpoint_id):
-        self.endpoint_id = endpoint_id
+    def __init__(self, endpoint_id: UUID):
+        self.endpoint_id: UUID = UUID(str(endpoint_id))
 
     @staticmethod
     def _state_map(status):
@@ -94,15 +98,16 @@ class GlobusTransferInterface(TransferInterface):
     ) -> TransferTaskID:
         """Submit Transfer Task via Globus CLI"""
         if direction == "in":
-            src_endpoint, dest_endpoint = UUID(remote_loc), UUID(self.endpoint_id)
+            src_endpoint, dest_endpoint = UUID(str(remote_loc)), self.endpoint_id
         elif direction == "out":
-            src_endpoint, dest_endpoint = UUID(self.endpoint_id), UUID(remote_loc)
+            src_endpoint, dest_endpoint = self.endpoint_id, UUID(str(remote_loc))
         else:
             raise ValueError("direction must be in or out")
         task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths)
         return task_id
 
-    def _poll_tasks(self, task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    @staticmethod
+    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
         client = get_client()
         filter_values = {"task_id": ",".join(map(str, task_ids))}
         filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())

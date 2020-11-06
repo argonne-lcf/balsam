@@ -4,7 +4,7 @@ from balsam.api.models import (
     AppManager,
     BatchJobManager,
     JobManager,
-    TransferManager,
+    TransferItemManager,
     SessionManager,
     EventLogManager,
 )
@@ -85,8 +85,8 @@ class RESTClient:
         return JobManager(client=self).model_class
 
     @property
-    def Transfer(self):
-        return TransferManager(client=self).model_class
+    def TransferItem(self):
+        return TransferItemManager(client=self).model_class
 
     @property
     def Session(self):

@@ -94,14 +94,14 @@ class TransferService(BalsamService):
     def get_workdirs_by_id(self, batch):
         """Build map of job workdirs, ensuring existence"""
         job_ids = [item.job_id for item in batch]
-        jobs = {job.id: job for job in self.client.Job.filter(id=job_ids)}
+        jobs = {job.id: job for job in self.client.Job.objects.filter(id=job_ids)}
         if len(jobs) < len(job_ids):
             raise RuntimeError(f"Could not find all Jobs for TransferItems")
         workdirs = {}
-        for job in jobs:
+        for job_id, job in jobs.items():
             workdir = Path(self.data_path).joinpath(job.workdir).resolve()
             workdir.mkdir(parents=True, exist_ok=True)
-            workdirs[job.id] = workdir
+            workdirs[job_id] = workdir
         return workdirs
 
     def submit_task(self, batch):

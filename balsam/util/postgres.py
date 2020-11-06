@@ -157,7 +157,7 @@ def run_django_migrations():
     call_command("migrate", interactive=isatty, verbosity=2)
 
 
-def run_alembic_migrations(dsn):
+def run_alembic_migrations(dsn, downgrade=None):
     from alembic.config import Config
     from alembic import command
     import balsam.server.models.alembic as alembic
@@ -168,7 +168,10 @@ def run_alembic_migrations(dsn):
     alembic_cfg = Config()
     alembic_cfg.set_main_option("script_location", str(migrations_path))
     # alembic_cfg.set_main_option("sqlalchemy.url", dsn)
-    command.upgrade(alembic_cfg, "head")
+    if downgrade is None:
+        command.upgrade(alembic_cfg, "head")
+    else:
+        command.downgrade(alembic_cfg, downgrade)
 
 
 # *******************************

@@ -95,7 +95,7 @@ class Job(BalsamModel):
         )
 
 
-class Transfer(BalsamModel):
+class TransferItem(BalsamModel):
     create_model_cls = None
     update_model_cls = schemas.TransferItemUpdate
     read_model_cls = schemas.TransferItemOut
@@ -163,10 +163,10 @@ class JobManager(Manager):
     model_class = Job
 
 
-class TransferManager(Manager):
+class TransferItemManager(Manager):
     path = "transfers/"
     bulk_update_enabled = True
-    model_class = Transfer
+    model_class = TransferItem
 
 
 class SessionManager(Manager):

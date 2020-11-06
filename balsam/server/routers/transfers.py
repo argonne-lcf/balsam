@@ -88,7 +88,7 @@ def bulk_update(
     user=Depends(auth),
 ):
     updated_transfers, updated_jobs, log_events = crud.transfers.bulk_update(
-        db, owner=user, transfers=transfers
+        db, owner=user, update_list=transfers
     )
     result_transfers = [schemas.TransferItemOut.from_orm(t) for t in updated_transfers]
     result_jobs = [schemas.JobOut.from_orm(j) for j in updated_jobs]

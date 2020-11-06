@@ -2,6 +2,8 @@ import click
 from pathlib import Path
 import shutil
 from balsam.config import SiteConfig, ClientSettings, Settings
+from .utils import load_site_config
+from balsam.site.service import update_site_from_config
 
 
 @click.group()
@@ -130,6 +132,17 @@ def ls():
     for site in qs:
         click.echo(str(site))
         click.echo("---\n")
+
+
+@site.command()
+def sync():
+    """
+    Sync changes in local settings.yml with Balsam online
+    """
+    cf = load_site_config()
+    client = cf.client
+    site = client.Site.objects.get(site_id=cf.settings.site_id)
+    update_site_from_config(site, cf.settings)
 
 
 @site.command()

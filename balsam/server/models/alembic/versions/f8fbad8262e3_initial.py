@@ -179,6 +179,7 @@ def upgrade():
                 "awaiting_job",
                 "pending",
                 "active",
+                "inactive",
                 "done",
                 "error",
                 name="transferitemstate",
@@ -202,7 +203,6 @@ def downgrade():
     op.drop_table("job_deps")
     op.drop_index(op.f("ix_jobs_tags"), table_name="jobs")
     op.drop_index(op.f("ix_jobs_state"), table_name="jobs")
-    op.drop_index(op.f("ix_jobs_id"), table_name="jobs")
     op.drop_table("jobs")
     op.drop_table("sessions")
     op.drop_table("batch_jobs")

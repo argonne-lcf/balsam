@@ -50,8 +50,8 @@ class TransferInterface(abc.ABC):
     ) -> TransferTaskID:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def _poll_tasks(self, task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    @abc.abstractstaticmethod
+    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
         raise NotImplementedError
 
     @staticmethod

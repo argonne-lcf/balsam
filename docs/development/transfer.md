@@ -70,12 +70,3 @@ For each validated TransferTask:
 		If raises TransientError: drop it and try again later (no status update)
 		If raises CriticalError: set the transferitems state to failed (user will need to fix something and reset state manually)
 		Uncaught exceptions will take the service down as expected
-
-## Test 
--> test integration with Globus: create a personal endpoint locally
--> test with a dummy app that:
-	--> stages in file from theta_dtn
-	--> creates output file in preprocess
-	--> bypass launcher by setting state to RUN_DONE
-	--> stages out result back to theta_dtn
---> scale this up to 1000 jobs; 5 concurrent transfers; is everything OK?

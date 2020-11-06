@@ -474,7 +474,7 @@ class TestTransfers:
 
     def test_stage_in_flow(self, client):
         Job = client.Job
-        Transfer = client.Transfer
+        TransferItem = client.TransferItem
         app = self.create_app_with_transfers(client)
         job = Job.objects.create(
             workdir="test/test",
@@ -485,7 +485,7 @@ class TestTransfers:
         )
         assert job.state == "READY"
 
-        transfer = Transfer.objects.get(job_id=job.id)
+        transfer = TransferItem.objects.get(job_id=job.id)
         transfer.task_id = "abc"
         transfer.state = "active"
         transfer.save()
@@ -504,7 +504,7 @@ class TestTransfers:
 
     def test_stage_out_flow(self, client):
         Job = client.Job
-        Transfer = client.Transfer
+        TransferItem = client.TransferItem
         app = self.create_app_with_transfers(client)
         job = Job.objects.create(
             workdir="test/test",
@@ -521,12 +521,12 @@ class TestTransfers:
             },
         )
         assert job.state == "READY"
-        transfers = Transfer.objects.filter(job_id=job.id)
+        transfers = TransferItem.objects.filter(job_id=job.id)
         assert transfers.count() == 2
         stage_in = [t for t in transfers if t.direction == "in"][0]
         stage_out = [t for t in transfers if t.direction == "out"][0]
-        assert Transfer.objects.get(state="pending") == stage_in
-        assert Transfer.objects.get(state="awaiting_job") == stage_out
+        assert TransferItem.objects.get(state="pending") == stage_in
+        assert TransferItem.objects.get(state="awaiting_job") == stage_out
 
         stage_in.state = "done"
         stage_in.save()
@@ -546,7 +546,7 @@ class TestTransfers:
 
     def test_filter_transfers_by_state(self, client):
         Job = client.Job
-        Transfer = client.Transfer
+        TransferItem = client.TransferItem
         app = self.create_app_with_transfers(client)
         Job.objects.create(
             workdir="test/test",
@@ -562,9 +562,9 @@ class TestTransfers:
                 },
             },
         )
-        pending = Transfer.objects.filter(state="pending")
+        pending = TransferItem.objects.filter(state="pending")
         assert pending.count() == 1
-        all_t = Transfer.objects.filter(state=["pending", "awaiting_job"])
+        all_t = TransferItem.objects.filter(state=["pending", "awaiting_job"])
         assert all_t.count() == 2
 
 
