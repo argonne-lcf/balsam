@@ -19,6 +19,7 @@ from pydantic import (
 from typing import List
 from balsam.client import RESTClient, NotAuthenticatedError
 from balsam.schemas import AllowedQueue
+from balsam.platform.transfer import GlobusTransferInterface
 
 from balsam.util import config_logging
 
@@ -130,6 +131,7 @@ class TransferSettings(BaseSettings):
     max_concurrent_transfers: int = 5
     globus_endpoint_id: Optional[UUID] = None
     transfer_batch_size: int = 100
+    num_items_query_limit: int = 2000
     service_period: int = 5
 
 
@@ -196,6 +198,7 @@ class SiteConfig:
             SchedulerService,
             ProcessingService,
             QueueMaintainerService,
+            TransferService,
         )
 
         services = []
@@ -232,6 +235,21 @@ class SiteConfig:
                 ),  # does not convert sub-models to dicts
             )
             services.append(processing_service)
+
+        if self.settings.transfers:
+            transfer_settings = dict(self.settings.transfers)
+            transfer_interfaces = {}
+            endpoint_id = transfer_settings.pop("globus_endpoint_id")
+            if endpoint_id:
+                transfer_interfaces["globus"] = GlobusTransferInterface(endpoint_id)
+            transfer_service = TransferService(
+                client=self.client,
+                site_id=self.settings.site_id,
+                data_path=self.data_path,
+                transfer_interfaces=transfer_interfaces,
+                **dict(self.settings.transfers),
+            )
+            services.append(transfer_service)
         return services
 
     @staticmethod

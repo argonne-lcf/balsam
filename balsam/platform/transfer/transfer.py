@@ -1,4 +1,4 @@
-import ABC
+import abc
 from collections import defaultdict
 from pathlib import Path
 from enum import Enum
@@ -38,21 +38,20 @@ def all_relative(*paths):
             raise ValueError(f"{p} must be a relative path")
 
 
-class TransferInterface(ABC.ABC):
+class TransferInterface(abc.ABC):
     _registry = {}
 
-    @ABC.abstractstaticmethod
+    @abc.abstractmethod
     def submit_task(
-        src_loc: str,
-        dest_loc: str,
-        src_dir: Path,
-        dest_dir: Path,
-        transfers: List[Tuple[Path, Path]],
+        self,
+        remote_loc: str,
+        direction: str,
+        transfer_paths: List[Tuple[Path, Path, bool]],
     ) -> TransferTaskID:
         raise NotImplementedError
 
-    @ABC.abstractstaticmethod
-    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    @abc.abstractmethod
+    def _poll_tasks(self, task_ids: List[TransferTaskID]) -> List[TaskInfo]:
         raise NotImplementedError
 
     @staticmethod

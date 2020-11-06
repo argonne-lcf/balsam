@@ -5,7 +5,7 @@ from fastapi import Depends, APIRouter, Query
 from balsam.server import settings
 from balsam.server.util import Paginator
 from balsam import schemas
-from balsam.server.models import get_session, crud, Job, TransferItem
+from balsam.server.models import get_session, crud, Job, TransferItem, Site
 from balsam.server.pubsub import pubsub
 
 router = APIRouter()
@@ -15,6 +15,7 @@ auth = settings.auth.get_auth_method()
 @dataclass
 class TransferQuery:
     id: List[int] = Query(None)
+    site_id: int = Query(None)
     job_id: List[int] = Query(None)
     state: Set[schemas.TransferItemState] = Query(None)
     direction: schemas.TransferDirection = Query(None)
@@ -24,6 +25,8 @@ class TransferQuery:
     def apply_filters(self, qs):
         if self.id:
             qs = qs.filter(TransferItem.id.in_(self.id))
+        if self.site_id:
+            qs = qs.filter(Site.id == self.site_id)
         if self.job_id:
             qs = qs.filter(Job.id.in_(self.job_id))
         if self.state:

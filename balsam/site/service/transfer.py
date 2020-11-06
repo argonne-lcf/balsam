@@ -1,100 +1,172 @@
 # flake8: noqa
+from itertools import islice
+from pathlib import Path
+from math import ceil
+from urllib.parse import urlparse
+from collections import defaultdict
 from .service_base import BalsamService
-from balsam.site import ProcessingJobSource, StatusUpdater
-from balsam.site import ApplicationDefinition
-from balsam.api.models import App
-import multiprocessing
-import signal
-import queue
 import logging
+from balsam.platform.transfer import TransferInterface, TransferSubmitError
 
 logger = logging.getLogger(__name__)
 
 
-def stage_in(job):
-    logger.debug(f"{job.cute_id} in stage_in")
+class TransferService(BalsamService):
+    def __init__(
+        self,
+        client,
+        site_id,
+        data_path,
+        transfer_interfaces,
+        transfer_locations,
+        max_concurrent_transfers,
+        transfer_batch_size,
+        num_items_query_limit,
+        service_period,
+    ):
+        super().__init__(client=client, service_period=service_period)
+        self.site_id = site_id
+        self.data_path = data_path
+        self.transfer_locations = transfer_locations
+        self.max_concurrent_transfers = max_concurrent_transfers
+        self.transfer_interfaces = transfer_interfaces
+        self.transfer_batch_size = transfer_batch_size
+        self.num_items_query_limit = num_items_query_limit
+        logger.info(f"Initialized TransferService:\n{self.__dict__}")
 
-    work_dir = job.working_directory
-    if not os.path.exists(work_dir):
-        os.makedirs(work_dir)
-        logger.debug(f"{job.cute_id} working directory {work_dir}")
+    @staticmethod
+    def build_task_map(transfer_items):
+        task_map = defaultdict(list)
+        for item in transfer_items:
+            task_map[item.task_id].append(item)
+        return task_map
 
-    # stage in all remote urls
-    # TODO: stage_in remote transfer should allow a list of files and folders,
-    # rather than copying just one entire folder
-    url_in = job.stage_in_url
-    if url_in:
-        logger.info(f"{job.cute_id} transfer in from {url_in}")
+    def update_transfers(self, transfer_items, task):
+        for item in transfer_items:
+            item.state = task.state
+            item.transfer_info = {**item.transfer_info, **task.info}
+        self.client.TransferItem.objects.bulk_update(transfer_items)
+        logger.info(
+            f"Updated {len(transfer_items)} TransferItems "
+            f"with task {task.task_id} to state {task.state}"
+        )
+
+    @staticmethod
+    def batch_iter(li, bsize):
+        nbatches = ceil(len(li) / bsize)
+        for i in range(nbatches):
+            yield li[i * bsize : (i + 1) * bsize]
+
+    def item_batch_iter(self, items):
+        transfer_candidates = defaultdict(list)
+        for item in items[: self.num_items_query_limit]:
+            transfer_candidates[(item.direction, item.location_alias)].append(item)
+        task_keys = sorted(
+            transfer_candidates.keys(),
+            key=lambda k: len(transfer_candidates[k]),
+            reverse=True,
+        )
+        for key in task_keys:
+            items = transfer_candidates[key]
+            for batch in self.batch_iter(items, bsize=self.transfer_batch_size):
+                yield batch
+
+    @staticmethod
+    def error_items(items, msg):
+        logger.warning(msg)
+        for item in items:
+            item.state = "error"
+            item.transfer_info = {**item.transfer_info, "error": msg}
+
+    def get_transfer_loc(self, loc_alias):
+        """Lookup trusted remote datastore and transfer method"""
+        transfer_location = self.transfer_locations.get(loc_alias)
+        if transfer_location is None:
+            raise ValueError(f"Invalid location alias: {loc_alias}")
+        parsed = urlparse(transfer_location)
+        protocol = parsed.scheme
+        remote_loc = parsed.netloc
+        if protocol not in self.transfer_interfaces:
+            raise ValueError(f"Unsupported Transfer protocol: {protocol}")
+        transfer_interface = self.transfer_interfaces[protocol]
+        return transfer_interface, remote_loc
+
+    def get_workdirs_by_id(self, batch):
+        """Build map of job workdirs, ensuring existence"""
+        job_ids = [item.job_id for item in batch]
+        jobs = {job.id: job for job in self.client.Job.filter(id=job_ids)}
+        if len(jobs) < len(job_ids):
+            raise RuntimeError(f"Could not find all Jobs for TransferItems")
+        workdirs = {}
+        for job in jobs:
+            workdir = Path(self.data_path).joinpath(job.workdir).resolve()
+            workdir.mkdir(parents=True, exist_ok=True)
+            workdirs[job.id] = workdir
+        return workdirs
+
+    def submit_task(self, batch):
+        loc_alias = batch[0].location_alias
+        direction = batch[0].direction
+
+        if direction not in ["in", "out"]:
+            raise ValueError("direction must be in or out")
+        if not all(item.location_alias == loc_alias for item in batch):
+            raise ValueError("All items in batch must have same location_alias")
+        if not all(item.direction == direction for item in batch):
+            raise ValueError("All items in batch must have same direction")
+
         try:
-            transfer.stage_in(f"{url_in}", f"{work_dir}")
-        except Exception as e:
-            message = "Exception received during stage_in: " + str(e)
-            raise BalsamTransitionError(message) from e
+            transfer_interface, remote_loc = self.get_transfer_loc(loc_alias)
+        except ValueError as exc:
+            return self.error_items(batch, str(exc))
 
-    # create unique symlinks to "input_files" patterns from parents
-    # TODO: handle data flow from remote sites transparently
-    matches = []
-    parents = job.get_parents()
-    input_patterns = job.input_files.split()
-    logger.debug(f"{job.cute_id} searching parent workdirs for {input_patterns}")
-    for parent in parents:
-        parent_dir = parent.working_directory
-        for pattern in input_patterns:
-            path = os.path.join(parent_dir, pattern)
-            matches.extend((parent.pk, match) for match in glob.glob(path))
+        workdirs = self.get_workdirs_by_id(batch)
+        if direction == "in":
+            get_paths = lambda item: (
+                item.remote_path,
+                workdirs[item.job_id].joinpath(item.local_path),
+            )
+        else:
+            get_paths = lambda item: (
+                workdirs[item.job_id].joinpath(item.local_path),
+                item.remote_path,
+            )
+        transfer_paths = [(*get_paths(item), item.recursive) for item in batch]
 
-    for parent_pk, inp_file in matches:
-        basename = os.path.basename(inp_file)
-        new_path = os.path.join(work_dir, basename)
-
-        if os.path.exists(new_path):
-            new_path += f"_{str(parent_pk)[:8]}"
-        # pointing to src, named dst
-        logger.info(f"{job.cute_id}   {new_path}  -->  {inp_file}")
         try:
-            os.symlink(src=inp_file, dst=new_path)
-        except FileExistsError:
-            logger.warning(f"Symlink at {new_path} already exists; skipping creation")
-        except Exception as e:
-            raise BalsamTransitionError(
-                f"Exception received during symlink: {e}"
-            ) from e
+            task_id = transfer_interface.submit_task(
+                remote_loc, direction, transfer_paths
+            )
+        except TransferSubmitError as exc:
+            return self.error_items(batch, f"TransferSubmitError: {exc}")
+        for item in batch:
+            item.task_id = task_id
+            item.state = "active"
 
-    job.state = "STAGED_IN"
-    logger.debug(f"{job.cute_id} stage_in done")
+    def run_cycle(self):
+        TransferItem = self.client.TransferItem
+        pending_submit = TransferItem.objects.filter(
+            site_id=self.site_id, state=["pending"]
+        )
+        in_flight = TransferItem.objects.filter(
+            site_id=self.site_id, state=["active", "inactive"]
+        )
 
+        task_map = self.build_task_map(in_flight)
+        task_ids = list(task_map.keys())
+        num_active_tasks = len(task_map)
 
-def stage_out(job):
-    """copy from the local working_directory to the output_url """
-    logger.debug(f"{job.cute_id} in stage_out")
+        tasks = TransferInterface.poll_tasks(task_ids)
+        for task in tasks:
+            items = task_map[task.task_id]
+            self.update_transfers(items, task)
 
-    url_out = job.stage_out_url
-    if not url_out:
-        job.state = "JOB_FINISHED"
-        logger.debug(f"{job.cute_id} no stage_out_url: done")
-        return
+        max_new_tasks = max(0, self.max_concurrent_transfers - num_active_tasks)
+        submit_batches = islice(self.item_batch_iter(pending_submit), max_new_tasks)
+        for batch in submit_batches:
+            if batch:
+                self.submit_task(batch)
+                TransferItem.objects.bulk_update(batch)
 
-    stage_out_patterns = job.stage_out_files.split()
-    logger.debug(f"{job.cute_id} stage out files match: {stage_out_patterns}")
-    work_dir = job.working_directory
-    matches = []
-    for pattern in stage_out_patterns:
-        path = os.path.join(work_dir, pattern)
-        matches.extend(glob.glob(path))
-
-    if matches:
-        logger.info(f"{job.cute_id} stage out files: {matches}")
-        with tempfile.TemporaryDirectory() as stagingdir:
-            try:
-                for f in matches:
-                    base = os.path.basename(f)
-                    dst = os.path.join(stagingdir, base)
-                    shutil.copyfile(src=f, dst=dst)
-                    logger.info(f"staging {f} out for transfer")
-                logger.info(f"transferring to {url_out}")
-                transfer.stage_out(f"{stagingdir}/*", f"{url_out}/")
-            except Exception as e:
-                message = f"Exception received during stage_out: {e}"
-                raise BalsamTransitionError(message) from e
-    job.state = "JOB_FINISHED"
-    logger.debug(f"{job.cute_id} stage_out done")
+    def cleanup(self):
+        pass

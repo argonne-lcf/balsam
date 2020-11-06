@@ -22,23 +22,12 @@ task_status_dict:
 	}
 ```
 
-Settings:
-* stage in batch size
-* max active transfers
-* max submitted transfers
-* poll interval
-
-		
 ## Implementation
 
 ```
 service/transfer.py
 platform/transfer_interface.py
 platform/globus_transfer.py
-    https://docs.globus.org/api/transfer/task/#filter_and_order_by_options 
-    - filter by UUID list
-    - look at status: if INACTIVE or ERROR, grab the Event List for the job to add error messages to the DB
-platform/rsync_transfer.py
 ```
 
 ### Service Procedure
@@ -81,3 +70,12 @@ For each validated TransferTask:
 		If raises TransientError: drop it and try again later (no status update)
 		If raises CriticalError: set the transferitems state to failed (user will need to fix something and reset state manually)
 		Uncaught exceptions will take the service down as expected
+
+## Test 
+-> test integration with Globus: create a personal endpoint locally
+-> test with a dummy app that:
+	--> stages in file from theta_dtn
+	--> creates output file in preprocess
+	--> bypass launcher by setting state to RUN_DONE
+	--> stages out result back to theta_dtn
+--> scale this up to 1000 jobs; 5 concurrent transfers; is everything OK?

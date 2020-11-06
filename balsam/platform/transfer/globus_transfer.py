@@ -5,8 +5,6 @@ from .transfer import (
     TransferInterface,
     TransferTaskID,
     TransferSubmitError,
-    all_absolute,
-    all_relative,
 )
 from typing import List, Tuple
 from pathlib import Path
@@ -76,6 +74,9 @@ def submit_subproc(src_endpoint, dest_endpoint, batch):
 
 
 class GlobusTransferInterface(TransferInterface):
+    def __init__(self, endpoint_id):
+        self.endpoint_id = endpoint_id
+
     @staticmethod
     def _state_map(status):
         return {
@@ -85,30 +86,23 @@ class GlobusTransferInterface(TransferInterface):
             "failed": "error",
         }[status.strip().lower()]
 
-    @staticmethod
     def submit_task(
-        src_loc: str,
-        dest_loc: str,
-        src_dir: Path,
-        dest_dir: Path,
-        transfers: List[Tuple[Path, Path, bool]],
+        self,
+        remote_loc: str,
+        direction: str,
+        transfer_paths: List[Tuple[Path, Path, bool]],
     ) -> TransferTaskID:
         """Submit Transfer Task via Globus CLI"""
-        # Validation
-        src_endpoint = UUID(src_loc)
-        dest_endpoint = UUID(dest_loc)
-        all_absolute(src_dir, dest_dir)
-        all_relative(*(path for transfer in transfers for path in transfer))
-
-        transfers = [
-            (src_dir.joinpath(src), dest_dir.joinpath(dest), recurse)
-            for src, dest, recurse in transfers
-        ]
-        task_id = submit_sdk(src_endpoint, dest_endpoint, transfers)
+        if direction == "in":
+            src_endpoint, dest_endpoint = UUID(remote_loc), UUID(self.endpoint_id)
+        elif direction == "out":
+            src_endpoint, dest_endpoint = UUID(self.endpoint_id), UUID(remote_loc)
+        else:
+            raise ValueError("direction must be in or out")
+        task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths)
         return task_id
 
-    @staticmethod
-    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    def _poll_tasks(self, task_ids: List[TransferTaskID]) -> List[TaskInfo]:
         client = get_client()
         filter_values = {"task_id": ",".join(map(str, task_ids))}
         filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())
@@ -118,7 +112,8 @@ class GlobusTransferInterface(TransferInterface):
             info = {}
             if d.get("fatal_error"):
                 info["error"] = d["fatal_error"]
-            result.append(TaskInfo(task_id=d["task_id"], state=state, info=info,))
+            task_id = "globus:" + d["task_id"]
+            result.append(TaskInfo(task_id=task_id, state=state, info=info))
         return result
 
 
