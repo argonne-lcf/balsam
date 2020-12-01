@@ -102,6 +102,10 @@ class ThetaGPUMPICommand(OPENMPICommand):
         return f"--host {node_str}"
 
     def env_str(self, envs):
+        envs = envs.copy()
+        for k,v in os.environ.items():
+            if "balsam" in k.lower():
+                envs.setdefault(k, v)
         envstrs = (f'{self.env} {var}="{val}"' for var, val in envs.items())
         return " ".join(envstrs)
 
