@@ -3,6 +3,7 @@ the Launcher detects a specific host type, the appropriate MPICommand class is
 automatically used.  Otherwise, the DEFAULTMPICommand class is assigned at
 module-load time, testing for MPICH or OpenMPI'''
 
+import os
 import logging
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,42 @@ class OPENMPICommand(MPICommand):
 
     def threads(self, cpu_affinity, thread_per_rank, thread_per_core):
         return ""
+
+    def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node, envs,
+                 cpu_affinity, threads_per_rank=1, threads_per_core=1,
+                 mpi_flags=''):
+        '''Build the mpirun/aprun/runjob command line string'''
+        workers = self.worker_str(workers)
+        envs = self.env_str(envs)
+        thread_str = self.threads(cpu_affinity, threads_per_rank,
+                                  threads_per_core)
+        result = (f"{self.mpi} {self.nproc} {num_ranks} {self.ppn} "
+                  f"{ranks_per_node} {envs} {workers} {thread_str} "
+                  f"{mpi_flags} {app_cmd}")
+        return result
+
+class ThetaGPUMPICommand(OpenMPICommand):
+    '''Single node OpenMPI: ppn == num_ranks'''
+    def __init__(self):
+        hostfile = os.environ["COBALT_NODEFILE"]
+        self.mpi = f'mpirun -hostfile {hostfile}'
+        self.nproc = '-n'
+        self.ppn = '-npernode'
+        self.env = '-x'
+        self.cpu_binding = None
+        self.threads_per_rank = None
+        self.threads_per_core = None
+
+    def worker_str(self, workers):
+        node_str = ",".join(str(worker.id) for worker in workers)
+        return f"--host {node_str}"
+
+    def env_str(self, envs):
+        envstrs = (f'{self.env} {var}="{val}"' for var, val in envs.items())
+        return " ".join(envstrs)
+
+    def threads(self, cpu_affinity, thread_per_rank, thread_per_core):
+        return "--oversubscribe --bind-to none"
 
     def __call__(self, workers, *, app_cmd, num_ranks, ranks_per_node, envs,
                  cpu_affinity, threads_per_rank=1, threads_per_core=1,

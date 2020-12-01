@@ -1,0 +1,17 @@
+#!/bin/bash -x
+#COBALT -A {{ project }}
+#COBALT -n {{ nodes }}
+#COBALT -q {{ queue }}
+#COBALT -t {{ time_minutes }}
+#COBALT {{ sched_flags }}
+
+export PATH={{ balsam_bin }}:{{ pg_bin }}:$PATH
+
+export PMI_NO_FORK=1 # otherwise, mpi4py-enabled Python apps with custom signal handlers do not respond to sigterm
+
+source balsamactivate {{ balsam_db_path }}
+sleep 2
+
+balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ time_minutes-2 }} --gpus-per-node=8
+
+source balsamdeactivate

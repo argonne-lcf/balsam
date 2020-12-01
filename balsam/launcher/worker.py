@@ -151,6 +151,9 @@ class WorkerGroup:
         for id in node_ids:
             self.workers.append(Worker(id, host_type='COOLEY', num_nodes=1))
 
+    def setup_THETA_GPU(self):
+        self.setup_COOLEY()
+
     def setup_DEFAULT(self):
         w = Worker(1, host_type='DEFAULT', num_nodes=1)
         self.workers.append(w)
