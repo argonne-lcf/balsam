@@ -624,17 +624,6 @@ def parse_args():
     args.master_port = int(args.master_address.split(':')[1])
     return args
 
-def start_worker_process(args, hostname):
-    logger.debug("Creating Worker")
-    worker = Worker(args, hostname=hostname)
-    logger.debug("Worker created")
-    def handle_term(signum, stack): worker.EXIT_FLAG = True
-    signal.signal(signal.SIGINT, handle_term)
-    signal.signal(signal.SIGTERM, handle_term)
-    worker_proc = multiprocessing.Process(target=worker.main)
-    worker_proc.start()
-    return worker_proc
-
 if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
@@ -649,8 +638,6 @@ if __name__ == "__main__":
     )
 
     if hostname == args.master_host:
-        worker = start_worker_process(args, hostname)
-        logger.debug("Started worker on Master node")
         master = Master(args)
         def handle_term(signum, stack): master.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)

@@ -633,7 +633,7 @@ class BalsamJob(models.Model):
     def required_num_cores(self):
         # Used only in --job-mode=serial; type cast to int via ceil operation in mpi_ensemble.py
         # for setting CPU core affinity
-        return self.ranks_per_node * self.threads_per_rank / self.threads_per_core
+        return max(1, self.ranks_per_node * self.threads_per_rank // self.threads_per_core)
 
     @required_num_cores.setter
     def required_num_cores(self, value):
