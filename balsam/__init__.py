@@ -4,7 +4,6 @@ import logging
 import logging.handlers
 import os
 import sys
-import multiprocessing_logging
 
 try:
     import django
@@ -46,6 +45,7 @@ _logger.setLevel(logging.DEBUG)
 
 
 def config_logging(basename, filename=None, buffer_capacity=None):
+    import multiprocessing_logging
     if filename is None:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
         fname = f'{basename}_{timestamp}.log'
