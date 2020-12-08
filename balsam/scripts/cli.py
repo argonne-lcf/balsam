@@ -56,6 +56,8 @@ def service_subparser(subparser=None):
 
 def make_parser():
     parser = argparse.ArgumentParser(prog='balsam', description="Balsam "+__version__)
+    parser.add_argument('-V', '--version', action='version',
+                    version='%(prog)s {version}'.format(version=__version__))
     subparsers = parser.add_subparsers(title="Command line interface")
 
     # ADD APP
