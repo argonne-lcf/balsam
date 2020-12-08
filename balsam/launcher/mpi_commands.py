@@ -85,7 +85,7 @@ class OpenMPICommand(MPICommand):
                   f"{mpi_flags} {app_cmd}")
         return result
 
-class ThetaGpuMPICommand(OPENMPICommand):
+class ThetaGpuMPICommand(OpenMPICommand):
     '''Single node OpenMPI: ppn == num_ranks'''
     def __init__(self):
         hostfile = os.environ["COBALT_NODEFILE"]
