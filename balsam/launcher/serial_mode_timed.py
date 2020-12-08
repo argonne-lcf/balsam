@@ -555,7 +555,7 @@ class Worker:
         return started_pks
 
     def main(self):
-        logger.debug(f"Worker connecting to {master_address}")
+        logger.debug(f"Worker connecting to {self.master_address}")
         connections.close_all()
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected!")
