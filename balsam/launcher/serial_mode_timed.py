@@ -622,6 +622,7 @@ def parse_args():
 def start_worker_process(args, hostname):
     logger.debug("Creating Worker")
     worker = Worker(args, hostname=hostname)
+    logger.debug("Worker created")
     def handle_term(signum, stack): worker.EXIT_FLAG = True
     signal.signal(signal.SIGINT, handle_term)
     signal.signal(signal.SIGTERM, handle_term)
@@ -644,6 +645,7 @@ if __name__ == "__main__":
 
     if hostname == args.master_host:
         worker = start_worker_process(args, hostname)
+        logger.debug("Started worker on Master node")
         master = Master(args)
         def handle_term(signum, stack): master.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)
