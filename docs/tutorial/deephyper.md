@@ -1,9 +1,10 @@
+# DeepHyper: Hyperparameter Search on Theta
+
 Keras MNIST-MLP Benchmark
 -------------------------
 
-Let's search for optimal hyperparameters in the Keras [MNIST multilayer
-perceptron
-benchmark](https://github.com/keras-team/keras/blob/master/examples/mnist_mlp.py).
+Let's search for optimal hyperparameters in the Keras 
+[MNIST multilayer perceptron benchmark](https://github.com/keras-team/keras/blob/master/examples/mnist_mlp.py).
 Notice the top-level comment: "there is *a lot* of margin for parameter
 tuning," which underscores how much even a simple model can benefit from
 hyperparameter optimization.
@@ -11,7 +12,7 @@ hyperparameter optimization.
 To start on Theta, let's set up a clean workspace and download the Keras
 benchmark model and MNIST data.
 
-``` {.bash}
+```bash
 # Create a new workspace with a Balsam DB
 $ module unload balsam   # unload Balsam module: we want to use deephyper which comes with everything
 $ module load deephyper/0.1.6  #  includes Balsam, Tensorflow, Keras, etc...
@@ -36,7 +37,7 @@ Now let's have a look at the MNIST-MLP code. We immediately notice some
 arbitrary choices for hyperparameters that we'd like to vary,
 highlighted in the lines below:
 
-``` {.python}
+```python
 batch_size = 128 # **
 num_classes = 10
 epochs = 20
@@ -74,12 +75,12 @@ model.compile(loss='categorical_crossentropy',
 We start to wonder if there are better combinations of these six
 hyperparameters:
 
-> -   batch\_size
-> -   number of units in the first hidden layer
-> -   number of units in the second hidden layer
-> -   dropout ratio in the first hidden layer
-> -   dropout ratio in the second hidden layer
-> -   choice of optimization algorithm
+ -   batch\_size
+ -   number of units in the first hidden layer
+ -   number of units in the second hidden layer
+ -   dropout ratio in the first hidden layer
+ -   dropout ratio in the second hidden layer
+ -   choice of optimization algorithm
 
 Suppose we are on a tight budget and are willing to sacrifice a little
 accuracy for significantly fewer hidden units. Let's do a search over

@@ -35,9 +35,14 @@ def config_launcher_subparser(subparser=None):
     parser.add_argument('--time-limit-minutes', type=float, default=0,
                         help="Provide a walltime limit if not already imposed")
     parser.add_argument('--num-transition-threads', type=int, default=None)
+    # TODO(KGF): expose this option to "balsam submit-launch" so user does not need to manually edit
+    # job-template in order to modify the "balsam launcher" command. Or leave, since fixed per machine?
     parser.add_argument('--gpus-per-node', type=int, default=None)
     parser.add_argument('--limit-nodes', type=int, default=None)
     parser.add_argument('--offset-nodes', type=int, default=None)
+    parser.add_argument('--persistent', action='store_true',
+                        help="Do not shutdown until killed or walltime limit is elapsed "
+                        "(even if there are no runable, running, or transitionable jobs).")
     return parser
 
 

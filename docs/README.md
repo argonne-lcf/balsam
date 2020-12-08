@@ -20,7 +20,7 @@ existing applications. On systems with Balsam installed, it's arguably faster
 and easier for a beginner to run an ensemble using Balsam than
 by writing an ensemble job script:
 
-```console
+```bash
 $ balsam app --name SayHello --executable "echo hello,"
 $ for i in {1..10}
 > do
@@ -66,13 +66,13 @@ virtualenv or conda environment for Balsam. It's no problem if some
 applications in your workflow run in different Python environments. You will
 need setuptools 39.2 or newer. For virtualenv users with an outdated setuptools,
 run:
-```console
+```bash
 $ pip install --upgrade pip setuptools
 ```
 
 If you are using conda, the above command may break your conda environment.
 Instead, use:
-```console
+```bash
 $  conda update setuptools
 ```
 Note, `conda update --force conda` may fix errors resulting from the first command
@@ -87,7 +87,7 @@ which case the `mpi4py` dependency will automatically build and install.
 Finally, Balsam requires PostgreSQL version 9.6.4 or newer to be installed. You can verify
 that PostgreSQL is in the search `PATH` and the version is up-to-date with:
 
-```console
+```bash
 $ pg_ctl --version
 ```
 
@@ -98,7 +98,7 @@ administrator.
 
 #### Quick setup
 
-```console
+```bash
 $ pip install balsam-flow
 $ balsam init ~/myWorkflow
 $ source balsamactivate myWorkflow
@@ -106,7 +106,7 @@ $ source balsamactivate myWorkflow
 
 Once a Balsam database is activated, you can use the command line to manage your workflows:
 
-```console
+```bash
 $ balsam app --name SayHello --executable "echo hello,"
 $ balsam job --name hi --workflow test --application SayHello --args 'world!' --yes
 $ balsam submit-launch -A MyProject -q DebugQueue -t 5 -n 1 --job-mode=mpi

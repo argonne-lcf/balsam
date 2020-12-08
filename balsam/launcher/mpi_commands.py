@@ -51,7 +51,7 @@ class MPICommand(object):
         return result
 
 
-class OPENMPICommand(MPICommand):
+class OpenMPICommand(MPICommand):
     '''Single node OpenMPI: ppn == num_ranks'''
     def __init__(self):
         self.mpi = 'mpirun'
@@ -144,7 +144,7 @@ class BGQMPICommand(MPICommand):
         return f"--shape {shape} --block {block} --corner {corner} "
 
 
-class THETAMPICommand(MPICommand):
+class ThetaMPICommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'aprun'
@@ -185,7 +185,7 @@ class MPICHCommand(MPICommand):
         return ""
 
 
-class COOLEYMPICommand(MPICommand):
+class CooleyMPICommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'mpirun'
@@ -202,7 +202,7 @@ class COOLEYMPICommand(MPICommand):
         return f"--hosts {','.join(str(worker.id) for worker in workers)} "
 
 
-class SLURMMPICommand(MPICommand):
+class SlurmMPICommand(MPICommand):
     def __init__(self):
         # 64 independent jobs, 1 per core of a KNL node: -n64 -N64 -d1 -j1
         self.mpi = 'srun'

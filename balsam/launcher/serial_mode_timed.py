@@ -614,16 +614,26 @@ def parse_args():
     parser.add_argument('--gpus-per-node', type=int, default=0)
     parser.add_argument('--db-prefetch-count', type=int, default=0)
     parser.add_argument('--worker-prefetch-count', type=int, default=64)
+    parser.add_argument('--persistent', action='store_true')
     args = parser.parse_args()
     args.master_host = args.master_address.split(':')[0]
     args.master_port = int(args.master_address.split(':')[1])
     return args
 
+def start_worker_process(args, hostname):
+    worker = Worker(args, hostname=hostname)
+    def handle_term(signum, stack): worker.EXIT_FLAG = True
+    signal.signal(signal.SIGINT, handle_term)
+    signal.signal(signal.SIGTERM, handle_term)
+    worker_proc = multiprocessing.Process(target=worker.main)
+    worker_proc.start()
+    return worker_proc
 
 if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
     if hostname == args.master_host:
+        worker = start_worker_process(args, hostname)
         master = Master(args)
         def handle_term(signum, stack): master.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)

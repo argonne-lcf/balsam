@@ -31,6 +31,7 @@ from balsam.launcher import worker
 from balsam.launcher.util import (
     remaining_time_minutes, delay_generator, get_tail
     )
+from balsam.service.schedulers import JobEnv
 from balsam.scripts.cli import config_launcher_subparser
 from balsam.core import models
 
@@ -47,6 +48,15 @@ def sig_handler(signum, stack):
 class MPIRun:
     RUN_DELAY = 0.10  # 1000 jobs / 100 sec
 
+    # TODO(KGF): extend to encapsulate scheduler-dependent quirks of starting/signaling/etc.
+    # an application (e.g. do not directly kill app in Slurm; use scancel).
+    # The goal is to encapsulate every platform-specific detail in a separate cluster
+    # interface class, so that launcher.py can be written as generically as possible
+    #
+    # mpirun.start() # launch the process
+    # mpirun.poll()  # check status
+    # mpirun.terminate() # send friendly term signal
+    # mpirun.force_kill()  # send force-kill signal
     def __init__(self, job, workers):
         self.job = job
         self.workers = workers
@@ -99,7 +109,7 @@ class MPIRun:
 class MPILauncher:
     MAX_CONCURRENT_RUNS = settings.MAX_CONCURRENT_MPIRUNS
 
-    def __init__(self, wf_name, time_limit_minutes, gpus_per_node,
+    def __init__(self, wf_name, time_limit_minutes, gpus_per_node, persistent,
                  limit_nodes=None, offset_nodes=None):
         self.jobsource = BalsamJob.source
         self.jobsource.workflow = wf_name
@@ -116,6 +126,7 @@ class MPILauncher:
         os.environ['BALSAM_JOB_MODE'] = "mpi"
 
         self.timer = remaining_time_minutes(time_limit_minutes)
+        self.is_persistent = persistent
         self.delayer = delay_generator()
         self.last_report = 0
         self.exit_counter = 0
@@ -157,26 +168,27 @@ class MPILauncher:
             EXIT_FLAG = True
             logger.info("Out of time; preparing to exit")
             return
-        if self.is_active:
-            # Reset exit counter whenever jobs are running, runable, or transitionble
-            self.exit_counter = 0
-            logger.debug("Some runs are still active; will not quit")
-            return
-        processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
-        if self.jobsource.workflow:
-            processable = processable.filter(workflow__contains=self.jobsource.workflow)
-        if processable.count() > 0:
-            self.exit_counter = 0
-            logger.debug("Some BalsamJobs are still transitionable; will not quit")
-            return
-        if self.get_runnable().count() > 0:
-            self.exit_counter = 0
-            return
-        else:
-            self.exit_counter += 1
-            logger.info(f"Nothing to do (exit counter {self.exit_counter}/10)")
-        if self.exit_counter == 10:
-            EXIT_FLAG = True
+        if not self.is_persistent:
+            if self.is_active:
+                # Reset exit counter whenever jobs are running, runable, or transitionble
+                self.exit_counter = 0
+                logger.debug("Some runs are still active; will not quit")
+                return
+            processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
+            if self.jobsource.workflow:
+                processable = processable.filter(workflow__contains=self.jobsource.workflow)
+            if processable.count() > 0:
+                self.exit_counter = 0
+                logger.debug("Some BalsamJobs are still transitionable; will not quit")
+                return
+            if self.get_runnable().count() > 0:
+                self.exit_counter = 0
+                return
+            else:
+                self.exit_counter += 1
+                logger.info(f"Nothing to do (exit counter {self.exit_counter}/10)")
+            if self.exit_counter == 10:
+                EXIT_FLAG = True
 
     def check_state(self, run):
         retcode = run.process.poll()
@@ -360,9 +372,11 @@ class MPILauncher:
 class SerialLauncher:
     ZMQ_ENSEMBLE_EXE = find_spec("balsam.launcher.serial_mode_timed").origin
 
-    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None, limit_nodes=None, offset_nodes=None):
+    def __init__(self, wf_name=None, time_limit_minutes=60, gpus_per_node=None,
+                 persistent=False, limit_nodes=None, offset_nodes=None):
         self.wf_name = wf_name
         self.gpus_per_node = gpus_per_node
+        self.is_persistent = persistent
 
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
@@ -383,30 +397,27 @@ class SerialLauncher:
         self.app_cmd += f" --master-address {master_host}:{master_port}"
         self.app_cmd += f" --log-filename {log_fname}"
         self.app_cmd += f" --num-workers {len(self.worker_group)-1}"
-        if self.wf_name: self.app_cmd += f" --wf-name={self.wf_name}"
-        if self.gpus_per_node: self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
+        if self.wf_name:
+            self.app_cmd += f" --wf-name={self.wf_name}"
+        if self.gpus_per_node:
+            self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
+        if self.is_persistent:
+            self.app_cmd += f" --persistent"
 
     def run(self):
         global EXIT_FLAG
         workers = self.worker_group
-        if self.total_nodes == 1:
-            num_ranks = 2
-            rpn = 2
-        else:
-            num_ranks = self.total_nodes
-            rpn = 1
+        num_ranks = self.total_nodes
+        rpn = 1
         mpi_str = workers.mpi_cmd(
             workers, app_cmd=self.app_cmd, num_ranks=num_ranks, ranks_per_node=rpn,
             cpu_affinity='none', envs={})
         logger.info(f'Starting MPI Fork ensemble process:\n{mpi_str}')
 
         self.outfile = open(os.path.join(settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
-        self.process = subprocess.Popen(
-            args=shlex.split(mpi_str),
-            bufsize=1,
-            stdout=self.outfile,
-            stderr=subprocess.STDOUT,
-            shell=False)
+        self.process = subprocess.Popen(args=shlex.split(mpi_str), bufsize=1,
+                                        stdout=self.outfile, stderr=subprocess.STDOUT,
+                                        shell=False)
 
         while not EXIT_FLAG:
             try:
@@ -416,13 +427,34 @@ class SerialLauncher:
             else:
                 logger.info(f'ensemble pull subprocess returned {retcode}')
                 break
+        logger.debug("EXIT_FLAG has been flipped!")
 
-        self.process.terminate()
-        try:
-            self.process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
+        # do not directly kill a srun job step (would only kill srun; task continues to run)
+        # TODO(KGF): see above comments about encapsulating within MPIRun derived class
+        if settings.SCHEDULER_CLASS == "SlurmScheduler":
+            # Use scancel insteak of pkill, kill, etc.
+            sched_id = JobEnv.current_scheduler_id
+            term_str = f"scancel --signal=TERM {sched_id}.0"
+            logger.debug(f"Invoking Slurm scancel for mpi_ensemble job step: \"{term_str}\"")
+            # TODO(KGF): calling scancel here may not be necessary, since "scancel --batch JOB_ID"
+            # might already correctly call scancel on srun steps after the parent batch script
+            # finishes handling the original/explicit SIGTERM here
+            subprocess.Popen(args=shlex.split(term_str), bufsize=1,
+                             stdout=self.outfile, stderr=subprocess.STDOUT,
+                             shell=False)
+            # TODO(KGF): consider sending SIGKILL via Slurm daemon if 1st scancel fails
+        else:
+            logger.debug(f"Sending SIGTERM to mpi_ensemble (pid={self.process.pid})")
+            self.process.terminate()
+            try:
+                logger.debug("Waiting on mpi_ensemble to stop...")
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                logger.debug("No response in 10 seconds! Sending SIGKILL!")
+                self.process.kill()
+            logger.debug(f"Child mpi_ensemble process return code={self.process.returncode}")
         self.outfile.close()
+        logger.info("ensemble.out file closed.")
 
 
 def main(args):
@@ -432,6 +464,7 @@ def main(args):
     wf_filter = args.wf_filter
     job_mode = args.job_mode
     timelimit_min = args.time_limit_minutes
+    persistent = args.persistent
     nthread = (args.num_transition_threads if args.num_transition_threads
                else settings.NUM_TRANSITION_THREADS)
     gpus_per_node = args.gpus_per_node
@@ -445,7 +478,7 @@ def main(args):
             transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
         else:
             transition_pool = None
-        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node,
+        launcher = Launcher(wf_filter, timelimit_min, gpus_per_node, persistent,
                             limit_nodes, offset_nodes)
         launcher.run()
     except:

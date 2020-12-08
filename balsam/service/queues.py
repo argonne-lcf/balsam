@@ -9,18 +9,19 @@ logger = logging.getLogger('balsam.service')
 
 Queue = namedtuple('Queue', ['name', 'min_time', 'max_time'])
 
+
 class _QueuePolicy:
     def __init__(self):
         self.queues = {}
         self.max_nodes = 0
         self.min_nodes = 0
-        
+
         top = settings.BALSAM_HOME
         policy_fname = settings.QUEUE_POLICY
         policypath = os.path.join(top, policy_fname)
         config = configparser.ConfigParser()
         config.read(policypath)
-        for queue_name in config.sections(): 
+        for queue_name in config.sections():
             qconf = config[queue_name]
             self.add_from_config(queue_name, qconf)
         msg = pprint.pformat(self.queues, indent=4)
@@ -36,9 +37,10 @@ class _QueuePolicy:
         except Exception as e:
             logger.error(f'Failed to parse {queue_name}: {e}')
             return
-        if not submit_jobs or max_queued==0: return
+        if not submit_jobs or max_queued == 0:
+            return
         try:
-            q = {'max_queued' : max_queued}
+            q = {'max_queued': max_queued}
             for rule in qpolicy:
                 min_nodes = int(rule['min-nodes'])
                 max_nodes = int(rule['max-nodes'])
@@ -61,11 +63,13 @@ class _QueuePolicy:
         for qname in open_queues:
             queue = self.queues[qname]
             for node_range, time_range in queue.items():
-                if node_range == 'max_queued': continue
+                if node_range == 'max_queued':
+                    continue
                 low, high = node_range
                 if low <= num_nodes <= high:
                     min_time, max_time = time_range
-                    return Queue(name, min_time, max_time)
+                    return Queue(qname, min_time, max_time)
+
 
 _queue_policy = _QueuePolicy()
 max_nodes = _queue_policy.max_nodes

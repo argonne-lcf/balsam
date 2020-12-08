@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class JobEnvironment:
+    # TODO(KGF): change keys to lowercase to be consistent with class names in
+    # mpi_commands.py. However, will req changes to worker.py::setup_SLURM(self)
     RECOGNIZED_HOSTS = {
         'BGQ': 'vesta cetus mira'.split(),
         'THETA': 'theta'.split(),

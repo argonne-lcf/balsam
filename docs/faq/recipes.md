@@ -56,7 +56,25 @@ Any file matching any of the patterns in this field will get copied
 to the `stage_out_url`.
 
 
-I want my program to wait on the completion of a job it created
+How can I control the way an application runs in my workflow?
+-------------------------------------------------------------
+
+There are several optional fields that can be set for each BalsamJob.
+These fields can be set at run-time, during the dynamic creation of
+jobs, which gives a lot of flexibility in the way an application is run.
+
+ - **args**:   Command-line arguments passed to the application
+ - **environ\_vars**:  Environment variables to be set for the duration of the application execution
+ - **input\_files**:  Which files are "staged-in" from the working directories of parent
+    jobs. This follows the same shell file-pattern format as the
+    `stage_out_files` field mentioned above. It is intended to
+    facilitate data-flow from parent to child jobs in a DAG, without
+    resorting to stage-out functionality.
+ - **preprocess** and **postprocess**:   You can override the default pre- and post-processing scripts which
+    run before and after the application is executed. (The default
+    processing scripts are defined alongside the application).
+
+I want my program to wait on the completion of a job it created.
 ----------------------------------------------------------------
 
 If you need to wait for a job to finish, you can set up a polling
@@ -81,14 +99,16 @@ and delay. For finished jobs, you can do:
 
 ```python
 newjob = dag.add_job( ... )
-success= poll_until_state(newjob, 'JOB_FINISHED')
+success = poll_until_state(newjob, 'JOB_FINISHED')
 ```
 
 There is a convenience function for reading files in a job's working directory:
+
 ```python
 if success:
     output = newjob.read_file_in_workdir(‘output.dat’) # contents of file in a string
 ```
+
 
 Querying the Job database
 -------------------------
@@ -102,6 +122,7 @@ for lots of examples, which directly apply wherever you can replace
 `Entry` with `BalsamJob`. For example, say you want to filter for all
 jobs containing "simulation" in their name, but exclude jobs that are
 already finished:
+
 ```python
 from balsam.launcher import dag
 BalsamJob = dag.BalsamJob
@@ -121,47 +142,50 @@ for sim in pending_simulations:
     dag.kill(sim)
 ```
 
-You can use the `balsam.launcher.dag` API to automate a lot of tasks
-that might be tedious from the command line. For example, say you want
-to delete all jobs that contain "master" in the name, but reset
-all jobs that *start with* "task" to the "RESTART_READY" state, so they may
-run again:
-
-```python
-from balsam.launcher.dag import BalsamJob
-
-BalsamJob.objects.filter(name__contains="master").delete()
-
-for job in BalsamJob.objects.filter(name__startswith="task"):
-    job.update_state("RESTART_READY")
-```
-
 Useful command lines
 --------------------
 
 Create a dependency between two jobs:
 
 ```bash
-balsam dep <parent> <child> # where <parent>, <child> are the first few characters of job ID
+$ balsam dep <parent> <child> # where <parent>, <child> are the first few characters of job ID
 
-balsam ls --tree # see a tree view showing the dependencies between jobs
+$ balsam ls --tree # see a tree view showing the dependencies between jobs
 ```
 
 Reset a failed job state after some changes were made:
 
 ```bash
-balsam modify jobs b0e --attr state --value CREATED # where b0e is the first few characters of the job id
+$ balsam modify jobs b0e --attr state --value CREATED # where b0e is the first few characters of the job id
 ```
 
 See the state history of your jobs and any error messages that were
 recorded while the job ran:
 
 ```bash
-balsam ls --hist | less
+$ balsam ls --hist | less
 ```
 
 Remove all jobs with substring "task"
 
 ```bash
-balsam rm jobs --name task
+$ balsam rm jobs --name task
+```
+
+Useful Python scripts
+---------------------
+
+You can use the `balsam.launcher.dag` API to automate a lot of tasks
+that might be tedious from the command line. For example, say you want
+to **delete** all jobs that contain "master" in their name, but reset
+all jobs that start with "task" to the "CREATED" state, so they may
+run again:
+
+```python
+import balsam.launcher.dag as dag
+
+dag.BalsamJob.objects.filter(name__contains="master").delete()
+
+for job in dag.BalsamJob.objects.filter(name__startswith="task"):
+    job.update_state("CREATED")
 ```

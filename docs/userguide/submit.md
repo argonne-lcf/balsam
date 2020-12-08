@@ -38,12 +38,13 @@ $ balsam submit-launch -A Project -q Queue -t 15 -n 5 --job-mode=mpi
 The only required argument that is unique to Balsam is the
 **\--job-mode**, explained below.
 
-### MPI job mode
+### MPI job mode (default)
 
 For `--job-mode=mpi`, the Balsam launcher
 runs as a pilot job on the head node of the allocated resources. From
 this head node, it issues MPI launch commands (**mpirun** or equivalent)
-to launch jobs against the available resources.
+to launch jobs against the available resources. Each node can only execute
+a single job at a time
 
 This job mode maps very closely to the traditional \"ensemble job\"
 script that you may be accustomed to thinking about and can run any kind
@@ -68,9 +69,10 @@ on 4000 nodes, without overburdening the head node with 4000 **mpirun**
 background processes.
 
 The `--job-mode=serial` option solves both of these
-problems by launching a single forker process on each compute node.
-These processes then run isolated tasks on the single nodes. This job
-mode **will not** process any tasks that have specified the use of
+problems by launching a distributed pilot job with a single **mpirun**.
+The pilot processes run isolated tasks across the compute nodes, communicating
+with a master process that performs the database I/O and orchestrates the ensemble.
+This job mode **will not** process any tasks that have specified the use of
 multiple MPI ranks.
 
 ### Filtering jobs by workflow tag

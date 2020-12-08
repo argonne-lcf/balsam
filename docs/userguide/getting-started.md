@@ -11,7 +11,7 @@ specific machines.
 
 The fastest way to get Balsam on Theta is to load the module.
 
-```console
+```bash
 $ module load balsam
 $ which balsam
 /soft/datascience/Balsam/0.3.5.1/env/bin/balsam
@@ -27,7 +27,7 @@ while a different version of Python runs in the backend.
 
 ### Cooley (@ALCF)
 
-```console
+```bash
 $ source /soft/datascience/balsam/setup.sh
 $ which balsam
 /soft/datascience/balsam/env/bin/balsam
@@ -43,7 +43,7 @@ virtualenv or conda environment for Balsam. It's no problem if some
 applications in your workflow run in different Python environments. You
 will need setuptools 39.2 or newer:
 
-```console
+```bash
 $ pip install --upgrade pip setuptools
 ```
 
@@ -59,7 +59,7 @@ Finally, Balsam requires PostgreSQL version 9.6.4 or newer to be
 installed. You can verify that PostgreSQL is in the search
 `PATH` and the version is up-to-date with:
 
-```console
+```bash
 $ pg_ctl --version
 ```
 
@@ -71,7 +71,7 @@ without having to bother a system administrator.
 
 ### Installation from PyPI
 
-```console
+```bash
 $ pip install balsam-flow
 ```
 
@@ -82,7 +82,7 @@ init` is used to create a new database at the specified
 path. `source balsmactivate` takes a database path (or
 unique substring) and starts up the database.
 
-```console
+```bash
 $ balsam init ~/myWorkflow
 $ source balsamactivate myWorkflow
 $ balsam app --name SayHello --executable "echo hello,"
