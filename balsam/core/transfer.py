@@ -26,7 +26,7 @@ class GridFTPHandler:
       # check to see if proxy already exists
       p = subprocess.Popen([settings.GRIDFTP_PROXY_INFO,'-exists'])
       p.wait()
-      if p.returncode is not 0: # valid proxy does not exist so create one
+      if p.returncode != 0: # valid proxy does not exist so create one
          command = str(settings.GRIDFTP_PROXY_INIT) + ' -verify -debug -bits 2048 -valid 96:00'
          logger.debug('command=' + command)
          try:
