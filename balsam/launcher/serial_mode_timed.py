@@ -357,7 +357,7 @@ class Worker:
     def __init__(self, args, hostname):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
-        self.socket.connect(f"tcp://{args.master_address}")
+        self.master_address = f"tcp://{args.master_address}"
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         self.hostname = hostname
         next(self.remaining_timer)
@@ -555,6 +555,10 @@ class Worker:
         return started_pks
 
     def main(self):
+        logger.debug(f"Worker connecting to {master_address}")
+        connections.close_all()
+        self.socket.connect(self.master_address)
+        logger.debug(f"Worker connected!")
         for remaining_minutes in self.remaining_timer:
             done_pks, errors, active = self.poll_processes()
             started_pks = self.start_jobs()
@@ -573,7 +577,9 @@ class Worker:
             }
             with SectionTimer(f'{self.hostname}_send_recv'):
                 self.socket.send_json(msg)
+                logger.debug(f"Worker awaiting response...")
                 response_msg = self.socket.recv_json()
+                logger.debug(f"Worker response received")
 
             with SectionTimer(f'{self.hostname}_update_cache'):
                 if response_msg.get('new_jobs'):
@@ -614,6 +620,7 @@ def parse_args():
     return args
 
 def start_worker_process(args, hostname):
+    logger.debug("Creating Worker")
     worker = Worker(args, hostname=hostname)
     def handle_term(signum, stack): worker.EXIT_FLAG = True
     signal.signal(signal.SIGINT, handle_term)
