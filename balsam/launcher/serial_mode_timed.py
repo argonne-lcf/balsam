@@ -280,14 +280,18 @@ class Master:
         else:
             prefetch = args.db_prefetch_count
 
+        logger.debug("Master creating source/status updater")
         self.job_source = BalsamJobSource(prefetch, args.wf_name)
         self.status_updater = BalsamDBStatusUpdater()
         self.status_updater.start()
         self.job_source.start()
+        logger.debug("source/status updater created")
         
+        logger.debug("Master ZMQ binding...")
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind(f"tcp://*:{args.master_port}")
+        logger.debug("Master ZMQ socket bound.")
 
     def handle_request(self):
         with SectionTimer("master_recv"):
@@ -310,6 +314,7 @@ class Master:
                 logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
     def main(self):
+        logger.debug("In master main")
         for remaining_minutes in self.remaining_timer:
             with SectionTimer("master_log_time"):
                 logger.debug(f"{remaining_minutes} minutes remaining")
