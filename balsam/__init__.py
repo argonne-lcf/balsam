@@ -4,6 +4,7 @@ import logging
 import logging.handlers
 import os
 import sys
+import multiprocessing_logging
 
 try:
     import django
@@ -68,6 +69,8 @@ def config_logging(basename, filename=None, buffer_capacity=None):
         mem_handler.setLevel(level)
         mem_handler.setFormatter(formatter)
         _logger.addHandler(mem_handler)
+    multiprocessing_logging.install_mp_handler()
+
     return fname
 
 

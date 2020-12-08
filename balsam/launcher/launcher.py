@@ -381,6 +381,7 @@ class SerialLauncher:
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
         self.worker_group = worker.WorkerGroup(limit=limit_nodes, offset=offset_nodes)
+        num_workers = len(self.worker_group)
 
         hostnames = sorted([w.hostname for w in self.worker_group])
         master_host = hostnames[0]
@@ -396,7 +397,7 @@ class SerialLauncher:
         self.app_cmd += f" --time-limit-min={minutes_left}"
         self.app_cmd += f" --master-address {master_host}:{master_port}"
         self.app_cmd += f" --log-filename {log_fname}"
-        self.app_cmd += f" --num-workers {len(self.worker_group)-1}"
+        self.app_cmd += f" --num-workers {num_workers}"
         if self.wf_name:
             self.app_cmd += f" --wf-name={self.wf_name}"
         if self.gpus_per_node:

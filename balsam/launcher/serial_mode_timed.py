@@ -272,11 +272,6 @@ class Master:
         self.idle_time = 0.0
         self.EXIT_FLAG = False
 
-        config_logging(
-            'serial-launcher',
-            filename=args.log_filename,
-            buffer_capacity=int(10*args.num_workers),
-        )
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
 
@@ -370,8 +365,6 @@ class Worker:
 
         self.gpus_per_node = args.gpus_per_node
         self.prefetch_count = args.worker_prefetch_count
-        log_fname = args.log_filename + "." + self.hostname
-        config_logging('serial-launcher', filename=log_fname, buffer_capacity=128)
         self.processes = {}
         self.outfiles = {}
         self.cuteids = {}
@@ -632,6 +625,16 @@ def start_worker_process(args, hostname):
 if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
+    if hostname == args.master_host:
+        log_fname = args.log_filename + ".master"
+    else:
+        log_fname = args.log_filename + "." + hostname
+    config_logging(
+        'serial-launcher',
+        filename=log_fname,
+        buffer_capacity=128,
+    )
+
     if hostname == args.master_host:
         worker = start_worker_process(args, hostname)
         master = Master(args)
