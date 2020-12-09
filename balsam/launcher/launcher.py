@@ -30,7 +30,7 @@ from balsam.core import transitions
 from balsam.launcher import worker
 from balsam.launcher.util import (
     remaining_time_minutes, delay_generator, get_tail
-    )
+)
 from balsam.service.schedulers import JobEnv
 from balsam.scripts.cli import config_launcher_subparser
 from balsam.core import models
@@ -88,15 +88,16 @@ class MPIRun:
         else:
             args = shlex.split(mpi_str)
             shell = False
-        logger.info(f"{job.cute_id} Popen (shell={shell}):\n{args}\n on workers: {workers}")
+        logger.info(
+            f"{job.cute_id} Popen (shell={shell}):\n{args}\n on workers: {workers}")
         self.process = subprocess.Popen(
-                args=args,
-                cwd=job.working_directory,
-                stdout=self.outfile,
-                stderr=subprocess.STDOUT,
-                shell=shell,
-                env=envs,
-                )
+            args=args,
+            cwd=job.working_directory,
+            stdout=self.outfile,
+            stderr=subprocess.STDOUT,
+            shell=shell,
+            env=envs,
+        )
         self.current_state = 'RUNNING'
         self.err_msg = None
         time.sleep(self.RUN_DELAY)
@@ -120,7 +121,8 @@ class MPILauncher:
 
         self.jobsource.clear_stale_locks()
         self.jobsource.start_tick()
-        self.worker_group = worker.WorkerGroup(limit=limit_nodes, offset=offset_nodes)
+        self.worker_group = worker.WorkerGroup(
+            limit=limit_nodes, offset=offset_nodes)
         self.total_nodes = sum(w.num_nodes for w in self.worker_group)
         os.environ['BALSAM_LAUNCHER_NODES'] = str(self.total_nodes)
         os.environ['BALSAM_JOB_MODE'] = "mpi"
@@ -130,6 +132,7 @@ class MPILauncher:
         self.delayer = delay_generator()
         self.last_report = 0
         self.exit_counter = 0
+        self.max_time = 600  # 10 minutes
         self.mpi_runs = []
         self.jobsource.check_qLaunch()
         if self.jobsource.qLaunch is not None:
@@ -174,20 +177,24 @@ class MPILauncher:
                 self.exit_counter = 0
                 logger.debug("Some runs are still active; will not quit")
                 return
-            processable = BalsamJob.objects.filter(state__in=models.PROCESSABLE_STATES)
+            processable = BalsamJob.objects.filter(
+                state__in=models.PROCESSABLE_STATES)
             if self.jobsource.workflow:
-                processable = processable.filter(workflow__contains=self.jobsource.workflow)
+                processable = processable.filter(
+                    workflow__contains=self.jobsource.workflow)
             if processable.count() > 0:
                 self.exit_counter = 0
-                logger.debug("Some BalsamJobs are still transitionable; will not quit")
+                logger.debug(
+                    "Some BalsamJobs are still transitionable; will not quit")
                 return
             if self.get_runnable().count() > 0:
                 self.exit_counter = 0
                 return
             else:
                 self.exit_counter += 1
-                logger.info(f"Nothing to do (exit counter {self.exit_counter}/10)")
-            if self.exit_counter == 10:
+                logger.info(
+                    f"Nothing to do (exit counter {self.exit_counter}/10)")
+            if self.exit_counter == self.max_time:
                 EXIT_FLAG = True
 
     def check_state(self, run):
@@ -205,7 +212,8 @@ class MPILauncher:
             tail = get_tail(run.outfile.name)
             run.current_state = 'RUN_ERROR'
             run.err_msg = tail
-            logger.info(f"MPIRun {run.job.cute_id} error code {retcode}:\n{tail}")
+            logger.info(
+                f"MPIRun {run.job.cute_id} error code {retcode}:\n{tail}")
             run.free_workers()
         return run.current_state
 
@@ -248,12 +256,15 @@ class MPILauncher:
             BalsamJob.batch_update_state(active_pks, 'RUN_TIMEOUT')
             self.jobsource.release(active_pks)
         else:
-            killquery = self.jobsource.filter(job_id__in=active_pks, state='USER_KILLED')
-            kill_pks  = killquery.values_list('job_id', flat=True)
-            to_kill = [run for run in by_states['RUNNING'] if run.job.pk in kill_pks]
+            killquery = self.jobsource.filter(
+                job_id__in=active_pks, state='USER_KILLED')
+            kill_pks = killquery.values_list('job_id', flat=True)
+            to_kill = [run for run in by_states['RUNNING']
+                       if run.job.pk in kill_pks]
             self.timeout_kill(to_kill)
             self.jobsource.release(kill_pks)
-            for run in to_kill: by_states['RUNNING'].remove(run)
+            for run in to_kill:
+                by_states['RUNNING'].remove(run)
 
         if timeout:
             self.mpi_runs = []
@@ -284,17 +295,22 @@ class MPILauncher:
             self.last_report = now
         num_idle = len(self.worker_group.idle_workers())
         logger.info(f'{num_idle} idle worker nodes')
-        all_runnable = BalsamJob.objects.filter(state__in=models.RUNNABLE_STATES)
+        all_runnable = BalsamJob.objects.filter(
+            state__in=models.RUNNABLE_STATES)
         unlocked = all_runnable.filter(lock='')
         logger.info('No runnable jobs')
-        logger.info(f'{all_runnable.count()} runnable jobs across entire Balsam DB')
+        logger.info(
+            f'{all_runnable.count()} runnable jobs across entire Balsam DB')
         logger.info(f'{unlocked.count()} of these are unlocked')
         if self.jobsource.workflow:
-            unlocked = unlocked.filter(workflow__contains=self.jobsource.workflow)
-            logger.info(f'{unlocked.count()} of these match the current workflow filter')
+            unlocked = unlocked.filter(
+                workflow__contains=self.jobsource.workflow)
+            logger.info(
+                f'{unlocked.count()} of these match the current workflow filter')
         too_large = unlocked.filter(num_nodes__gt=num_idle).count()
         if too_large > 0:
-            logger.info(f'{too_large} of these could run now; but require more than {num_idle} nodes.')
+            logger.info(
+                f'{too_large} of these could run now; but require more than {num_idle} nodes.')
 
     def launch(self):
         num_idle = len(self.worker_group.idle_workers())
@@ -325,7 +341,8 @@ class MPILauncher:
                 pre_assignments.append((job, workers))
                 idx += 1
             else:
-                num_idle = sum(w.num_nodes for w in self.worker_group.idle_workers())
+                num_idle = sum(
+                    w.num_nodes for w in self.worker_group.idle_workers())
                 assert job.num_nodes > num_idle
                 idx = next((i for i, job in enumerate(cache[idx:], idx) if
                             job.num_nodes <= num_idle), len(cache))
@@ -333,7 +350,8 @@ class MPILauncher:
         # acquire lock on jobs
         to_acquire = [job.pk for (job, workers) in pre_assignments]
         acquired_pks = self.jobsource.acquire(to_acquire)
-        logger.debug(f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
+        logger.debug(
+            f'Acquired lock on {len(acquired_pks)} out of {len(pre_assignments)} jobs marked for running')
 
         # dispatch runners; release workers that did not acquire job
         for (job, workers) in pre_assignments:
@@ -380,7 +398,8 @@ class SerialLauncher:
 
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
-        self.worker_group = worker.WorkerGroup(limit=limit_nodes, offset=offset_nodes)
+        self.worker_group = worker.WorkerGroup(
+            limit=limit_nodes, offset=offset_nodes)
         num_workers = len(self.worker_group) - 1
 
         hostnames = sorted([w.hostname for w in self.worker_group])
@@ -415,7 +434,8 @@ class SerialLauncher:
             cpu_affinity='none', envs={})
         logger.info(f'Starting MPI Fork ensemble process:\n{mpi_str}')
 
-        self.outfile = open(os.path.join(settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
+        self.outfile = open(os.path.join(
+            settings.LOGGING_DIRECTORY, 'ensemble.out'), 'wb')
         self.process = subprocess.Popen(args=shlex.split(mpi_str), bufsize=1,
                                         stdout=self.outfile, stderr=subprocess.STDOUT,
                                         shell=False)
@@ -436,7 +456,8 @@ class SerialLauncher:
             # Use scancel insteak of pkill, kill, etc.
             sched_id = JobEnv.current_scheduler_id
             term_str = f"scancel --signal=TERM {sched_id}.0"
-            logger.debug(f"Invoking Slurm scancel for mpi_ensemble job step: \"{term_str}\"")
+            logger.debug(
+                f"Invoking Slurm scancel for mpi_ensemble job step: \"{term_str}\"")
             # TODO(KGF): calling scancel here may not be necessary, since "scancel --batch JOB_ID"
             # might already correctly call scancel on srun steps after the parent batch script
             # finishes handling the original/explicit SIGTERM here
@@ -445,7 +466,8 @@ class SerialLauncher:
                              shell=False)
             # TODO(KGF): consider sending SIGKILL via Slurm daemon if 1st scancel fails
         else:
-            logger.debug(f"Sending SIGTERM to mpi_ensemble (pid={self.process.pid})")
+            logger.debug(
+                f"Sending SIGTERM to mpi_ensemble (pid={self.process.pid})")
             self.process.terminate()
             try:
                 logger.debug("Waiting on mpi_ensemble to stop...")
@@ -453,7 +475,8 @@ class SerialLauncher:
             except subprocess.TimeoutExpired:
                 logger.debug("No response in 10 seconds! Sending SIGKILL!")
                 self.process.kill()
-            logger.debug(f"Child mpi_ensemble process return code={self.process.returncode}")
+            logger.debug(
+                f"Child mpi_ensemble process return code={self.process.returncode}")
         self.outfile.close()
         logger.info("ensemble.out file closed.")
 
@@ -476,7 +499,8 @@ def main(args):
 
     try:
         if nthread > 0:
-            transition_pool = transitions.TransitionProcessPool(nthread, wf_filter)
+            transition_pool = transitions.TransitionProcessPool(
+                nthread, wf_filter)
         else:
             transition_pool = None
         launcher = Launcher(wf_filter, timelimit_min, gpus_per_node, persistent,
