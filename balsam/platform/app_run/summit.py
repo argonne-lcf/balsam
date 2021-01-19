@@ -3,7 +3,7 @@ from .mpirun import MPIRun
 
 class SummitJsrun(MPIRun):
     """
-        https://docs.olcf.ornl.gov/systems/summit_user_guide.html#running-jobs
+    https://docs.olcf.ornl.gov/systems/summit_user_guide.html#running-jobs
     """
 
     launch_command = "jsrun"

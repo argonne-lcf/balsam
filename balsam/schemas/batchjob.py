@@ -38,6 +38,14 @@ class SchedulerJobLog(BaseModel):
     end_time: Optional[datetime]
 
 
+class BatchJobPartition(BaseModel):
+    job_mode: JobMode = Field(..., example="mpi")
+    num_nodes: int = Field(..., example=128)
+    filter_tags: Dict[str, str] = Field(
+        {}, example={"system": "H2O", "calc_type": "energy"}
+    )
+
+
 class BatchJobBase(BaseModel):
     num_nodes: int = Field(..., example=128)
     wall_time_min: int = Field(..., example=60)
@@ -45,6 +53,17 @@ class BatchJobBase(BaseModel):
     optional_params: Dict[str, str] = Field({}, example={"require_ssds": "1"})
     filter_tags: Dict[str, str] = Field(
         {}, example={"system": "H2O", "calc_type": "energy"}
+    )
+    partitions: Optional[List[BatchJobPartition]] = Field(
+        None,
+        example=[
+            {"job_mode": "mpi", "num_nodes": 1, "filter_tags": {"sim_type": "driver"}},
+            {
+                "job_mode": "serial",
+                "num_nodes": 127,
+                "filter_tags": {"sim_type": "worker"},
+            },
+        ],
     )
 
 

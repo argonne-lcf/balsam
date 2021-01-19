@@ -34,6 +34,9 @@ def validate_batch_job(
         raise ValueError(
             f"Unknown project {job.project} " f"(known: {allowed_projects})"
         )
+    if job.partitions:
+        if sum(part.num_nodes for part in job.partitions) != job.num_nodes:
+            raise ValueError(f"Sum of partition sizes must equal batchjob num_nodes")
 
     extras = set(job.optional_params.keys())
     allowed_extras = set(optional_batch_job_params.keys())
@@ -101,6 +104,7 @@ class SchedulerService(BalsamService):
             wall_time_min=job.wall_time_min,
             job_mode=job.job_mode,
             filter_tags=job.filter_tags,
+            partitions=job.partitions,
             **job.optional_params,
         )
 

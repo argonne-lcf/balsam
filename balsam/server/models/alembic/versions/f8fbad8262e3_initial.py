@@ -74,6 +74,7 @@ def upgrade():
         sa.Column("num_nodes", sa.Integer(), nullable=False),
         sa.Column("wall_time_min", sa.Integer(), nullable=False),
         sa.Column("job_mode", sa.String(length=16), nullable=False),
+        sa.Column("partitions", sa.JSON(), nullable=True),
         sa.Column(
             "filter_tags", postgresql.JSONB(astext_type=sa.Text()), nullable=True
         ),

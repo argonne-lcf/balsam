@@ -33,6 +33,7 @@ class ScriptTemplate:
         wall_time_min,
         job_mode,
         filter_tags=None,
+        partitions=None,
         **kwargs,
     ):
         """
@@ -45,6 +46,7 @@ class ScriptTemplate:
             wall_time_min=wall_time_min,
             job_mode=job_mode,
             filter_tags=filter_tags,
+            partitions=partitions,
             optional_params=kwargs,
         )
         conf["balsam_site_path"] = os.environ["BALSAM_SITE_PATH"]

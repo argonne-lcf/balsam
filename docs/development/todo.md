@@ -2,10 +2,8 @@
 
 ## Short Todo
 
-- Double check autoscaler & scheduler service modules: test on theta
-
-- Launcher & NodeDetection interfaces
-- Test launchers / local-only workflow on Theta/generic-02
+- launcher
+- autoscaler & scheduler service modules: test on theta
 
 - Test end-to-end (transfer; preproc; run; postproc; stageout) on Theta with backfill autoscaler
 - Test on ThetaGPU

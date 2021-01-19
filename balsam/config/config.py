@@ -135,6 +135,18 @@ class TransferSettings(BaseSettings):
     service_period: int = 5
 
 
+class LauncherSettings(BaseSettings):
+    idle_ttl_sec: int = 10
+    compute_node: PyObject = "balsam.platform.nodes.ThetaKNLNode"
+    node_manager: PyObject = "balsam.platform.nodes.NodeManager"
+    mpi_app_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
+    local_app_launcher: PyObject = "balsam.platform.mpirun.LocalRun"
+    mpirun_allows_node_packing: bool = True
+    serial_mode_communicator: PyObject = "balsam.site.launcher.ZMQCommunicator"
+    serial_mode_prefetch_per_rank: int = 100
+    serial_mode_startup_params: dict = {"cpu_affinity": "none"}
+
+
 class Settings(BaseSettings):
     site_id: int = -1
     mpi_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
@@ -151,7 +163,9 @@ class Settings(BaseSettings):
     def save(self, path):
         with open(path, "w") as fp:
             yaml.dump(
-                json.loads(self.json()), fp, indent=4,
+                json.loads(self.json()),
+                fp,
+                indent=4,
             )
 
     @classmethod
@@ -288,7 +302,8 @@ class SiteConfig:
             for path in [cf.log_path, cf.job_path, cf.data_path]:
                 path.mkdir(exist_ok=True)
             shutil.copytree(
-                src=default_site_path.joinpath("apps"), dst=cf.apps_path,
+                src=default_site_path.joinpath("apps"),
+                dst=cf.apps_path,
             )
             shutil.copy(
                 src=default_site_path.joinpath(settings.scheduler.job_template_path),
@@ -359,7 +374,8 @@ class SiteConfig:
             filename = f"{basename}_{ts}.log"
         log_path = self.log_path.joinpath(filename)
         config_logging(
-            filename=log_path, **self.settings.logging.dict(),
+            filename=log_path,
+            **self.settings.logging.dict(),
         )
         return {"filename": log_path, **self.settings.logging.dict()}
 

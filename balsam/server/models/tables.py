@@ -179,6 +179,7 @@ class BatchJob(Base):
     num_nodes = Column(Integer, nullable=False)
     wall_time_min = Column(Integer, nullable=False)
     job_mode = Column(String(16), nullable=False)
+    partitions = Column(JSON, default=None, nullable=True)
     filter_tags = Column(pg.JSONB, default=dict)
     state = Column(String(32), index=True, nullable=False)
     status_info = Column(JSON, default=dict)

@@ -1,5 +1,4 @@
-from .mpirun import MPIRun
-from .mpirun import DirectRun
+from .app_run import LocalAppRun
 from .theta import ThetaAprun
 from .slurm import SlurmRun
 from .openmpi import OpenMPIRun
@@ -7,8 +6,7 @@ from .mpich import MPICHRun
 from .summit import SummitJsrun
 
 __all__ = [
-    "MPIRun",
-    "DirectRun",
+    "LocalAppRun",
     "ThetaAprun",
     "SlurmRun",
     "OpenMPIRun",
