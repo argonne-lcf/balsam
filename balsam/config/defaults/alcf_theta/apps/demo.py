@@ -11,10 +11,11 @@ class hello(ApplicationDefinition):
 
     def preprocess(self):
         self.job.state = "PREPROCESSED"
-        print('biden is now president')
+        print('preprocessing demo')
 
     def postprocess(self):
         self.job.state = "POSTPROCESSED"
+        print('postprocessing demo')
 
     def shell_preamble(self):
         pass
