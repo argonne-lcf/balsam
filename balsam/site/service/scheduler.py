@@ -6,6 +6,7 @@ import stat
 from balsam.platform.job_template import ScriptTemplate
 from balsam.platform.scheduler import SchedulerSubmitError
 from .service_base import BalsamService
+from balsam.cmdline.utils import partitions_to_cli_args
 
 
 logger = logging.getLogger(__name__)
@@ -104,7 +105,7 @@ class SchedulerService(BalsamService):
             wall_time_min=job.wall_time_min,
             job_mode=job.job_mode,
             filter_tags=job.filter_tags,
-            partitions=job.partitions,
+            partitions=partitions_to_cli_args(job.partitions),
             **job.optional_params,
         )
 

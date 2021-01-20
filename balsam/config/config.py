@@ -138,7 +138,6 @@ class TransferSettings(BaseSettings):
 class LauncherSettings(BaseSettings):
     idle_ttl_sec: int = 10
     compute_node: PyObject = "balsam.platform.nodes.ThetaKNLNode"
-    node_manager: PyObject = "balsam.platform.nodes.NodeManager"
     mpi_app_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
     local_app_launcher: PyObject = "balsam.platform.mpirun.LocalRun"
     mpirun_allows_node_packing: bool = True

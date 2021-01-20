@@ -22,3 +22,10 @@ class ThetaGpuNode(ComputeNode):
         node_hostnames = [line.strip() for line in nodefile_lines]
         node_ids = [int(hostname[-2:]) for hostname in node_hostnames]
         return [cls(node_ids[i], node_hostnames[i]) for i in range(len(node_ids))]
+
+    @staticmethod
+    def get_batch_job_id():
+        id = os.environ.get("COBALT_JOBID")
+        if id is not None:
+            return int(id)
+        return None

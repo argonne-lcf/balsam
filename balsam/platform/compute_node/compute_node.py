@@ -68,5 +68,9 @@ class ComputeNode:
         """
         return []
 
+    @staticmethod
+    def get_batch_job_id():
+        return None
+
     def __repr__(self):
         return f"{self.__class__.__name__}(id={self.node_id}, hostname={self.hostname})"

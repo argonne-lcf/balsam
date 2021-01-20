@@ -1,5 +1,38 @@
+from pydantic import BaseModel, validator
+from typing import List
+
+
 class InsufficientResources(Exception):
     pass
+
+
+class NodeSpec(BaseModel):
+    node_ids: List[str]
+    hostnames: List[str]
+    cpu_ids: List[List[int]] = []
+    gpu_ids: List[List[str]] = []
+
+    @validator("hostnames")
+    def hostnames_len(cls, v, values):
+        if len(values["node_ids"]) != len(v):
+            raise ValueError("Must provide same number of node_ids as hostnames")
+        return v
+
+    @validator("cpu_ids")
+    def cpu_ids_len(cls, v, values):
+        if not v:
+            v = [[] for _ in range(len(values["node_ids"]))]
+        elif len(values["node_ids"]) != len(v):
+            raise ValueError("Must provide same number of cpu_id lists")
+        return v
+
+    @validator("gpu_ids")
+    def gpu_ids_len(cls, v, values):
+        if not v:
+            v = [[] for _ in range(len(values["node_ids"]))]
+        elif len(values["node_ids"]) != len(v):
+            raise ValueError("Must provide same number of gpu_id lists")
+        return v
 
 
 class NodeManager:
@@ -14,10 +47,13 @@ class NodeManager:
         for node_idx, node in enumerate(self.nodes):
             if node.check_fit(num_cpus, num_gpus, node_occupancy):
                 spec = node.assign(job_id, num_cpus, num_gpus, node_occupancy)
-                spec["node_id"] = node.node_id
-                spec["hostname"] = node.node_id
                 self.job_node_map[job_id] = [node_idx]
-                return [spec]
+                return NodeSpec(
+                    node_ids=[node.node_id],
+                    hostnames=[node.hostname],
+                    cpu_ids=[spec["cpu_ids"]],
+                    gpu_ids=[spec["gpu_ids"]],
+                )
         raise InsufficientResources
 
     def _assign_multi_node(self, job_id, num_nodes):
@@ -31,12 +67,13 @@ class NodeManager:
                 break
         else:
             raise InsufficientResources
-        spec = []
+        node_ids, hostnames = [], []
         for node in assigned_nodes:
             node.assign(job_id, num_cpus=0, num_gpus=0, occupancy=1.0)
-            spec.append({"node_id": node.id, "hostname": node.hostname})
+            node_ids.append(node.id)
+            hostnames.append(node.hostname)
         self.job_node_map[job_id] = assigned_idxs
-        return spec
+        return NodeSpec(node_ids=node_ids, hostnames=hostnames)
 
     def assign(self, job_id, num_nodes, cpus_per_node, gpus_per_node, node_occupancy):
         if num_nodes > 1:

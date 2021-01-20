@@ -40,28 +40,24 @@ class AppRun(ABC):
         envs,
         cwd,
         outfile_path,
-        node_list,
+        node_spec,
         ranks_per_node,
         threads_per_rank,
         threads_per_core,
         launch_params,
         gpus_per_rank,
-        cpu_ids,
-        gpu_ids,
     ):
         self._cmdline = cmdline
         self._preamble = preamble
         self._envs = envs
         self._cwd = cwd
         self._outfile_path = outfile_path
-        self._nodes = node_list
+        self._node_spec = node_spec
         self._ranks_per_node = ranks_per_node
         self._threads_per_rank = threads_per_rank
         self._threads_per_core = threads_per_core
         self._launch_params = launch_params
         self._gpus_per_rank = gpus_per_rank
-        self._cpu_ids = cpu_ids
-        self._gpu_ids = gpu_ids
 
     @abstractmethod
     def start(self):
@@ -180,8 +176,9 @@ class LocalAppRun(SubprocessAppRun):
         return self._cmdline
 
     def _pre_popen(self):
-        if self._cpu_ids:
-            _psutil_process.cpu_affinity(self._cpu_ids)
+        cpu_ids = self._node_spec.cpu_ids[0]
+        if cpu_ids:
+            _psutil_process.cpu_affinity(cpu_ids)
 
     def _post_popen(self):
         _psutil_process.cpu_affinity([])

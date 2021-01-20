@@ -26,3 +26,10 @@ class ThetaKnlNode(ComputeNode):
                 node_ids.append(lo)
 
         return [cls(node_id, f"nid{node_id:05d}") for node_id in node_ids]
+
+    @staticmethod
+    def get_batch_job_id():
+        id = os.environ.get("COBALT_JOBID")
+        if id is not None:
+            return int(id)
+        return None

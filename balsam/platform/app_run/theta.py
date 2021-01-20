@@ -11,9 +11,9 @@ class ThetaAprun(SubprocessAppRun):
         time.sleep(0.01)
 
     def _build_cmdline(self):
-        node_ids = [n["node_id"] for n in self._nodes]
+        node_ids = [n["node_id"] for n in self._node_spec.node_ids]
         nid_str = ",".join(map(str, node_ids))
-        num_ranks = self._ranks_per_node * len(self._nodes)
+        num_ranks = self._ranks_per_node * len(self._node_spec.node_ids)
         cpu_affinity = self._launch_params.get("cpu_affinity", "none")
         if cpu_affinity not in ["none", "depth"]:
             cpu_affinity = "none"
