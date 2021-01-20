@@ -1,4 +1,4 @@
-# Default setup for Cooley GPU cluster @ ALCF
+# Default setup for Theta KNL cluster @ ALCF
 logging:
     buffer_num_records: 1024
     datefmt: '%d-%b-%Y %H:%M:%S'
@@ -14,9 +14,12 @@ resource_manager: balsam.platform.nodespec.default.DefaultNode
 scheduler:
     allowed_projects:
     - datascience
-    - magstructsADSP
     allowed_queues:
         debug-cache-quad:
+            max_nodes: 8
+            max_queued_jobs: 1
+            max_walltime: 60
+        debug-flat-quad:
             max_nodes: 8
             max_queued_jobs: 1
             max_walltime: 60
