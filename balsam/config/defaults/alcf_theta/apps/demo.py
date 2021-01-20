@@ -1,21 +1,23 @@
 from balsam.site import ApplicationDefinition
 
+
 class hello(ApplicationDefinition):
     """
     Application description
     """
+
     environment_variables = {}
-    command_template = 'echo hello world'
+    command_template = "echo hello world"
     parameters = {}
     transfers = {}
 
     def preprocess(self):
         self.job.state = "PREPROCESSED"
-        print('preprocessing demo')
+        print("preprocessing  demo")
 
     def postprocess(self):
         self.job.state = "POSTPROCESSED"
-        print('postprocessing demo')
+        print("postprocessing demo")
 
     def shell_preamble(self):
         pass
