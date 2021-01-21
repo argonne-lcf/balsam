@@ -1,7 +1,7 @@
 from balsam.site import ApplicationDefinition
 
 
-class hello(ApplicationDefinition):
+class Hello(ApplicationDefinition):
     """
     Application description
     """
