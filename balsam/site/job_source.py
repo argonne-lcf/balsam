@@ -61,6 +61,7 @@ class FixedDepthJobSource(Process):
         max_wall_time_min=None,
         max_nodes_per_job=None,
         max_aggregate_nodes=None,
+        batch_job_id=None,
     ):
         super().__init__()
         self.queue = Queue()
@@ -76,6 +77,7 @@ class FixedDepthJobSource(Process):
         self.max_wall_time_min = max_wall_time_min
         self.max_nodes_per_job = max_nodes_per_job
         self.max_aggregate_nodes = max_aggregate_nodes
+        self.batch_job_id = batch_job_id
         self.start_time = time.time()
 
     def get_jobs(self, max_num_jobs):
@@ -103,7 +105,7 @@ class FixedDepthJobSource(Process):
 
         if self.session_thread is None:
             self.session_thread = SessionThread(
-                client=self.client, site_id=self.site_id
+                client=self.client, site_id=self.site_id, batch_job_id=self.batch_job_id
             )
             self.session = self.session_thread.session
 
@@ -162,6 +164,7 @@ class SynchronousJobSource(object):
         states={"PREPROCESSED", "RESTART_READY"},
         serial_only=False,
         max_wall_time_min=None,
+        batch_job_id=None,
     ):
         self.client = client
         self.site_id = site_id
@@ -171,7 +174,10 @@ class SynchronousJobSource(object):
         self.max_wall_time_min = max_wall_time_min
         self.start_time = time.time()
 
-        self.session_thread = SessionThread(client=self.client, site_id=self.site_id)
+        self.batch_job_id = batch_job_id
+        self.session_thread = SessionThread(
+            client=self.client, site_id=self.site_id, batch_job_id=self.batch_job_id
+        )
         self.session = self.session_thread.session
 
     def start(self):

@@ -11,6 +11,7 @@ from balsam.cmdline import (
     job,
     service,
     queue,
+    launcher,
 )
 
 # Monkey-patch make_default_short_help: cut off after first line
@@ -50,6 +51,7 @@ LOAD_COMMANDS = [
     queue.queue,
     service.service,
     local_deploy.server,
+    launcher.launcher,
 ]
 
 for cmd in LOAD_COMMANDS:

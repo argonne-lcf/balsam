@@ -1,4 +1,5 @@
 import importlib.util
+import os
 from pathlib import Path
 import shlex
 from typing import Tuple
@@ -112,13 +113,19 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     def __init__(self, job):
         self.job = job
 
-    @property
-    def arg_str(self) -> str:
+    def get_arg_str(self) -> str:
         return self._render_command(self.job.parameters)
 
-    @property
-    def arg_list(self) -> list:
-        return shlex.split(self.arg_str)
+    def get_arg_list(self) -> list:
+        return shlex.split(self.get_arg_str())
+
+    def get_environ_vars(self) -> dict:
+        envs = os.environ.copy()
+        envs.update(self.environment_variables)
+        envs["BALSAM_JOB_ID"] = str(self.job.id)
+        if self.job.threads_per_rank > 1:
+            envs["OMP_NUM_THREADS"] = str(self.job.threads_per_rank)
+        return envs
 
     def _render_command(self, arg_dict: dict) -> str:
         """
@@ -182,7 +189,9 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     @classmethod
     def as_dict(cls):
         return dict(
-            description=cls.__doc__, parameters=cls.parameters, transfers=cls.transfers,
+            description=cls.__doc__,
+            parameters=cls.parameters,
+            transfers=cls.transfers,
         )
 
 

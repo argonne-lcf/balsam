@@ -137,6 +137,9 @@ class TransferSettings(BaseSettings):
 
 class LauncherSettings(BaseSettings):
     idle_ttl_sec: int = 10
+    delay_sec: int = 1
+    error_tail_num_lines: int = 10
+    max_concurrent_mpiruns: int = 1000
     compute_node: PyObject = "balsam.platform.nodes.ThetaKNLNode"
     mpi_app_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
     local_app_launcher: PyObject = "balsam.platform.mpirun.LocalRun"

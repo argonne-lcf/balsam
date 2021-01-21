@@ -75,11 +75,17 @@ class NodeManager:
         self.job_node_map[job_id] = assigned_idxs
         return NodeSpec(node_ids=node_ids, hostnames=hostnames)
 
-    def assign(self, job_id, num_nodes, cpus_per_node, gpus_per_node, node_occupancy):
-        if num_nodes > 1:
-            return self._assign_multi_node(job_id, num_nodes)
+    def count_empty_nodes(self):
+        return len([node for node in self.nodes if node.occupancy == 0.0])
+
+    def aggregate_free_nodes(self):
+        return len(self.nodes) - sum(n.occupancy for n in self.nodes)
+
+    def assign(self, job):
+        if job.num_nodes > 1:
+            return self._assign_multi_node(job.id, job.num_nodes)
         return self._assign_single_node(
-            job_id, cpus_per_node, gpus_per_node, node_occupancy
+            job.id, job.cpus_per_node, job.gpus_per_node, job.node_occupancy
         )
 
     def free(self, job_id):

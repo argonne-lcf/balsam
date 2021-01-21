@@ -154,6 +154,7 @@ class SubprocessAppRun(AppRun):
     def kill(self):
         self._process.kill()
         self._outfile.close()
+        self._process.poll()
 
     def wait(self, timeout=None):
         try:

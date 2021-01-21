@@ -12,14 +12,18 @@ from balsam.site.launcher import NodeSpec
 
 MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin
 SERIAL_MODE_PATH = find_spec("balsam.site.launcher.serial_mode").origin
+PART_INDEX = 0
 
 
 def get_run_basename(base):
+    global PART_INDEX
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    return f"{base}_{timestamp}.log"
+    fname = f"{base}_{timestamp}.{PART_INDEX}"
+    PART_INDEX += 1
+    return fname
 
 
-def start_mpi_mode(site_config, wall_time_min, batch_job_id, nodes, filter_tags):
+def start_mpi_mode(site_config, wall_time_min, nodes, filter_tags):
     basename = get_run_basename("mpi_mode")
     log_filename = site_config.log_path.joinpath(basename + ".log")
     stdout_filename = site_config.log_path.joinpath(basename + ".out")
@@ -35,7 +39,6 @@ def start_mpi_mode(site_config, wall_time_min, batch_job_id, nodes, filter_tags)
     args += f"--log-filename {log_filename} "
     args += f"--node-ids {json.dumps(node_ids)} "
     args += f"--filter-tags {json.dumps(filter_tags)} "
-    args += f"--batch-job-id {batch_job_id} "
 
     proc = subprocess.Popen(
         args=shlex.split(args),
@@ -46,7 +49,7 @@ def start_mpi_mode(site_config, wall_time_min, batch_job_id, nodes, filter_tags)
     return proc
 
 
-def start_serial_mode(site_config, wall_time_min, batch_job_id, nodes, filter_tags):
+def start_serial_mode(site_config, wall_time_min, nodes, filter_tags):
     master_host = nodes[0].hostname
     master_port = 19876
     basename = get_run_basename("serial_mode")
@@ -67,7 +70,6 @@ def start_serial_mode(site_config, wall_time_min, batch_job_id, nodes, filter_ta
     args += f"--log-filename {log_filename} "
     args += f"--num-workers {len(nodes)} "
     args += f"--filter-tags {json.dumps(filter_tags)} "
-    args += f"--batch-job-id {batch_job_id} "
 
     app_run = site_config.launcher.mpi_app_launcher
     app = app_run(
@@ -100,8 +102,6 @@ def launcher(
 ):
     site_config = load_site_config()
     node_cls = site_config.launcher.compute_node
-
-    batch_job_id = node_cls.get_batch_job_id()
     nodes = node_cls.get_job_nodelist()
 
     if not partitions:
@@ -124,14 +124,12 @@ def launcher(
             proc = start_mpi_mode(
                 site_config=site_config,
                 wall_time_min=wall_time_min,
-                batch_job_id=batch_job_id,
                 **part,
             )
         else:
             proc = start_serial_mode(
                 site_config=site_config,
                 wall_time_min=wall_time_min,
-                batch_job_id=batch_job_id,
                 **part,
             )
         launcher_procs.append(proc)
