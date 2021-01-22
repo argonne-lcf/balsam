@@ -82,11 +82,32 @@ class NodeManager:
         return len(self.nodes) - sum(n.occupancy for n in self.nodes)
 
     def assign(self, job):
-        if job.num_nodes > 1:
-            return self._assign_multi_node(job.id, job.num_nodes)
-        return self._assign_single_node(
-            job.id, job.cpus_per_node, job.gpus_per_node, job.node_occupancy
+        return self.assign_from_params(
+            id=job.id,
+            num_nodes=job.num_nodes,
+            ranks_per_node=job.ranks_per_node,
+            threads_per_rank=job.threads_per_rank,
+            threads_per_core=job.threads_per_core,
+            gpus_per_rank=job.gpus_per_rank,
+            node_occupancy=job.node_occupancy,
         )
+
+    def assign_from_params(
+        self,
+        id,
+        num_nodes,
+        ranks_per_node,
+        threads_per_rank,
+        threads_per_core,
+        gpus_per_rank,
+        node_occupancy,
+        **kwargs
+    ):
+        if num_nodes > 1:
+            return self._assign_multi_node(id, num_nodes)
+        num_cpus = max(1, int(ranks_per_node * threads_per_rank // threads_per_core))
+        num_gpus = int(ranks_per_node * gpus_per_rank)
+        return self._assign_single_node(id, num_cpus, num_gpus, node_occupancy)
 
     def free(self, job_id):
         node_idxs = self.job_node_map.pop(job_id)

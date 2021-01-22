@@ -4,6 +4,7 @@ nav:
   - Development:
       - Contribution Guide: development/contributing.md
       - Data Model: development/data-model.md
+      - Project Layout: development/layout.md
       - Site Configuration: development/site-config.md
       - The Python REST Client: development/client.md
       - Defining Applications: development/appdef.md

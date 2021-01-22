@@ -9,10 +9,10 @@ Each arrow represents a ForeignKey
 (or [many-to-one](https://docs.djangoproject.com/en/3.0/topics/db/examples/many_to_one/))
 relationship between two tables.
 
-## High-level view of the database
+## High-level view of Balsam entities
 
-  1. A `User` represents a Balsam user account.  **All** items in the database
-     are linked to a single owner, which is reflected in the connectivity of
+  1. A `User` represents a Balsam user account.  **All items in the database
+     are linked to a single owner**, which is reflected in the connectivity of
      the graph. For example, to get all the jobs belonging to `current_user`,
      join the tables via `Job.objects.filter(app__site__user=current_user)`
 
@@ -20,13 +20,11 @@ relationship between two tables.
      hostname,  directory path)`. One user can own several Balsam sites
      located across one or several machines.  Each site is an *independent*
      endpoint where applications are registered, data is transferred in and
-     out, and Job working directories are located. A Balsam service daemon, which is 
-     **authenticated** to the REST API, is uniquely associated with a single `Site` and
-     runs as the user on that system. If a user has multiple active Balsam Sites, then a separate
-     service runs at each of them.  The authenticated daemon communicates with the central
+     out, and Job working directories are located. **Each Balsam site runs a daemon on behalf of the user that communicates with the central API.** If a user has multiple active Balsam Sites, then a separate
+     daemon runs at each of them.  The authenticated daemons communicate with the central
      Balsam API to fetch jobs, orchestrate the workflow locally, and update the database state. 
 
-  3. An `App` represents a runnable application at a particular Balsam Site.
+  3. **An `App` represents a runnable application at a particular Balsam Site.**
      Every Balsam Site contains an `apps/` directory with Python modules
      containing `ApplicationDefinition` classes.  The set of
      `ApplicationDefinitions` determines the applications which may run at the
@@ -38,21 +36,21 @@ relationship between two tables.
      `Job` contains both application-specific data (like command line
      arguments) and resource requirements (like number of MPI ranks per node)
      for the run. It is important to note that Job-->App-->Site are
-     non-nullable relations, so a `Job` is always bound
-     to run at a particular `Site`.  Therefore, the corresponding Balsam service
+     non-nullable relations, so **a `Job` is always bound
+     to run at a particular `Site` from the moment its created**.  Therefore, the corresponding Balsam service
      daemon may begin staging-in data as soon as a `Job` becomes visible, as appropriate.
 
   5. A `BatchJob` represents a job launch script and resource request submitted
-     by the `Site` to the local workload manager or job Scheduler. Notice that
+     by the `Site` to the local workload manager (e.g. Slurm). Notice that
      the relation of `BatchJob` to `Site` is many-to-one, and that `Job` to
-     `BatchJob` is many-to-one. That is, many `Jobs` run in a single
-     `BatchJob`, and many `BatchJobs` are submitted at a `Site` over time.
+     `BatchJob` is many-to-one. That is, **many `Jobs` run in a single
+     `BatchJob`**, and many `BatchJobs` are submitted at a `Site` over time.
 
-  6. The `Session` is an internal model representing an active Balsam launcher
+  6. The `Session` is an **internal** model representing an active Balsam launcher
      session.  `Jobs` have a nullable relationship to `Session`; when it is not
      null, the job is said to be *locked* by a launcher, and no other launcher
-     should try running it.  The Balsam **session API** is used by launchers to
-     acquire jobs concurrently and without race conditions.  Sessions contain a
+     should try running it.  The Balsam **session API** is used by launchers 
+     acquiring jobs concurrently to avoid race conditions.  Sessions contain a
      heartbeat timestamp that must be periodically ticked to maintain the session.
 
    7. A `TransferItem` is created for each stage-in or stage-out task
@@ -69,7 +67,7 @@ relationship between two tables.
 
 ## The REST API
 
-The rest of this page details the Django model fields and gives a condensed overview of the API.
+The rest of this page details the model fields and gives a condensed overview of the API.
 Refer to the interactive API documentation for details on URL query parameters and sample
 request and response payloads:
 
@@ -86,15 +84,6 @@ cd balsam/server
 
 ## User & a note on Auth
 
-The `User` model Extends Django's [default User
-model](https://docs.djangoproject.com/en/3.0/ref/contrib/auth/) via
-`AbstractUser`. It contains fields like `username` and `email` but is loosely
-coupled to the Authentication scheme.
-
-Django REST Framework easily permits swapping Authentication backends or using multiple
-authentication schemes.  For every view requiring authentication, 
-a `user` object is available on the `request` instance, containing the pre-authenticated
-User.
 
 Generally, Balsam will need two types of Auth to function:
 

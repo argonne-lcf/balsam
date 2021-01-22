@@ -197,7 +197,7 @@ class Launcher:
 @click.option("--wall-time-min", type=int)
 @click.option("--log-filename")
 @click.option("--node-ids")
-@click.option("--filter_tags")
+@click.option("--filter-tags")
 def main(
     wall_time_min,
     log_filename,

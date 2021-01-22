@@ -144,7 +144,6 @@ class LauncherSettings(BaseSettings):
     mpi_app_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
     local_app_launcher: PyObject = "balsam.platform.mpirun.LocalRun"
     mpirun_allows_node_packing: bool = True
-    serial_mode_communicator: PyObject = "balsam.site.launcher.ZMQCommunicator"
     serial_mode_prefetch_per_rank: int = 100
     serial_mode_startup_params: dict = {"cpu_affinity": "none"}
 

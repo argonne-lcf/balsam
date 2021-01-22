@@ -84,6 +84,20 @@ class AppRun(ABC):
         pass
 
 
+class FailedStartProcess:
+    def poll(self):
+        return 12345
+
+    def terminate(self):
+        pass
+
+    def kill(self):
+        pass
+
+    def wait(self, timeout=None):
+        return 12345
+
+
 class SubprocessAppRun(AppRun):
     """
     Implements subprocess management for apps launched via Popen
@@ -92,7 +106,7 @@ class SubprocessAppRun(AppRun):
     _preamble_cache = {}
 
     def _build_cmdline(self):
-        raise NotImplementedError
+        return ""
 
     def _build_preamble(self):
         if not self._preamble:
@@ -130,16 +144,20 @@ class SubprocessAppRun(AppRun):
         envs = self._get_envs()
         self._pre_popen()
 
-        self._process = subprocess.Popen(
-            cmdline,
-            shell=True,
-            executable="/bin/bash",
-            stdout=self._outfile,
-            stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL,
-            env=envs,
-            cwd=self._cwd,
-        )
+        try:
+            self._process = subprocess.Popen(
+                cmdline,
+                shell=True,
+                executable="/bin/bash",
+                stdout=self._outfile,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                env=envs,
+                cwd=self._cwd,
+            )
+        except Exception as e:
+            logger.error(f"Popen failed: {e}")
+            self._process = FailedStartProcess()
         self._post_popen()
 
     def poll(self):

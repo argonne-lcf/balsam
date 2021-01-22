@@ -11,21 +11,14 @@ pre-commit install
 On commit, code will be auto-formatted with `black` and linted with `flake8`.
 Linting errors will cause the commit to fail and point to errors.
 
-## Travis CI
-- Pre commit: black & flake8
-- Run tests, generate coverage report
-
-## ReadTheDocs
-- commit hook to build MkDocs
-
 ## Testing
 
-Test the DRF backend with PyTest:
+The Balsam API server can be independently tested:
 ```bash
 $ pytest --cov=balsam/server balsam/server
 ```
 
-Generate HTML report locally:
+To generate an HTML test-coverage report locally:
 ```bash
 $ coverage html
 $ open htmlcov/index.html
