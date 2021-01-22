@@ -1,4 +1,5 @@
 import click
+from datetime import datetime
 import json
 import sys
 import logging
@@ -42,7 +43,7 @@ class Master:
         self.remaining_timer = countdown_timer_min(wall_time_min, delay_sec=0.0)
         self.idle_ttl_sec = idle_ttl_sec
         self.idle_time = None
-        self.num_active = 0
+        self.active_ids = set()
         self.num_workers = num_workers
 
         next(self.remaining_timer)
@@ -78,9 +79,35 @@ class Master:
 
     def handle_request(self):
         msg = self.socket.recv_json()
-        for status in msg["status_updates"]:
-            self.status_updater.put(**status)
-        self.num_active -= len(msg["status_updates"])
+        now = datetime.utcnow()
+        finished_ids = set()
+        for id in msg["done"]:
+            self.status_updater.put(
+                id,
+                "RUN_DONE",
+                state_timestamp=now,
+            )
+            finished_ids.add(id)
+        for (id, retcode, tail) in msg["error"]:
+            self.status_updater.put(
+                id,
+                "RUN_ERROR",
+                state_timestamp=now,
+                state_data={
+                    "returncode": retcode,
+                    "error": tail,
+                },
+            )
+            finished_ids.add(id)
+        for id in msg["started"]:
+            self.status_updater.put(
+                id,
+                "RUNNING",
+                state_timestamp=now,
+            )
+            self.active_ids.add(id)
+
+        self.active_ids -= finished_ids
 
         src = msg["source"]
         max_jobs = msg["request_num_jobs"]
@@ -90,12 +117,11 @@ class Master:
         new_job_specs = [self.job_to_dict(job) for job in next_jobs]
         self.socket.send_json({"new_jobs": new_job_specs})
         if new_job_specs:
-            self.num_active += len(new_job_specs)
             logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
     def idle_check(self):
         global EXIT_FLAG
-        if self.num_active == 0:
+        if not self.active_ids:
             if self.idle_time is None:
                 self.idle_time = time.time()
             if time.time() - self.idle_time > self.idle_ttl_sec:
@@ -105,6 +131,7 @@ class Master:
             self.idle_time = None
 
     def run(self):
+        global EXIT_FLAG
         logger.debug("In master run")
         for remaining_minutes in self.remaining_timer:
             logger.debug(f"{remaining_minutes} minutes remaining")
@@ -115,25 +142,35 @@ class Master:
                 break
 
         self.shutdown()
-        logger.info(f"shutdown done: ensemble master exit gracefully")
+        logger.info("shutdown done: ensemble master exit gracefully")
 
     def shutdown(self):
         logger.info("Master sending exit message to all Workers")
         for _ in range(self.num_workers):
             self.socket.recv_json()
             self.socket.send_json({"exit": True})
-        logger.info(f"Terminating StatusUpdater...")
+
+        now = datetime.utcnow()
+        logger.info(f"Timing out {len(self.active_ids)} active runs")
+        for id in self.active_ids:
+            self.status_updater.put(
+                id,
+                "RUN_TIMEOUT",
+                state_timestamp=now,
+            )
+
+        logger.info("Terminating StatusUpdater...")
         # StatusUpdater needs to join first: stop the RUNNING updates
-        self.status_updater.set_exit()
+        self.status_updater.terminate()
         self.status_updater.join()
-        logger.info(f"StatusUpdater has joined.")
+        logger.info("StatusUpdater has joined.")
 
         # We trigger JobSource exit after StatusUpdater has joined to ensure
-        # *all* Jobs get properly released and marked RUN_TIMEOUT
-        logger.info(f"Terminating JobSource...")
-        self.job_source.set_exit()
+        # *all* Jobs get properly released
+        logger.info("Terminating JobSource...")
+        self.job_source.terminate()
         self.job_source.join()
-        logger.info(f"JobSource has joined.")
+        logger.info("JobSource has joined.")
 
 
 class Worker:
@@ -248,9 +285,8 @@ class Worker:
             return "running"
 
     def poll_processes(self):
-        done, error, active = [], [], False
+        done, error = [], []
         for id, retcode in self.check_retcodes():
-            active = True
             if retcode is None:
                 continue
             elif retcode == 0:
@@ -263,7 +299,7 @@ class Worker:
                 if status != "running":
                     retcode, tail = status
                     error.append((id, retcode, tail))
-        return done, error, active
+        return done, error
 
     def exit(self):
         ids = list(self.app_runs.keys())
@@ -297,10 +333,11 @@ class Worker:
         return started_ids
 
     def run(self):
+        global EXIT_FLAG
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected to {self.master_address}")
         while True:
-            done_ids, errors, active = self.poll_processes()
+            done_ids, errors = self.poll_processes()
             started_ids = self.start_jobs()
             request_num_jobs = max(0, self.num_prefetch_jobs - len(self.runnable_cache))
 
@@ -309,7 +346,6 @@ class Worker:
                 "started": started_ids,
                 "done": done_ids,
                 "error": errors,
-                "active": active,
                 "request_num_jobs": request_num_jobs,
             }
             self.socket.send_json(msg)

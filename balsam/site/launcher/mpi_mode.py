@@ -135,7 +135,7 @@ class Launcher:
             return {
                 "state": "RUN_ERROR",
                 "state_timestamp": datetime.utcnow(),
-                "state_data": {"error": tail},
+                "state_data": {"returncode": retcode, "error": tail},
             }
 
     @staticmethod
