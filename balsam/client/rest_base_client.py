@@ -1,4 +1,4 @@
-from fastapi.encoders import jsonable_encoder
+from .encoders import jsonable_encoder
 from balsam.api.models import (
     SiteManager,
     AppManager,

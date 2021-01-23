@@ -1,18 +1,22 @@
 from balsam import __version__
 import click
+import logging
 
 from balsam.cmdline import login
 from balsam.cmdline import (
-    db,
-    activate,
     site,
     app,
-    local_deploy,
     job,
-    service,
     queue,
     launcher,
 )
+
+logger = logging.getLogger("balsam.cmdline")
+try:
+    from balsam.cmdline import server
+except ModuleNotFoundError as e:
+    logger.debug(f"Balsam server not installed: {e}")
+    server = None
 
 # Monkey-patch make_default_short_help: cut off after first line
 _old_shorthelp = click.utils.make_default_short_help
@@ -43,16 +47,14 @@ def main():
 LOAD_COMMANDS = [
     login.login,
     login.register,
-    activate.activate,
-    db.db,
     site.site,
     app.app,
     job.job,
     queue.queue,
-    service.service,
-    local_deploy.server,
     launcher.launcher,
 ]
+if server is not None:
+    LOAD_COMMANDS.append(server)
 
 for cmd in LOAD_COMMANDS:
     main.add_command(cmd)

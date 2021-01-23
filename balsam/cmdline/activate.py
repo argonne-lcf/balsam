@@ -51,22 +51,6 @@ def activate():
     pass
 
 
-@activate.command("service")
-@click.argument(
-    "site-path", type=click.Path(writable=True), callback=validate_site_path
-)
-def start_service(site_path):
-    """
-    Ensure that Balsam service is running for the local SITE-PATH
-    """
-    from balsam.client import ClientAPI
-    from balsam.site import service
-
-    os.environ["BALSAM_SITE_PATH"] = str(site_path)
-    ClientAPI.ensure_connection(site_path)
-    service.ensure_service()
-
-
 @activate.command()
 @click.argument(
     "site-path", type=click.Path(writable=True), callback=validate_site_path
@@ -82,5 +66,4 @@ def shell(ctx, site_path):
             "Please use `exit` to quit the current environment, then re-activate."
         )
 
-    ctx.forward(start_service)
     handover_to_bash(site_path)
