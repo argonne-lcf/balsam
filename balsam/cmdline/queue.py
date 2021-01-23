@@ -59,7 +59,7 @@ def submit(
     except ValueError as e:
         raise click.BadArgumentUsage(str(e))
     job.save()
-    print(yaml.dump(job.display_dict(), indent=4))
+    print(yaml.dump(job.display_dict(), sort_keys=False, indent=4))
 
 
 @queue.command()

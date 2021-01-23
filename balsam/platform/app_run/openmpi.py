@@ -1,7 +1,7 @@
-from .mpirun import MPIRun
+from .app_run import AppRun
 
 
-class OpenMPIRun(MPIRun):
+class OpenMPIRun(AppRun):
     """
     https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
     """

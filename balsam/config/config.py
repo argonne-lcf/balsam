@@ -78,7 +78,7 @@ class ClientSettings(BaseSettings):
             open(settings_path, "w").close()
             os.chmod(settings_path, 0o600)
         with open(settings_path, "w+") as fp:
-            yaml.dump(data, fp)
+            yaml.dump(data, fp, sort_keys=False, indent=4)
 
     def build_client(self):
         client = self.client_class(**self.dict(exclude={"client_class"}))
@@ -140,22 +140,21 @@ class LauncherSettings(BaseSettings):
     delay_sec: int = 1
     error_tail_num_lines: int = 10
     max_concurrent_mpiruns: int = 1000
-    compute_node: PyObject = "balsam.platform.nodes.ThetaKNLNode"
-    mpi_app_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
-    local_app_launcher: PyObject = "balsam.platform.mpirun.LocalRun"
-    mpirun_allows_node_packing: bool = True
-    serial_mode_prefetch_per_rank: int = 100
+    compute_node: PyObject = "balsam.platform.compute_node.ThetaKNLNode"
+    mpi_app_launcher: PyObject = "balsam.platform.app_run.ThetaAprun"
+    local_app_launcher: PyObject = "balsam.platform.app_run.LocalAppRun"
+    mpirun_allows_node_packing: bool = False
+    serial_mode_prefetch_per_rank: int = 64
     serial_mode_startup_params: dict = {"cpu_affinity": "none"}
 
 
 class Settings(BaseSettings):
     site_id: int = -1
-    mpi_launcher: PyObject = "balsam.platform.mpirun.ThetaAprun"
-    resource_manager: PyObject = "balsam.platform.nodespec.DefaultNode"
     logging: LoggingConfig = LoggingConfig()
     filter_tags: Dict[str, str] = {"workflow": "test-1", "system": "H2O"}
 
     # Balsam service modules
+    launcher: LauncherSettings = LauncherSettings()
     scheduler: Optional[SchedulerSettings] = SchedulerSettings()
     processing: Optional[ProcessingSettings] = ProcessingSettings()
     transfers: Optional[TransferSettings] = TransferSettings()
@@ -163,11 +162,14 @@ class Settings(BaseSettings):
 
     def save(self, path):
         with open(path, "w") as fp:
-            yaml.dump(
-                json.loads(self.json()),
-                fp,
-                indent=4,
-            )
+            fp.write(self.dump_yaml())
+
+    def dump_yaml(self):
+        return yaml.dump(
+            json.loads(self.json()),
+            sort_keys=False,
+            indent=4,
+        )
 
     @classmethod
     def load(cls, path):

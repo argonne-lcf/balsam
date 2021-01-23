@@ -173,6 +173,7 @@ def ls():
     """
     client = ClientSettings.load_from_home().build_client()
     reprs = [
-        yaml.dump(app.display_dict(), indent=4) for app in client.App.objects.all()
+        yaml.dump(app.display_dict(), sort_keys=False, indent=4)
+        for app in client.App.objects.all()
     ]
     print(*reprs, sep="\n----\n")

@@ -1,7 +1,7 @@
-from .mpirun import MPIRun
+from .app_run import AppRun
 
 
-class SlurmRun(MPIRun):
+class SlurmRun(AppRun):
     """
     https://slurm.schedmd.com/srun.html
     """

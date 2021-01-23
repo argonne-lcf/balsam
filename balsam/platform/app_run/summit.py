@@ -1,7 +1,7 @@
-from .mpirun import MPIRun
+from .app_run import AppRun
 
 
-class SummitJsrun(MPIRun):
+class SummitJsrun(AppRun):
     """
     https://docs.olcf.ornl.gov/systems/summit_user_guide.html#running-jobs
     """

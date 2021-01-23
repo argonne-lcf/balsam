@@ -3,7 +3,7 @@ import getpass
 import logging
 import os
 import stat
-from balsam.platform.job_template import ScriptTemplate
+from balsam.site import ScriptTemplate
 from balsam.platform.scheduler import SchedulerSubmitError
 from .service_base import BalsamService
 from balsam.cmdline.utils import partitions_to_cli_args

@@ -1,7 +1,7 @@
-from .mpirun import MPIRun
+from .app_run import AppRun
 
 
-class MPICHRun(MPIRun):
+class MPICHRun(AppRun):
     """
     https://wiki.mpich.org/mpich/index.php/Using_the_Hydra_Process_Manager
     """

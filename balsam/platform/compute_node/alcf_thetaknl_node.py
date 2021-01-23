@@ -2,7 +2,7 @@ import os
 from .compute_node import ComputeNode
 
 
-class ThetaKnlNode(ComputeNode):
+class ThetaKNLNode(ComputeNode):
 
     cpu_ids = list(range(64))
     gpu_ids = []

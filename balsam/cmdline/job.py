@@ -171,7 +171,7 @@ def create(
         parent_ids=parent_ids,
         transfers=transfers,
     )
-    click.echo(yaml.dump(job.display_dict(), indent=4))
+    click.echo(yaml.dump(job.display_dict(), sort_keys=False, indent=4))
     if click.confirm("Do you want to create this Job?"):
         job.save()
         click.echo(f"Added Job id={job.id}")
@@ -203,7 +203,7 @@ def ls(ctx, tags, state, exclude_state, workdir, verbose):
     result = list(jobs)
     if verbose:
         for j in result:
-            click.echo(yaml.dump(j.display_dict(), indent=4))
+            click.echo(yaml.dump(j.display_dict(), sort_keys=False, indent=4))
             click.echo("---\n")
     else:
         click.echo(f"{'ID':5}   {'Job Dir':14}   {'State':16}   {'Tags':40}")

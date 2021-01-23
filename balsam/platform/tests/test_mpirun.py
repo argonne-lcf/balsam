@@ -3,7 +3,7 @@ import re
 import shutil
 import unittest
 import time
-from balsam.platform.mpirun import MPIRun, ThetaAprun, SlurmRun, SummitJsrun
+from balsam.platform.app_run import OpenMPIRun, ThetaAprun, SlurmRun, SummitJsrun
 
 
 class MpirunTestMixin(object):
@@ -76,7 +76,7 @@ class MpirunTestMixin(object):
         self.assertEqual(retval, 0)
 
 
-class MPIRunTest(MpirunTestMixin, unittest.TestCase):
+class OpenMPIRunTest(MpirunTestMixin, unittest.TestCase):
     reduce_val = 5
     sleep_sec = 2
     test_script = """from mpi4py import MPI
@@ -104,7 +104,9 @@ time.sleep({1})
         num_ranks = self.ranks
         ranks_per_node = self.ranks_per_node
         env = os.environ
-        self.mpirun = MPIRun(app_args, node_list, num_ranks, ranks_per_node, env=env)
+        self.mpirun = OpenMPIRun(
+            app_args, node_list, num_ranks, ranks_per_node, env=env
+        )
         self.mpirun.get_launch_args = lambda: ["-n", num_ranks]
 
     @staticmethod

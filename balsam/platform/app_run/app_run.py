@@ -19,7 +19,7 @@ try:
     _psutil_process.cpu_affinity()
 except AttributeError:
     _psutil_process = _MockProcess()
-    logger.info("No psutil cpu_affinity support")
+    logger.debug("No psutil cpu_affinity support")
 
 
 class TimeoutExpired(Exception):

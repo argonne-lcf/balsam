@@ -1,34 +1,45 @@
-# Default local setup for Mac OS
-filter_tags: {}
+site_id: -1
 logging:
-    buffer_num_records: 1024
-    datefmt: '%d-%b-%Y %H:%M:%S'
-    flush_period: 30
+    level: DEBUG
     format: '%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
         %(message)s'
-    level: DEBUG
-mpi_launcher: balsam.platform.mpirun.theta.ThetaAprun
-processing:
-    num_workers: 1
-    prefetch_depth: 1000
-resource_manager: balsam.platform.nodespec.default.DefaultNode
+    datefmt: '%d-%b-%Y %H:%M:%S'
+    buffer_num_records: 1024
+    flush_period: 30
+filter_tags: {}
+launcher:
+    idle_ttl_sec: 30
+    delay_sec: 1
+    error_tail_num_lines: 10
+    max_concurrent_mpiruns: 100
+    compute_node: balsam.platform.compute_node.DefaultNode
+    mpi_app_launcher: balsam.platform.app_run.OpenMPIRun
+    local_app_launcher: balsam.platform.app_run.LocalAppRun
+    mpirun_allows_node_packing: true
+    serial_mode_prefetch_per_rank: 32
+    serial_mode_startup_params: {}
 scheduler:
-    allowed_projects:
-    - local
+    scheduler_class: balsam.platform.scheduler.LocalProcessScheduler
+    sync_period: 10
     allowed_queues:
         local:
             max_nodes: 1
-            max_queued_jobs: 1000
-            max_walltime: 60
-    job_template_path: job-template.sh.tmpl
+            max_walltime: 1440
+            max_queued_jobs: 20
+    allowed_projects:
+    - local
     optional_batch_job_params:
         shout: 'no'
-    scheduler_class: balsam.platform.scheduler.LocalProcessScheduler
-    sync_period: 10
-queue_maintainer: null
-site_id: -1
+    job_template_path: job-template.sh
+processing:
+    num_workers: 2
+    prefetch_depth: 100
 transfers:
-    globus_endpoint_id: null
-    max_concurrent_transfers: 5
     transfer_locations:
         theta_dtn: globus://08925f04-569f-11e7-bef8-22000b9a448b
+    max_concurrent_transfers: 5
+    globus_endpoint_id: null
+    transfer_batch_size: 100
+    num_items_query_limit: 2000
+    service_period: 5
+queue_maintainer: null

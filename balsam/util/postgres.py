@@ -60,7 +60,7 @@ def write_pwfile(
     pw_dict["scheme"] = "postgres"
     pw_dict["client_class"] = "balsam.client.DirectAPIClient"
     with open(Path(db_path).joinpath(filename), "w") as fp:
-        yaml.dump(pw_dict, fp)
+        yaml.dump(pw_dict, fp, sort_keys=False, indent=4)
     return pw_dict
 
 
@@ -127,7 +127,10 @@ def configure_django_database(
     database="balsam",
     engine="django.db.backends.postgresql",
     conn_max_age=60,
-    db_options={"connect_timeout": 30, "client_encoding": "UTF8",},
+    db_options={
+        "connect_timeout": 30,
+        "client_encoding": "UTF8",
+    },
     **kwargs,
 ):
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "balsam.server.conf.settings")

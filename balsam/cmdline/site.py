@@ -147,9 +147,7 @@ def sync():
 
 @site.command()
 def sample_settings():
-    path = Path("balsam-sample-settings.yml")
-    if path.exists():
-        click.echo(f"{path} already exists")
-    else:
-        Settings().save(path)
-        click.echo(f"Wrote a sample settings file to {path}")
+    """
+    Print a sample settings.yml site configuration
+    """
+    click.echo(Settings().dump_yaml())
