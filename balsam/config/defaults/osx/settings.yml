@@ -25,7 +25,7 @@ scheduler:
         local:
             max_nodes: 1
             max_walltime: 1440
-            max_queued_jobs: 20
+            max_queued_jobs: 1000
     allowed_projects:
     - local
     optional_batch_job_params:
