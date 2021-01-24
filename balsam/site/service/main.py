@@ -1,5 +1,6 @@
 from pathlib import Path
 import logging
+import multiprocessing
 import signal
 import os
 import socket
@@ -89,6 +90,7 @@ def main(config: SiteConfig, run_time_sec: int):
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method("fork", force=True)
     config = SiteConfig()
     run_time_sec = int(config.client.expires_in.total_seconds() - 60)
     with PIDFile(config.site_path):

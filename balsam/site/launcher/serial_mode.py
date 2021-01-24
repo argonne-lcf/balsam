@@ -1,5 +1,6 @@
 import click
 from datetime import datetime
+import multiprocessing
 import json
 import sys
 import logging
@@ -474,6 +475,7 @@ def main(
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method("fork", force=True)
     signal.signal(signal.SIGINT, handle_term)
     signal.signal(signal.SIGTERM, handle_term)
     main()
