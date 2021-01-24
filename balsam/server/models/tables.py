@@ -57,9 +57,27 @@ class Site(Base):
     transfer_locations = Column(pg.JSONB, default=dict)
 
     owner = orm.relationship(User, lazy="raise")
-    apps = orm.relationship("App", back_populates="site", lazy="dynamic")
-    batch_jobs = orm.relationship("BatchJob", back_populates="site", lazy="dynamic")
-    sessions = orm.relationship("Session", back_populates="site", lazy="dynamic")
+    apps = orm.relationship(
+        "App",
+        back_populates="site",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    batch_jobs = orm.relationship(
+        "BatchJob",
+        back_populates="site",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    sessions = orm.relationship(
+        "Session",
+        back_populates="site",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class App(Base):
@@ -75,7 +93,9 @@ class App(Base):
     last_modified = Column(Float, default=0.0)
 
     site = orm.relationship(Site, back_populates="apps")
-    jobs = orm.relationship("Job", back_populates="app")
+    jobs = orm.relationship(
+        "Job", back_populates="app", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 # Junction table
@@ -160,9 +180,19 @@ class Job(Base):
     session = orm.relationship("Session", back_populates="jobs")
     batch_job = orm.relationship("BatchJob", back_populates="jobs")
     transfer_items = orm.relationship(
-        "TransferItem", lazy="raise", back_populates="job"
+        "TransferItem",
+        lazy="raise",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
-    log_events = orm.relationship("LogEvent", lazy="raise", back_populates="job")
+    log_events = orm.relationship(
+        "LogEvent",
+        lazy="raise",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class BatchJob(Base):
