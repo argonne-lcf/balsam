@@ -18,4 +18,11 @@ echo "SHOUTING:  {{ optional_params['shout'] | upper }}"
 echo "You did not provide the 'shout' optional parameter"
 {% endif %}
 
-sleep 10
+export BALSAM_SITE_PATH={{balsam_site_path}}
+cd $BALSAM_SITE_PATH
+
+echo "Starting balsam launcher at $(date)"
+{{launcher_cmd}} -j {{job_mode}} -t {{wall_time_min}}  \
+{% for k, v in filter_tags.items() %} --tag {{k}}={{v}} {% endfor %} \
+{{partitions}}
+echo "Balsam launcher done at $(date)"

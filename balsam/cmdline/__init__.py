@@ -8,7 +8,6 @@ from balsam.cmdline import (
     app,
     job,
     queue,
-    launcher,
 )
 
 logger = logging.getLogger("balsam.cmdline")
@@ -51,7 +50,6 @@ LOAD_COMMANDS = [
     app.app,
     job.job,
     queue.queue,
-    launcher.launcher,
 ]
 if server is not None:
     LOAD_COMMANDS.append(server.server)

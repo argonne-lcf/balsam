@@ -1,3 +1,4 @@
+from importlib.util import find_spec
 from pathlib import Path
 import os
 import sys
@@ -52,12 +53,23 @@ class ScriptTemplate:
         conf["balsam_site_path"] = os.environ["BALSAM_SITE_PATH"]
         conf["balsam_bin"] = self.locate_balsam()
         conf["pg_bin"] = self.locate_postgres()
+        conf["launcher_cmd"] = self.launcher_entrypoint()
         return self._template.render(conf)
 
-    def locate_balsam(self):
+    @staticmethod
+    def locate_balsam():
         balsam_bin = shutil.which("balsam") or sys.executable
         return Path(balsam_bin).parent
 
-    def locate_postgres(self):
+    @staticmethod
+    def locate_postgres():
         pg_bin = shutil.which("pg_ctl") or os.environ.get("POSTGRES_BIN")
         return Path(pg_bin).parent if pg_bin else None
+
+    @staticmethod
+    def launcher_entrypoint():
+        launcher_path = find_spec("balsam.cmdline.launcher").origin
+        if launcher_path is None:
+            raise RuntimeError("Could not locate balsam.cmdline.launcher module")
+        path = Path(launcher_path).resolve()
+        return f"{sys.executable} {path}"
