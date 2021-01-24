@@ -7,7 +7,7 @@ import time
 import socket
 import psutil
 import subprocess
-from balsam.config import SiteConfig, ClientSettings, Settings
+from balsam.config import SiteConfig, ClientSettings, Settings, InvalidSettings
 from .utils import load_site_config
 from balsam.site.service import update_site_from_config
 
@@ -139,9 +139,13 @@ def init(site_path, hostname):
     selected = selected.split()[0]
     default_site_path = default_dirs[selected]
 
-    SiteConfig.new_site_setup(
-        site_path=site_path, default_site_path=default_site_path, hostname=hostname
-    )
+    try:
+        SiteConfig.new_site_setup(
+            site_path=site_path, default_site_path=default_site_path, hostname=hostname
+        )
+    except (InvalidSettings, FileNotFoundError) as exc:
+        click.echo(str(exc))
+        sys.exit(1)
 
     click.echo(f"New Balsam site set up at {site_path}")
 

@@ -1,3 +1,3 @@
-from .config import ClientSettings, Settings, SiteConfig
+from .config import ClientSettings, Settings, SiteConfig, InvalidSettings
 
-__all__ = ["ClientSettings", "Settings", "SiteConfig"]
+__all__ = ["ClientSettings", "Settings", "SiteConfig", "InvalidSettings"]

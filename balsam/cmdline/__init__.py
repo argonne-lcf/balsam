@@ -54,7 +54,7 @@ LOAD_COMMANDS = [
     launcher.launcher,
 ]
 if server is not None:
-    LOAD_COMMANDS.append(server)
+    LOAD_COMMANDS.append(server.server)
 
 for cmd in LOAD_COMMANDS:
     main.add_command(cmd)

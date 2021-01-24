@@ -1,7 +1,6 @@
 from abc import ABCMeta
 import json
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 import socket
@@ -22,6 +21,10 @@ from balsam.schemas import AllowedQueue
 from balsam.platform.transfer import GlobusTransferInterface
 
 from balsam.util import config_logging
+
+
+class InvalidSettings(Exception):
+    pass
 
 
 def balsam_home():
@@ -207,7 +210,10 @@ class SiteConfig:
 
         if not yaml_settings.is_file():
             raise FileNotFoundError(f"{site_path} must contain a settings.yml")
-        self.settings = self._load_yaml_settings(yaml_settings)
+        try:
+            self.settings = Settings.load(yaml_settings)
+        except ValidationError as exc:
+            raise InvalidSettings(f"{yaml_settings} is invalid:\n{exc}")
         self.client = ClientSettings.load_from_home().build_client()
 
     def build_services(self):
@@ -290,7 +296,12 @@ class SiteConfig:
         site_path.mkdir(exist_ok=False, parents=True)
         site_path.joinpath(".balsam-site").touch()
 
-        settings = cls._load_yaml_settings(default_site_path.joinpath("settings.yml"))
+        defaults_path = default_site_path.joinpath("settings.yml")
+        try:
+            settings = Settings.load(defaults_path)
+        except ValidationError as exc:
+            shutil.rmtree(site_path)
+            raise InvalidSettings(f"{defaults_path} is invalid:\n{exc}")
 
         client = ClientSettings.load_from_home().build_client()
         site = client.Site.objects.create(
@@ -303,7 +314,7 @@ class SiteConfig:
         try:
             cf = cls(site_path=site_path, settings=settings)
             for path in [cf.log_path, cf.job_path, cf.data_path]:
-                path.mkdir(exist_ok=True)
+                path.mkdir(exist_ok=False)
             shutil.copytree(
                 src=default_site_path.joinpath("apps"),
                 dst=cf.apps_path,
@@ -312,8 +323,9 @@ class SiteConfig:
                 src=default_site_path.joinpath(settings.scheduler.job_template_path),
                 dst=cf.site_path,
             )
-        except Exception:
+        except FileNotFoundError:
             site.delete()
+            shutil.rmtree(site_path)
             raise
 
     @staticmethod
@@ -381,17 +393,3 @@ class SiteConfig:
             **self.settings.logging.dict(),
         )
         return {"filename": log_path, **self.settings.logging.dict()}
-
-    @staticmethod
-    def _load_yaml_settings(file_path, validate=True):
-        with open(file_path) as fp:
-            raw_settings = yaml.safe_load(fp)
-        if not validate:
-            return Settings.construct(**raw_settings)
-        try:
-            settings = Settings(**raw_settings)
-        except ValidationError as exc:
-            print(f"Please fix the issues in settings file: {file_path}")
-            print(exc, file=sys.stderr)
-            sys.exit(1)
-        return settings

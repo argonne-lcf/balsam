@@ -47,6 +47,7 @@
 
 
 ## CI
+- [ ] black, flake8, mypy
 - [ ] Server tests
 - [ ] Client API tests
 - [ ] Platform unit tests
