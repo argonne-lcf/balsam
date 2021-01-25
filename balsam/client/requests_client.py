@@ -1,6 +1,7 @@
 import os
 import logging
 import requests
+import time
 from pprint import pformat
 from json import JSONDecodeError
 
@@ -64,6 +65,12 @@ class RequestsClient(RESTClient):
                 attempt += 1
                 if attempt == self.retry_count:
                     raise requests.Timeout(f"Timed-out {attempt} times.") from exc
+            except requests.ConnectionError as exc:
+                logger.warning(f"Retrying connection: {exc}")
+                time.sleep(1)
+                attempt += 1
+                if attempt == self.retry_count:
+                    raise
             else:
                 try:
                     return response.json()
