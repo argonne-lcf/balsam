@@ -2,6 +2,7 @@ import click
 from datetime import datetime
 from importlib.util import find_spec
 import json
+import logging
 import os
 import sys
 import shlex
@@ -13,6 +14,7 @@ from balsam.site.launcher import NodeSpec
 MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin
 SERIAL_MODE_PATH = find_spec("balsam.site.launcher.serial_mode").origin
 PART_INDEX = 0
+logger = logging.getLogger("balsam.cmdline.launcher")
 
 
 def get_run_basename(base):
@@ -37,8 +39,8 @@ def start_mpi_mode(site_config, wall_time_min, nodes, filter_tags):
     args += f"{sys.executable} {MPI_MODE_PATH} "
     args += f"--wall-time-min {wall_time_min} "
     args += f"--log-filename {log_filename} "
-    args += f"--node-ids {json.dumps(node_ids)} "
-    args += f"--filter-tags {json.dumps(filter_tags)} "
+    args += f"--node-ids {shlex.quote(json.dumps(node_ids))} "
+    args += f"--filter-tags {shlex.quote(json.dumps(filter_tags))} "
 
     proc = subprocess.Popen(
         args=shlex.split(args),
@@ -46,6 +48,7 @@ def start_mpi_mode(site_config, wall_time_min, nodes, filter_tags):
         stdout=open(stdout_filename, "wb"),
         stderr=subprocess.STDOUT,
     )
+    logger.debug(f"Started MPI mode launcher: {proc.args}")
     return proc
 
 
@@ -69,7 +72,7 @@ def start_serial_mode(site_config, wall_time_min, nodes, filter_tags):
     args += f"--master-address {master_host}:{master_port} "
     args += f"--log-filename {log_filename} "
     args += f"--num-workers {len(nodes)} "
-    args += f"--filter-tags {json.dumps(filter_tags)} "
+    args += f"--filter-tags {shlex.quote(json.dumps(filter_tags))} "
 
     app_run = site_config.launcher.mpi_app_launcher
     app = app_run(
@@ -86,6 +89,7 @@ def start_serial_mode(site_config, wall_time_min, nodes, filter_tags):
         gpus_per_rank=len(nodes[0].gpu_ids),
     )
     app.start()
+    logger.debug(f"Started Serial mode launcher: {args}")
     return app
 
 

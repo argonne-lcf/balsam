@@ -134,23 +134,21 @@ class Master:
     def run(self):
         global EXIT_FLAG
         logger.debug("In master run")
-        for remaining_minutes in self.remaining_timer:
-            logger.debug(f"{remaining_minutes} minutes remaining")
-            self.handle_request()
-            self.idle_check()
-            if EXIT_FLAG:
-                logger.info("EXIT_FLAG on; master breaking main loop")
-                break
-
-        self.shutdown()
-        logger.info("shutdown done: ensemble master exit gracefully")
+        try:
+            for remaining_minutes in self.remaining_timer:
+                logger.debug(f"{remaining_minutes} minutes remaining")
+                self.handle_request()
+                self.idle_check()
+                if EXIT_FLAG:
+                    logger.info("EXIT_FLAG on; master breaking main loop")
+                    break
+        except:  # noqa
+            raise
+        finally:
+            self.shutdown()
+            logger.info("shutdown done: ensemble master exit gracefully")
 
     def shutdown(self):
-        logger.info("Master sending exit message to all Workers")
-        for _ in range(self.num_workers):
-            self.socket.recv_json()
-            self.socket.send_json({"exit": True})
-
         now = datetime.utcnow()
         logger.info(f"Timing out {len(self.active_ids)} active runs")
         for id in self.active_ids:
@@ -172,6 +170,11 @@ class Master:
         self.job_source.terminate()
         self.job_source.join()
         logger.info("JobSource has joined.")
+        logger.info("Master sending exit message to all Workers")
+        for _ in range(self.num_workers):
+            self.socket.recv_json()
+            self.socket.send_json({"exit": True})
+        logger.info("All workers have received exit message. Quitting.")
 
 
 class Worker:

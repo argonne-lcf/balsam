@@ -89,7 +89,7 @@ class NodeManager:
             threads_per_rank=job.threads_per_rank,
             threads_per_core=job.threads_per_core,
             gpus_per_rank=job.gpus_per_rank,
-            node_occupancy=job.node_occupancy,
+            node_occupancy=1.0 / job.node_packing_count,
         )
 
     def assign_from_params(
