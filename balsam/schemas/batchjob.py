@@ -66,6 +66,9 @@ class BatchJobBase(BaseModel):
         ],
     )
 
+    class Config:
+        use_enum_values = True
+
 
 class BatchJobCreate(BatchJobBase):
     site_id: int = Field(..., example=4)
