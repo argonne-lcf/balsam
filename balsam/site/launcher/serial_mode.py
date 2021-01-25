@@ -11,10 +11,10 @@ import subprocess
 import zmq
 
 from balsam.config import SiteConfig
-from .util import countdown_timer_min
-from .node_manager import NodeManager, InsufficientResources
 from balsam.site import FixedDepthJobSource, BulkStatusUpdater, ApplicationDefinition
 from balsam.platform import TimeoutExpired
+from balsam.site.launcher.node_manager import NodeManager, InsufficientResources
+from balsam.site.launcher.util import countdown_timer_min
 
 logger = logging.getLogger("balsam.site.launcher.serial_mode")
 EXIT_FLAG = False
@@ -350,9 +350,9 @@ class Worker:
                 "request_num_jobs": request_num_jobs,
             }
             self.socket.send_json(msg)
-            logger.debug(f"Worker awaiting response...")
+            logger.debug("Worker awaiting response...")
             response_msg = self.socket.recv_json()
-            logger.debug(f"Worker response received")
+            logger.debug("Worker response received")
 
             if response_msg.get("exit"):
                 logger.info(f"Worker {self.hostname} received exit message: break")

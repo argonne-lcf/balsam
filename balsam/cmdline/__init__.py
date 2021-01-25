@@ -7,7 +7,7 @@ from balsam.cmdline import (
     site,
     app,
     job,
-    queue,
+    scheduler,
 )
 
 logger = logging.getLogger("balsam.cmdline")
@@ -32,7 +32,7 @@ click.core.make_default_short_help = _new_shorthelp
 
 @click.group()
 @click.version_option(version=__version__)
-def main():
+def _main():
     """
     Balsam Command Line Interface.
 
@@ -43,19 +43,27 @@ def main():
     pass
 
 
+def main():
+    try:
+        _main()
+    except Exception as e:
+        click.echo(e)
+        click.echo("  [Set `BALSAM_CLI_TRACEBACK=1` to see a full stack trace]")
+
+
 LOAD_COMMANDS = [
     login.login,
     login.register,
     site.site,
     app.app,
     job.job,
-    queue.queue,
+    scheduler.queue,
 ]
 if server is not None:
     LOAD_COMMANDS.append(server.server)
 
 for cmd in LOAD_COMMANDS:
-    main.add_command(cmd)
+    _main.add_command(cmd)
 
 if __name__ == "__main__":
     main()

@@ -10,8 +10,8 @@ from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
 from balsam.site import SynchronousJobSource, BulkStatusUpdater
 from balsam.site import ApplicationDefinition
-from .node_manager import NodeManager
-from .util import countdown_timer_min
+from balsam.site.launcher.node_manager import NodeManager
+from balsam.site.launcher.util import countdown_timer_min
 
 logger = logging.getLogger("balsam.site.launcher.mpi_mode")
 

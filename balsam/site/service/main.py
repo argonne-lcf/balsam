@@ -78,15 +78,15 @@ def main(config: SiteConfig, run_time_sec: int):
         logger.debug("Service sleeping 2...")
         time.sleep(2)
 
-    logger.info(f"Terminating services...")
+    logger.info("Terminating services...")
     for service in services:
         service.terminate()
 
-    logger.info(f"Waiting for service processes to join")
+    logger.info("Waiting for service processes to join")
     for service in services:
         service.join()
 
-    logger.info(f"Balsam service: exit main loop")
+    logger.info("Balsam service: exit main loop")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import sys
 import shlex
 import subprocess
 
-from .utils import load_site_config, validate_tags, validate_partitions
+from balsam.cmdline.utils import load_site_config, validate_tags, validate_partitions
 from balsam.site.launcher import NodeSpec
 
 MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin
@@ -136,3 +136,7 @@ def launcher(
 
     for proc in launcher_procs:
         proc.wait()
+
+
+if __name__ == "__main__":
+    launcher()

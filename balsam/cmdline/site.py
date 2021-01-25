@@ -30,22 +30,17 @@ def start():
     if site_dir.joinpath(PID_FILENAME).is_file():
         raise click.BadArgumentUsage(
             f"{PID_FILENAME} already exists in {site_dir}: "
-            "This means the service is already running; to restart it, "
-            "first use `balsam service stop`."
+            "This means the site is already running; to restart it, "
+            "first use `balsam site stop`."
         )
     os.environ["BALSAM_SITE_PATH"] = site_dir.as_posix()
-    # outfile = cf.log_path.joinpath("service.out")
-    # with open(outfile, "wb") as fp:
     p = subprocess.Popen(
         [sys.executable, "-m", "balsam.site.service.main"],
         cwd=site_dir,
-        # stdout=fp,
-        # stderr=subprocess.STDOUT,
     )
     time.sleep(0.2)
     if p.poll() is None:
-        click.echo(f"Started Balsam service [pid {p.pid}]")
-        click.echo(f"args: {p.args}")
+        click.echo(f"Started Balsam site daemon [pid {p.pid}]")
 
 
 @site.command()
@@ -62,17 +57,17 @@ def stop():
         service_pid = int(service_pid)
     except ValueError:
         raise click.BadArgumentUsage(
-            f"Failed to read {pid_file}: please delete it and manually kill the service process!"
+            f"Failed to read {pid_file}: please delete it and manually kill the site daemon process!"
         )
     cur_host = socket.gethostname()
     if cur_host != service_host:
         raise click.BadArgumentUsage(
-            f"The service is running on {service_host}; cannot stop from current host: {cur_host}"
+            f"The site daemon is running on {service_host}; cannot stop from current host: {cur_host}"
         )
     if not psutil.pid_exists(service_pid):
         raise click.BadArgumentUsage(
             f"Could not find process with PID {service_pid}. "
-            f"Make sure the Balsam service isn't running and delete {pid_file}"
+            f"Make sure the Balsam site daemon isn't running and delete {pid_file}"
         )
     try:
         service_proc = psutil.Process(pid=service_pid)
@@ -80,10 +75,10 @@ def stop():
     except (ProcessLookupError, psutil.ProcessLookupError):
         raise click.BadArgumentUsage(
             f"Could not find process with PID {service_pid}. "
-            f"Make sure the Balsam service isn't running and delete {pid_file}"
+            f"Make sure the Balsam site daemon isn't running and delete {pid_file}"
         )
-    click.echo(f"Sent SIGTERM to Balsam service [pid {service_pid}]")
-    click.echo("Waiting for service to shutdown...")
+    click.echo(f"Sent SIGTERM to Balsam site daemon [pid {service_pid}]")
+    click.echo("Waiting for site daemon to shutdown...")
     with click.progressbar(range(12)) as bar:
         for i in bar:
             try:
@@ -91,11 +86,11 @@ def stop():
             except psutil.TimeoutExpired:
                 if i == 11:
                     raise click.BadArgumentUsage(
-                        f"Service did not shut down gracefully on its own; please kill it manually "
+                        f"Site daemon did not shut down gracefully on its own; please kill it manually "
                         f"and delete {pid_file}"
                     )
             else:
-                click.echo("\nService shutdown OK")
+                click.echo("\nSite daemon shutdown OK")
                 break
 
 
