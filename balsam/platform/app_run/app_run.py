@@ -3,8 +3,10 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+from typing import Union, List, Dict
 import psutil
 import logging
+from balsam.site.launcher import NodeSpec
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +37,17 @@ class AppRun(ABC):
 
     def __init__(
         self,
-        cmdline,
-        preamble,
-        envs,
-        cwd,
-        outfile_path,
-        node_spec,
-        ranks_per_node,
-        threads_per_rank,
-        threads_per_core,
-        launch_params,
-        gpus_per_rank,
+        cmdline: str,
+        preamble: Union[str, List[str]],
+        envs: Dict[str, str],
+        cwd: Path,
+        outfile_path: Path,
+        node_spec: NodeSpec,
+        ranks_per_node: int,
+        threads_per_rank: int,
+        threads_per_core: int,
+        launch_params: Dict[str, str],
+        gpus_per_rank: int,
     ):
         self._cmdline = cmdline
         self._preamble = preamble
@@ -58,6 +60,9 @@ class AppRun(ABC):
         self._threads_per_core = threads_per_core
         self._launch_params = launch_params
         self._gpus_per_rank = gpus_per_rank
+
+    def get_num_ranks(self):
+        return self._ranks_per_node * len(self._node_spec.node_ids)
 
     @abstractmethod
     def start(self):
@@ -124,9 +129,11 @@ class SubprocessAppRun(AppRun):
     def _get_envs(self):
         envs = os.environ.copy()
         envs.update(self._envs)
-        if self._gpu_ids:
+        # Check the assigned GPU ID list from the first compute node:
+        gpu_ids = self._node_spec.gpu_ids[0]
+        if gpu_ids:
             envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-            envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, self._gpu_ids))
+            envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
         return envs
 
     def _open_outfile(self):
@@ -140,6 +147,7 @@ class SubprocessAppRun(AppRun):
 
     def start(self):
         cmdline = self._build_preamble() + self._build_cmdline()
+        logger.info(f"{self.__class__.__name__} Popen: {cmdline}")
         self._outfile = self._open_outfile()
         envs = self._get_envs()
         self._pre_popen()

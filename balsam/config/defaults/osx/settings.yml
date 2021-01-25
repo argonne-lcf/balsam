@@ -13,7 +13,7 @@ launcher:
     error_tail_num_lines: 10
     max_concurrent_mpiruns: 100
     compute_node: balsam.platform.compute_node.DefaultNode
-    mpi_app_launcher: balsam.platform.app_run.OpenMPIRun
+    mpi_app_launcher: balsam.platform.app_run.MPICHRun
     local_app_launcher: balsam.platform.app_run.LocalAppRun
     mpirun_allows_node_packing: true
     serial_mode_prefetch_per_rank: 32
