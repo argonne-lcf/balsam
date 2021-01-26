@@ -1,19 +1,31 @@
 # Default setup for Theta KNL cluster @ ALCF
+site_id: -1
+
 logging:
-    buffer_num_records: 1024
-    datefmt: '%d-%b-%Y %H:%M:%S'
-    flush_period: 30
+    level: DEBUG
     format: '%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
         %(message)s'
-    level: DEBUG
-mpi_launcher: balsam.platform.mpirun.theta.ThetaAprun
-processing:
-    num_workers: 5
-    prefetch_depth: 1000
-resource_manager: balsam.platform.nodespec.default.DefaultNode
+    datefmt: '%d-%b-%Y %H:%M:%S'
+    buffer_num_records: 1024
+    flush_period: 30
+
+filter_tags: {}
+
+launcher:
+    idle_ttl_sec: 30
+    delay_sec: 1
+    error_tail_num_lines: 10
+    max_concurrent_mpiruns: 990
+    compute_node: balsam.platform.compute_node.ThetaKNLNode
+    mpi_app_launcher: balsam.platform.app_run.ThetaAprun
+    local_app_launcher: balsam.platform.app_run.LocalAppRun
+    mpirun_allows_node_packing: false
+    serial_mode_prefetch_per_rank: 64
+    serial_mode_startup_params: {}
+
 scheduler:
-    allowed_projects:
-    - datascience
+    scheduler_class: balsam.platform.scheduler.CobaltScheduler
+    sync_period: 10
     allowed_queues:
         debug-cache-quad:
             max_nodes: 8
@@ -27,14 +39,23 @@ scheduler:
             max_nodes: 4010
             max_queued_jobs: 20
             max_walltime: 1440
-    job_template_path: job-template.sh
+    allowed_projects:
+    - datascience
     optional_batch_job_params:
         singularity_prime_cache: 'no'
-    scheduler_class: balsam.platform.scheduler.cobalt_sched.CobaltScheduler
-    sync_period: 60
-site_id: -1
+    job_template_path: job-template.sh
+
+processing:
+    num_workers: 5
+    prefetch_depth: 1000
+
 transfers:
-    globus_endpoint_id: null
+    globus_endpoint_id: 08925f04-569f-11e7-bef8-22000b9a448b
     max_concurrent_transfers: 5
+    transfer_batch_size: 100
+    num_items_query_limit: 2000
+    service_period: 5
     transfer_locations:
         theta_dtn: globus://08925f04-569f-11e7-bef8-22000b9a448b
+
+queue_maintainer: null
