@@ -18,7 +18,7 @@ class NodeSpec(BaseModel):
             raise ValueError("Must provide same number of node_ids as hostnames")
         return v
 
-    @validator("cpu_ids")
+    @validator("cpu_ids", always=True)
     def cpu_ids_len(cls, v, values):
         if not v:
             v = [[] for _ in range(len(values["node_ids"]))]
@@ -26,7 +26,7 @@ class NodeSpec(BaseModel):
             raise ValueError("Must provide same number of cpu_id lists")
         return v
 
-    @validator("gpu_ids")
+    @validator("gpu_ids", always=True)
     def gpu_ids_len(cls, v, values):
         if not v:
             v = [[] for _ in range(len(values["node_ids"]))]

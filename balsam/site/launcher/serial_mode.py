@@ -1,6 +1,7 @@
 import click
 from datetime import datetime
 import multiprocessing
+from pathlib import Path
 import json
 import sys
 import logging
@@ -61,7 +62,7 @@ class Master:
     def job_to_dict(self, job):
         app_cls = self.app_cache[job.app_id]
         app = app_cls(job)
-        workdir = self.data_dir.joinpath(app.job.workdir)
+        workdir = self.data_dir.joinpath(app.job.workdir).as_posix()
 
         preamble = app.shell_preamble()
         app_command = app.get_arg_str()
@@ -199,7 +200,7 @@ class Worker:
         self.app_run = app_run
         self.node_manager = node_manager
         self.master_address = f"tcp://{master_host}:{master_port}"
-        self.delay_sec = delay_sec
+        self.delayer = countdown_timer_min(4320, delay_sec=delay_sec)
         self.error_tail_num_lines = error_tail_num_lines
         self.num_prefetch_jobs = num_prefetch_jobs
 
@@ -269,11 +270,12 @@ class Worker:
         logger.debug(f"Job {id} WORKER_START")
         proc = self.app_run(
             **job_spec,
-            **node_spec,
+            node_spec=node_spec,
             ranks_per_node=1,
             launch_params={},
-            outfile_path=job_spec["cwd"].joinpath("job.out"),
+            outfile_path=Path(job_spec["cwd"]).joinpath("job.out"),
         )
+        proc.start()
         self.app_runs[id] = proc
 
     def handle_error(self, id, retcode):
@@ -375,6 +377,7 @@ class Worker:
             if EXIT_FLAG:
                 logger.info(f"Worker {self.hostname} EXIT_FLAG break")
                 break
+            next(self.delayer)
 
         self.exit()
 
@@ -445,7 +448,7 @@ def run_worker(site_config, master_host, master_port, hostname):
 @click.option("--master-address")
 @click.option("--run-master", is_flag=True, default=False)
 @click.option("--log-filename")
-@click.option("--num-workers")
+@click.option("--num-workers", type=int)
 @click.option("--filter-tags")
 def main(
     wall_time_min, master_address, run_master, log_filename, num_workers, filter_tags
@@ -458,6 +461,7 @@ def main(
 
     if run_master:
         site_config.enable_logging("serial_mode", filename=log_filename + ".master")
+        logger.debug("Launching master")
         run_master_launcher(
             site_config,
             wall_time_min,
@@ -470,11 +474,24 @@ def main(
             "serial_mode", filename=log_filename + f".{hostname}"
         )
         if hostname == master_host:
+            logger.debug("Launching master subprocess")
             master_proc = launch_master_subprocess()
-        run_worker(site_config, master_host, master_port, hostname)
-        if master_proc is not None:
-            master_proc.terminate()
-            master_proc.wait()
+
+        logger.debug("Launching worker")
+        try:
+            run_worker(site_config, master_host, master_port, hostname)
+        except:  # noqa
+            raise
+        finally:
+            if master_proc is not None:
+                logger.debug("Sending SIGTERM to master process")
+                master_proc.terminate()
+                try:
+                    master_proc.wait(timeout=10)
+                    logger.debug("master process shutdown OK")
+                except subprocess.TimeoutExpired:
+                    logger.debug("Killing master process")
+                    master_proc.kill()
 
 
 if __name__ == "__main__":
