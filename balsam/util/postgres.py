@@ -10,7 +10,6 @@ import re
 import sys
 import socket
 import yaml
-from balsam import banner
 import balsam.server
 
 SERVER_INFO_FILENAME = "server-info.yml"
@@ -344,7 +343,7 @@ def create_user_and_pwfile(
         filename=pwfile,
     )
 
-    banner(
+    print(
         f"New Postgres user data in {pwfile}.\n"
         f"Protect this file in transit to {new_user}! "
         f"It contains the token necessary to reach the DB. "

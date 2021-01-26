@@ -20,7 +20,7 @@ from balsam.client import RESTClient, NotAuthenticatedError
 from balsam.schemas import AllowedQueue
 from balsam.platform.transfer import GlobusTransferInterface
 
-from balsam.util import config_logging
+from balsam.util import config_file_logging
 
 
 class InvalidSettings(Exception):
@@ -388,7 +388,7 @@ class SiteConfig:
             ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             filename = f"{basename}_{ts}.log"
         log_path = self.log_path.joinpath(filename)
-        config_logging(
+        config_file_logging(
             filename=log_path,
             **self.settings.logging.dict(),
         )

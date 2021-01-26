@@ -1,7 +1,9 @@
-from pydantic import BaseSettings
+from pydantic import BaseSettings, validator
 from datetime import timedelta
 from importlib import import_module
+from typing import Union
 import logging
+from balsam.util import validate_log_level
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres@localhost:5432/balsam"
     auth: AuthSettings = AuthSettings()
     redis_params: dict = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
+    balsam_log_level: Union[str, int] = logging.DEBUG
+    sqlalchemy_log_level: Union[str, int] = logging.DEBUG
+
+    @validator("balsam_log_level", always=True)
+    def validate_balsam_log_level(cls, v):
+        return validate_log_level(v)
+
+    @validator("sqlalchemy_log_level", always=True)
+    def validate_sqlalchemy_log_level(cls, v):
+        return validate_log_level(v)
 
 
 settings = Settings()

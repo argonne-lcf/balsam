@@ -1,6 +1,7 @@
 from balsam import __version__
 import click
 import logging
+import os
 
 from balsam.cmdline import login
 from balsam.cmdline import (
@@ -47,8 +48,10 @@ def main():
     try:
         _main()
     except Exception as e:
+        if os.environ.get("BALSAM_CLI_TRACEBACK"):
+            raise
         click.echo(e)
-        click.echo("  [Set `BALSAM_CLI_TRACEBACK=1` to see a full stack trace]")
+        click.echo("    [Export BALSAM_CLI_TRACEBACK=1 to see a full stack trace]")
 
 
 LOAD_COMMANDS = [

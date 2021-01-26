@@ -6,21 +6,40 @@ from .routers import sites, apps, jobs, events, batch_jobs, transfers, sessions
 from .pubsub import pubsub
 from sqlalchemy.orm.exc import NoResultFound
 from balsam.server import settings
+from balsam.util import config_root_logger
 
-app = FastAPI(title="Balsam API", version="0.1.0",)
+app = FastAPI(
+    title="Balsam API",
+    version="0.1.0",
+)
 
-logger = logging.getLogger("balsam.server.main")
+
+def setup_logging():
+    _, handler = config_root_logger(settings.balsam_log_level)
+    sqa_logger = logging.getLogger("sqlalchemy")
+    sqa_logger.setLevel(settings.sqlalchemy_log_level)
+    sqa_logger.handlers.clear()
+    sqa_logger.addHandler(handler)
+    logging.getLogger("sqlalchemy.engine").propagate = True
+    return logging.getLogger("balsam.server.main")
+
+
+logger = setup_logging()
 
 
 @app.exception_handler(NoResultFound)
 async def no_result_handler(request: Request, exc: NoResultFound):
     return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not found"},
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"error": "Not found"},
     )
 
 
 app.include_router(
-    auth.router, prefix="/users", tags=["users"], dependencies=[],
+    auth.router,
+    prefix="/users",
+    tags=["users"],
+    dependencies=[],
 )
 
 app.include_router(
