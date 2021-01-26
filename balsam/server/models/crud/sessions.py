@@ -2,7 +2,7 @@ import math
 from datetime import datetime, timedelta
 from balsam.server import models, ValidationError
 from balsam import schemas
-from .jobs import update_states_by_query
+from .jobs import update_states_by_query, set_parent_ids
 from sqlalchemy import orm
 
 SESSION_EXPIRE_PERIOD = timedelta(minutes=5)
@@ -45,6 +45,7 @@ def _clear_stale_sessions(db, owner):
             state="RUN_TIMEOUT",
             data="Session expired: lost contact with launcher",
         )
+        set_parent_ids(jobs)
         expired_jobs.extend(jobs)
         expiry_events.extend(events)
     sess_ids = [sess.id for sess in expired_sessions]
