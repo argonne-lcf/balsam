@@ -1,6 +1,7 @@
 from abc import ABCMeta
 import json
 import os
+import jinja2
 from datetime import datetime
 from pathlib import Path
 import socket
@@ -285,6 +286,15 @@ class SiteConfig:
         default_settings_files = defaults_dir.glob("*/settings.yml")
         return [p.parent for p in default_settings_files]
 
+    @staticmethod
+    def load_settings_template(path):
+        raw = path.read_text()
+        ctx = jinja2.Environment().parse(raw)
+        detected_params = jinja2.meta.find_undeclared_variables(ctx)
+        if "site_id" not in detected_params:
+            raise ValueError("{{ site_id }} missing from default settings.yml")
+        return jinja2.Template(raw)
+
     @classmethod
     def new_site_setup(cls, site_path, default_site_path, hostname=None):
         """
@@ -292,24 +302,27 @@ class SiteConfig:
         with Balsam API, and writes default settings.yml into
         Site directory
         """
+        defaults_path = default_site_path.joinpath("settings.yml")
+        settings_template = cls.load_settings_template(defaults_path)
         site_path = Path(site_path)
         site_path.mkdir(exist_ok=False, parents=True)
         site_path.joinpath(".balsam-site").touch()
-
-        defaults_path = default_site_path.joinpath("settings.yml")
-        try:
-            settings = Settings.load(defaults_path)
-        except ValidationError as exc:
-            shutil.rmtree(site_path)
-            raise InvalidSettings(f"{defaults_path} is invalid:\n{exc}")
 
         client = ClientSettings.load_from_home().build_client()
         site = client.Site.objects.create(
             hostname=socket.gethostname() if hostname is None else hostname,
             path=site_path,
         )
-        settings.site_id = site.id
-        settings.save(path=site_path.joinpath("settings.yml"))
+        settings_ctx = {"site_id": site.id}
+        with open(site_path.joinpath("settings.yml"), "w") as fp:
+            fp.write(settings_template.render(settings_ctx) + "\n")
+
+        try:
+            settings = Settings.load(fp.name)
+        except ValidationError as exc:
+            shutil.rmtree(site_path)
+            site.delete()
+            raise InvalidSettings(f"{defaults_path} is invalid:\n{exc}")
 
         try:
             cf = cls(site_path=site_path, settings=settings)

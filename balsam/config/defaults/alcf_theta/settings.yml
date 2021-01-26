@@ -1,31 +1,58 @@
 # Default setup for Theta KNL cluster @ ALCF
-site_id: -1
 
+site_id: {{ site_id }}  # Do not change
+
+# Log file behavior for launcher and site services
 logging:
-    level: DEBUG
+    level: DEBUG # Increasing verbosity: ERROR, WARNING, INFO, DEBUG
     format: '%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
         %(message)s'
     datefmt: '%d-%b-%Y %H:%M:%S'
-    buffer_num_records: 1024
-    flush_period: 30
+    buffer_num_records: 1024  # Flush logs after this many records emitted
+    flush_period: 30  # Flush logs after this many seconds since last flush
 
+# Use filter_tags to limit what jobs the Site will process.
+# Launchers submitted from the command line will ignore this setting 
+# and use the --filter-tags specified as command line arguments.
+# For example:
+#   filter_tags:
+#     system: H2O
+#     workflow: test
 filter_tags: {}
 
+
+# Launcher settings
 launcher:
-    idle_ttl_sec: 30
-    delay_sec: 1
-    error_tail_num_lines: 10
-    max_concurrent_mpiruns: 990
+    idle_ttl_sec: 30  # Shutdown after this many seconds of nothing running
+    delay_sec: 1  # Process polling interval
+    error_tail_num_lines: 10 # Number of lines from tail-end of job output to store
+    max_concurrent_mpiruns: 990 # Maximum number of runs in a single MPI-mode launcher
+    
+    # Launcher platform interfaces:
     compute_node: balsam.platform.compute_node.ThetaKNLNode
     mpi_app_launcher: balsam.platform.app_run.ThetaAprun
     local_app_launcher: balsam.platform.app_run.LocalAppRun
-    mpirun_allows_node_packing: false
-    serial_mode_prefetch_per_rank: 64
-    serial_mode_startup_params: {}
+    mpirun_allows_node_packing: false # mpi_app_launcher supports multiple concurrent runs per node
+    serial_mode_prefetch_per_rank: 64 # How many jobs to prefetch from API in serial mode
 
+    # Pass-through parameters to mpirun when starting the serial mode launcher:
+    serial_mode_startup_params: 
+        cpu_affinity: none
+
+# ###################################################################
+# BALSAM Site modules
+# Any of the modules below can be disabled by setting the key: null
+#
+# For instance, `transfers: null` will disable the transfers module
+# if you are not performing any remote data transfers
+# ###################################################################
+
+# Scheduler service syncs the Balsam API with local queues
 scheduler:
     scheduler_class: balsam.platform.scheduler.CobaltScheduler
-    sync_period: 10
+    sync_period: 10 # Scheduler polling / API update interval in seconds
+
+    # Configure the queues to which BatchJobs may be submitted at this Site
     allowed_queues:
         debug-cache-quad:
             max_nodes: 8
@@ -39,23 +66,48 @@ scheduler:
             max_nodes: 4010
             max_queued_jobs: 20
             max_walltime: 1440
+
+    # Projects to which BatchJobs may be submitted:
     allowed_projects:
     - datascience
+
+    # Supported "pass-through" parameters to the BatchJob template
+    # Provided as key:value pairs, where key is the parameter name
+    # and value is the *default* value of the parameter
     optional_batch_job_params:
         singularity_prime_cache: 'no'
+
+    # The path to the job template currently in use at this Site
     job_template_path: job-template.sh
 
+# Pre/post-processing service runs job state transitions in parallel
 processing:
-    num_workers: 5
-    prefetch_depth: 1000
+    num_workers: 5  # Number of concurrent worker processes
+    prefetch_depth: 1000 # Number of Jobs to have prefetched from API
 
+# Transfer service dispatches stage-in/stage-out tasks
 transfers:
-    globus_endpoint_id: 08925f04-569f-11e7-bef8-22000b9a448b
-    max_concurrent_transfers: 5
-    transfer_batch_size: 100
-    num_items_query_limit: 2000
-    service_period: 5
+    # Trusted transfer locations
+    # The site will only transfer data to/from remote locations given here
+    # Given as a set of {site_alias}: {protocol}//{address} pairs
     transfer_locations:
         theta_dtn: globus://08925f04-569f-11e7-bef8-22000b9a448b
 
+    globus_endpoint_id: 08925f04-569f-11e7-bef8-22000b9a448b # The local Globus endpoint ID
+    max_concurrent_transfers: 5 # How many TransferTasks can run at a time
+    transfer_batch_size: 100 # Maximum number of items per TransferTask
+    num_items_query_limit: 2000 # Maximum number of transfer items to fetch from API at a time
+    service_period: 5 # API polling interval
+
+# Queue maintainer keeps a fixed number of jobs queued at all times
+# Useful for extended campaigns.  Inherits filter_tags from above.
 queue_maintainer: null
+# queue_maintainer:
+#     submit_period: 60
+#     submit_project: datascience
+#     submit_queue: default
+#     job_mode: mpi_app_launcher
+#     num_queued_jobs: 5
+#     num_nodes: 128
+#     wall_time_min: 60
+
