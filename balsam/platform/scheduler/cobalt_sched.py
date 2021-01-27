@@ -32,15 +32,15 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     # maps scheduler states to Balsam states
     _job_states = {
         "queued": "queued",
-        "starting": "starting",
+        "starting": "queued",
         "running": "running",
-        "exiting": "exiting",
-        "user_hold": "user_hold",
-        "dep_hold": "dep_hold",
-        "dep_fail": "dep_fail",
-        "admin_hold": "admin_hold",
+        "exiting": "running",
+        "user_hold": "queued",
+        "dep_hold": "queued",
+        "dep_fail": "submit_failed",
+        "admin_hold": "queued",
         "finished": "finished",
-        "failed": "failed",
+        "failed": "submit_failed",
     }
 
     @staticmethod
