@@ -176,6 +176,8 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         status_dict = {}
         job_lines = raw_output.split("\n")[2:]
         for line in job_lines:
+            if not line.strip():
+                continue
             try:
                 job_stat = CobaltScheduler._parse_status_line(line)
             except (ValueError, TypeError) as exc:
@@ -274,12 +276,13 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
         logfile = Path(job_script_path).with_suffix(".cobaltlog")
         try:
+            logger.info(f"Attempting to parse {logfile}")
             cobalt_log = logfile.read_text()
         except FileNotFoundError:
             logger.warning(f"Could not parse log: no file {logfile}")
             return SchedulerJobLog()
 
-        lines = cobalt_log.split("\n")
+        lines = [l.strip() for l in cobalt_log.split("\n") if "(UTC)" in l]
         start_time = None
         for line in lines:
             if "COBALT_STARTTIME" in line:
