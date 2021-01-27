@@ -178,8 +178,8 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         for line in job_lines:
             try:
                 job_stat = CobaltScheduler._parse_status_line(line)
-            except (ValueError, TypeError):
-                logger.debug(f"Cannot parse job status: {line}")
+            except (ValueError, TypeError) as exc:
+                logger.debug(f"Cannot parse job status: {line}\n{exc}")
                 continue
             else:
                 status_dict[job_stat.scheduler_id] = job_stat
