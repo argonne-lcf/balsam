@@ -646,7 +646,9 @@ class TestEvents:
         EventLog = client.EventLog
         with pytest.raises(ValueError) as e:
             EventLog.objects.create(
-                job_id=1, from_state="RUNNING", to_state="RUN_DONE",
+                job_id=1,
+                from_state="RUNNING",
+                to_state="RUN_DONE",
             )
         assert "EventLog is read only" in str(e)
 
@@ -666,6 +668,25 @@ class TestBatchJobs:
             filter_tags={"system": "H2O", "calc_type": "energy"},
         )
         assert bjob.state == "pending_submission"
+        assert bjob.id is not None
+
+    def test_filter_by_scheduler_id(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        bjob = BatchJob.objects.create(
+            site_id=site.id,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+            filter_tags={"system": "H2O", "calc_type": "energy"},
+        )
+        bjob.scheduler_id = 2468
+        bjob.save()
+        from_db = BatchJob.objects.get(site_id=site.id, scheduler_id=2468)
+        assert from_db.id == bjob.id
         assert bjob.id is not None
 
     def test_bulk_update(self, client):
@@ -765,7 +786,10 @@ class TestBatchJobs:
             batch_job_id=batch_job.id, site_id=batch_job.site_id
         )
         acquired = sess.acquire_jobs(
-            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8, filter_tags={},
+            max_wall_time_min=60,
+            max_nodes_per_job=8,
+            max_num_jobs=8,
+            filter_tags={},
         )
         assert len(acquired) == 3
 
@@ -817,7 +841,10 @@ class TestSessions:
         sess = self.create_sess(client, site)
 
         acquired = sess.acquire_jobs(
-            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8, filter_tags={},
+            max_wall_time_min=60,
+            max_nodes_per_job=8,
+            max_num_jobs=8,
+            filter_tags={},
         )
         assert len(acquired) == 3
         for job in acquired:
@@ -875,7 +902,9 @@ class TestSessions:
 
         sess = self.create_sess(client, site)
         acquired = sess.acquire_jobs(
-            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
+            max_wall_time_min=60,
+            max_nodes_per_job=8,
+            max_num_jobs=8,
         )
         assert len(acquired) == 3
         assert sess.id is not None
@@ -885,6 +914,8 @@ class TestSessions:
         assert client.Session.objects.all().count() == 0
         sess2 = self.create_sess(client, site)
         acquired = sess2.acquire_jobs(
-            max_wall_time_min=60, max_nodes_per_job=8, max_num_jobs=8,
+            max_wall_time_min=60,
+            max_nodes_per_job=8,
+            max_num_jobs=8,
         )
         assert len(acquired) == 3
