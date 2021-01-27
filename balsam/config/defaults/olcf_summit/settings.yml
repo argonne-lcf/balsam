@@ -1,4 +1,4 @@
-# Default setup for Theta KNL cluster @ ALCF
+# Default setup for Summit cluster @ OLCF
 
 site_id: {{ site_id }}  # Do not change
 
