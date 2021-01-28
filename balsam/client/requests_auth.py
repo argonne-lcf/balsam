@@ -62,10 +62,10 @@ class BasicAuthRequestsClient(RequestsClient):
                 time.sleep(1)
             else:
                 break
-        try:
+        if resp is not None and "access_token" in resp:
             self.token = resp["access_token"]
             self.token_expiry = dateutil.parser.parse(resp["expiration"])
-        except KeyError:
+        else:
             raise AuthError(f"Could not authenticate: {resp}")
 
         # Unset BasicAuth; set Token Authorization header
