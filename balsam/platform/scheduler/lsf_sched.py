@@ -29,7 +29,7 @@ def parse_clock(t_str):
 
 #   "02/17 15:56:28"
 def parse_datetime(t_str):
-    return datetime.datetime.strptime(t_str, "%m:%d %H:%M:%S")
+    return datetime.datetime.strptime(t_str, "%m/%d %H:%M:%S")
 
 
 class LsfScheduler(SubprocessSchedulerInterface):
@@ -58,9 +58,10 @@ class LsfScheduler(SubprocessSchedulerInterface):
     _status_run_fields = {
         "scheduler_id": "JobID",
         "username": "Username",
+        "queue": "Queue",
         "project": "Project",
         "num_nodes": "Nodes",
-        "time_remaining_min": "TimeRemaining",
+        "time_remaining_min": "Remain",
         "start_time": "StartTime",
         "jobname": "JobName",
     }
@@ -70,6 +71,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     _status_pend_fields = {
         "scheduler_id": "JobID",
         "username": "Username",
+        "queue": "Queue",
         "project": "Project",
         "num_nodes": "Nodes",
         "wall_time_min": "WallTime",
@@ -81,6 +83,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     _status_block_fields = {
         "scheduler_id": "JobID",
         "username": "Username",
+        "queue": "Queue",
         "project": "Project",
         "num_nodes": "Nodes",
         "wall_time_min": "WallTime",
@@ -94,11 +97,15 @@ class LsfScheduler(SubprocessSchedulerInterface):
         status_field_map = {
             "scheduler_id": lambda id: int(id),
             "state": lambda state: str(state),
+            "username": lambda username: str(username),
             "queue": lambda queue: str(queue),
             "num_nodes": lambda n: 0 if n == "-" else int(n),
             "wall_time_min": parse_clock,
+            "start_time": parse_datetime,
+            "queue_time": parse_datetime,
             "time_remaining_min": parse_clock,
             "project": lambda project: str(project),
+            "jobname": lambda jobname: str(jobname),
         }
         return status_field_map.get(balsam_field, None)
 
@@ -161,6 +168,14 @@ class LsfScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _parse_status_output(raw_output):
+        # Example output:
+        # ------------------------------- Running Jobs: 1 (batch: 4619/4625=99.87% + batch-hm: 46/54=85.19%) -------------------------------
+        # JobID      User       Queue    Project    Nodes Remain     StartTime       JobName
+        # 697013     parton     batch    CSC388     1     19:35      01/27 16:28:13  Not_Specified
+        # -------------------------------------------------------- Eligible Jobs: 1 --------------------------------------------------------
+        # JobID      User       Queue    Project    Nodes Walltime   QueueTime       Priority JobName
+        # 696996     parton     batch    CSC388     1     20:00      01/27 16:12:21  504.00   Not_Specified
+        # -------------------------------------------------------- Blocked Jobs: 0 ---------------------------------------------------------
         status_dict = {}
         job_lines = raw_output.strip().split("\n")
         state = None
@@ -172,23 +187,29 @@ class LsfScheduler(SubprocessSchedulerInterface):
                 if "Running" in line:
                     state = "running"
                     run = True
+                    pend = False
+                    block = False
                 elif "Eligible" in line:
                     state = "queued"
+                    run = False
                     pend = True
+                    block = False
                 elif "Blocked" in line:
-                    state = "failed"
+                    state = "submit_failed"
+                    run = False
+                    pend = False
                     block = True
                 else:
                     raise NotImplementedError
-            elif line.startswith("JobId"):
+            elif line.startswith("JobID"):
                 continue
             else:
                 fields = line.split()
                 if run:
                     # rejoin datetime
-                    new_fields = fields[0:5]
-                    new_fields.append(" ".join(fields[5:7]))
-                    new_fields.append(fields[7:])
+                    new_fields = fields[0:6]
+                    new_fields.append(" ".join(fields[6:8]))
+                    new_fields += fields[8:]
                     fields = new_fields
                     status = {
                         "state": state,
@@ -200,9 +221,9 @@ class LsfScheduler(SubprocessSchedulerInterface):
                     )
                 elif pend:
                     # rejoin datetime
-                    new_fields = fields[0:5]
-                    new_fields.append(" ".join(fields[5:7]))
-                    new_fields.append(fields[7:])
+                    new_fields = fields[0:6]
+                    new_fields.append(" ".join(fields[6:8]))
+                    new_fields += fields[8:]
                     fields = new_fields
                     status = {
                         "state": state,
@@ -214,8 +235,8 @@ class LsfScheduler(SubprocessSchedulerInterface):
                     )
                 elif block:
                     # rejoin block reason column
-                    new_fields = fields[0:5]
-                    new_fields.append(" ".join(fields[5:]))
+                    new_fields = fields[0:6]
+                    new_fields.append(" ".join(fields[6:]))
                     fields = new_fields
                     status = {
                         "state": state,
@@ -240,7 +261,6 @@ class LsfScheduler(SubprocessSchedulerInterface):
             raise ValueError(
                 f"Line has {actual} columns: expected {expected}:\n{fields}"
             )
-
         for name, value in zip(status_fields, fields):
             func = LsfScheduler._status_field_map(name)
             if callable(func):
