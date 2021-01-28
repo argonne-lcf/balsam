@@ -6,7 +6,6 @@ class SummitNode(ComputeNode):
 
     cpu_ids = list(range(42))
     gpu_ids = list(range(6))
-    allow_multi_mpirun = True
 
     @classmethod
     def get_job_nodelist(cls):
