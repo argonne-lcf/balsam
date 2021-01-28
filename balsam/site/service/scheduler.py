@@ -25,7 +25,7 @@ def validate_batch_job(
             f"{job.num_nodes} exceeds queue max num_nodes {queue.max_nodes}"
         )
     if job.num_nodes < 1:
-        raise ValueError(f"Job size must be at least 1 node")
+        raise ValueError("Job size must be at least 1 node")
     if job.wall_time_min > queue.max_walltime:
         raise ValueError(
             f"{job.wall_time_min} exceeds queue max wall_time_min {queue.max_walltime}"
@@ -37,7 +37,7 @@ def validate_batch_job(
         )
     if job.partitions:
         if sum(part.num_nodes for part in job.partitions) != job.num_nodes:
-            raise ValueError(f"Sum of partition sizes must equal batchjob num_nodes")
+            raise ValueError("Sum of partition sizes must equal batchjob num_nodes")
 
     extras = set(job.optional_params.keys())
     allowed_extras = set(optional_batch_job_params.keys())

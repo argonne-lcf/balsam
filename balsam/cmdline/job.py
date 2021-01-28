@@ -69,9 +69,7 @@ def validate_transfers(ctx, param, value):
         try:
             loc, path = transfers[name].split(":")
         except ValueError:
-            raise click.BadParameter(
-                f"Transfers must take the form LOCATION_ALIAS:PATH"
-            )
+            raise click.BadParameter("Transfers must take the form LOCATION_ALIAS:PATH")
         transfers[name] = {"location_alias": loc, "path": path}
     return transfers
 
@@ -151,7 +149,7 @@ def create(
     client = ctx.obj.client
     if Path(workdir).is_absolute():
         raise click.BadParameter(
-            f"workdir must be a relative path: cannot start with '/'"
+            "workdir must be a relative path: cannot start with '/'"
         )
     job = client.Job(
         workdir=workdir,

@@ -282,7 +282,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             logger.warning(f"Could not parse log: no file {logfile}")
             return SchedulerJobLog()
 
-        lines = [l.strip() for l in cobalt_log.split("\n") if "(UTC)" in l]
+        lines = [line.strip() for line in cobalt_log.split("\n") if "(UTC)" in line]
         start_time = None
         for line in lines:
             if "COBALT_STARTTIME" in line:

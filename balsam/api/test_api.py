@@ -261,9 +261,9 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        parent = Job(f"test/parent", app.id)
+        parent = Job("test/parent", app.id)
         parent.save()
-        child = Job(f"test/child", app.id, parent_ids=[parent.id])
+        child = Job("test/child", app.id, parent_ids=[parent.id])
         child.save()
 
         assert parent.state == "STAGED_IN"
@@ -381,7 +381,7 @@ class TestJobs:
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
-        jobs.append(Job(f"bar/99", app.id))
+        jobs.append(Job("bar/99", app.id))
         jobs = Job.objects.bulk_create(jobs)
 
         assert Job.objects.filter(workdir__contains="foo/2").count() == 1
@@ -422,7 +422,7 @@ class TestJobs:
             Job(f"foo/{i}", app.id, parameters={"geometry": f"{i}.xyz"})
             for i in range(4)
         ]
-        jobs.append(Job(f"bar/2", app.id, parameters={"geometry": "xy:32.xyz"}))
+        jobs.append(Job("bar/2", app.id, parameters={"geometry": "xy:32.xyz"}))
         jobs = Job.objects.bulk_create(jobs)
 
         assert Job.objects.filter(parameters="geometry:4.xyz").count() == 0

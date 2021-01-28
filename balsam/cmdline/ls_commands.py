@@ -54,7 +54,7 @@ def print_history(jobs):
     query = jobs[:LIMIT].values_list("name", "job_id", "state_history")
     for (name, job_id, state_history) in query:
         print(f"Job {name} [{job_id}]")
-        print(f"------------------------------------------------")
+        print("------------------------------------------------")
         print("".join(history_line(*s) for s in state_history))
         print("")
     if count > LIMIT:

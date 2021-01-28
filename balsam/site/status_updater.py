@@ -46,7 +46,7 @@ class StatusUpdater(Process):
 
         logger.info("Signal: break out of StatusUpdater main loop")
         self._drain_queue()
-        logger.info(f"StatusUpdater thread finished.")
+        logger.info("StatusUpdater thread finished.")
 
     def _drain_queue(self):
         updates = []

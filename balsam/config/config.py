@@ -49,7 +49,7 @@ class ClientSettings(BaseSettings):
     @validator("client_class")
     def client_type_is_correct(cls, v):
         if not issubclass(v, RESTClient):
-            raise TypeError(f"client_class must subclass balsam.client.RESTClient")
+            raise TypeError("client_class must subclass balsam.client.RESTClient")
         return v
 
     @staticmethod
@@ -201,7 +201,7 @@ class SiteConfig:
         if settings is not None:
             if not isinstance(settings, Settings):
                 raise ValueError(
-                    f"If you're passing the settings kwarg, it must be an instance of balsam.config.Settings. "
+                    "If you're passing the settings kwarg, it must be an instance of balsam.config.Settings. "
                     "Otherwise, leave settings=None to auto-load the settings stored at BALSAM_SITE_PATH."
                 )
             self.settings = settings

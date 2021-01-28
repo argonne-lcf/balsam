@@ -118,17 +118,17 @@ def sync_app(client, app_class, class_path, mtime, registered_app, site_id):
 def app_deletion_prompt(client, app):
     job_count = client.Job.objects.filter(app_id=app.id).count()
     click.echo(f"DELETED/RENAMED {app.class_path} (app_id={app.id})")
-    click.echo(f"   --> You either renamed this ApplicationDefinition or deleted it.")
+    click.echo("   --> You either renamed this ApplicationDefinition or deleted it.")
     click.echo(f"   --> There are {job_count} Jobs associated with this App")
     delete = click.confirm(
         f"  --> Do you wish to unregister this App (this will ERASE {job_count} jobs!)"
     )
     if delete:
         app.delete()
-        click.echo(f"  --> Deleted.")
+        click.echo("  --> Deleted.")
     else:
         click.echo(
-            f"  --> App not deleted. If you meant to rename it, please update the class_path in the API."
+            "  --> App not deleted. If you meant to rename it, please update the class_path in the API."
         )
 
 

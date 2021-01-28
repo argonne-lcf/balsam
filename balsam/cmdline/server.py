@@ -138,7 +138,7 @@ def start_redis(path, config_filename="redis.conf"):
     if proc.returncode != 0:
         click.echo(f"Error in starting Redis:\n{proc.stdout}")
         raise RuntimeError
-    click.echo(f"Started redis daemon")
+    click.echo("Started redis daemon")
 
 
 def start_gunicorn(path, bind="0.0.0.0:8000", log_level="debug", num_workers=1):

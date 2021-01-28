@@ -56,4 +56,4 @@ class QueueMaintainerService(BalsamService):
             logger.info(f"Submitted new BatchJob: {new_job}")
 
     def cleanup(self):
-        logger.info(f"Exiting QueueMaintainer service")
+        logger.info("Exiting QueueMaintainer service")

@@ -76,7 +76,9 @@ class AutoscaleService(BalsamService):
                 self.min_num_nodes, required_num_nodes - idle_node_count
             )
             request_num_nodes = min(
-                request_num_nodes, window.num_nodes, self.max_num_nodes,
+                request_num_nodes,
+                window.num_nodes,
+                self.max_num_nodes,
             )
             return {
                 "project": self.project,
@@ -110,4 +112,4 @@ class AutoscaleService(BalsamService):
             )
 
     def cleanup(self):
-        logger.info(f"Exiting Autoscaler service")
+        logger.info("Exiting Autoscaler service")
