@@ -19,6 +19,8 @@ def get_engine():
         _engine = create_engine(
             balsam.server.settings.database_url,
             connect_args={},
+            pool_size=10,
+            max_overflow=40,
         )
     return _engine
 
