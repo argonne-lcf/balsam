@@ -67,8 +67,7 @@ scheduler:
     # Supported "pass-through" parameters to the BatchJob template
     # Provided as key:value pairs, where key is the parameter name
     # and value is the *default* value of the parameter
-    optional_batch_job_params:
-        singularity_prime_cache: 'no'
+    optional_batch_job_params: {}
 
     # The path to the job template currently in use at this Site
     job_template_path: job-template.sh
@@ -103,4 +102,3 @@ queue_maintainer: null
 #     num_queued_jobs: 5
 #     num_nodes: 128
 #     wall_time_min: 60
-
