@@ -1,16 +1,18 @@
 import getpass
-from pathlib import Path
-import psutil
 import subprocess
+from pathlib import Path
+
+import psutil
+
 from .scheduler import (
-    SchedulerInterface,
-    PathLike,
     Dict,
     List,
     Optional,
-    SchedulerJobStatus,
+    PathLike,
     SchedulerBackfillWindow,
+    SchedulerInterface,
     SchedulerJobLog,
+    SchedulerJobStatus,
 )
 
 
@@ -40,7 +42,10 @@ class LocalProcessScheduler(SchedulerInterface):
         outfile = Path(script_path).resolve().with_suffix(".output")
         with open(outfile, "wb") as fp:
             p = subprocess.Popen(
-                f"bash {script_path}", shell=True, stdout=fp, stderr=subprocess.STDOUT,
+                f"bash {script_path}",
+                shell=True,
+                stdout=fp,
+                stderr=subprocess.STDOUT,
             )
         cls._subprocesses.append(p)
         return p.pid

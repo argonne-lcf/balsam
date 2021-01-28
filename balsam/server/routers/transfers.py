@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from typing import List, Set
-from fastapi import Depends, APIRouter, Query
 
-from balsam.server import settings
-from balsam.server.util import Paginator
+from fastapi import APIRouter, Depends, Query
+
 from balsam import schemas
-from balsam.server.models import get_session, crud, Job, TransferItem, Site
+from balsam.server import settings
+from balsam.server.models import Job, Site, TransferItem, crud, get_session
 from balsam.server.pubsub import pubsub
+from balsam.server.util import Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -48,9 +49,7 @@ def list(
     paginator=Depends(Paginator),
     q=Depends(TransferQuery),
 ):
-    count, transfers = crud.transfers.fetch(
-        db, owner=user, paginator=paginator, filterset=q
-    )
+    count, transfers = crud.transfers.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": transfers}
 
 
@@ -75,9 +74,7 @@ def update(
     pubsub.publish(user.id, "update", "transfer", result)
     if updated_job:
         pubsub.publish(user.id, "update", "job", schemas.JobOut.from_orm(updated_job))
-        pubsub.publish(
-            user.id, "create", "log-event", schemas.LogEventOut.from_orm(log_event)
-        )
+        pubsub.publish(user.id, "create", "log-event", schemas.LogEventOut.from_orm(log_event))
     return result
 
 
@@ -87,9 +84,7 @@ def bulk_update(
     db=Depends(get_session),
     user=Depends(auth),
 ):
-    updated_transfers, updated_jobs, log_events = crud.transfers.bulk_update(
-        db, owner=user, update_list=transfers
-    )
+    updated_transfers, updated_jobs, log_events = crud.transfers.bulk_update(db, owner=user, update_list=transfers)
     result_transfers = [schemas.TransferItemOut.from_orm(t) for t in updated_transfers]
     result_jobs = [schemas.JobOut.from_orm(j) for j in updated_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in log_events]

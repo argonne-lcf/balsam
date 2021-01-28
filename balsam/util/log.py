@@ -1,11 +1,12 @@
 import logging
 import logging.handlers
 import os
-import sys
 import socket
-import time
-import multiprocessing_logging
+import sys
 import textwrap
+import time
+
+import multiprocessing_logging
 
 
 class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
@@ -109,9 +110,7 @@ def config_file_logging(
 
 def log_uncaught_exceptions(exctype, value, tb):
     root_logger = logging.getLogger("balsam")
-    root_logger.error(
-        f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb)
-    )
+    root_logger.error(f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb))
 
 
 def banner(message, color="HEADER"):

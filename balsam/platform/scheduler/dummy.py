@@ -1,8 +1,4 @@
-from .scheduler import (
-    SubprocessSchedulerInterface,
-    SchedulerJobStatus,
-    SchedulerBackfillWindow,
-)
+from .scheduler import SchedulerBackfillWindow, SchedulerJobStatus, SubprocessSchedulerInterface
 
 
 def parse_time_minutes(t_str):
@@ -129,9 +125,7 @@ class DummyScheduler(SubprocessSchedulerInterface):
  48   FINISHED  120  default 60  p2  40
  50   FINISHED  55 debug  2  p3  NA"""
 
-    def _render_submit_args(
-        self, script_path, project, queue, num_nodes, wall_time_min
-    ):
+    def _render_submit_args(self, script_path, project, queue, num_nodes, wall_time_min):
         args = [
             self.submit_exe,
             script_path,

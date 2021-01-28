@@ -1,26 +1,20 @@
-from abc import ABCMeta
 import json
 import os
-import jinja2
+import shutil
+import socket
+from abc import ABCMeta
 from datetime import datetime
 from pathlib import Path
-import socket
-import shutil
-from typing import Optional, Dict
+from typing import Dict, List, Optional
 from uuid import UUID
+
+import jinja2
 import yaml
+from pydantic import BaseSettings, PyObject, ValidationError, validator
 
-from pydantic import (
-    BaseSettings,
-    PyObject,
-    validator,
-    ValidationError,
-)
-from typing import List
-from balsam.client import RESTClient, NotAuthenticatedError
-from balsam.schemas import AllowedQueue
+from balsam.client import NotAuthenticatedError, RESTClient
 from balsam.platform.transfer import GlobusTransferInterface
-
+from balsam.schemas import AllowedQueue
 from balsam.util import config_file_logging
 
 
@@ -63,8 +57,7 @@ class ClientSettings(BaseSettings):
                 data = yaml.safe_load(fp)
         except FileNotFoundError:
             raise NotAuthenticatedError(
-                f"Client credentials {cls.settings_path()} do not exist. "
-                f"Please authenticate with `balsam login`."
+                f"Client credentials {cls.settings_path()} do not exist. " f"Please authenticate with `balsam login`."
             )
         return cls(**data)
 
@@ -101,12 +94,8 @@ class SchedulerSettings(BaseSettings):
     scheduler_class: PyObject = "balsam.platform.scheduler.CobaltScheduler"
     sync_period: int = 60
     allowed_queues: Dict[str, AllowedQueue] = {
-        "default": AllowedQueue(
-            max_nodes=4010, max_walltime=24 * 60, max_queued_jobs=20
-        ),
-        "debug-cache-quad": AllowedQueue(
-            max_nodes=8, max_walltime=60, max_queued_jobs=1
-        ),
+        "default": AllowedQueue(max_nodes=4010, max_walltime=24 * 60, max_queued_jobs=20),
+        "debug-cache-quad": AllowedQueue(max_nodes=8, max_walltime=60, max_queued_jobs=1),
     }
     allowed_projects: List[str] = ["datascience", "magstructsADSP"]
     optional_batch_job_params: Dict[str, str] = {"singularity_prime_cache": "no"}
@@ -129,9 +118,7 @@ class ProcessingSettings(BaseSettings):
 
 
 class TransferSettings(BaseSettings):
-    transfer_locations: Dict[str, str] = {
-        "theta_dtn": "globus://08925f04-569f-11e7-bef8-22000b9a448b"
-    }
+    transfer_locations: Dict[str, str] = {"theta_dtn": "globus://08925f04-569f-11e7-bef8-22000b9a448b"}
     max_concurrent_transfers: int = 5
     globus_endpoint_id: Optional[UUID] = None
     transfer_batch_size: int = 100
@@ -218,12 +205,7 @@ class SiteConfig:
         self.client = ClientSettings.load_from_home().build_client()
 
     def build_services(self):
-        from balsam.site.service import (
-            SchedulerService,
-            ProcessingService,
-            QueueMaintainerService,
-            TransferService,
-        )
+        from balsam.site.service import ProcessingService, QueueMaintainerService, SchedulerService, TransferService
 
         services = []
 
@@ -242,9 +224,7 @@ class SiteConfig:
                 client=self.client,
                 site_id=self.settings.site_id,
                 filter_tags=self.settings.filter_tags,
-                **dict(
-                    self.settings.queue_maintainer
-                ),  # does not convert sub-models to dicts
+                **dict(self.settings.queue_maintainer),  # does not convert sub-models to dicts
             )
             services.append(queue_maintainer)
 
@@ -255,9 +235,7 @@ class SiteConfig:
                 data_path=self.data_path,
                 apps_path=self.apps_path,
                 filter_tags=self.settings.filter_tags,
-                **dict(
-                    self.settings.processing
-                ),  # does not convert sub-models to dicts
+                **dict(self.settings.processing),  # does not convert sub-models to dicts
             )
             services.append(processing_service)
 
@@ -345,11 +323,7 @@ class SiteConfig:
     def resolve_site_path(site_path=None) -> Path:
         # Site determined from either passed argument, environ,
         # or walking up parent directories, in that order
-        site_path = (
-            site_path
-            or os.environ.get("BALSAM_SITE_PATH")
-            or SiteConfig.search_site_dir()
-        )
+        site_path = site_path or os.environ.get("BALSAM_SITE_PATH") or SiteConfig.search_site_dir()
         if site_path is None:
             raise ValueError(
                 "Initialize SiteConfig with a `site_path` or set env BALSAM_SITE_PATH "
@@ -358,9 +332,7 @@ class SiteConfig:
 
         site_path = Path(site_path).resolve()
         if not site_path.is_dir():
-            raise FileNotFoundError(
-                f"BALSAM_SITE_PATH {site_path} must point to an existing Balsam site directory"
-            )
+            raise FileNotFoundError(f"BALSAM_SITE_PATH {site_path} must point to an existing Balsam site directory")
         if not site_path.joinpath(".balsam-site").is_file():
             raise FileNotFoundError(
                 f"BALSAM_SITE_PATH {site_path} is not a valid Balsam site directory "

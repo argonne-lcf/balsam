@@ -1,7 +1,8 @@
 import os
+import shutil
 import tempfile
 from pathlib import Path
-import shutil
+
 import click
 
 
@@ -52,9 +53,7 @@ def activate():
 
 
 @activate.command()
-@click.argument(
-    "site-path", type=click.Path(writable=True), callback=validate_site_path
-)
+@click.argument("site-path", type=click.Path(writable=True), callback=validate_site_path)
 @click.pass_context
 def shell(ctx, site_path):
     """

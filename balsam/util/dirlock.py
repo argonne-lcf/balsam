@@ -1,9 +1,9 @@
-from pathlib import Path
 import os
 import random
-import time
 import signal
 import threading
+import time
+from pathlib import Path
 
 
 class SignalReceived(Exception):
@@ -60,9 +60,7 @@ class DirLock:
             else:
                 acquired = True
         if not acquired:
-            raise TimeoutError(
-                f"Failed to acquire {self.lock_path} for {self.timeout} sec"
-            )
+            raise TimeoutError(f"Failed to acquire {self.lock_path} for {self.timeout} sec")
 
     def release_lock(self):
         try:

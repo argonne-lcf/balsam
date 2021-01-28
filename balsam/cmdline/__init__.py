@@ -1,15 +1,10 @@
-from balsam import __version__
-import click
 import logging
 import os
 
-from balsam.cmdline import login
-from balsam.cmdline import (
-    site,
-    app,
-    job,
-    scheduler,
-)
+import click
+
+from balsam import __version__
+from balsam.cmdline import app, job, login, scheduler, site
 
 logger = logging.getLogger("balsam.cmdline")
 try:

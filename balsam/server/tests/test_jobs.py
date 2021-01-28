@@ -1,17 +1,16 @@
 """APIClient-driven tests"""
-from datetime import datetime, timedelta
 import random
 import time
+from datetime import datetime, timedelta
 from uuid import uuid4
+
+import pytest
 from dateutil.parser import isoparse
 from fastapi import status
-import pytest
 
 from balsam.server import models
-from .util import (
-    create_site,
-    create_app,
-)
+
+from .util import create_app, create_site
 
 FAST_EXPIRATION_PERIOD = 0.6
 
@@ -37,9 +36,7 @@ def job_dict(app):
         app_id=None,
         workdir="test/1",
         tags={},
-        transfers={
-            "hello-input": {"location_alias": "MyCluster", "path": "/path/to/input.dat"}
-        },
+        transfers={"hello-input": {"location_alias": "MyCluster", "path": "/path/to/input.dat"}},
         parameters={"name": "world", "N": 4},
         data={},
         return_code=None,
@@ -104,9 +101,7 @@ def fast_session_expiry():
     old_expiry = models.crud.sessions.SESSION_EXPIRE_PERIOD
     old_sweep = models.crud.sessions.SESSION_SWEEP_PERIOD
     try:
-        models.crud.sessions.SESSION_EXPIRE_PERIOD = timedelta(
-            seconds=FAST_EXPIRATION_PERIOD
-        )
+        models.crud.sessions.SESSION_EXPIRE_PERIOD = timedelta(seconds=FAST_EXPIRATION_PERIOD)
         models.crud.sessions.SESSION_SWEEP_PERIOD = timedelta(seconds=0.1)
         yield
     finally:
@@ -122,8 +117,7 @@ def assertHistory(client, job, *states, **expected_messages):
     """
     response = client.get("/events", job_id=job["id"])
     fail_msg = "\n" + "\n".join(
-        f'{i}) {e["from_state"]} ->  {e["to_state"]} ({e["data"]})'
-        for i, e in enumerate(response["results"])
+        f'{i}) {e["from_state"]} ->  {e["to_state"]} ({e["data"]})' for i, e in enumerate(response["results"])
     )
     assert response["count"] == len(states) - 1, fail_msg
     eventlogs = list(reversed(response["results"]))
@@ -139,21 +133,18 @@ def assertHistory(client, job, *states, **expected_messages):
 
 @pytest.fixture(scope="function")
 def linear_dag(auth_client, job_dict):
-    A = auth_client.bulk_post("/jobs/", [job_dict(tags={"step": "A", "dag": "dag1"})])[
-        0
-    ]
-    B = auth_client.bulk_post(
-        "/jobs/", [job_dict(tags={"step": "B", "dag": "dag1"}, parent_ids=[A["id"]])]
-    )[0]
-    C = auth_client.bulk_post(
-        "/jobs/", [job_dict(tags={"step": "C", "dag": "dag1"}, parent_ids=[B["id"]])]
-    )[0]
+    A = auth_client.bulk_post("/jobs/", [job_dict(tags={"step": "A", "dag": "dag1"})])[0]
+    B = auth_client.bulk_post("/jobs/", [job_dict(tags={"step": "B", "dag": "dag1"}, parent_ids=[A["id"]])])[0]
+    C = auth_client.bulk_post("/jobs/", [job_dict(tags={"step": "C", "dag": "dag1"}, parent_ids=[B["id"]])])[0]
     return A, B, C
 
 
 def test_add_jobs(auth_client, job_dict):
     jobs = [
-        job_dict(parameters={"name": "foo", "N": i}, workdir=f"test/{i}",)
+        job_dict(
+            parameters={"name": "foo", "N": i},
+            workdir=f"test/{i}",
+        )
         for i in range(3)
     ]
     jobs = auth_client.bulk_post("/jobs/", jobs)
@@ -177,9 +168,7 @@ def test_child_with_two_parents_state_update(auth_client, job_dict):
     parent1 = resp[0]
     resp = auth_client.bulk_post("/jobs/", [job_dict()])
     parent2 = resp[0]
-    resp = auth_client.bulk_post(
-        "/jobs/", [job_dict(parent_ids=[parent1["id"], parent2["id"]])]
-    )
+    resp = auth_client.bulk_post("/jobs/", [job_dict(parent_ids=[parent1["id"], parent2["id"]])])
     child = resp[0]
     assert child["state"] == "AWAITING_PARENTS"
 
@@ -232,9 +221,7 @@ def test_bulk_patch(auth_client, job_dict):
     for job in jobs:
         assert job["state"] == "STAGED_IN"
     ids = [j["id"] for j in jobs]
-    jobs = auth_client.bulk_patch(
-        "/jobs/", [{"id": id, "state": "PREPROCESSED"} for id in ids]
-    )
+    jobs = auth_client.bulk_patch("/jobs/", [{"id": id, "state": "PREPROCESSED"} for id in ids])
     for job in jobs:
         assert job["state"] == "PREPROCESSED"
 
@@ -281,9 +268,7 @@ def test_acquire_for_launch(auth_client, job_dict, create_session):
         assert job["batch_job_id"] == session2.batch_job_id
 
 
-def test_update_to_running_does_not_release_lock(
-    auth_client, job_dict, create_session, db_session
-):
+def test_update_to_running_does_not_release_lock(auth_client, job_dict, create_session, db_session):
     jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
 
     # Mark jobs PREPROCESSED
@@ -306,9 +291,7 @@ def test_update_to_running_does_not_release_lock(
         assert job.session_id == session.id
 
     # The jobs start running in a staggered fashion; a bulk status update is made
-    run_start_times = [
-        datetime.utcnow() + timedelta(seconds=random.randint(0, 20)) for _ in acquired
-    ]
+    run_start_times = [datetime.utcnow() + timedelta(seconds=random.randint(0, 20)) for _ in acquired]
     updates = [
         {
             "id": j["id"],
@@ -323,9 +306,7 @@ def test_update_to_running_does_not_release_lock(
     # The jobs are associated to batchjob and have the expected history:
     for job in jobs:
         assert job["batch_job_id"] == session.batch_job_id
-        assertHistory(
-            auth_client, job, "CREATED", "STAGED_IN", "PREPROCESSED", "RUNNING"
-        )
+        assertHistory(auth_client, job, "CREATED", "STAGED_IN", "PREPROCESSED", "RUNNING")
 
     # Behind the scenes, the acquired jobs have changed state and are still locked:
     for job in db_session.query(models.Job).all():
@@ -333,26 +314,17 @@ def test_update_to_running_does_not_release_lock(
 
     # The EventLogs were correctly recorded:
     time_stamps_in_db = (
-        db_session.query(models.LogEvent.timestamp)
-        .filter(models.LogEvent.to_state == "RUNNING")
-        .all()
+        db_session.query(models.LogEvent.timestamp).filter(models.LogEvent.to_state == "RUNNING").all()
     )
     time_stamps_in_db = set(tup[0] for tup in time_stamps_in_db)
     assert time_stamps_in_db == set(run_start_times)
 
 
-def test_acquire_for_launch_with_node_constraints(
-    auth_client, job_dict, create_session
-):
+def test_acquire_for_launch_with_node_constraints(auth_client, job_dict, create_session):
     jobs = [
         *[job_dict(num_nodes=1, ranks_per_node=1, wall_time_min=40) for _ in range(2)],
         *[job_dict(num_nodes=1, ranks_per_node=1, wall_time_min=30) for _ in range(2)],
-        *[
-            job_dict(
-                num_nodes=1, ranks_per_node=1, node_packing_count=4, wall_time_min=30
-            )
-            for _ in range(4)
-        ],
+        *[job_dict(num_nodes=1, ranks_per_node=1, node_packing_count=4, wall_time_min=30) for _ in range(4)],
         *[job_dict(num_nodes=1, ranks_per_node=1, wall_time_min=50) for _ in range(2)],
         *[job_dict(num_nodes=1, ranks_per_node=4, wall_time_min=30) for _ in range(2)],
         *[job_dict(num_nodes=3, wall_time_min=0) for _ in range(2)],
@@ -360,9 +332,7 @@ def test_acquire_for_launch_with_node_constraints(
         *[job_dict(num_nodes=16, wall_time_min=0) for _ in range(2)],
     ]
     jobs = auth_client.bulk_post("/jobs/", jobs)
-    auth_client.bulk_put(
-        "/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs]
-    )
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs])
     session = create_session()
 
     acquired = auth_client.post(
@@ -377,9 +347,7 @@ def test_acquire_for_launch_with_node_constraints(
     assert len(acquired) == 8
     assert all(job["num_nodes"] == 1 for job in acquired)
     assert all(job["ranks_per_node"] == 1 for job in acquired)
-    assert acquired == sorted(
-        acquired, key=lambda job: (job["node_packing_count"], -1 * job["wall_time_min"])
-    )
+    assert acquired == sorted(acquired, key=lambda job: (job["node_packing_count"], -1 * job["wall_time_min"]))
 
     acquired = auth_client.post(
         f"/sessions/{session.id}",
@@ -400,9 +368,7 @@ def test_acquire_by_tags(auth_client, job_dict, create_session):
         *[job_dict(tags={"system": "D2O", "calc": "energy"}) for _ in range(3)],
     ]
     jobs = auth_client.bulk_post("/jobs/", jobs)
-    auth_client.bulk_put(
-        "/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs]
-    )
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs])
     session = create_session()
 
     acquired = auth_client.post(
@@ -448,7 +414,9 @@ def test_bulk_update_based_on_tags_filter_via_put(auth_client, job_dict):
     ]
     auth_client.bulk_post("/jobs/", specs)
     auth_client.bulk_put(
-        "/jobs/", {"num_nodes": 128}, tags=["mass:2.0"],
+        "/jobs/",
+        {"num_nodes": 128},
+        tags=["mass:2.0"],
     )
     jobs = auth_client.get("/jobs/")["results"]
     assert len(jobs) == 4
@@ -488,14 +456,18 @@ def test_can_filter_on_parents(auth_client, job_dict):
     auth_client.bulk_post("/jobs/", child_specs)
 
     children_of_B = auth_client.get(
-        "/jobs/", parent_id=[parentB["id"]], ordering="workdir",
+        "/jobs/",
+        parent_id=[parentB["id"]],
+        ordering="workdir",
     )
     assert children_of_B["count"] == 4
     workdirs = [job["workdir"] for job in children_of_B["results"]]
     assert workdirs == ["B1", "B2", "B3", "C1"]
 
     children = auth_client.get(
-        "/jobs/", parent_id=[parentA["id"], parentB["id"]], ordering="workdir",
+        "/jobs/",
+        parent_id=[parentA["id"], parentB["id"]],
+        ordering="workdir",
     )
     assert children["count"] == 6
     workdirs = [job["workdir"] for job in children["results"]]
@@ -521,9 +493,7 @@ def test_can_filter_on_last_update(auth_client, job_dict):
     assert jobs["results"][0]["workdir"] == "B"
 
 
-def test_update_to_run_done_releases_lock_but_not_batch_job(
-    auth_client, job_dict, create_session, db_session
-):
+def test_update_to_run_done_releases_lock_but_not_batch_job(auth_client, job_dict, create_session, db_session):
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(5)])
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
 
@@ -570,9 +540,7 @@ def test_update_to_run_done_releases_lock_but_not_batch_job(
         assert job.batch_job_id == session.batch_job_id
 
 
-def test_tick_heartbeat_extends_expiration(
-    auth_client, job_dict, create_session, db_session
-):
+def test_tick_heartbeat_extends_expiration(auth_client, job_dict, create_session, db_session):
     session = create_session()
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(5)])
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
@@ -606,9 +574,7 @@ def test_tick_heartbeat_extends_expiration(
     assert (after_tick - after_acquire) > timedelta(seconds=0.1)
 
 
-def test_clear_expired_sess(
-    auth_client, job_dict, create_session, db_session, fast_session_expiry
-):
+def test_clear_expired_sess(auth_client, job_dict, create_session, db_session, fast_session_expiry):
     session1, session2 = create_session(), create_session()
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
@@ -683,9 +649,7 @@ def test_view_session_list(auth_client, job_dict, create_session):
     assert isoparse(sess["heartbeat"]) < after_acquire
 
 
-def test_delete_session_frees_lock_on_all_jobs(
-    auth_client, job_dict, create_session, db_session
-):
+def test_delete_session_frees_lock_on_all_jobs(auth_client, job_dict, create_session, db_session):
     session1, session2 = create_session(), create_session()
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
@@ -815,9 +779,7 @@ def test_aggregated_state_history_by_batch_job(auth_client, create_session, job_
         assert job["batch_job_id"] == session.batch_job_id
 
     # Status updates:
-    auth_client.put(
-        f"/batch-jobs/{session.batch_job_id}", scheduler_id=31415, status="running"
-    )
+    auth_client.put(f"/batch-jobs/{session.batch_job_id}", scheduler_id=31415, status="running")
     auth_client.bulk_put("/jobs/", {"state": "RUNNING"})
 
     # Can look up events by scheduler id
@@ -861,21 +823,15 @@ def test_aggregated_state_history_by_date_range(auth_client, job_dict):
     events = auth_client.get("/events/", timestamp_after=after_create)
     assert events["count"] == 0
 
-    events = auth_client.get(
-        "/events/", timestamp_after=before_create, timestamp_before=after_create
-    )
+    events = auth_client.get("/events/", timestamp_after=before_create, timestamp_before=after_create)
     assert events["count"] == 3
 
 
 def test_can_delete_job(auth_client, job_dict):
     # Create 4 jobs: 2 PREPROCESSED, 2 STAGED_IN
     jobs = auth_client.bulk_post("/jobs/", [job_dict() for _ in range(4)])
-    auth_client.bulk_put(
-        "/jobs/", {"state": "STAGED_IN"}, id=[j["id"] for j in jobs[:2]]
-    )
-    auth_client.bulk_put(
-        "/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs[2:]]
-    )
+    auth_client.bulk_put("/jobs/", {"state": "STAGED_IN"}, id=[j["id"] for j in jobs[:2]])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs[2:]])
     # Bulk-Delete the STAGED_IN
     auth_client.bulk_delete("/jobs/", state="STAGED_IN")
     jobs = auth_client.get("/jobs/")
@@ -917,9 +873,7 @@ def test_delete_recursively_deletes_children2(auth_client, linear_dag, db_sessio
     assert db_session.query(models.Job).count() == 1
 
 
-def test_cannot_acquire_with_another_lock_id(
-    auth_client, create_session, job_dict, create_user_client
-):
+def test_cannot_acquire_with_another_lock_id(auth_client, create_session, job_dict, create_user_client):
     """Passing a lock id that belongs to another user results in acquire() error"""
     # self.user (via self.client) has 10 jobs
     session = create_session()

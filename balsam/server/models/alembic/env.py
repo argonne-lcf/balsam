@@ -1,7 +1,9 @@
-from alembic import context
-from balsam.server.models import Base, get_engine
-from balsam.server import settings
 import logging
+
+from alembic import context
+
+from balsam.server import settings
+from balsam.server.models import Base, get_engine
 
 logger = logging.getLogger("balsam.server.models.alembic.env")
 

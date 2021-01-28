@@ -1,20 +1,21 @@
-import click
-from datetime import datetime
-import multiprocessing
-from pathlib import Path
 import json
-import sys
 import logging
+import multiprocessing
 import signal
-import time
 import socket
 import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+import click
 import zmq
 
 from balsam.config import SiteConfig
-from balsam.site import FixedDepthJobSource, BulkStatusUpdater, ApplicationDefinition
 from balsam.platform import TimeoutExpired
-from balsam.site.launcher.node_manager import NodeManager, InsufficientResources
+from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobSource
+from balsam.site.launcher.node_manager import InsufficientResources, NodeManager
 from balsam.site.launcher.util import countdown_timer_min
 
 logger = logging.getLogger("balsam.site.launcher.serial_mode")
@@ -253,9 +254,7 @@ class Worker:
         p = self.app_runs[id]
         if p.poll() is None:
             p.terminate()
-            logger.debug(
-                f"worker {self.hostname} sent TERM to {id}...waiting on shutdown"
-            )
+            logger.debug(f"worker {self.hostname} sent TERM to {id}...waiting on shutdown")
             try:
                 p.wait(timeout=timeout)
             except TimeoutExpired:
@@ -333,9 +332,7 @@ class Worker:
                 self.launch_run(id)
                 started_ids.append(id)
 
-        self.runnable_cache = {
-            k: v for k, v in self.runnable_cache.items() if k not in started_ids
-        }
+        self.runnable_cache = {k: v for k, v in self.runnable_cache.items() if k not in started_ids}
         return started_ids
 
     def run(self):
@@ -364,9 +361,7 @@ class Worker:
                 break
 
             if response_msg.get("new_jobs"):
-                self.runnable_cache.update(
-                    {job["id"]: job for job in response_msg["new_jobs"]}
-                )
+                self.runnable_cache.update({job["id"]: job for job in response_msg["new_jobs"]})
 
             logger.debug(
                 f"{self.hostname} fraction available: {self.node_manager.aggregate_free_nodes()} "
@@ -387,9 +382,7 @@ def launch_master_subprocess():
     return subprocess.Popen(args)
 
 
-def run_master_launcher(
-    site_config, wall_time_min, master_port, num_workers, filter_tags
-):
+def run_master_launcher(site_config, wall_time_min, master_port, num_workers, filter_tags):
     node_cls = site_config.launcher.compute_node
     scheduler_id = node_cls.get_scheduler_id()
     job_source = FixedDepthJobSource(
@@ -406,9 +399,7 @@ def run_master_launcher(
 
     App = site_config.client.App
     app_cache = {
-        app.id: ApplicationDefinition.load_app_class(
-            site_config.apps_path, app.class_path
-        )
+        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
         for app in App.objects.filter(site_id=site_config.site_id)
     }
 
@@ -428,9 +419,7 @@ def run_master_launcher(
 def run_worker(site_config, master_host, master_port, hostname):
     node_cls = site_config.launcher.compute_node
     nodes = [node for node in node_cls.get_job_nodelist() if node.hostname == hostname]
-    node_manager = NodeManager(
-        nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing
-    )
+    node_manager = NodeManager(nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing)
     worker = Worker(
         app_run=site_config.launcher.local_app_launcher,
         node_manager=node_manager,
@@ -450,9 +439,7 @@ def run_worker(site_config, master_host, master_port, hostname):
 @click.option("--log-filename")
 @click.option("--num-workers", type=int)
 @click.option("--filter-tags")
-def main(
-    wall_time_min, master_address, run_master, log_filename, num_workers, filter_tags
-):
+def main(wall_time_min, master_address, run_master, log_filename, num_workers, filter_tags):
     master_host, master_port = master_address.split(":")
     site_config = SiteConfig()
     filter_tags = json.loads(filter_tags)
@@ -470,9 +457,7 @@ def main(
             filter_tags,
         )
     else:
-        site_config.enable_logging(
-            "serial_mode", filename=log_filename + f".{hostname}"
-        )
+        site_config.enable_logging("serial_mode", filename=log_filename + f".{hostname}")
         if hostname == master_host:
             logger.debug("Launching master subprocess")
             master_proc = launch_master_subprocess()

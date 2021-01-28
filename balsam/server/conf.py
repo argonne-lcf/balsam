@@ -1,15 +1,19 @@
-from pydantic import BaseSettings, validator
+import logging
 from datetime import timedelta
 from importlib import import_module
 from typing import Union
-import logging
+
+from pydantic import BaseSettings, validator
+
 from balsam.util import validate_log_level
 
 logger = logging.getLogger(__name__)
 
 
 class AuthSettings(BaseSettings):
-    secret_key = "3f4abcaa16a006de8a7ef520a4c77c7d51b3ddb235c1ee2b99187f0f049eaa76"  # WARNING: Use real secret in production
+    secret_key = (
+        "3f4abcaa16a006de8a7ef520a4c77c7d51b3ddb235c1ee2b99187f0f049eaa76"  # WARNING: Use real secret in production
+    )
     algorithm = "HS256"
     token_ttl: timedelta = timedelta(hours=12)
     auth_method: str = "balsam.server.auth.user_from_token"

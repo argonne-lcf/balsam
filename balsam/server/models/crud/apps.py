@@ -1,6 +1,7 @@
 from fastapi.encoders import jsonable_encoder
-from balsam.server import models, ValidationError
 from sqlalchemy.exc import IntegrityError
+
+from balsam.server import ValidationError, models
 
 
 def fetch(
@@ -33,18 +34,14 @@ def flush_or_400(db):
     except IntegrityError as e:
         if "duplicate key value" in str(e):
             db.rollback()
-            raise ValidationError(
-                "An app with this site_id and class_path already exists"
-            )
+            raise ValidationError("An app with this site_id and class_path already exists")
         else:
             raise
 
 
 def create(db, owner, app):
     # Will raise if the owner does not have a matching Site ID
-    app.site_id = (
-        db.query(models.Site.id).filter_by(id=app.site_id, owner_id=owner.id).one()[0]
-    )
+    app.site_id = db.query(models.Site.id).filter_by(id=app.site_id, owner_id=owner.id).one()[0]
     new_app = models.App(**jsonable_encoder(app))
     db.add(new_app)
     flush_or_400(db)
@@ -60,9 +57,7 @@ def update(db, owner, app_id, update_data):
     app_in_db = qs.one()
     if "site_id" in update_data:
         update_data["site_id"] = (
-            db.query(models.Site.id)
-            .filter_by(id=update_data["site_id"], owner_id=owner.id)
-            .one()
+            db.query(models.Site.id).filter_by(id=update_data["site_id"], owner_id=owner.id).one()
         )
     for k, v in update_data.items():
         setattr(app_in_db, k, v)
@@ -72,10 +67,7 @@ def update(db, owner, app_id, update_data):
 
 def delete(db, owner, app_id):
     app_in_db = (
-        db.query(models.App)
-        .join(models.Site)
-        .filter(models.Site.owner_id == owner.id, models.App.id == app_id)
-        .one()
+        db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id, models.App.id == app_id).one()
     )
     db.delete(app_in_db)
     db.flush()

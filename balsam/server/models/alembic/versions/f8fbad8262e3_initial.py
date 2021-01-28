@@ -5,10 +5,10 @@ Revises:
 Create Date: 2020-07-09 13:31:25.600291
 
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from alembic import op
 from sqlalchemy import text
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "f8fbad8262e3"
@@ -42,9 +42,7 @@ def upgrade():
         sa.Column("optional_batch_job_params", sa.JSON(), nullable=True),
         sa.Column("allowed_projects", sa.JSON(), nullable=True),
         sa.Column("allowed_queues", sa.JSON(), nullable=True),
-        sa.Column(
-            "transfer_locations", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("transfer_locations", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("hostname", "path"),
@@ -75,9 +73,7 @@ def upgrade():
         sa.Column("wall_time_min", sa.Integer(), nullable=False),
         sa.Column("job_mode", sa.String(length=16), nullable=False),
         sa.Column("partitions", sa.JSON(), nullable=True),
-        sa.Column(
-            "filter_tags", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("filter_tags", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("state", sa.String(length=32), nullable=False),
         sa.Column("status_info", sa.JSON(), nullable=True),
         sa.Column("start_time", sa.DateTime(), nullable=True),
@@ -92,9 +88,7 @@ def upgrade():
         sa.Column("heartbeat", sa.DateTime(), nullable=True),
         sa.Column("batch_job_id", sa.Integer(), nullable=True),
         sa.Column("site_id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["batch_job_id"], ["batch_jobs.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["batch_job_id"], ["batch_jobs.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["site_id"], ["sites.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -120,9 +114,7 @@ def upgrade():
         sa.Column("wall_time_min", sa.Integer(), nullable=True),
         sa.Column("launch_params", sa.JSON(), nullable=True),
         sa.ForeignKeyConstraint(["app_id"], ["apps.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["batch_job_id"], ["batch_jobs.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["batch_job_id"], ["batch_jobs.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["session_id"], ["sessions.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -144,12 +136,8 @@ def upgrade():
         sa.ForeignKeyConstraint(["parent_id"], ["jobs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("parent_id", "child_id"),
     )
-    op.create_index(
-        op.f("ix_job_deps_child_id"), "job_deps", ["child_id"], unique=False
-    )
-    op.create_index(
-        op.f("ix_job_deps_parent_id"), "job_deps", ["parent_id"], unique=False
-    )
+    op.create_index(op.f("ix_job_deps_child_id"), "job_deps", ["child_id"], unique=False)
+    op.create_index(op.f("ix_job_deps_parent_id"), "job_deps", ["parent_id"], unique=False)
     op.create_table(
         "log_events",
         sa.Column("id", sa.Integer(), nullable=False),

@@ -1,11 +1,12 @@
 from datetime import datetime
-from fastapi import status, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+
 import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
 
-from balsam.server import settings
 from balsam import schemas
+from balsam.server import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
@@ -14,9 +15,7 @@ def create_access_token(user):
 
     expiry = datetime.utcnow() + settings.auth.token_ttl
     to_encode = {"sub": user.id, "exp": expiry, "username": user.username}
-    encoded_jwt = jwt.encode(
-        to_encode, settings.auth.secret_key, algorithm=settings.auth.algorithm
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.auth.secret_key, algorithm=settings.auth.algorithm)
     return encoded_jwt, expiry
 
 
@@ -33,7 +32,9 @@ def user_from_token(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(
-            token, settings.auth.secret_key, algorithms=[settings.auth.algorithm],
+            token,
+            settings.auth.secret_key,
+            algorithms=[settings.auth.algorithm],
         )
 
         user_id: int = payload["sub"]

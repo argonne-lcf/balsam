@@ -1,9 +1,12 @@
 import math
 from datetime import datetime, timedelta
-from balsam.server import models, ValidationError
-from balsam import schemas
-from .jobs import update_states_by_query, set_parent_ids
+
 from sqlalchemy import orm
+
+from balsam import schemas
+from balsam.server import ValidationError, models
+
+from .jobs import set_parent_ids, update_states_by_query
 
 SESSION_EXPIRE_PERIOD = timedelta(minutes=5)
 SESSION_SWEEP_PERIOD = timedelta(minutes=3)
@@ -11,11 +14,7 @@ _sweep_time = None
 
 
 def owned_session_query(db, owner):
-    return (
-        db.query(models.Session)
-        .join(models.Site)
-        .filter(models.Site.owner_id == owner.id)
-    )
+    return db.query(models.Session).join(models.Site).filter(models.Site.owner_id == owner.id)
 
 
 def fetch(db, owner):
@@ -31,11 +30,7 @@ def _clear_stale_sessions(db, owner):
         return [], []
     _sweep_time = now
     expiry_time = now - SESSION_EXPIRE_PERIOD
-    expired_sessions = (
-        owned_session_query(db, owner)
-        .filter(models.Session.heartbeat <= expiry_time)
-        .all()
-    )
+    expired_sessions = owned_session_query(db, owner).filter(models.Session.heartbeat <= expiry_time).all()
 
     expired_jobs, expiry_events = [], []
     for session in expired_sessions:
@@ -49,9 +44,7 @@ def _clear_stale_sessions(db, owner):
         expired_jobs.extend(jobs)
         expiry_events.extend(events)
     sess_ids = [sess.id for sess in expired_sessions]
-    db.query(models.Session).filter(models.Session.id.in_(sess_ids)).delete(
-        synchronize_session=False
-    )
+    db.query(models.Session).filter(models.Session.id.in_(sess_ids)).delete(synchronize_session=False)
     db.flush()
     print("CLEARING STALE SESSIONS:", expired_sessions)
     return expired_jobs, expiry_events
@@ -61,9 +54,7 @@ def create(db, owner, session):
     expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
 
     site_id = (
-        db.query(models.Site.id)
-        .filter(models.Site.owner_id == owner.id, models.Site.id == session.site_id)
-        .scalar()
+        db.query(models.Site.id).filter(models.Site.owner_id == owner.id, models.Site.id == session.site_id).scalar()
     )
     if site_id is None:
         raise ValidationError(f"No site with ID {session.site_id}")
@@ -84,9 +75,7 @@ def create(db, owner, session):
 
 def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
     expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
-    session = (
-        owned_session_query(db, owner).filter(models.Session.id == session_id)
-    ).one()
+    session = (owned_session_query(db, owner).filter(models.Session.id == session_id)).one()
     session.heartbeat = datetime.utcnow()
 
     qs = db.query(models.Job).join(models.App)

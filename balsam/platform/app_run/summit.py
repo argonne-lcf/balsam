@@ -18,9 +18,7 @@ class SummitJsrun(AppRun):
             "-a",
             1,  # this forces 1 MPI rank to 1 resource task TODO: make this settable
             "-c",
-            int(
-                self.cores_per_node / self.ranks_per_node
-            ),  # number of cores per resource set
+            int(self.cores_per_node / self.ranks_per_node),  # number of cores per resource set
             "-g",
             self.gpus_per_rank,  # gpus per resource set
             *[arg for pair in env_args for arg in pair],

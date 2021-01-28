@@ -1,4 +1,5 @@
 import json
+
 import yaml
 
 
@@ -34,17 +35,13 @@ class BalsamModelField:
     def __set__(self, obj, value):
         if obj._state == "creating":
             if self.name not in obj._create_model.__fields__:
-                raise AttributeError(
-                    f"Cannot set {self.name} when creating {obj._modelname}"
-                )
+                raise AttributeError(f"Cannot set {self.name} when creating {obj._modelname}")
             setattr(obj._create_model, self.name, value)
         else:
             if obj._update_model is None:
                 obj._update_model = obj.update_model_cls()
             if self.name not in obj._update_model.__fields__:
-                raise AttributeError(
-                    f"Cannot set {self.name} when updating {obj._modelname}"
-                )
+                raise AttributeError(f"Cannot set {self.name} when updating {obj._modelname}")
             setattr(obj._update_model, self.name, value)
             obj._dirty_fields.add(self.name)
             obj._state = "dirty"
@@ -140,9 +137,7 @@ class BalsamModel(metaclass=BalsamModelMeta):
         if self._state == "creating":
             return self._create_model
         elif self._state == "dirty":
-            return self._read_model.copy(
-                update=self._update_model.dict(exclude_unset=True)
-            )
+            return self._read_model.copy(update=self._update_model.dict(exclude_unset=True))
         else:
             return self._read_model
 
@@ -161,8 +156,4 @@ class BalsamModel(metaclass=BalsamModelMeta):
     def __eq__(self, other):
         if not isinstance(other, BalsamModel):
             return False
-        return (
-            self._state == "clean"
-            and other._state == "clean"
-            and self._read_model == other._read_model
-        )
+        return self._state == "clean" and other._state == "clean" and self._read_model == other._read_model

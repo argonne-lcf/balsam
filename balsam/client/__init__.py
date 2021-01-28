@@ -1,10 +1,9 @@
 """
 Clients: perform requests to Balsam server
 """
-from .rest_base_client import RESTClient
-from .requests_client import RequestsClient, NotAuthenticatedError
 from .requests_auth import BasicAuthRequestsClient
-
+from .requests_client import NotAuthenticatedError, RequestsClient
+from .rest_base_client import RESTClient
 
 __all__ = [
     "RESTClient",

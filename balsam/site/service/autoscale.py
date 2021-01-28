@@ -1,7 +1,9 @@
 import getpass
-from .service_base import BalsamService
-from balsam.schemas import RUNNABLE_STATES
 import logging
+
+from balsam.schemas import RUNNABLE_STATES
+
+from .service_base import BalsamService
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +43,14 @@ class AutoscaleService(BalsamService):
     def _get_largest_backfill_window(self):
         windows = self.scheduler.get_backfill_windows(queue=self.submit_queue)
         windows = [w for w in windows if w.wall_time_min > self.min_wall_time_min]
-        windows = sorted(
-            windows, key=lambda w: w.wall_time_min * w.num_nodes, reverse=True
-        )
+        windows = sorted(windows, key=lambda w: w.wall_time_min * w.num_nodes, reverse=True)
         return windows[0] if windows else None
 
     def get_next_submission(self, scheduler_jobs):
         Job = self.client.Job
-        queued_jobs = [
-            j for j in scheduler_jobs if j.state in ("queued", "pending_submission")
-        ]
+        queued_jobs = [j for j in scheduler_jobs if j.state in ("queued", "pending_submission")]
         running_jobs = [j for j in scheduler_jobs if j.state == "running"]
-        num_reserved_nodes = sum(j.num_nodes for j in queued_jobs) + sum(
-            j.num_nodes for j in running_jobs
-        )
+        num_reserved_nodes = sum(j.num_nodes for j in queued_jobs) + sum(j.num_nodes for j in running_jobs)
         logger.info(
             f"{len(queued_jobs)} queued; {len(running_jobs)} running; {num_reserved_nodes} nodes reserved in total"
         )
@@ -72,9 +68,7 @@ class AutoscaleService(BalsamService):
             return None
 
         if window and required_num_nodes > idle_node_count:
-            request_num_nodes = max(
-                self.min_num_nodes, required_num_nodes - idle_node_count
-            )
+            request_num_nodes = max(self.min_num_nodes, required_num_nodes - idle_node_count)
             request_num_nodes = min(
                 request_num_nodes,
                 window.num_nodes,
@@ -90,9 +84,7 @@ class AutoscaleService(BalsamService):
             }
 
     def run_cycle(self):
-        scheduler_jobs = self.scheduler.get_statuses(
-            user=self.username, queue=self.submit_queue
-        )
+        scheduler_jobs = self.scheduler.get_statuses(user=self.username, queue=self.submit_queue)
         sub = self.get_next_submission(scheduler_jobs)
         if sub:
             new_job = self.client.BatchJob(**sub)
@@ -102,14 +94,11 @@ class AutoscaleService(BalsamService):
         cancel_jobs = [
             job
             for job in scheduler_jobs
-            if job.state == "queued"
-            and job.queued_time_min > self.max_queue_wait_time_min
+            if job.state == "queued" and job.queued_time_min > self.max_queue_wait_time_min
         ]
         for job in cancel_jobs:
             self.scheduler.delete_job(job.scheduler_id)
-            logger.info(
-                f"Deleted queued BatchJob {job.scheduler_id}: exceed max queue wait time"
-            )
+            logger.info(f"Deleted queued BatchJob {job.scheduler_id}: exceed max queue wait time")
 
     def cleanup(self):
         logger.info("Exiting Autoscaler service")

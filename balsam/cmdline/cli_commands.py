@@ -1,10 +1,10 @@
 # flake8: noqa
 import getpass
 import os
-from importlib.util import find_spec
-import subprocess
 import signal
+import subprocess
 import sys
+from importlib.util import find_spec
 
 import django
 
@@ -21,11 +21,7 @@ def ls_procs(keywords):
     stdout, stderr = grep.communicate()
     stdout = stdout.decode("utf-8")
 
-    processes = [
-        line
-        for line in stdout.split("\n")
-        if "python" in line and line.split()[0] == username
-    ]
+    processes = [line for line in stdout.split("\n") if "python" in line and line.split()[0] == username]
     return processes
 
 
@@ -156,9 +152,9 @@ def ls(args):
     from balsam import setup
 
     setup()
+    import balsam.scripts.ls_commands as lscmd
     from balsam.core import models
     from balsam.launcher import dag
-    import balsam.scripts.ls_commands as lscmd
 
     Job = models.BalsamJob
     AppDef = models.ApplicationDefinition
@@ -323,9 +319,10 @@ def submitlaunch(args):
     from balsam import setup
 
     setup()
-    from balsam.service import service
-    from balsam.core import models
     from django.db import connection, transaction
+
+    from balsam.core import models
+    from balsam.service import service
 
     # Exclusive Lock on core_queuedlaunch
     with transaction.atomic():
@@ -372,9 +369,10 @@ def init(args):
 
 
 def which(args):
+    import pprint
+
     from balsam.django_config.db_index import refresh_db_index
     from balsam.django_config.serverinfo import ServerInfo
-    import pprint
 
     if args.list:
         pprint.pprint(refresh_db_index())
@@ -408,9 +406,7 @@ def which(args):
             pprint.pprint(dat)
         else:
             print("BALSAM_DB_PATH is not set")
-            print(
-                'Use "source balsamactivate" to activate one of these existing databases:'
-            )
+            print('Use "source balsamactivate" to activate one of these existing databases:')
             pprint.pprint(refresh_db_index())
 
 
@@ -430,9 +426,7 @@ def server(args):
 
     db_path = os.environ.get("BALSAM_DB_PATH", None)
     if not db_path:
-        raise RuntimeError(
-            "BALSAM_DB_PATH needs to be set before server can be started\n"
-        )
+        raise RuntimeError("BALSAM_DB_PATH needs to be set before server can be started\n")
 
     if args.connect:
         postgres_control.start_main(db_path)

@@ -1,12 +1,12 @@
-from pathlib import Path
 import logging
 import multiprocessing
-import signal
 import os
+import signal
 import socket
 import time
+from pathlib import Path
 
-from balsam.config import SiteConfig, Settings
+from balsam.config import Settings, SiteConfig
 
 logger = logging.getLogger("balsam.site.service.main")
 
@@ -46,9 +46,7 @@ def update_site_from_config(site, settings: Settings):
         site.globus_endpoint_id = settings.transfers.globus_endpoint_id
 
     new_dict = site.display_dict()
-    diff = {
-        k: (old_dict[k], new_dict[k]) for k in old_dict if old_dict[k] != new_dict[k]
-    }
+    diff = {k: (old_dict[k], new_dict[k]) for k in old_dict if old_dict[k] != new_dict[k]}
     if diff:
         site.save()
         diff_str = "\n".join(f"{k}={diff[k][0]} --> {diff[k][1]}" for k in diff)
@@ -95,6 +93,4 @@ if __name__ == "__main__":
     run_time_sec = int(config.client.expires_in.total_seconds() - 60)
     with PIDFile(config.site_path):
         main(config, run_time_sec)
-    logger.info(
-        f"Balsam service [pid {os.getpid()}] goodbye: exited PIDFile context manager."
-    )
+    logger.info(f"Balsam service [pid {os.getpid()}] goodbye: exited PIDFile context manager.")

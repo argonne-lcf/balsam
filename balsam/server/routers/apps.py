@@ -1,13 +1,13 @@
 import json
 from typing import List
 
-from fastapi import Depends, APIRouter, status, Query
+from fastapi import APIRouter, Depends, Query, status
 
 from balsam import schemas
-from balsam.server.models import get_session, crud
-from balsam.server.util import Paginator
-from balsam.server.pubsub import pubsub
 from balsam.server import settings
+from balsam.server.models import crud, get_session
+from balsam.server.pubsub import pubsub
+from balsam.server.util import Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -52,9 +52,7 @@ def create(app: schemas.AppCreate, db=Depends(get_session), user=Depends(auth)):
 
 
 @router.put("/{app_id}", response_model=schemas.AppOut)
-def update(
-    app_id: int, app: schemas.AppUpdate, db=Depends(get_session), user=Depends(auth)
-):
+def update(app_id: int, app: schemas.AppUpdate, db=Depends(get_session), user=Depends(auth)):
     data = json.loads(app.json(exclude_unset=True))
     updated_app = crud.apps.update(db, owner=user, app_id=app_id, update_data=data)
     data["id"] = app_id

@@ -1,5 +1,7 @@
 import socket
+
 import psutil
+
 from .compute_node import ComputeNode
 
 

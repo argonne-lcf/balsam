@@ -10,9 +10,7 @@ def sandbox_exec_file(path):
             module_contents = fp.read()
         exec(module_contents, globals=global_vars, locals=local_vars)
     except Exception:
-        logger.exception(
-            f"An exception occured inside {path}. " "Please fix and re-save the file."
-        )
+        logger.exception(f"An exception occured inside {path}. " "Please fix and re-save the file.")
         return {}
     else:
         return global_vars

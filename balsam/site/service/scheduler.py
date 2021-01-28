@@ -1,52 +1,15 @@
-from datetime import datetime
 import getpass
 import logging
 import os
 import stat
-from balsam.site import ScriptTemplate
-from balsam.platform.scheduler import SchedulerSubmitError
-from .service_base import BalsamService
-from balsam.cmdline.utils import partitions_to_cli_args
+from datetime import datetime
 
+from balsam.platform.scheduler import SchedulerSubmitError
+from balsam.site import ScriptTemplate
+
+from .service_base import BalsamService
 
 logger = logging.getLogger(__name__)
-
-
-def validate_batch_job(
-    job, allowed_queues, allowed_projects, optional_batch_job_params
-):
-    if job.queue not in allowed_queues:
-        raise ValueError(
-            f"Unknown queue {job.queue} " f"(known: {list(allowed_queues.keys())})"
-        )
-    queue = allowed_queues[job.queue]
-    if job.num_nodes > queue.max_nodes:
-        raise ValueError(
-            f"{job.num_nodes} exceeds queue max num_nodes {queue.max_nodes}"
-        )
-    if job.num_nodes < 1:
-        raise ValueError("Job size must be at least 1 node")
-    if job.wall_time_min > queue.max_walltime:
-        raise ValueError(
-            f"{job.wall_time_min} exceeds queue max wall_time_min {queue.max_walltime}"
-        )
-
-    if job.project not in allowed_projects:
-        raise ValueError(
-            f"Unknown project {job.project} " f"(known: {allowed_projects})"
-        )
-    if job.partitions:
-        if sum(part.num_nodes for part in job.partitions) != job.num_nodes:
-            raise ValueError("Sum of partition sizes must equal batchjob num_nodes")
-
-    extras = set(job.optional_params.keys())
-    allowed_extras = set(optional_batch_job_params.keys())
-    extraneous = extras.difference(allowed_extras)
-    if extraneous:
-        raise ValueError(
-            f"Extraneous optional_params: {extraneous} "
-            f"(allowed extras: {allowed_extras})"
-        )
 
 
 class SchedulerService(BalsamService):
@@ -82,8 +45,7 @@ class SchedulerService(BalsamService):
 
     def submit_launch(self, job, scheduler_jobs):
         try:
-            validate_batch_job(
-                job,
+            job.validate(
                 self.allowed_queues,
                 self.allowed_projects,
                 self.optional_batch_job_params,
@@ -94,9 +56,7 @@ class SchedulerService(BalsamService):
         num_queued = len([j for j in scheduler_jobs.values() if j.queue == job.queue])
         queue = self.allowed_queues[job.queue]
         if num_queued >= queue.max_queued_jobs:
-            return self.fail_submit(
-                job, f"Exceeded max {queue.max_queued_jobs} jobs in queue {job.queue}"
-            )
+            return self.fail_submit(job, f"Exceeded max {queue.max_queued_jobs} jobs in queue {job.queue}")
 
         script = self.job_template.render(
             project=job.project,
@@ -105,7 +65,7 @@ class SchedulerService(BalsamService):
             wall_time_min=job.wall_time_min,
             job_mode=job.job_mode,
             filter_tags=job.filter_tags,
-            partitions=partitions_to_cli_args(job.partitions),
+            partitions=job.partitions_to_cli_args(),
             **job.optional_params,
         )
 
@@ -153,9 +113,7 @@ class SchedulerService(BalsamService):
             if job.state == "finished":
                 continue
             if job.state == "pending_submission":
-                if all(
-                    item in job.filter_tags.items() for item in self.filter_tags.items()
-                ):
+                if all(item in job.filter_tags.items() for item in self.filter_tags.items()):
                     self.submit_launch(job, scheduler_jobs)
                 else:
                     logger.debug(
@@ -170,9 +128,7 @@ class SchedulerService(BalsamService):
                     f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses: finished"
                 )
                 job.state = "finished"
-                job_log = self.scheduler.parse_logs(
-                    job.scheduler_id, job.status_info.get("submit_script", None)
-                )
+                job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
                 start_time = job_log.start_time
                 end_time = job_log.end_time
                 if start_time:
@@ -181,9 +137,7 @@ class SchedulerService(BalsamService):
                     job.end_time = end_time
             elif job.state != scheduler_jobs[job.scheduler_id].state:
                 job.state = scheduler_jobs[job.scheduler_id].state
-                logger.info(
-                    f"Job {job.id} (sched_id {job.scheduler_id}) advanced to state {job.state}"
-                )
+                logger.info(f"Job {job.id} (sched_id {job.scheduler_id}) advanced to state {job.state}")
         BatchJob.objects.bulk_update(api_jobs)
         self.update_site_info()
 

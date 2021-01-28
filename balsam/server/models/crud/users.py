@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import exists
-from balsam.server.models.tables import User
+
 from balsam.schemas import UserOut
 from balsam.server.auth.password import get_hash
+from balsam.server.models.tables import User
 
 
 def get_user_by_username(db: Session, username: str):

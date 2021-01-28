@@ -1,9 +1,10 @@
-import getpass
 import abc
-from typing import Optional, Union, Dict, List
-from pathlib import Path
+import getpass
 import subprocess
-from balsam.schemas import SchedulerJobStatus, SchedulerBackfillWindow, SchedulerJobLog
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+
+from balsam.schemas import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus
 
 PathLike = Union[Path, str]
 
@@ -40,7 +41,7 @@ class SchedulerInterface(abc.ABC):
         num_nodes: int,
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
-        **kwargs
+        **kwargs,
     ) -> int:
         """
         Submit the script at `script_path` to a local job queue.
@@ -98,11 +99,9 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
         num_nodes: int,
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
-        **kwargs
+        **kwargs,
     ) -> int:
-        submit_args = cls._render_submit_args(
-            script_path, project, queue, num_nodes, wall_time_min, **kwargs
-        )
+        submit_args = cls._render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs)
         stdout = scheduler_subproc(submit_args, cwd=cwd)
         scheduler_id = cls._parse_submit_output(stdout)
         return scheduler_id
@@ -139,9 +138,7 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _render_submit_args(
-        script_path, project, queue, num_nodes, wall_time_min, **kwargs
-    ) -> List[str]:
+    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs) -> List[str]:
         pass
 
     @staticmethod

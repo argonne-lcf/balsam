@@ -1,8 +1,11 @@
-import yaml
 from pathlib import Path
+
 import click
-from .utils import load_site_config, validate_tags
+import yaml
+
 from balsam.schemas import JobState
+
+from .utils import load_site_config, validate_tags
 
 
 @click.group()
@@ -91,9 +94,7 @@ def validate_parents(ctx, param, value):
 @click.option("-w", "--workdir", required=True, type=str)
 @click.option("-a", "--app", required=True, type=str, callback=validate_app)
 @click.option("-tag", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
-@click.option(
-    "-p", "--param", "parameters", multiple=True, type=str, callback=validate_parameters
-)
+@click.option("-p", "--param", "parameters", multiple=True, type=str, callback=validate_parameters)
 @click.option("-n", "--num-nodes", default=1, type=int)
 @click.option("-rpn", "--ranks-per-node", default=1, type=int)
 @click.option("-tpr", "--threads-per-rank", default=1, type=int)
@@ -148,9 +149,7 @@ def create(
     """
     client = ctx.obj.client
     if Path(workdir).is_absolute():
-        raise click.BadParameter(
-            "workdir must be a relative path: cannot start with '/'"
-        )
+        raise click.BadParameter("workdir must be a relative path: cannot start with '/'")
     job = client.Job(
         workdir=workdir,
         app_id=app.id,
@@ -204,9 +203,7 @@ def ls(ctx, tags, state, exclude_state, workdir, verbose):
     else:
         click.echo(f"{'ID':5}   {'Job Dir':14}   {'State':16}   {'Tags':40}")
         for j in result:
-            click.echo(
-                f"{j.id:5d}   {j.workdir.as_posix():14}   {j.state:16}   {str(j.tags):40}"
-            )
+            click.echo(f"{j.id:5d}   {j.workdir.as_posix():14}   {j.state:16}   {str(j.tags):40}")
 
 
 @job.command()

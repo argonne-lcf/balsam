@@ -1,28 +1,28 @@
 from datetime import datetime
+
 from sqlalchemy import (
-    Table,
-    Column,
-    Enum,
+    JSON,
     Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
     Index,
     Integer,
     String,
-    DateTime,
-    Float,
+    Table,
+    Text,
     UniqueConstraint,
-    ForeignKey,
+    func,
     orm,
     text,
-    func,
-    JSON,
-    Text,
 )
 from sqlalchemy.dialects import postgresql as pg
+
+from balsam.schemas.transfer import TransferDirection, TransferItemState
+
 from .base import Base
-from balsam.schemas.transfer import (
-    TransferDirection,
-    TransferItemState,
-)
 
 # PK automatically has nullable=False, autoincrement
 # Postgres auto-creates index for unique constraint and primary key constraint
@@ -93,9 +93,7 @@ class App(Base):
     last_modified = Column(Float, default=0.0)
 
     site = orm.relationship(Site, back_populates="apps")
-    jobs = orm.relationship(
-        "Job", back_populates="app", cascade="all, delete-orphan", passive_deletes=True
-    )
+    jobs = orm.relationship("Job", back_populates="app", cascade="all, delete-orphan", passive_deletes=True)
 
 
 # Junction table
@@ -129,9 +127,7 @@ class Job(Base):
     # Ensure that GIN index is created:
     #     CREATE INDEX idxgin ON jobs USING gin (tags);
     tags = Column(pg.JSONB, default=dict, index=True)
-    __table_args__ = (
-        Index("ix_jobs_tags", text("(tags jsonb_path_ops)"), postgresql_using="GIN"),
-    )
+    __table_args__ = (Index("ix_jobs_tags", text("(tags jsonb_path_ops)"), postgresql_using="GIN"),)
 
     app_id = Column(Integer, ForeignKey("apps.id", ondelete="CASCADE"))
     session_id = Column(
@@ -141,13 +137,9 @@ class Job(Base):
         default=None,
     )
     parameters = Column(pg.JSONB, default=dict)
-    batch_job_id = Column(
-        Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True
-    )
+    batch_job_id = Column(Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True)
     state = Column(String(32), index=True)
-    last_update = Column(
-        DateTime(timezone=True), default=func.now(), onupdate=func.now()
-    )
+    last_update = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     data = Column(JSON)
     return_code = Column(Integer)
 
@@ -199,9 +191,7 @@ class BatchJob(Base):
     __tablename__ = "batch_jobs"
 
     id = Column(Integer, primary_key=True)
-    site_id = Column(
-        Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False
-    )
+    site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
     scheduler_id = Column(Integer, nullable=True)
     project = Column(String(64), nullable=False)
     queue = Column(String(64), nullable=False)
@@ -226,12 +216,8 @@ class Session(Base):
 
     id = Column(Integer, primary_key=True)
     heartbeat = Column(DateTime, default=datetime.utcnow)
-    batch_job_id = Column(
-        Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True
-    )
-    site_id = Column(
-        Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False
-    )
+    batch_job_id = Column(Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True)
+    site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
 
     batch_job = orm.relationship(BatchJob, lazy="raise", back_populates="sessions")
     site = orm.relationship(Site, lazy="raise", back_populates="sessions")

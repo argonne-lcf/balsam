@@ -1,14 +1,14 @@
+import logging
 import os
+import queue
+import signal
 import sys
 from contextlib import contextmanager
-from pathlib import Path
 from datetime import datetime
-from balsam.site import FixedDepthJobSource, BulkStatusUpdater
-from balsam.site import ApplicationDefinition
+from pathlib import Path
+
+from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobSource
 from balsam.util import Process
-import signal
-import queue
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +48,7 @@ def transition(app):
         sys.stdout.write(f"#BALSAM {msg}")
         transition_func()
     except Exception as exc:
-        logger.exception(
-            f"An exception occured in {transition_func}: marking Job {app.job.id} FAILED"
-        )
+        logger.exception(f"An exception occured in {transition_func}: marking Job {app.job.id} FAILED")
         app.job.state = "FAILED"
         app.job.state_data = {
             "message": f"An exception occured in {transition_func}",

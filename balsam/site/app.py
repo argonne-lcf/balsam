@@ -1,11 +1,12 @@
 import importlib.util
+import logging
 import os
-from pathlib import Path
 import shlex
+from pathlib import Path
 from typing import Tuple
+
 import jinja2
 import jinja2.meta
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +18,9 @@ def split_class_path(class_path: str) -> Tuple[str, str]:
     filename, *class_name = class_path.split(".")
     class_name = ".".join(class_name)
     if not filename:
-        raise ValueError(
-            f"{class_path} must refer to a Python class with the form Module.Class"
-        )
+        raise ValueError(f"{class_path} must refer to a Python class with the form Module.Class")
     if not class_name or "." in class_name:
-        raise ValueError(
-            f"{class_path} must refer to a Python class with the form Module.Class"
-        )
+        raise ValueError(f"{class_path} must refer to a Python class with the form Module.Class")
     return filename, class_name
 
 
@@ -37,9 +34,7 @@ def load_module(fpath):
     try:
         spec.loader.exec_module(module)
     except Exception as exc:
-        logger.exception(
-            f"Failed to load {fpath} because of an exception in the module:\n{exc}"
-        )
+        logger.exception(f"Failed to load {fpath} because of an exception in the module:\n{exc}")
         raise
     return module
 
@@ -69,15 +64,9 @@ class ApplicationDefinitionMeta(type):
             return cls
 
         if "parameters" not in attrs:
-            raise AttributeError(
-                "Must set `parameters` dict on the ApplicationDefinition class."
-            )
-        if "command_template" not in attrs or not isinstance(
-            attrs["command_template"], str
-        ):
-            raise AttributeError(
-                "ApplicationDefiniton must define a `command_template` string."
-            )
+            raise AttributeError("Must set `parameters` dict on the ApplicationDefinition class.")
+        if "command_template" not in attrs or not isinstance(attrs["command_template"], str):
+            raise AttributeError("ApplicationDefiniton must define a `command_template` string.")
 
         cls.command_template = " ".join(cls.command_template.strip().split())
         ctx = jinja2.Environment().parse(cls.command_template)
@@ -88,8 +77,7 @@ class ApplicationDefinitionMeta(type):
         extraneous = cls_params.difference(detected_params)
         if extraneous:
             raise AttributeError(
-                f"App {name} has extraneous `parameters` not referenced "
-                f"in the command template: {extraneous}"
+                f"App {name} has extraneous `parameters` not referenced " f"in the command template: {extraneous}"
             )
         for param in detected_params.difference(cls_params):
             cls.parameters[param] = {
@@ -140,9 +128,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         if diff:
             raise ValueError(f"Missing required args: {diff}")
 
-        sanitized_args = {
-            key: shlex.quote(str(arg_dict[key])) for key in self.parameters
-        }
+        sanitized_args = {key: shlex.quote(str(arg_dict[key])) for key in self.parameters}
         return jinja2.Template(self.command_template).render(sanitized_args)
 
     def preprocess(self):
@@ -177,9 +163,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
 
         app_class = getattr(module, class_name, None)
         if app_class is None:
-            raise AttributeError(
-                f"Loaded module at {fpath}, but it does not contain the class {class_name}"
-            )
+            raise AttributeError(f"Loaded module at {fpath}, but it does not contain the class {class_name}")
         if not issubclass(app_class, cls):
             raise TypeError(f"{class_path} must subclass {cls.__name__}")
 

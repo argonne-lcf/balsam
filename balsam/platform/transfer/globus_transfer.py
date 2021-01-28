@@ -1,17 +1,14 @@
+import logging
 import os
-from uuid import UUID
-from .transfer import (
-    TaskInfo,
-    TransferInterface,
-    TransferTaskID,
-    TransferSubmitError,
-)
-from typing import List, Tuple
-from pathlib import Path
 import subprocess
+from pathlib import Path
+from typing import List, Tuple
+from uuid import UUID
+
 from globus_cli.services.transfer import get_client
 from globus_sdk import TransferData
-import logging
+
+from .transfer import TaskInfo, TransferInterface, TransferSubmitError, TransferTaskID
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +49,7 @@ def submit_subproc(src_endpoint, dest_endpoint, batch):
     env = os.environ.copy()
     env["LC_ALL"] = "C.UTF-8"
     env["LANG"] = "C.UTF-8"
-    batch_str = "\n".join(
-        f"{src} {dest} {'-r' if recurse else ''}" for src, dest, recurse in batch
-    )
+    batch_str = "\n".join(f"{src} {dest} {'-r' if recurse else ''}" for src, dest, recurse in batch)
     proc = subprocess.run(
         [
             "globus",

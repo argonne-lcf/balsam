@@ -33,8 +33,9 @@ This is better.
 (c) 2016, Aaron Christianson
 http://github.com/ninjaaron/fast-entry_points
 """
-from setuptools.command import easy_install
 import re
+
+from setuptools.command import easy_install
 
 TEMPLATE = r"""
 # -*- coding: utf-8 -*-
@@ -65,9 +66,7 @@ def get_args(cls, dist, header=None):  # noqa: D205,D400
             # ensure_safe_name
             if re.search(r"[\\/]", name):
                 raise ValueError("Path separators not allowed in script names")
-            script_text = TEMPLATE.format(
-                ep.module_name, ep.attrs[0], ".".join(ep.attrs), spec, group, name
-            )
+            script_text = TEMPLATE.format(ep.module_name, ep.attrs[0], ".".join(ep.attrs), spec, group, name)
             # pylint: disable=E1101
             args = cls._get_script_args(type_, name, header, script_text)
             for res in args:

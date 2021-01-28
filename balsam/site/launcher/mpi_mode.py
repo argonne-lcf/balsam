@@ -1,15 +1,15 @@
-import click
-from datetime import datetime
+import json
 import logging
 import multiprocessing
-import json
 import signal
 import time
+from datetime import datetime
+
+import click
 
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
-from balsam.site import SynchronousJobSource, BulkStatusUpdater
-from balsam.site import ApplicationDefinition
+from balsam.site import ApplicationDefinition, BulkStatusUpdater, SynchronousJobSource
 from balsam.site.launcher.node_manager import NodeManager
 from balsam.site.launcher.util import countdown_timer_min
 
@@ -70,9 +70,7 @@ class Launcher:
                 self.idle_time = time.time()
             elif time.time() - self.idle_time > self.idle_ttl_sec:
                 self.exit_flag = True
-                logger.info(
-                    f"Exceeded {self.idle_ttl_sec} sec TTL: shutting down because nothing to do"
-                )
+                logger.info(f"Exceeded {self.idle_ttl_sec} sec TTL: shutting down because nothing to do")
         else:
             self.idle_time = None
 
@@ -155,9 +153,7 @@ class Launcher:
             status = self.check_run(run)
             if status["state"] == "RUNNING" and timeout:
                 run.terminate()
-                self.status_updater.put(
-                    id, state="RUN_TIMEOUT", state_timestamp=datetime.utcnow()
-                )
+                self.status_updater.put(id, state="RUN_TIMEOUT", state_timestamp=datetime.utcnow())
                 self.node_manager.free(id)
                 remaining_runs[id] = run
             elif status["state"] == "RUNNING":
@@ -212,9 +208,7 @@ def main(
 
     node_cls = site_config.launcher.compute_node
     nodes = [node for node in node_cls.get_job_nodelist() if node.node_id in node_ids]
-    node_manager = NodeManager(
-        nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing
-    )
+    node_manager = NodeManager(nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing)
 
     scheduler_id = node_cls.get_scheduler_id()
     job_source = SynchronousJobSource(
@@ -228,9 +222,7 @@ def main(
 
     App = site_config.client.App
     app_cache = {
-        app.id: ApplicationDefinition.load_app_class(
-            site_config.apps_path, app.class_path
-        )
+        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
         for app in App.objects.filter(site_id=site_config.site_id)
     }
     launcher = Launcher(

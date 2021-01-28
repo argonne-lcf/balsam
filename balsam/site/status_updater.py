@@ -1,12 +1,13 @@
-from collections import defaultdict
+import logging
 import queue
 import signal
-import logging
+from collections import defaultdict
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from typing import List, Dict, Any, Optional
 from balsam.schemas import JobState
 from balsam.util import Process
+
 from .util import Queue
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,7 @@
+import logging
 import signal
 import time
-import logging
+
 from balsam.util import Process
 
 logger = logging.getLogger(__name__)

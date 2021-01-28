@@ -1,10 +1,7 @@
-from .scheduler import (
-    SubprocessSchedulerInterface,
-    SchedulerJobStatus,
-    SchedulerJobLog,
-)
-import os
 import logging
+import os
+
+from .scheduler import SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
 
 logger = logging.getLogger(__name__)
 
@@ -173,16 +170,12 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         fields = SlurmScheduler._status_fields.values()
         env["SQUEUE_FORMAT2"] = ",".join(fields)
         fields = SlurmScheduler._nodelist_fields.values()
-        env["SINFO_FORMAT"] = " ".join(
-            SlurmScheduler._fields_encondings[field] for field in fields
-        )
+        env["SINFO_FORMAT"] = " ".join(SlurmScheduler._fields_encondings[field] for field in fields)
         os.environ.update(env)
         return env
 
     @staticmethod
-    def _render_submit_args(
-        script_path, project, queue, num_nodes, wall_time_min, **kwargs
-    ):
+    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs):
         args = [
             SlurmScheduler.submit_exe,
             "-o",
@@ -257,9 +250,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         actual = len(fields)
         expected = len(SlurmScheduler._status_fields)
         if actual != expected:
-            raise ValueError(
-                f"Line has {actual} columns: expected {expected}:\n{fields}"
-            )
+            raise ValueError(f"Line has {actual} columns: expected {expected}:\n{fields}")
 
         status = {}
         for name, value in zip(SlurmScheduler._status_fields, fields):

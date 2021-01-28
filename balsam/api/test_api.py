@@ -1,7 +1,8 @@
-import pytest
-from datetime import timedelta, datetime
 import random
+from datetime import datetime, timedelta
 from uuid import uuid4
+
+import pytest
 
 
 class TestSite:
@@ -37,9 +38,7 @@ class TestSite:
         creation_ts = site.last_refresh
 
         site.num_nodes = 128
-        site.backfill_windows = [
-            {"queue": "default", "num_nodes": 31, "wall_time_min": 45}
-        ]
+        site.backfill_windows = [{"queue": "default", "num_nodes": 31, "wall_time_min": 45}]
 
         site.save()
         update_ts = site.last_refresh
@@ -189,9 +188,7 @@ class TestJobs:
             parameters={"geometry": {"required": True}},
         )
 
-        job = Job(
-            "test/run1", app.id, parameters={"geometry": "test.xyz"}, ranks_per_node=64
-        )
+        job = Job("test/run1", app.id, parameters={"geometry": "test.xyz"}, ranks_per_node=64)
         assert job.id is None
         job.save()
         assert job.id is not None
@@ -209,14 +206,10 @@ class TestJobs:
 
         subset = Job.objects.all().order_by("workdir")[:4]
         assert len(subset) == 4
-        assert set(job.workdir.as_posix() for job in subset) == {
-            f"test/{i}" for i in range(4)
-        }
+        assert set(job.workdir.as_posix() for job in subset) == {f"test/{i}" for i in range(4)}
         subset = Job.objects.all().order_by("workdir")[5:]
         assert len(subset) == 3
-        assert set(job.workdir.as_posix() for job in subset) == {
-            f"test/{i}" for i in range(5, 8)
-        }
+        assert set(job.workdir.as_posix() for job in subset) == {f"test/{i}" for i in range(5, 8)}
         subset = Job.objects.all().order_by("-workdir")[5:7]
         assert len(subset) == 2
         assert set(job.workdir.as_posix() for job in subset) == {"test/2", "test/1"}
@@ -332,9 +325,7 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        jobs = [
-            Job(f"test/{i}", app.id, tags={"foo": i, "bar": i * 2}) for i in range(3)
-        ]
+        jobs = [Job(f"test/{i}", app.id, tags={"foo": i, "bar": i * 2}) for i in range(3)]
         Job.objects.bulk_create(jobs)
         assert Job.objects.count() == 3
         qs = Job.objects.filter(tags="foo:1")
@@ -398,9 +389,7 @@ class TestJobs:
         app1 = App.objects.create(site_id=site1.id, class_path="app.one")
         app2 = App.objects.create(site_id=site2.id, class_path="app.one")
 
-        jobs = [Job(f"foo/{i}", app1.id) for i in range(2)] + [
-            Job(f"foo/{i}", app2.id) for i in range(2)
-        ]
+        jobs = [Job(f"foo/{i}", app1.id) for i in range(2)] + [Job(f"foo/{i}", app2.id) for i in range(2)]
         jobs = Job.objects.bulk_create(jobs)
 
         # Check site filters
@@ -418,10 +407,7 @@ class TestJobs:
             class_path="app.one",
             parameters={"geometry": {"required": True}},
         )
-        jobs = [
-            Job(f"foo/{i}", app.id, parameters={"geometry": f"{i}.xyz"})
-            for i in range(4)
-        ]
+        jobs = [Job(f"foo/{i}", app.id, parameters={"geometry": f"{i}.xyz"}) for i in range(4)]
         jobs.append(Job("bar/2", app.id, parameters={"geometry": "xy:32.xyz"}))
         jobs = Job.objects.bulk_create(jobs)
 
@@ -479,9 +465,7 @@ class TestTransfers:
         job = Job.objects.create(
             workdir="test/test",
             app_id=app.id,
-            transfers={
-                "input_data": {"location_alias": "laptop", "path": "/path/to/input.dat"}
-            },
+            transfers={"input_data": {"location_alias": "laptop", "path": "/path/to/input.dat"}},
         )
         assert job.state == "READY"
 
@@ -782,9 +766,7 @@ class TestBatchJobs:
             job.save()
             assert job.batch_job_id is None
 
-        sess = Session.objects.create(
-            batch_job_id=batch_job.id, site_id=batch_job.site_id
-        )
+        sess = Session.objects.create(batch_job_id=batch_job.id, site_id=batch_job.site_id)
         acquired = sess.acquire_jobs(
             max_wall_time_min=60,
             max_nodes_per_job=8,
@@ -794,9 +776,7 @@ class TestBatchJobs:
         assert len(acquired) == 3
 
         related = Job.objects.filter(batch_job_id=batch_job.id)
-        assert sorted(related, key=lambda job: job.id) == sorted(
-            acquired, key=lambda job: job.id
-        )
+        assert sorted(related, key=lambda job: job.id) == sorted(acquired, key=lambda job: job.id)
 
 
 class TestSessions:

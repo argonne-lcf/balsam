@@ -1,15 +1,17 @@
-import secrets
-import subprocess
-import shutil
-import tempfile
-from pathlib import Path
 import logging
-import psycopg2
 import os
 import re
-import sys
+import secrets
+import shutil
 import socket
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+import psycopg2
 import yaml
+
 import balsam.server
 
 SERVER_INFO_FILENAME = "server-info.yml"
@@ -50,12 +52,8 @@ def identify_hostport():
     return (host, port)
 
 
-def write_pwfile(
-    db_path, username, password, host, port, database, filename=SERVER_INFO_FILENAME
-):
-    pw_dict = dict(
-        username=username, password=password, host=host, port=port, database=database
-    )
+def write_pwfile(db_path, username, password, host, port, database, filename=SERVER_INFO_FILENAME):
+    pw_dict = dict(username=username, password=password, host=host, port=port, database=database)
     pw_dict["scheme"] = "postgres"
     pw_dict["client_class"] = "balsam.client.DirectAPIClient"
     with open(Path(db_path).joinpath(filename), "w") as fp:
@@ -134,8 +132,8 @@ def configure_django_database(
 ):
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "balsam.server.conf.settings")
     import django
-    from django.conf import settings
     from django import db
+    from django.conf import settings
 
     new_db = dict(
         ENGINE=engine,
@@ -160,8 +158,9 @@ def run_django_migrations():
 
 
 def run_alembic_migrations(dsn, downgrade=None):
-    from alembic.config import Config
     from alembic import command
+    from alembic.config import Config
+
     import balsam.server.models.alembic as alembic
 
     migrations_path = str(Path(alembic.__file__).parent)
@@ -259,18 +258,14 @@ def stop_db(db_path: str) -> None:
     stop_cmd = f"pg_ctl -w stop -D {db_path} --mode=smart"
     res = subprocess.run(stop_cmd, shell=True)
     if res.returncode != 0:
-        raise RuntimeError(
-            "Could not send stop signal; is the DB running on a different host?"
-        )
+        raise RuntimeError("Could not send stop signal; is the DB running on a different host?")
 
 
 # ***********************************
 # Functions that use a psycopg cursor
 # ***********************************
 class PgCursor:
-    def __init__(
-        self, host, port, username, password, database="balsam", autocommit=False
-    ):
+    def __init__(self, host, port, username, password, database="balsam", autocommit=False):
         self.host = host
         self.port = port
         self.username = username
@@ -320,9 +315,7 @@ def connections_list(host, port, username, password, database="balsam", **kwargs
         return cur.fetchall()
 
 
-def create_user_and_pwfile(
-    new_user, host, port, username, password, database="balsam", pwfile=None
-):
+def create_user_and_pwfile(new_user, host, port, username, password, database="balsam", pwfile=None):
     """
     Create new Postgres user `new_user` and auto-generated
     token for the database at `host:port`.  A pwfile
@@ -352,9 +345,7 @@ def create_user_and_pwfile(
     )
 
 
-def pg_add_user(
-    new_user, new_password, host, port, username, password, database="balsam"
-):
+def pg_add_user(new_user, new_password, host, port, username, password, database="balsam"):
     with PgCursor(host, port, username, password) as cur:
         cur.execute(
             f"""
@@ -366,9 +357,7 @@ def pg_add_user(
         )
 
 
-def drop_user(
-    deleting_user, host, port, username, password, database="balsam", **kwargs
-):
+def drop_user(deleting_user, host, port, username, password, database="balsam", **kwargs):
     with PgCursor(host, port, username, password) as cur:
         cur.execute(
             f"""

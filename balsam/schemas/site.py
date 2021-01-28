@@ -1,9 +1,10 @@
 from datetime import datetime
-from uuid import UUID
-from typing import List, Dict, Optional
 from enum import Enum
-from pydantic import BaseModel, validator, AnyUrl, Field
 from pathlib import Path
+from typing import Dict, List, Optional
+from uuid import UUID
+
+from pydantic import AnyUrl, BaseModel, Field, validator
 
 
 class QueuedJobState(str, Enum):

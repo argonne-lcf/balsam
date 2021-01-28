@@ -1,5 +1,5 @@
-from multiprocessing.queues import Queue as QueueBase
 import multiprocessing
+from multiprocessing.queues import Queue as QueueBase
 
 # The following implementation of custom MyQueue to avoid NotImplementedError
 # when calling queue.qsize() in MacOS X comes almost entirely from this github
@@ -8,7 +8,7 @@ import multiprocessing
 
 
 class SharedCounter(object):
-    """ A synchronized shared counter.
+    """A synchronized shared counter.
     The locking done by multiprocessing.Value ensures that only a single
     process or thread may read or write the in-memory ctypes object. However,
     in order to do n += 1, Python performs a read followed by a write, so a
@@ -34,7 +34,7 @@ class SharedCounter(object):
 
 
 class _FallbackQueue(QueueBase):
-    """ A portable implementation of multiprocessing.Queue.
+    """A portable implementation of multiprocessing.Queue.
     Because of multithreading / multiprocessing semantics, Queue.qsize() may
     raise the NotImplementedError exception on Unix platforms like Mac OS X
     where sem_getvalue() is not implemented. This subclass addresses this

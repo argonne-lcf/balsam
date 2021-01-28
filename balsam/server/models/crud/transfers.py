@@ -1,6 +1,8 @@
 from datetime import datetime
+
 from sqlalchemy import orm
-from balsam.server import models, ValidationError
+
+from balsam.server import ValidationError, models
 
 
 def owned_transfer_query(db, owner):
@@ -28,11 +30,7 @@ def fetch(db, owner, paginator=None, transfer_id=None, filterset=None):
 
 def _set_transfer_state(job):
     direction = "in" if job.state == "READY" else "out"
-    is_done = all(
-        item.state == "done"
-        for item in job.transfer_items
-        if item.direction == direction
-    )
+    is_done = all(item.state == "done" for item in job.transfer_items if item.direction == direction)
     if is_done:
         job.state = "STAGED_IN" if direction == "in" else "JOB_FINISHED"
     return is_done
@@ -41,12 +39,11 @@ def _set_transfer_state(job):
 def _update_jobs(db, job_ids):
     jobs = (
         db.query(models.Job)
-        .filter(
-            models.Job.id.in_(job_ids), models.Job.state.in_(["READY", "POSTPROCESSED"])
-        )
+        .filter(models.Job.id.in_(job_ids), models.Job.state.in_(["READY", "POSTPROCESSED"]))
         .options(
             orm.selectinload(models.Job.transfer_items).load_only(
-                models.TransferItem.direction, models.TransferItem.state,
+                models.TransferItem.direction,
+                models.TransferItem.state,
             ),
             orm.selectinload(models.Job.parents).load_only(models.Job.id),
         )
@@ -59,7 +56,10 @@ def _update_jobs(db, job_ids):
         old_state = job.state
         if _set_transfer_state(job):
             event = models.LogEvent(
-                job=job, timestamp=now, from_state=old_state, to_state=job.state,
+                job=job,
+                timestamp=now,
+                from_state=old_state,
+                to_state=job.state,
             )
             updates.append(job)
             events.append(event)
@@ -68,11 +68,7 @@ def _update_jobs(db, job_ids):
 
 
 def update(db, owner, transfer_id, data):
-    item = (
-        owned_transfer_query(db, owner)
-        .filter(models.TransferItem.id == transfer_id)
-        .one()
-    )
+    item = owned_transfer_query(db, owner).filter(models.TransferItem.id == transfer_id).one()
     for k, v in data.dict(exclude_unset=True).items():
         setattr(item, k, v)
     db.flush()
@@ -84,11 +80,7 @@ def update(db, owner, transfer_id, data):
 
 def bulk_update(db, owner, update_list):
     updates = {item.id: item.dict(exclude_unset=True) for item in update_list}
-    db_items = (
-        owned_transfer_query(db, owner)
-        .filter(models.TransferItem.id.in_(updates.keys()))
-        .all()
-    )
+    db_items = owned_transfer_query(db, owner).filter(models.TransferItem.id.in_(updates.keys())).all()
     if len(db_items) < len(updates):
         raise ValidationError("Some TransferItems not found")
     for transfer_item in db_items:

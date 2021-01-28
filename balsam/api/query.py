@@ -13,9 +13,7 @@ class Query:
 
     def __get__(self, instance, cls=None):
         if instance is not None:
-            raise AttributeError(
-                "Query isn't accessible via %s instances" % cls.__name__
-            )
+            raise AttributeError("Query isn't accessible via %s instances" % cls.__name__)
         return self
 
     def __repr__(self):
@@ -46,13 +44,9 @@ class Query:
         Retrieve an item or slice from the set of results.
         """
         if not isinstance(k, (int, slice)):
-            raise TypeError(
-                "Query indices must be integers or slices, not %s." % type(k).__name__
-            )
+            raise TypeError("Query indices must be integers or slices, not %s." % type(k).__name__)
         assert (not isinstance(k, slice) and (k >= 0)) or (
-            isinstance(k, slice)
-            and (k.start is None or k.start >= 0)
-            and (k.stop is None or k.stop >= 0)
+            isinstance(k, slice) and (k.start is None or k.start >= 0) and (k.stop is None or k.stop >= 0)
         ), "Negative indexing is not supported."
 
         if self._result_cache is not None:
@@ -152,9 +146,7 @@ class Query:
 
     def count(self):
         if self._count is None:
-            _, _count = self._manager._get_list(
-                filters=self._filters, limit=0, offset=0, ordering=None
-            )
+            _, _count = self._manager._get_list(filters=self._filters, limit=0, offset=0, ordering=None)
             self._count = _count
         return self._count
 

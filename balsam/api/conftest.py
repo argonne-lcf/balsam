@@ -1,15 +1,16 @@
-import pytest
-from pathlib import Path
 import os
-import subprocess
 import socket
+import subprocess
 import time
 from contextlib import closing
+from pathlib import Path
+
+import pytest
 
 import balsam.server
+from balsam.client import BasicAuthRequestsClient
 from balsam.server import models
 from balsam.server.models import crud
-from balsam.client import BasicAuthRequestsClient
 
 BALSAM_TEST_DB = "postgresql://postgres@localhost:5432/balsam-test"
 
@@ -37,7 +38,8 @@ def setup_database():
 def live_server(setup_database, free_port):
     os.environ["balsam_database_url"] = BALSAM_TEST_DB
     proc = subprocess.Popen(
-        f"uvicorn balsam.server.main:app --port {free_port}", shell=True,
+        f"uvicorn balsam.server.main:app --port {free_port}",
+        shell=True,
     )
     time.sleep(1)
     yield f"http://localhost:{free_port}/"
@@ -71,9 +73,7 @@ def create_user_client(setup_database, db_session, live_server):
 
     yield _create_user_client
     delete_ids = [user.id for user in created_users]
-    db_session.query(models.User).filter(models.User.id.in_(delete_ids)).delete(
-        synchronize_session=False
-    )
+    db_session.query(models.User).filter(models.User.id.in_(delete_ids)).delete(synchronize_session=False)
     db_session.commit()
     db_session.close()
 

@@ -1,4 +1,5 @@
 import click
+
 from balsam.config import SiteConfig
 
 
@@ -21,24 +22,8 @@ def validate_partitions(ctx, param, value):
         except ValueError:
             raise click.BadParameter("needs to be in format MODE:NUM_NODES[:KEY=VALUE]")
         filter_tags = validate_tags(ctx, param, filter_tags)
-        partitions.append(
-            {"job_mode": job_mode, "num_nodes": num_nodes, "filter_tags": filter_tags}
-        )
+        partitions.append({"job_mode": job_mode, "num_nodes": num_nodes, "filter_tags": filter_tags})
     return partitions
-
-
-def partitions_to_cli_args(partitions_list):
-    if not partitions_list:
-        return ""
-    args = ""
-    for part in partitions_list:
-        job_mode = part["job_mode"]
-        num_nodes = part["num_nodes"]
-        filter_tags = ":".join(f"{k}={v}" for k, v in part["filter_tags"].items())
-        args += f" --part {job_mode}:{num_nodes}"
-        if filter_tags:
-            args += f":{filter_tags}"
-    return args
 
 
 def load_site_config() -> SiteConfig:

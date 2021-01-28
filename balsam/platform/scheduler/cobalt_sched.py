@@ -1,15 +1,12 @@
-import dateutil.parser
-from collections import defaultdict, Counter
-from typing import Dict, List
-from .scheduler import (
-    SubprocessSchedulerInterface,
-    SchedulerJobStatus,
-    SchedulerBackfillWindow,
-    SchedulerJobLog,
-)
-import os
-from pathlib import Path
 import logging
+import os
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Dict, List
+
+import dateutil.parser
+
+from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +120,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return env
 
     @staticmethod
-    def _render_submit_args(
-        script_path, project, queue, num_nodes, wall_time_min, **kwargs
-    ):
+    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs):
         args = [
             CobaltScheduler.submit_exe,
             "-O",
@@ -193,9 +188,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         actual = len(fields)
         expected = len(CobaltScheduler._status_fields)
         if actual != expected:
-            raise ValueError(
-                f"Line has {actual} columns: expected {expected}:\n{fields}"
-            )
+            raise ValueError(f"Line has {actual} columns: expected {expected}:\n{fields}")
 
         status = {}
         for name, value in zip(CobaltScheduler._status_fields, fields):
@@ -228,9 +221,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         expected = len(CobaltScheduler._nodelist_fields)
 
         if actual != expected:
-            raise ValueError(
-                f"Line has {actual} columns: expected {expected}:\n{fields}"
-            )
+            raise ValueError(f"Line has {actual} columns: expected {expected}:\n{fields}")
 
         status = {}
         for name, value in zip(CobaltScheduler._nodelist_fields, fields):
@@ -260,11 +251,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             running_total = 0
             for bf_time, num_nodes in bf_counter:
                 running_total += num_nodes
-                windows[queue].append(
-                    SchedulerBackfillWindow(
-                        num_nodes=running_total, wall_time_min=bf_time
-                    )
-                )
+                windows[queue].append(SchedulerBackfillWindow(num_nodes=running_total, wall_time_min=bf_time))
         return windows
 
     @staticmethod
@@ -291,7 +278,5 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         if start_time:
             end_time = CobaltScheduler._parse_time(lines[-1])
             return SchedulerJobLog(start_time=start_time, end_time=end_time)
-        logger.warning(
-            f"Could not parse log: no line containing COBALT_STARTTIME in {logfile}"
-        )
+        logger.warning(f"Could not parse log: no line containing COBALT_STARTTIME in {logfile}")
         return SchedulerJobLog()

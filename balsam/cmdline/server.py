@@ -1,11 +1,13 @@
 import json
 import os
-import jinja2
-from pathlib import Path
 import signal
-import tempfile
 import subprocess
+import tempfile
+from pathlib import Path
+
 import click
+import jinja2
+
 import balsam.server
 
 REDIS_TMPL = Path(balsam.server.__file__).parent.joinpath("redis.conf.tmpl")
@@ -24,9 +26,7 @@ def server():
 
 
 @server.command()
-@click.option(
-    "-p", "--path", required=True, type=click.Path(exists=True, file_okay=False)
-)
+@click.option("-p", "--path", required=True, type=click.Path(exists=True, file_okay=False))
 def down(path):
     """
     Shut down the Balsam server (Postgres, Redis, and Gunicorn)
@@ -50,9 +50,7 @@ def down(path):
 
 
 @server.command()
-@click.option(
-    "-p", "--path", required=True, type=click.Path(exists=True, file_okay=False)
-)
+@click.option("-p", "--path", required=True, type=click.Path(exists=True, file_okay=False))
 @click.option("-b", "--bind", default="0.0.0.0:8000")
 @click.option("-l", "--log-level", default="debug")
 @click.option("-w", "--num-workers", default=1, type=int)
@@ -74,9 +72,7 @@ def up(path, bind, log_level, num_workers):
 
 
 @server.command()
-@click.option(
-    "-p", "--path", required=True, type=click.Path(exists=False, writable=True)
-)
+@click.option("-p", "--path", required=True, type=click.Path(exists=False, writable=True))
 @click.option("-b", "--bind", default="0.0.0.0:8000")
 @click.option("-l", "--log-level", default="debug")
 @click.option("-w", "--num-workers", default=1, type=int)
@@ -123,9 +119,7 @@ def start_redis(path, config_filename="redis.conf"):
         for line in fp:
             if line.strip().startswith("unixsocket"):
                 sock_file = line.split()[1]
-                os.environ["balsam_redis_params"] = json.dumps(
-                    {"unix_socket_path": sock_file}
-                )
+                os.environ["balsam_redis_params"] = json.dumps({"unix_socket_path": sock_file})
     proc = subprocess.run(
         f"redis-server {config_file} --daemonize yes",
         stdout=subprocess.PIPE,
@@ -205,16 +199,14 @@ def migrate(db_path, downgrade):
     """
     Update DB schema (run after upgrading Balsam version)
     """
-    from balsam.util import postgres
     import balsam.server
+    from balsam.util import postgres
 
     db_path = Path(db_path)
     try:
         pw_dict = postgres.load_pwfile(db_path)
     except FileNotFoundError:
-        raise click.BadParameter(
-            f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}"
-        )
+        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
 
     user = pw_dict["username"]
     passwd = pw_dict["password"]
@@ -236,7 +228,7 @@ def start(db_path):
     """
     Start a Postgres DB server locally, if not already running
     """
-    from balsam.util import postgres, DirLock
+    from balsam.util import DirLock, postgres
 
     db_path = Path(db_path)
 
@@ -245,9 +237,7 @@ def start(db_path):
         try:
             pw_dict = postgres.load_pwfile(db_path)
         except FileNotFoundError:
-            raise click.BadParameter(
-                f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}"
-            )
+            raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
 
         try:
             postgres.connections_list(**pw_dict)
@@ -270,7 +260,7 @@ def stop(db_path):
     """
     Stop a local Postgres DB server process
     """
-    from balsam.util import postgres, DirLock
+    from balsam.util import DirLock, postgres
 
     with DirLock(db_path, "db"):
         postgres.stop_db(db_path)
@@ -287,9 +277,7 @@ def connections(db_path):
     try:
         pw_dict = postgres.load_pwfile(db_path)
     except FileNotFoundError:
-        raise click.BadParameter(
-            f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}"
-        )
+        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
 
     connections = postgres.connections_list(**pw_dict)
     for conn in connections:
@@ -310,9 +298,7 @@ def add_user(db_path, user):
     try:
         pw_dict = postgres.load_pwfile(db_path)
     except FileNotFoundError:
-        raise click.BadParameter(
-            f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}"
-        )
+        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
 
     postgres.create_user_and_pwfile(new_user=user, **pw_dict)
 
@@ -329,9 +315,7 @@ def drop_user(db_path, user):
     try:
         pw_dict = postgres.load_pwfile(db_path)
     except FileNotFoundError:
-        raise click.BadParameter(
-            f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}"
-        )
+        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
 
     postgres.drop_user(deleting_user=user, **pw_dict)
     click.echo(f"Dropped user {user}")
@@ -348,9 +332,7 @@ def list_users(db_path):
     try:
         pw_dict = postgres.load_pwfile(db_path)
     except FileNotFoundError:
-        raise click.BadParameter(
-            f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}"
-        )
+        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
 
     user_list = postgres.list_users(**pw_dict)
     for user in user_list:

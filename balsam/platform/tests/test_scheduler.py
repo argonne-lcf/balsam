@@ -1,10 +1,10 @@
 import os
 import shutil
 import stat
-import unittest
 import time
+import unittest
 
-from balsam.platform.scheduler import CobaltScheduler, SlurmScheduler, LsfScheduler
+from balsam.platform.scheduler import CobaltScheduler, LsfScheduler, SlurmScheduler
 from balsam.platform.scheduler.dummy import DummyScheduler
 
 

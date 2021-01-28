@@ -1,11 +1,13 @@
 from datetime import datetime
 from typing import List
-from fastapi import Depends, APIRouter, status, Query
+
+from fastapi import APIRouter, Depends, Query, status
+
 from balsam import schemas
-from balsam.server.models import get_session, crud
-from balsam.server.util import Paginator
-from balsam.server.pubsub import pubsub
 from balsam.server import settings
+from balsam.server.models import crud, get_session
+from balsam.server.pubsub import pubsub
+from balsam.server.util import Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -39,7 +41,9 @@ def read(site_id: int, db=Depends(get_session), user=Depends(auth)):
 
 @router.post("/", response_model=schemas.SiteOut, status_code=status.HTTP_201_CREATED)
 def create(
-    site: schemas.SiteCreate, db=Depends(get_session), user=Depends(auth),
+    site: schemas.SiteCreate,
+    db=Depends(get_session),
+    user=Depends(auth),
 ):
     new_site = crud.sites.create(db, owner=user, site=site)
     result = schemas.SiteOut.from_orm(new_site)
@@ -50,7 +54,10 @@ def create(
 
 @router.put("/{site_id}", response_model=schemas.SiteOut)
 def update(
-    site_id: int, site: schemas.SiteUpdate, db=Depends(get_session), user=Depends(auth),
+    site_id: int,
+    site: schemas.SiteUpdate,
+    db=Depends(get_session),
+    user=Depends(auth),
 ):
     data = site.dict(exclude_unset=True)
     data["last_refresh"] = datetime.utcnow()

@@ -1,14 +1,15 @@
-import click
-from datetime import datetime
-from importlib.util import find_spec
 import json
 import logging
 import os
-import sys
 import shlex
 import subprocess
+import sys
+from datetime import datetime
+from importlib.util import find_spec
 
-from balsam.cmdline.utils import load_site_config, validate_tags, validate_partitions
+import click
+
+from balsam.cmdline.utils import load_site_config, validate_partitions, validate_tags
 from balsam.site.launcher import NodeSpec
 
 MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin
@@ -109,9 +110,7 @@ def launcher(
     nodes = node_cls.get_job_nodelist()
 
     if not partitions:
-        partitions = [
-            {"num_nodes": len(nodes), "job_mode": job_mode, "filter_tags": filter_tags}
-        ]
+        partitions = [{"num_nodes": len(nodes), "job_mode": job_mode, "filter_tags": filter_tags}]
 
     assert sum(p["num_nodes"] for p in partitions) == len(nodes)
     idx = 0

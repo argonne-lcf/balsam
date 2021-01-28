@@ -1,10 +1,13 @@
-import yaml
 from pathlib import Path
+
 import click
-from .utils import load_site_config
+import yaml
+
 from balsam.config import ClientSettings
-from balsam.site import app_template, ApplicationDefinition
-from balsam.site.app import load_module, find_app_classes
+from balsam.site import ApplicationDefinition, app_template
+from balsam.site.app import find_app_classes, load_module
+
+from .utils import load_site_config
 
 
 def load_apps(apps_path):
@@ -32,9 +35,7 @@ def app():
 
 
 @app.command()
-@click.option(
-    "-n", "--name", required=True, prompt="Application Name (of the form MODULE.CLASS)"
-)
+@click.option("-n", "--name", required=True, prompt="Application Name (of the form MODULE.CLASS)")
 @click.option(
     "-c",
     "--command-template",
@@ -120,16 +121,12 @@ def app_deletion_prompt(client, app):
     click.echo(f"DELETED/RENAMED {app.class_path} (app_id={app.id})")
     click.echo("   --> You either renamed this ApplicationDefinition or deleted it.")
     click.echo(f"   --> There are {job_count} Jobs associated with this App")
-    delete = click.confirm(
-        f"  --> Do you wish to unregister this App (this will ERASE {job_count} jobs!)"
-    )
+    delete = click.confirm(f"  --> Do you wish to unregister this App (this will ERASE {job_count} jobs!)")
     if delete:
         app.delete()
         click.echo("  --> Deleted.")
     else:
-        click.echo(
-            "  --> App not deleted. If you meant to rename it, please update the class_path in the API."
-        )
+        click.echo("  --> App not deleted. If you meant to rename it, please update the class_path in the API.")
 
 
 @app.command()
@@ -146,9 +143,7 @@ def sync():
     for module_name, app_class_list in app_classes.items():
         for app_class in app_class_list:
             class_path = f"{module_name}.{app_class.__name__}"
-            registered_app = next(
-                (a for a in registered_apps if a.class_path == class_path), None
-            )
+            registered_app = next((a for a in registered_apps if a.class_path == class_path), None)
             sync_app(
                 client,
                 app_class,
@@ -172,8 +167,5 @@ def ls():
     List my Apps
     """
     client = ClientSettings.load_from_home().build_client()
-    reprs = [
-        yaml.dump(app.display_dict(), sort_keys=False, indent=4)
-        for app in client.App.objects.all()
-    ]
+    reprs = [yaml.dump(app.display_dict(), sort_keys=False, indent=4) for app in client.App.objects.all()]
     print(*reprs, sep="\n----\n")

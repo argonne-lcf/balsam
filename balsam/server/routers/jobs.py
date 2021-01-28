@@ -1,16 +1,15 @@
-from typing import List
-from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from typing import List
 
-from fastapi import Depends, APIRouter, status, Query
+from fastapi import APIRouter, Depends, Query, status
 
 from balsam import schemas
-from balsam.server.models import get_session, crud
-from balsam.server.models import Job, Site, BatchJob
-from balsam.server.util import Paginator
+from balsam.server import ValidationError, settings
+from balsam.server.models import BatchJob, Job, Site, crud, get_session
 from balsam.server.pubsub import pubsub
-from balsam.server import settings, ValidationError
+from balsam.server.util import Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -95,15 +94,9 @@ def read(job_id: int, db=Depends(get_session), user=Depends(auth)):
     return jobs[0]
 
 
-@router.post(
-    "/", response_model=List[schemas.JobOut], status_code=status.HTTP_201_CREATED
-)
-def bulk_create(
-    jobs: List[schemas.JobCreate], db=Depends(get_session), user=Depends(auth)
-):
-    new_jobs, new_events, new_transfers = crud.jobs.bulk_create(
-        db, owner=user, job_specs=jobs
-    )
+@router.post("/", response_model=List[schemas.JobOut], status_code=status.HTTP_201_CREATED)
+def bulk_create(jobs: List[schemas.JobCreate], db=Depends(get_session), user=Depends(auth)):
+    new_jobs, new_events, new_transfers = crud.jobs.bulk_create(db, owner=user, job_specs=jobs)
 
     result_jobs = [schemas.JobOut.from_orm(job) for job in new_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
@@ -117,19 +110,12 @@ def bulk_create(
 
 
 @router.patch("/", response_model=List[schemas.JobOut])
-def bulk_update(
-    jobs: List[schemas.JobBulkUpdate], db=Depends(get_session), user=Depends(auth)
-):
+def bulk_update(jobs: List[schemas.JobBulkUpdate], db=Depends(get_session), user=Depends(auth)):
     now = datetime.utcnow()
-    patch_dicts = {
-        job.id: {**job.dict(exclude_unset=True, exclude={"id"}), "last_update": now}
-        for job in jobs
-    }
+    patch_dicts = {job.id: {**job.dict(exclude_unset=True, exclude={"id"}), "last_update": now} for job in jobs}
     if len(jobs) > len(patch_dicts):
         raise ValidationError("Duplicate Job ID keys provided")
-    updated_jobs, new_events = crud.jobs.bulk_update(
-        db, owner=user, patch_dicts=patch_dicts
-    )
+    updated_jobs, new_events = crud.jobs.bulk_update(db, owner=user, patch_dicts=patch_dicts)
 
     result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
@@ -149,9 +135,7 @@ def query_update(
 ):
     data = update_fields.dict(exclude_unset=True)
     data["last_update"] = datetime.utcnow()
-    updated_jobs, new_events = crud.jobs.update_query(
-        db, owner=user, update_data=data, filterset=q
-    )
+    updated_jobs, new_events = crud.jobs.update_query(db, owner=user, update_data=data, filterset=q)
 
     result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
     result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
@@ -163,9 +147,7 @@ def query_update(
 
 
 @router.put("/{job_id}", response_model=schemas.JobOut)
-def update(
-    job_id: int, job: schemas.JobUpdate, db=Depends(get_session), user=Depends(auth)
-):
+def update(job_id: int, job: schemas.JobUpdate, db=Depends(get_session), user=Depends(auth)):
     data = job.dict(exclude_unset=True)
     data["last_update"] = datetime.utcnow()
     patch = {job_id: data}

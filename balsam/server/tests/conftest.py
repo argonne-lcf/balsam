@@ -1,13 +1,15 @@
-import pytest
-from pathlib import Path
 import os
 import subprocess
+from pathlib import Path
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+
 import balsam.server
 from balsam.server import models
 from balsam.server.main import app
+
 from .util import BalsamTestClient
 
 
@@ -15,15 +17,11 @@ from .util import BalsamTestClient
 def setup_database():
     subprocess.run("dropdb -U postgres balsam-test", shell=True)
     subprocess.run("createdb -U postgres balsam-test", check=True, shell=True)
-    balsam.server.settings.database_url = (
-        "postgresql://postgres@localhost:5432/balsam-test"
-    )
+    balsam.server.settings.database_url = "postgresql://postgres@localhost:5432/balsam-test"
     os.environ["balsam_database_url"] = balsam.server.settings.database_url
 
     models_dir = Path(__file__).parent.parent.joinpath("models")
-    subprocess.run(
-        "alembic -x db=test upgrade head", cwd=models_dir, check=True, shell=True
-    )
+    subprocess.run("alembic -x db=test upgrade head", cwd=models_dir, check=True, shell=True)
 
 
 @pytest.fixture(scope="function")
@@ -48,18 +46,14 @@ def create_user_client(setup_database, db_session):
         created_users.append(user)
 
         client = BalsamTestClient(TestClient(app))
-        data = client.post_form(
-            "/users/login", check=status.HTTP_200_OK, **login_credentials
-        )
+        data = client.post_form("/users/login", check=status.HTTP_200_OK, **login_credentials)
         token = data["access_token"]
         client.headers.update({"Authorization": f"Bearer {token}"})
         return client
 
     yield _create_user_client
     delete_ids = [user.id for user in created_users]
-    db_session.query(models.User).filter(models.User.id.in_(delete_ids)).delete(
-        synchronize_session=False
-    )
+    db_session.query(models.User).filter(models.User.id.in_(delete_ids)).delete(synchronize_session=False)
     db_session.commit()
 
 

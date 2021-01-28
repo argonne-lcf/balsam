@@ -1,5 +1,6 @@
-from .conf import settings
 from fastapi import HTTPException, status
+
+from .conf import settings
 
 __version__ = "0.1"
 

@@ -1,13 +1,14 @@
-from .encoders import jsonable_encoder
 from balsam.api.models import (
-    SiteManager,
     AppManager,
     BatchJobManager,
-    JobManager,
-    TransferItemManager,
-    SessionManager,
     EventLogManager,
+    JobManager,
+    SessionManager,
+    SiteManager,
+    TransferItemManager,
 )
+
+from .encoders import jsonable_encoder
 
 
 class AuthError(Exception):
@@ -26,9 +27,7 @@ class RESTClient:
         """
         raise NotImplementedError
 
-    def request(
-        self, url, http_method, params=None, json=None, data=None, authenticating=False
-    ):
+    def request(self, url, http_method, params=None, json=None, data=None, authenticating=False):
         """
         Supports timeout retry, auto re-authentication, accepting DUPLICATE status
         Raises helfpul errors on 4**, 5**, TimeoutErrors, AuthErrors
@@ -43,9 +42,7 @@ class RESTClient:
         return self.request(url, "POST", data=kwargs)
 
     def post(self, url, authenticating=False, **kwargs):
-        return self.request(
-            url, "POST", json=jsonable_encoder(kwargs), authenticating=authenticating
-        )
+        return self.request(url, "POST", json=jsonable_encoder(kwargs), authenticating=authenticating)
 
     def bulk_post(self, url, list_data):
         return self.request(url, "POST", json=jsonable_encoder(list_data))

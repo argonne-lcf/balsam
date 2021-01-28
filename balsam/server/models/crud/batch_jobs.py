@@ -1,13 +1,9 @@
-from balsam.server import models, ValidationError
 from balsam import schemas
+from balsam.server import ValidationError, models
 
 
 def fetch(db, owner, paginator=None, batch_job_id=None, filterset=None):
-    qs = (
-        db.query(models.BatchJob)
-        .join(models.Site)
-        .filter(models.Site.owner_id == owner.id)
-    )
+    qs = db.query(models.BatchJob).join(models.Site).filter(models.Site.owner_id == owner.id)
     if filterset is not None:
         qs = filterset.apply_filters(qs)
     if batch_job_id is not None:
@@ -26,9 +22,7 @@ def create(db, owner, batch_job):
     )
     if site_id is None:
         raise ValidationError(f"No site with ID {batch_job.site_id}")
-    created_batch_job = models.BatchJob(
-        state=schemas.BatchJobState.pending_submission, **batch_job.dict()
-    )
+    created_batch_job = models.BatchJob(state=schemas.BatchJobState.pending_submission, **batch_job.dict())
     db.add(created_batch_job)
     db.flush()
     return created_batch_job

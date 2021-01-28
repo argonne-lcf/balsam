@@ -1,10 +1,26 @@
 # flake8: noqa
 import argparse
 import sys
-from balsam.scripts.cli_commands import newapp, newjob, newdep, ls, modify, rm
-from balsam.scripts.cli_commands import kill, mkchild, launcher, service, make_dummies
-from balsam.scripts.cli_commands import init, which, server, submitlaunch, log
+
 from balsam import __version__
+from balsam.scripts.cli_commands import (
+    init,
+    kill,
+    launcher,
+    log,
+    ls,
+    make_dummies,
+    mkchild,
+    modify,
+    newapp,
+    newdep,
+    newjob,
+    rm,
+    server,
+    service,
+    submitlaunch,
+    which,
+)
 
 
 def main():
@@ -26,15 +42,9 @@ def config_launcher_subparser(subparser=None):
         parser = subparser
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        "--consume-all", action="store_true", help="Continuously run all jobs from DB"
-    )
-    group.add_argument(
-        "--wf-filter", help="Continuously run jobs of specified workflow"
-    )
-    parser.add_argument(
-        "--job-mode", choices=["mpi", "serial"], required=True, default="mpi"
-    )
+    group.add_argument("--consume-all", action="store_true", help="Continuously run all jobs from DB")
+    group.add_argument("--wf-filter", help="Continuously run jobs of specified workflow")
+    parser.add_argument("--job-mode", choices=["mpi", "serial"], required=True, default="mpi")
     parser.add_argument(
         "--time-limit-minutes",
         type=float,
@@ -69,34 +79,26 @@ def make_parser():
     )
     parser_app.set_defaults(func=newapp)
     parser_app.add_argument("--name", required=True)
-    parser_app.add_argument(
-        "--executable", help="full path to executable", required=True
-    )
-    parser_app.add_argument(
-        "--preprocess", default="", help="preprocessing script with full path"
-    )
-    parser_app.add_argument(
-        "--postprocess", default="", help="postprocessing script with full path"
-    )
+    parser_app.add_argument("--executable", help="full path to executable", required=True)
+    parser_app.add_argument("--preprocess", default="", help="preprocessing script with full path")
+    parser_app.add_argument("--postprocess", default="", help="postprocessing script with full path")
     parser_app.add_argument("--description", nargs="+")
     # -------------------------------------------------------------------
 
     # ADD JOB
     # -------
     parser_job = subparsers.add_parser(
-        "job", help="add a new Balsam job", description="add a new Balsam job",
+        "job",
+        help="add a new Balsam job",
+        description="add a new Balsam job",
     )
     parser_job.set_defaults(func=newjob)
 
     parser_job.add_argument("--name", required=True)
-    parser_job.add_argument(
-        "--workflow", required=True, help="A workflow name for grouping related jobs"
-    )
+    parser_job.add_argument("--workflow", required=True, help="A workflow name for grouping related jobs")
     parser_job.add_argument(
         "--application",
-        help="Name of the "
-        "application to use; must exist in "
-        "ApplicationDefinition DB",
+        help="Name of the " "application to use; must exist in " "ApplicationDefinition DB",
         required=True,
     )
 
@@ -110,9 +112,7 @@ def make_parser():
         "job. (Total number of MPI ranks determined as "
         "num_nodes * ranks_per_node).",
     )
-    parser_job.add_argument(
-        "--coschedule-num-nodes", type=int, required=False, default=0
-    )
+    parser_job.add_argument("--coschedule-num-nodes", type=int, required=False, default=0)
     parser_job.add_argument("--node-packing-count", type=int, required=False, default=1)
 
     parser_job.add_argument(
@@ -161,8 +161,7 @@ def make_parser():
     parser_job.add_argument(
         "--disable_auto_timeout_retry",
         action="store_true",
-        help="Flag disables automatic job retry if it has "
-        "timed out in a previous run",
+        help="Flag disables automatic job retry if it has " "timed out in a previous run",
     )
 
     parser_job.add_argument(
@@ -193,9 +192,7 @@ def make_parser():
         nargs="*",
         required=False,
         default=[],
-        help="Filename patterns; matches will be "
-        "transferred to the destination specified "
-        "by --url-out option",
+        help="Filename patterns; matches will be " "transferred to the destination specified " "by --url-out option",
     )
     parser_job.add_argument(
         "--env",
@@ -232,9 +229,7 @@ def make_parser():
 
     # LS
     # ----
-    parser_ls = subparsers.add_parser(
-        "ls", help="list jobs, applications, or jobs-by-workflow"
-    )
+    parser_ls = subparsers.add_parser("ls", help="list jobs, applications, or jobs-by-workflow")
     parser_ls.set_defaults(func=ls)
     parser_ls.add_argument(
         "objects",
@@ -244,21 +239,13 @@ def make_parser():
         help="list all jobs, all apps, or jobs by workflow",
     )
     parser_ls.add_argument("--name", help="match any substring of job name")
-    parser_ls.add_argument(
-        "--history", help="show state history / logs", action="store_true"
-    )
+    parser_ls.add_argument("--history", help="show state history / logs", action="store_true")
     parser_ls.add_argument("--id", help="match any substring of job id")
     parser_ls.add_argument("--state", help="list jobs matching a state")
-    parser_ls.add_argument(
-        "--by-states", action="store_true", help="group job listing by states"
-    )
+    parser_ls.add_argument("--by-states", action="store_true", help="group job listing by states")
     parser_ls.add_argument("--wf", help="Filter jobs matching a workflow")
-    parser_ls.add_argument(
-        "--verbose", help="Detailed BalsamJob info", action="store_true"
-    )
-    parser_ls.add_argument(
-        "--tree", action="store_true", help="show DAG in tree format"
-    )
+    parser_ls.add_argument("--verbose", help="Detailed BalsamJob info", action="store_true")
+    parser_ls.add_argument("--tree", action="store_true", help="show DAG in tree format")
     # -----------------------------------------------------------
 
     # MODIFY
@@ -278,9 +265,7 @@ def make_parser():
 
     # RM
     # --
-    parser_rm = subparsers.add_parser(
-        "rm", help="remove jobs or applications from the database"
-    )
+    parser_rm = subparsers.add_parser("rm", help="remove jobs or applications from the database")
     parser_rm.set_defaults(func=rm)
     parser_rm.add_argument(
         "objects",
@@ -291,16 +276,12 @@ def make_parser():
     group = parser_rm.add_mutually_exclusive_group(required=True)
     group.add_argument("--name", help="match any substring of job name")
     group.add_argument("--id", help="match any substring of job id")
-    group.add_argument(
-        "--all", action="store_true", help="delete all objects in the DB"
-    )
+    group.add_argument("--all", action="store_true", help="delete all objects in the DB")
     # --------------------------------------------------------------------------------------------------
 
     # KILL
     # ----
-    parser_kill = subparsers.add_parser(
-        "killjob", help="Kill a job without removing it from the DB"
-    )
+    parser_kill = subparsers.add_parser("killjob", help="Kill a job without removing it from the DB")
     parser_kill.set_defaults(func=kill)
     parser_kill.add_argument("--id", required=True)
     parser_kill.add_argument("--recursive", action="store_true")
@@ -308,19 +289,13 @@ def make_parser():
 
     # MAKECHILD
     # ---------
-    parser_mkchild = subparsers.add_parser(
-        "mkchild", help="Create a child job of a specified job"
-    )
+    parser_mkchild = subparsers.add_parser("mkchild", help="Create a child job of a specified job")
     parser_mkchild.set_defaults(func=mkchild)
     parser_mkchild.add_argument("--name", required=True)
-    parser_mkchild.add_argument(
-        "--workflow", required=True, help="A workflow name for grouping related jobs"
-    )
+    parser_mkchild.add_argument("--workflow", required=True, help="A workflow name for grouping related jobs")
     parser_mkchild.add_argument(
         "--application",
-        help="Name of the "
-        "application to use; must exist in "
-        "ApplicationDefinition DB",
+        help="Name of the " "application to use; must exist in " "ApplicationDefinition DB",
         required=True,
     )
 
@@ -375,8 +350,7 @@ def make_parser():
     parser_mkchild.add_argument(
         "--disable_auto_timeout_retry",
         action="store_true",
-        help="Flag disables automatic job retry if it has "
-        "timed out in a previous run",
+        help="Flag disables automatic job retry if it has " "timed out in a previous run",
     )
 
     parser_mkchild.add_argument(
@@ -407,9 +381,7 @@ def make_parser():
         nargs="*",
         required=False,
         default=[],
-        help="Filename patterns; matches will be "
-        "transferred to the destination specified "
-        "by --url-out option",
+        help="Filename patterns; matches will be " "transferred to the destination specified " "by --url-out option",
     )
     parser_mkchild.add_argument(
         "--env",
@@ -434,25 +406,19 @@ def make_parser():
 
     # LAUNCHER
     # --------
-    parser_launcher = subparsers.add_parser(
-        "launcher", help="Start a local instance of the balsam launcher"
-    )
+    parser_launcher = subparsers.add_parser("launcher", help="Start a local instance of the balsam launcher")
     parser_launcher = config_launcher_subparser(parser_launcher)
     parser_launcher.set_defaults(func=launcher)
     # -----------------
 
     # SUBMIT-LAUNCH
     # -------------
-    parser_submitlaunch = subparsers.add_parser(
-        "submit-launch", help="Submit a launcher job to the batch queue"
-    )
+    parser_submitlaunch = subparsers.add_parser("submit-launch", help="Submit a launcher job to the batch queue")
     parser_submitlaunch.add_argument("-n", "--nodes", type=int, required=True)
     parser_submitlaunch.add_argument("-t", "--time-minutes", type=int, required=True)
     parser_submitlaunch.add_argument("-q", "--queue", type=str, required=True)
     parser_submitlaunch.add_argument("-A", "--project", type=str, required=True)
-    parser_submitlaunch.add_argument(
-        "--job-mode", type=str, choices=["serial", "mpi"], required=True
-    )
+    parser_submitlaunch.add_argument("--job-mode", type=str, choices=["serial", "mpi"], required=True)
     parser_submitlaunch.add_argument("--wf-filter", type=str, default="")
     parser_submitlaunch.set_defaults(func=submitlaunch)
 
@@ -460,17 +426,13 @@ def make_parser():
     # --------
     parser_init = subparsers.add_parser("init", help="Create new balsam DB")
     parser_init.add_argument("site-path", help="Path to Balsam DB directory")
-    parser_init.add_argument(
-        "site-type", choices=["db", "remote-db", "web"], default="db", nargs="?"
-    )
+    parser_init.add_argument("site-type", choices=["db", "remote-db", "web"], default="db", nargs="?")
     parser_init.set_defaults(func=init)
     # -----------------
 
     # SERVICE
     # -------
-    parser_service = subparsers.add_parser(
-        "service", help="Start Balsam auto-scheduling service"
-    )
+    parser_service = subparsers.add_parser("service", help="Start Balsam auto-scheduling service")
     parser_service.set_defaults(func=service)
     # -------------------------
 
@@ -482,12 +444,8 @@ def make_parser():
 
     # WHICH
     # ---------
-    parser_which = subparsers.add_parser(
-        "which", help="Get info on current/available DBs"
-    )
-    parser_which.add_argument(
-        "--list", action="store_true", help="list cached DB paths"
-    )
+    parser_which = subparsers.add_parser("which", help="Get info on current/available DBs")
+    parser_which.add_argument("--list", action="store_true", help="list cached DB paths")
     parser_which.add_argument("--name", help="Look up DB path from a partial name")
     parser_which.set_defaults(func=which)
 
@@ -498,22 +456,16 @@ def make_parser():
 
     # SERVER
     # ---------
-    parser_server = subparsers.add_parser(
-        "server", help="Control Balsam server at BALSAM_DB_PATH"
-    )
+    parser_server = subparsers.add_parser("server", help="Control Balsam server at BALSAM_DB_PATH")
     group = parser_server.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        "--connect", action="store_true", help="connect to existing or start new server"
-    )
+    group.add_argument("--connect", action="store_true", help="connect to existing or start new server")
     group.add_argument("--reset", action="store_true", help="stop and start server")
     group.add_argument(
         "--list-active-connections",
         action="store_true",
         help="see how many clients have active connection",
     )
-    group.add_argument(
-        "--list-users", action="store_true", help="list authorized Balsam users"
-    )
+    group.add_argument("--list-users", action="store_true", help="list authorized Balsam users")
     group.add_argument("--add-user", type=str, help="add an authorized Balsam user")
     group.add_argument("--drop-user", type=str, help="drop a user from the DB")
     group.set_defaults(func=server)

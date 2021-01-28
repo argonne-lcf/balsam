@@ -2,13 +2,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import List
-from fastapi import Depends, APIRouter, status, Query
 
-from balsam.server import settings
-from balsam.server.util import Paginator
+from fastapi import APIRouter, Depends, Query, status
+
 from balsam import schemas
-from balsam.server.models import get_session, crud, BatchJob
+from balsam.server import settings
+from balsam.server.models import BatchJob, crud, get_session
 from balsam.server.pubsub import pubsub
+from balsam.server.util import Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -69,9 +70,7 @@ def list(
     paginator=Depends(Paginator),
     q=Depends(BatchJobQuery),
 ):
-    count, batch_jobs = crud.batch_jobs.fetch(
-        db, owner=user, paginator=paginator, filterset=q
-    )
+    count, batch_jobs = crud.batch_jobs.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": batch_jobs}
 
 
@@ -81,12 +80,8 @@ def read(batch_job_id: int, db=Depends(get_session), user=Depends(auth)):
     return batch_jobs[0]
 
 
-@router.post(
-    "/", response_model=schemas.BatchJobOut, status_code=status.HTTP_201_CREATED
-)
-def create(
-    batch_job: schemas.BatchJobCreate, db=Depends(get_session), user=Depends(auth)
-):
+@router.post("/", response_model=schemas.BatchJobOut, status_code=status.HTTP_201_CREATED)
+def create(batch_job: schemas.BatchJobCreate, db=Depends(get_session), user=Depends(auth)):
     new_batch_job = crud.batch_jobs.create(db, owner=user, batch_job=batch_job)
     result = schemas.BatchJobOut.from_orm(new_batch_job)
     db.commit()
@@ -101,9 +96,7 @@ def update(
     db=Depends(get_session),
     user=Depends(auth),
 ):
-    updated_batch_job = crud.batch_jobs.update(
-        db, owner=user, batch_job_id=batch_job_id, batch_job=batch_job
-    )
+    updated_batch_job = crud.batch_jobs.update(db, owner=user, batch_job_id=batch_job_id, batch_job=batch_job)
     result = schemas.BatchJobOut.from_orm(updated_batch_job)
     db.commit()
     pubsub.publish(user.id, "update", "batch_job", result)
@@ -116,9 +109,7 @@ def bulk_update(
     db=Depends(get_session),
     user=Depends(auth),
 ):
-    updated_batch_jobs = crud.batch_jobs.bulk_update(
-        db, owner=user, batch_jobs=batch_jobs
-    )
+    updated_batch_jobs = crud.batch_jobs.bulk_update(db, owner=user, batch_jobs=batch_jobs)
     result = [schemas.BatchJobOut.from_orm(j) for j in updated_batch_jobs]
     db.commit()
     pubsub.publish(user.id, "bulk-update", "batch_job", result)

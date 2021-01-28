@@ -1,6 +1,7 @@
 import getpass
-from .service_base import BalsamService
 import logging
+
+from .service_base import BalsamService
 
 logger = logging.getLogger(__name__)
 

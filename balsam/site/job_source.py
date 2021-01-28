@@ -1,11 +1,12 @@
-from datetime import timedelta
 import logging
-import threading
 import queue
 import signal
+import threading
 import time
+from datetime import timedelta
 
 from balsam.util import Process
+
 from .util import Queue
 
 logger = logging.getLogger(__name__)
@@ -33,15 +34,11 @@ class SessionThread:
                     "Reverting to a Session without a BatchJob. "
                     "The run will still work, but Jobs will not be associated with a BatchJob."
                 )
-        self.session = client.Session.objects.create(
-            site_id=site_id, batch_job_id=batch_job_id
-        )
+        self.session = client.Session.objects.create(site_id=site_id, batch_job_id=batch_job_id)
         self._schedule_next_tick()
 
     def _schedule_next_tick(self):
-        self.timer = threading.Timer(
-            self.TICK_PERIOD.total_seconds(), self._schedule_next_tick
-        )
+        self.timer = threading.Timer(self.TICK_PERIOD.total_seconds(), self._schedule_next_tick)
         self.timer.daemon = True
         self.timer.start()
         self._do_tick()
@@ -127,9 +124,7 @@ class FixedDepthJobSource(Process):
             time.sleep(1)
             qsize = self.queue.qsize()
             fetch_count = max(0, self.prefetch_depth - qsize)
-            logger.debug(
-                f"JobSource queue depth is currently {qsize}. Fetching {fetch_count} more"
-            )
+            logger.debug(f"JobSource queue depth is currently {qsize}. Fetching {fetch_count} more")
             if fetch_count:
                 params = self._get_acquire_parameters(fetch_count)
                 jobs = self.session.acquire_jobs(**params)
@@ -189,9 +184,7 @@ class SynchronousJobSource(object):
         self.start_time = time.time()
 
         self.scheduler_id = scheduler_id
-        self.session_thread = SessionThread(
-            client=self.client, site_id=self.site_id, scheduler_id=self.scheduler_id
-        )
+        self.session_thread = SessionThread(client=self.client, site_id=self.site_id, scheduler_id=self.scheduler_id)
         self.session = self.session_thread.session
 
     def start(self):

@@ -1,13 +1,9 @@
-from .scheduler import (
-    SubprocessSchedulerInterface,
-    SchedulerJobStatus,
-    SchedulerBackfillWindow,
-    SchedulerJobLog,
-)
+import datetime
+import logging
 import os
 import re
-import logging
-import datetime
+
+from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
 
 logger = logging.getLogger(__name__)
 
@@ -110,9 +106,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return status_field_map.get(balsam_field, None)
 
     @staticmethod
-    def _render_submit_args(
-        script_path, project, queue, num_nodes, wall_time_min, **kwargs
-    ):
+    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs):
         args = [
             LsfScheduler.submit_exe,
             "-o",
@@ -216,9 +210,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
                         "wall_time_min": 0,
                         "queue": "batch",
                     }
-                    job_stat = LsfScheduler._parse_job_status(
-                        fields, LsfScheduler._status_run_fields, status
-                    )
+                    job_stat = LsfScheduler._parse_job_status(fields, LsfScheduler._status_run_fields, status)
                 elif pend:
                     # rejoin datetime
                     new_fields = fields[0:6]
@@ -230,9 +222,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
                         "time_remaining_min": 0,
                         "queue": "batch",
                     }
-                    job_stat = LsfScheduler._parse_job_status(
-                        fields, LsfScheduler._status_pend_fields, status
-                    )
+                    job_stat = LsfScheduler._parse_job_status(fields, LsfScheduler._status_pend_fields, status)
                 elif block:
                     # rejoin block reason column
                     new_fields = fields[0:6]
@@ -244,9 +234,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
                         "wall_time_min": 0,
                         "queue": "batch",
                     }
-                    job_stat = LsfScheduler._parse_job_status(
-                        fields, LsfScheduler._status_block_fields, status
-                    )
+                    job_stat = LsfScheduler._parse_job_status(fields, LsfScheduler._status_block_fields, status)
                 else:
                     raise NotImplementedError
 
@@ -258,9 +246,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         actual = len(fields)
         expected = len(status_fields)
         if actual != expected:
-            raise ValueError(
-                f"Line has {actual} columns: expected {expected}:\n{fields}"
-            )
+            raise ValueError(f"Line has {actual} columns: expected {expected}:\n{fields}")
         for name, value in zip(status_fields, fields):
             func = LsfScheduler._status_field_map(name)
             if callable(func):
@@ -275,9 +261,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         for line in node_lines:
             if len(line.strip()) == 0:
                 continue
-            windows[LsfScheduler._queue_name].append(
-                LsfScheduler._parse_bslots_line(line)
-            )
+            windows[LsfScheduler._queue_name].append(LsfScheduler._parse_bslots_line(line))
         return windows
 
     @staticmethod

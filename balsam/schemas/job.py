@@ -1,8 +1,9 @@
-from pydantic import BaseModel, validator, Field
-from typing import Dict, Any, List, Set, Optional
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Set
+
+from pydantic import BaseModel, Field, validator
 
 
 class JobTransferItem(BaseModel):
@@ -70,7 +71,10 @@ class JobCreate(JobBase):
     transfers: Dict[str, JobTransferItem] = Field(
         {},
         example={
-            "input_file": {"location_alias": "MyCluster", "path": "/path/to/input.dat",}
+            "input_file": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/input.dat",
+            }
         },
     )
 

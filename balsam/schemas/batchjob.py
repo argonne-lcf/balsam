@@ -1,7 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
 from enum import Enum
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class JobMode(str, Enum):
@@ -41,9 +42,7 @@ class SchedulerJobLog(BaseModel):
 class BatchJobPartition(BaseModel):
     job_mode: JobMode = Field(..., example="mpi")
     num_nodes: int = Field(..., example=128)
-    filter_tags: Dict[str, str] = Field(
-        {}, example={"system": "H2O", "calc_type": "energy"}
-    )
+    filter_tags: Dict[str, str] = Field({}, example={"system": "H2O", "calc_type": "energy"})
 
 
 class BatchJobBase(BaseModel):
@@ -51,9 +50,7 @@ class BatchJobBase(BaseModel):
     wall_time_min: int = Field(..., example=60)
     job_mode: JobMode = Field(..., example="mpi")
     optional_params: Dict[str, str] = Field({}, example={"require_ssds": "1"})
-    filter_tags: Dict[str, str] = Field(
-        {}, example={"system": "H2O", "calc_type": "energy"}
-    )
+    filter_tags: Dict[str, str] = Field({}, example={"system": "H2O", "calc_type": "energy"})
     partitions: Optional[List[BatchJobPartition]] = Field(
         None,
         example=[
@@ -79,9 +76,7 @@ class BatchJobCreate(BatchJobBase):
 class BatchJobUpdate(BaseModel):
     scheduler_id: int = Field(None, example=14192)
     state: BatchJobState = Field(None, example="queued")
-    status_info: Dict[str, str] = Field(
-        None, example={"error": "User is not a member of project X"}
-    )
+    status_info: Dict[str, str] = Field(None, example={"error": "User is not a member of project X"})
     start_time: Optional[datetime] = Field(None)
     end_time: Optional[datetime] = Field(None)
 

@@ -1,15 +1,18 @@
-import click
 import os
-from pathlib import Path
 import shutil
+import socket
+import subprocess
 import sys
 import time
-import socket
+from pathlib import Path
+
+import click
 import psutil
-import subprocess
-from balsam.config import SiteConfig, ClientSettings, Settings, InvalidSettings
-from .utils import load_site_config
+
+from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig
 from balsam.site.service import update_site_from_config
+
+from .utils import load_site_config
 
 PID_FILENAME = "balsam-service.pid"
 
@@ -135,9 +138,7 @@ def init(site_path, hostname):
     default_site_path = default_dirs[selected]
 
     try:
-        SiteConfig.new_site_setup(
-            site_path=site_path, default_site_path=default_site_path, hostname=hostname
-        )
+        SiteConfig.new_site_setup(site_path=site_path, default_site_path=default_site_path, hostname=hostname)
     except (InvalidSettings, FileNotFoundError) as exc:
         click.echo(str(exc))
         sys.exit(1)

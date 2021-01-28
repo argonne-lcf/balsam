@@ -1,6 +1,8 @@
-from fastapi.encoders import jsonable_encoder
-from balsam.server import models, ValidationError
 from datetime import datetime
+
+from fastapi.encoders import jsonable_encoder
+
+from balsam.server import ValidationError, models
 
 
 def fetch(
@@ -29,12 +31,7 @@ def fetch(
 
 
 def create(db, owner, site):
-    if (
-        db.query(models.Site.id)
-        .filter_by(hostname=site.hostname, path=site.path.as_posix())
-        .scalar()
-        is not None
-    ):
+    if db.query(models.Site.id).filter_by(hostname=site.hostname, path=site.path.as_posix()).scalar() is not None:
         raise ValidationError("A site with this hostname and path already exists")
     new_site = models.Site(
         **jsonable_encoder(site),
@@ -48,9 +45,7 @@ def create(db, owner, site):
 
 
 def update(db, owner, site_id, update_data):
-    qs = db.query(models.Site).filter(
-        models.Site.owner_id == owner.id, models.Site.id == site_id
-    )
+    qs = db.query(models.Site).filter(models.Site.owner_id == owner.id, models.Site.id == site_id)
     site_in_db = qs.one()
     qs.update(jsonable_encoder(update_data))
     db.flush()
@@ -58,10 +53,6 @@ def update(db, owner, site_id, update_data):
 
 
 def delete(db, owner, site_id):
-    site_in_db = (
-        db.query(models.Site)
-        .filter(models.Site.owner_id == owner.id, models.Site.id == site_id)
-        .one()
-    )
+    site_in_db = db.query(models.Site).filter(models.Site.owner_id == owner.id, models.Site.id == site_id).one()
     db.delete(site_in_db)
     db.flush()

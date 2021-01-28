@@ -1,12 +1,14 @@
 # flake8: noqa
-from itertools import islice
-from pathlib import Path
-from math import ceil
-from urllib.parse import urlparse
-from collections import defaultdict
-from .service_base import BalsamService
 import logging
+from collections import defaultdict
+from itertools import islice
+from math import ceil
+from pathlib import Path
+from urllib.parse import urlparse
+
 from balsam.platform.transfer import TransferInterface, TransferSubmitError
+
+from .service_base import BalsamService
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +48,7 @@ class TransferService(BalsamService):
             item.state = task.state
             item.transfer_info = {**item.transfer_info, **task.info}
         self.client.TransferItem.objects.bulk_update(transfer_items)
-        logger.info(
-            f"Updated {len(transfer_items)} TransferItems "
-            f"with task {task.task_id} to state {task.state}"
-        )
+        logger.info(f"Updated {len(transfer_items)} TransferItems " f"with task {task.task_id} to state {task.state}")
 
     @staticmethod
     def batch_iter(li, bsize):
@@ -134,9 +133,7 @@ class TransferService(BalsamService):
         transfer_paths = [(*get_paths(item), item.recursive) for item in batch]
 
         try:
-            task_id = transfer_interface.submit_task(
-                remote_loc, direction, transfer_paths
-            )
+            task_id = transfer_interface.submit_task(remote_loc, direction, transfer_paths)
         except TransferSubmitError as exc:
             return self.error_items(batch, f"TransferSubmitError: {exc}")
         for item in batch:
@@ -145,12 +142,8 @@ class TransferService(BalsamService):
 
     def run_cycle(self):
         TransferItem = self.client.TransferItem
-        pending_submit = TransferItem.objects.filter(
-            site_id=self.site_id, state=["pending"]
-        )
-        in_flight = TransferItem.objects.filter(
-            site_id=self.site_id, state=["active", "inactive"]
-        )
+        pending_submit = TransferItem.objects.filter(site_id=self.site_id, state=["pending"])
+        in_flight = TransferItem.objects.filter(site_id=self.site_id, state=["active", "inactive"])
 
         task_map = self.build_task_map(in_flight)
         task_ids = list(task_map.keys())

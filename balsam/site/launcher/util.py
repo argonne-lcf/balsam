@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -46,18 +46,14 @@ class SectionTimer:
 
     @staticmethod
     def report():
-        result = (
-            f'{"Section":24} {"MinTime":8} {"MaxTime":8} {"AvgTime":8} {"PctTime":5}\n'
-        )
+        result = f'{"Section":24} {"MinTime":8} {"MaxTime":8} {"AvgTime":8} {"PctTime":5}\n'
         total_t = sum(sum(times) for times in SectionTimer._sections.values())
         for sec, times in SectionTimer._sections.items():
             min_t = min(times)
             max_t = max(times)
             avg_t = sum(times) / len(times)
             percent_t = 100 * sum(times) / total_t
-            result += (
-                f"{sec:24} {min_t:8.3f} {max_t:8.3f} {avg_t:8.3f} {percent_t:5.1f}%\n"
-            )
+            result += f"{sec:24} {min_t:8.3f} {max_t:8.3f} {avg_t:8.3f} {percent_t:5.1f}%\n"
         SectionTimer._sections = {}
         SectionTimer.total_elapsed = 0.0
         logger.info("\n" + result)

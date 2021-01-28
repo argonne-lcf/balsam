@@ -1,9 +1,10 @@
-import os
 import logging
-import requests
+import os
 import time
-from pprint import pformat
 from json import JSONDecodeError
+from pprint import pformat
+
+import requests
 
 from .rest_base_client import RESTClient
 
@@ -45,21 +46,15 @@ class RequestsClient(RESTClient):
     def close_session(self):
         self._session = None
 
-    def request(
-        self, url, http_method, params=None, json=None, data=None, authenticating=False
-    ):
+    def request(self, url, http_method, params=None, json=None, data=None, authenticating=False):
         if not self._authenticated and not authenticating:
-            raise NotAuthenticatedError(
-                "Cannot perform unauthenticated request. Please login with `balsam login`"
-            )
+            raise NotAuthenticatedError("Cannot perform unauthenticated request. Please login with `balsam login`")
         absolute_url = self.api_root.rstrip("/") + "/" + url.lstrip("/")
         attempt = 0
         while attempt < self.retry_count:
             try:
                 logger.debug(f"{http_method}: {absolute_url}")
-                response = self._do_request(
-                    absolute_url, http_method, params, json, data
-                )
+                response = self._do_request(absolute_url, http_method, params, json, data)
             except requests.Timeout as exc:
                 logger.warning(f"Timed out request {http_method} {absolute_url}")
                 attempt += 1

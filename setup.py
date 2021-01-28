@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-from pathlib import Path
-import subprocess
 import shutil
+import subprocess
+from pathlib import Path
+
 from setuptools import setup
 from setuptools.command.develop import develop
 from setuptools.command.install import install

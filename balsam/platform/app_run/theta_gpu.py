@@ -1,5 +1,6 @@
-from .app_run import SubprocessAppRun
 import os
+
+from .app_run import SubprocessAppRun
 
 
 class ThetaGPURun(SubprocessAppRun):

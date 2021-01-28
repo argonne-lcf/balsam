@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta
 import random
+from datetime import datetime, timedelta
+
 from fastapi import status
+
 from .util import create_site
 
 
@@ -98,9 +100,7 @@ def test_filter_by_time_range(auth_client):
     # So we should have 2 jobs land in this window
     end_after = now - timedelta(hours=5)
     end_before = now - timedelta(hours=3)
-    jobs = auth_client.get(
-        "/batch-jobs/", end_time_after=end_after, end_time_before=end_before
-    )
+    jobs = auth_client.get("/batch-jobs/", end_time_after=end_after, end_time_before=end_before)
     assert jobs["count"] == 2 == len(jobs["results"])
     for job in jobs["results"]:
         assert "good" in job["filter_tags"]
@@ -226,13 +226,9 @@ def test_bulk_status_update_batch_jobs(auth_client):
         job["state"] = "queued"
     for job in jobs[5:]:
         job["state"] = "running"
-        job["start_time"] = datetime.utcnow() + timedelta(
-            minutes=random.randint(-30, 0)
-        )
+        job["start_time"] = datetime.utcnow() + timedelta(minutes=random.randint(-30, 0))
 
-    updates = [
-        {k: job[k] for k in job if k in ["id", "state", "start_time"]} for job in jobs
-    ]
+    updates = [{k: job[k] for k in job if k in ["id", "state", "start_time"]} for job in jobs]
     result = auth_client.bulk_patch("/batch-jobs/", updates)
 
     for updated_job in result:

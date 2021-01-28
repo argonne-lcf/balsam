@@ -1,11 +1,12 @@
-from fastapi import Depends, APIRouter, status, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from balsam.server.models import get_session
 from balsam.schemas import UserCreate, UserOut
+from balsam.server.models import get_session
 from balsam.server.models.crud import users
+
 from .password import authenticate_user_password
-from .token import user_from_token, create_access_token
+from .token import create_access_token, user_from_token
 
 router = APIRouter()
 

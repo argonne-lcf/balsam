@@ -1,9 +1,11 @@
-from balsam.server import settings
-from fastapi.encoders import jsonable_encoder
-import redis
-import aredis
 import json
 import logging
+
+import aredis
+import redis
+from fastapi.encoders import jsonable_encoder
+
+from balsam.server import settings
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +47,7 @@ class _PubSub:
             self.r.publish(self.get_topic(user_id), json.dumps(jsonable_encoder(msg)))
         except redis.exceptions.ConnectionError as e:
             if not self._has_warned:
-                logger.warning(
-                    f"Redis connection failed!\n{e}\n Proceeding without Redis pub/sub."
-                )
+                logger.warning(f"Redis connection failed!\n{e}\n Proceeding without Redis pub/sub.")
                 self._has_warned = True
 
 

@@ -1,5 +1,6 @@
-from pydantic import BaseModel, validator
 from typing import List
+
+from pydantic import BaseModel, validator
 
 
 class InsufficientResources(Exception):
@@ -101,7 +102,7 @@ class NodeManager:
         threads_per_core,
         gpus_per_rank,
         node_occupancy,
-        **kwargs
+        **kwargs,
     ):
         if num_nodes > 1:
             return self._assign_multi_node(id, num_nodes)

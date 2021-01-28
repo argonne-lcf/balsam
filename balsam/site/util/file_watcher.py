@@ -1,5 +1,5 @@
-from pathlib import Path
 import time
+from pathlib import Path
 
 
 def _snapshot_files(directory, pattern):

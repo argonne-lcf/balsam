@@ -1,5 +1,6 @@
-from .query import Query
 import logging
+
+from .query import Query
 
 logger = logging.getLogger(__name__)
 
@@ -56,18 +57,13 @@ class Manager:
     def bulk_create(self, instances):
         """Returns a list of newly created instances"""
         if not self.bulk_create_enabled:
-            raise NotImplementedError(
-                "The {self.model_class.__name__} API does not offer bulk_create"
-            )
+            raise NotImplementedError("The {self.model_class.__name__} API does not offer bulk_create")
 
         if not isinstance(instances, list):
-            raise TypeError(
-                f"instances must be a list of {self.model_class.__name__} instances"
-            )
+            raise TypeError(f"instances must be a list of {self.model_class.__name__} instances")
 
         assert all(
-            isinstance(obj._create_model, self.model_class.create_model_cls)
-            for obj in instances
+            isinstance(obj._create_model, self.model_class.create_model_cls) for obj in instances
         ), f"bulk_create requires all items to be instances of {self.model_class.__name__}"
 
         data_list = [obj._create_model.dict() for obj in instances]
@@ -82,9 +78,7 @@ class Manager:
         """
         # TODO: validate update_fields
         if not self.bulk_update_enabled:
-            raise NotImplementedError(
-                "The {self.model_class.__name__} API does not offer bulk_update"
-            )
+            raise NotImplementedError("The {self.model_class.__name__} API does not offer bulk_update")
 
         patch_list = [
             {"id": obj.id, **obj._update_model.dict(exclude_unset=True)}
@@ -137,9 +131,7 @@ class Manager:
 
     def _do_bulk_update_query(self, patch, filters):
         if not self.bulk_update_enabled:
-            raise NotImplementedError(
-                f"The {self.model_class.__name__} API does not offer bulk updates"
-            )
+            raise NotImplementedError(f"The {self.model_class.__name__} API does not offer bulk updates")
         query_params = self._build_query_params(filters)
         response_data = self._client.bulk_put(self.path, patch, **query_params)
         instances = [self.model_class.from_api(dat) for dat in response_data]
@@ -151,8 +143,6 @@ class Manager:
 
     def _do_bulk_delete(self, filters):
         if not self.bulk_delete_enabled:
-            raise NotImplementedError(
-                f"The {self.model_class.__name__} API does not offer bulk deletes"
-            )
+            raise NotImplementedError(f"The {self.model_class.__name__} API does not offer bulk deletes")
         query_params = self._build_query_params(filters)
         self._client.bulk_delete(self.path, **query_params)

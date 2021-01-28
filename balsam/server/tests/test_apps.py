@@ -1,5 +1,6 @@
 from fastapi import status
-from .util import create_site, create_app
+
+from .util import create_app, create_site
 
 
 def test_created_app_in_list_view(auth_client):
@@ -41,9 +42,7 @@ def test_cannot_update_duplicate(auth_client):
     create_app(auth_client, site_id=site["id"], class_path="a.A")
     app2 = create_app(auth_client, site_id=site["id"], class_path="a.B")
     auth_client.put(f"apps/{app2['id']}", class_path="a.C")
-    auth_client.put(
-        f"apps/{app2['id']}", class_path="a.A", check=status.HTTP_400_BAD_REQUEST
-    )
+    auth_client.put(f"apps/{app2['id']}", class_path="a.A", check=status.HTTP_400_BAD_REQUEST)
     assert auth_client.get(f"apps/{app2['id']}")["class_path"] == "a.C"
 
 

@@ -1,9 +1,11 @@
-from balsam.core import models
-from models.util import history_line
+import uuid
 from os import environ
 from os.path import basename
-import uuid
+
 from django.core.exceptions import FieldError
+from models.util import history_line
+
+from balsam.core import models
 
 Job = models.BalsamJob
 AppDef = models.ApplicationDefinition
@@ -30,9 +32,7 @@ def print_table(queryset, fields, field_header={}, transforms={}):
         fields[i] = header_name
 
     # apply transforms on each column
-    transforms = {
-        fields.index(field_name): fxn for field_name, fxn in transforms.items()
-    }
+    transforms = {fields.index(field_name): fxn for field_name, fxn in transforms.items()}
     for irow, row in enumerate(records):
         row = list(map(str, row))
         for i, fxn in transforms.items():
@@ -81,9 +81,7 @@ def print_jobs(jobs, verbose):
         if count > LIMIT:
             print(f"({count-LIMIT} more BalsamJobs not shown...)")
     except FieldError as e:
-        print(
-            "***  You specified a nonexistant field in BALSAM_LS_FIELDS; please unset this ***"
-        )
+        print("***  You specified a nonexistant field in BALSAM_LS_FIELDS; please unset this ***")
         print(e)
         return
 

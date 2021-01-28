@@ -1,7 +1,9 @@
-import click
 import getpass
-from balsam.config import ClientSettings
+
+import click
+
 from balsam.client import NotAuthenticatedError
+from balsam.config import ClientSettings
 
 
 @click.command()
@@ -51,7 +53,5 @@ def register(address, username):
     if password != conf_password:
         raise click.BadParameter("Passwords must match")
 
-    resp = client.post(
-        "users/register", username=username, password=password, authenticating=True
-    )
+    resp = client.post("users/register", username=username, password=password, authenticating=True)
     click.echo(f"Registration success! {resp}")

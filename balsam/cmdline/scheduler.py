@@ -1,7 +1,7 @@
 import click
 import yaml
-from .utils import load_site_config, validate_tags, validate_partitions
-from balsam.site.service.scheduler import validate_batch_job
+
+from .utils import load_site_config, validate_partitions, validate_tags
 
 
 @click.group()
@@ -21,9 +21,7 @@ def queue(ctx):
 @click.option("-j", "--job-mode", type=click.Choice(["serial", "mpi"]), required=True)
 @click.option("-tag", "--tag", "filter_tags", multiple=True, callback=validate_tags)
 @click.option("-p", "--part", "partitions", multiple=True, callback=validate_partitions)
-@click.option(
-    "-x", "--extra-param", "optional_params", multiple=True, callback=validate_tags
-)
+@click.option("-x", "--extra-param", "optional_params", multiple=True, callback=validate_tags)
 @click.pass_context
 def submit(
     ctx,
@@ -50,8 +48,7 @@ def submit(
         partitions=partitions,
     )
     try:
-        validate_batch_job(
-            job,
+        job.validate(
             settings.scheduler.allowed_queues,
             settings.scheduler.allowed_projects,
             settings.scheduler.optional_batch_job_params,

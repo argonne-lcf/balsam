@@ -1,7 +1,8 @@
-from pathlib import Path
-from pydantic import BaseModel, validator, Field
-from typing import Dict, Optional, List
 from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field, validator
 
 
 class AppParameter(BaseModel):

@@ -1,16 +1,16 @@
 from datetime import datetime
-from balsam.server import models, ValidationError
-from balsam.schemas.job import JobState
-from sqlalchemy import orm, func, case, literal_column
+
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import case, func, literal_column, orm
+
+from balsam.schemas.job import JobState
+from balsam.server import ValidationError, models
 
 
 def owned_job_query(db, owner, with_parents=False):
     if with_parents:
-        qs = db.query(models.Job).options(
-            orm.selectinload(models.Job.parents).load_only(models.Job.id)
-        )
+        qs = db.query(models.Job).options(orm.selectinload(models.Job.parents).load_only(models.Job.id))
     else:
         qs = db.query(models.Job)
     qs = qs.join(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)
@@ -54,9 +54,7 @@ def populate_transfers(db_job, job_spec):
     for transfer_name, transfer_spec in job_spec.transfers.items():
         transfer_slot = db_job.app.transfers.get(transfer_name)
         if transfer_slot is None:
-            raise ValidationError(
-                f"App {db_job.app.name} has no Transfer slot named {transfer_name}"
-            )
+            raise ValidationError(f"App {db_job.app.name} has no Transfer slot named {transfer_name}")
         direction, local_path = transfer_slot["direction"], transfer_slot["local_path"]
         recursive = transfer_slot["recursive"]
         assert direction in ["in", "out"]
@@ -108,9 +106,7 @@ def bulk_create(db, owner, job_specs):
         for app in db.query(models.App)
         .join(models.App.site)
         .filter(models.Site.owner_id == owner.id, models.App.id.in_(app_ids))
-        .options(
-            orm.selectinload(models.App.site).load_only(models.Site.transfer_locations)
-        )
+        .options(orm.selectinload(models.App.site).load_only(models.Site.transfer_locations))
         .all()
     }
     if len(apps) < len(app_ids):
@@ -119,12 +115,7 @@ def bulk_create(db, owner, job_specs):
             detail="Could not find one or more Apps. Double check app_id fields.",
         )
 
-    parents = {
-        job.id: job
-        for job in owned_job_query(db, owner)
-        .filter(models.Job.id.in_(parent_ids))
-        .all()
-    }
+    parents = {job.id: job for job in owned_job_query(db, owner).filter(models.Job.id.in_(parent_ids)).all()}
     if len(parents) < len(parent_ids):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -133,9 +124,7 @@ def bulk_create(db, owner, job_specs):
 
     created_jobs, created_transfers, created_events = [], [], []
     for job_spec in job_specs:
-        db_job = models.Job(
-            **jsonable_encoder(job_spec.dict(exclude={"parent_ids", "transfers"}))
-        )
+        db_job = models.Job(**jsonable_encoder(job_spec.dict(exclude={"parent_ids", "transfers"})))
         db.add(db_job)
         db_job.app = apps[job_spec.app_id]
         validate_parameters(db_job)
@@ -190,20 +179,12 @@ def _update_state(job, state, state_timestamp, state_data):
             job.state = "AWAITING_PARENTS"
 
     if job.state == "READY":
-        if all(
-            item.state == "done"
-            for item in job.transfer_items
-            if item.direction == "in"
-        ):
+        if all(item.state == "done" for item in job.transfer_items if item.direction == "in"):
             job.state = "STAGED_IN"
             event.data["message"] = "Skipped stage in"
 
     if job.state == "POSTPROCESSED":
-        if all(
-            item.state == "done"
-            for item in job.transfer_items
-            if item.direction == "out"
-        ):
+        if all(item.state == "done" for item in job.transfer_items if item.direction == "out"):
             job.state = "JOB_FINISHED"
             event.data["message"] = "Skipped stage out"
         else:
@@ -245,11 +226,13 @@ def _check_waiting_children(db, parent_ids):
         db.query(models.Job)
         .options(
             orm.selectinload(models.Job.transfer_items).load_only(
-                models.TransferItem.state, models.TransferItem.direction,
+                models.TransferItem.state,
+                models.TransferItem.direction,
             ),
             # TODO: what is most efficient way to load parent IDs in same query?
             orm.joinedload(models.Job.parents).load_only(
-                models.Job.id, models.Job.state,
+                models.Job.id,
+                models.Job.state,
             ),
         )
         .join(models.Job.parents.of_type(parent_alias1))
@@ -272,10 +255,12 @@ def _check_waiting_children(db, parent_ids):
 def _select_jobs_for_update(qs):
     qs = qs.options(
         orm.selectinload(models.Job.parents).load_only(
-            models.Job.id, models.Job.state,
+            models.Job.id,
+            models.Job.state,
         ),
         orm.selectinload(models.Job.transfer_items).load_only(
-            models.TransferItem.state, models.TransferItem.direction,
+            models.TransferItem.state,
+            models.TransferItem.direction,
         ),
     ).with_for_update(of=models.Job)
     return qs.all()
@@ -342,8 +327,6 @@ def delete_query(db, owner, filterset=None, job_id=None):
     ids = [job.id for job in qs.options(orm.load_only(models.Job.id))]
     delete_ids = set(_select_children(db, ids))
     print("Deleting job ids:", delete_ids)
-    db.query(models.Job).filter(models.Job.id.in_(delete_ids)).delete(
-        synchronize_session=False
-    )
+    db.query(models.Job).filter(models.Job.id.in_(delete_ids)).delete(synchronize_session=False)
     db.flush()
     return delete_ids

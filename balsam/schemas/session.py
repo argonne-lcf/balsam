@@ -1,7 +1,9 @@
 from datetime import datetime
+from typing import Dict, List, Optional, Set
+
 from pydantic import BaseModel
-from typing import Dict, List, Set, Optional
-from .job import JobState, RUNNABLE_STATES
+
+from .job import RUNNABLE_STATES, JobState
 
 
 class SessionCreate(BaseModel):
