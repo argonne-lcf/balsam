@@ -20,7 +20,7 @@ class SummitNode(ComputeNode):
         nodefile_lines = open(nodefile).readlines()
         node_hostnames = [line.strip() for line in nodefile_lines]
         node_ids = [int(hostname[-2:]) for hostname in node_hostnames]
-        return [cls(node_ids[i], node_hostnames[i]) for i in range(len(node_ids))]
+        return [cls(nid, host) for nid, host in zip(node_ids, node_hostnames)]
 
     @staticmethod
     def get_batch_job_id():
