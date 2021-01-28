@@ -8,7 +8,6 @@ class CoriKnlNode(ComputeNode):
     num_gpu = 0
     cpu_identifiers = list(range(num_cpu))
     gpu_identifiers = list(range(num_gpu))
-    allow_multi_mpirun = True
     cpu_type = "Intel Xeon Phi 7250"
     cpu_mem_gb = 94
     gpu_type = ""

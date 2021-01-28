@@ -2,11 +2,10 @@ import os
 from .compute_node import ComputeNode
 
 
-class ThetaGpuNode(ComputeNode):
+class ThetaGPUNode(ComputeNode):
 
     cpu_ids = list(range(128))
     gpu_ids = list(range(8))
-    allow_multi_mpirun = True
 
     @classmethod
     def get_job_nodelist(cls):
@@ -17,14 +16,16 @@ class ThetaGpuNode(ComputeNode):
         # a file containing a list of node hostnames, one per line
         # thetagpu01
         # thetagpu02
-
-        nodefile_lines = open(nodefile).readlines()
-        node_hostnames = [line.strip() for line in nodefile_lines]
-        node_ids = [int(hostname[-2:]) for hostname in node_hostnames]
-        return [cls(node_ids[i], node_hostnames[i]) for i in range(len(node_ids))]
+        with open(nodefile) as fp:
+            data = fp.read()
+        splitter = "," if "," in data else None
+        hostnames = data.split(splitter)
+        hostnames = [h.strip() for h in hostnames if h.strip()]
+        node_ids = [int(hostname[-2:]) for hostname in hostnames]
+        return [cls(nid, hostname) for nid, hostname in zip(node_ids, hostnames)]
 
     @staticmethod
-    def get_batch_job_id():
+    def get_scheduler_id():
         id = os.environ.get("COBALT_JOBID")
         if id is not None:
             return int(id)

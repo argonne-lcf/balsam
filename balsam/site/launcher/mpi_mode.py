@@ -216,13 +216,13 @@ def main(
         nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing
     )
 
-    batch_job_id = node_cls.get_batch_job_id()
+    scheduler_id = node_cls.get_scheduler_id()
     job_source = SynchronousJobSource(
         client=site_config.client,
         site_id=site_config.site_id,
         filter_tags=filter_tags,
         max_wall_time_min=wall_time_min,
-        batch_job_id=batch_job_id,
+        scheduler_id=scheduler_id,
     )
     status_updater = BulkStatusUpdater(site_config.client)
 

@@ -18,7 +18,21 @@ class SessionThread:
 
     TICK_PERIOD = timedelta(minutes=1)
 
-    def __init__(self, client, site_id, batch_job_id=None):
+    def __init__(self, client, site_id, scheduler_id=None):
+        batch_job_id = None
+        if scheduler_id is not None:
+            try:
+                batch_job = client.BatchJob.objects.get(
+                    site_id=site_id,
+                    scheduler_id=scheduler_id,
+                )
+                batch_job_id = batch_job.id
+            except client.BatchJob.DoesNotExist:
+                logger.warning(
+                    f"Failed to lookup BatchJob with scheduler_id {scheduler_id}. "
+                    "Reverting to a Session without a BatchJob. "
+                    "The run will still work, but Jobs will not be associated with a BatchJob."
+                )
         self.session = client.Session.objects.create(
             site_id=site_id, batch_job_id=batch_job_id
         )
@@ -61,7 +75,7 @@ class FixedDepthJobSource(Process):
         max_wall_time_min=None,
         max_nodes_per_job=None,
         max_aggregate_nodes=None,
-        batch_job_id=None,
+        scheduler_id=None,
     ):
         super().__init__()
         self.queue = Queue()
@@ -77,7 +91,7 @@ class FixedDepthJobSource(Process):
         self.max_wall_time_min = max_wall_time_min
         self.max_nodes_per_job = max_nodes_per_job
         self.max_aggregate_nodes = max_aggregate_nodes
-        self.batch_job_id = batch_job_id
+        self.scheduler_id = scheduler_id
         self.start_time = time.time()
 
     def get_jobs(self, max_num_jobs):
@@ -105,7 +119,7 @@ class FixedDepthJobSource(Process):
 
         if self.session_thread is None:
             self.session_thread = SessionThread(
-                client=self.client, site_id=self.site_id, batch_job_id=self.batch_job_id
+                client=self.client, site_id=self.site_id, scheduler_id=self.scheduler_id
             )
             self.session = self.session_thread.session
 
@@ -164,7 +178,7 @@ class SynchronousJobSource(object):
         states={"PREPROCESSED", "RESTART_READY"},
         serial_only=False,
         max_wall_time_min=None,
-        batch_job_id=None,
+        scheduler_id=None,
     ):
         self.client = client
         self.site_id = site_id
@@ -174,9 +188,9 @@ class SynchronousJobSource(object):
         self.max_wall_time_min = max_wall_time_min
         self.start_time = time.time()
 
-        self.batch_job_id = batch_job_id
+        self.scheduler_id = scheduler_id
         self.session_thread = SessionThread(
-            client=self.client, site_id=self.site_id, batch_job_id=self.batch_job_id
+            client=self.client, site_id=self.site_id, scheduler_id=self.scheduler_id
         )
         self.session = self.session_thread.session
 

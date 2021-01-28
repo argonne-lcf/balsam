@@ -12,6 +12,7 @@ balsam/*/__pycache__*
 !.pre-commit-config.yaml
 !.travis.yml
 *.pyc
+!.github
 
 *_packer.cpython*
 balsam/service/pack/_packer.c

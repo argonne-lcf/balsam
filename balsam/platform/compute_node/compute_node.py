@@ -69,7 +69,7 @@ class ComputeNode:
         return []
 
     @staticmethod
-    def get_batch_job_id():
+    def get_scheduler_id():
         return None
 
     def __repr__(self):

@@ -391,14 +391,14 @@ def run_master_launcher(
     site_config, wall_time_min, master_port, num_workers, filter_tags
 ):
     node_cls = site_config.launcher.compute_node
-    batch_job_id = node_cls.get_batch_job_id()
+    scheduler_id = node_cls.get_scheduler_id()
     job_source = FixedDepthJobSource(
         client=site_config.client,
         site_id=site_config.site_id,
         prefetch_depth=num_workers * site_config.launcher.serial_mode_prefetch_per_rank,
         filter_tags=filter_tags,
         max_wall_time_min=wall_time_min,
-        batch_job_id=batch_job_id,
+        scheduler_id=scheduler_id,
         serial_only=True,
         max_nodes_per_job=1,
     )

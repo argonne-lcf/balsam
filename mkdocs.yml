@@ -13,7 +13,7 @@ nav:
       - Web Client: development/web-client.md
       - Roadmap: development/todo.md
   - Tutorials:
-    - "Launching Jobs from a Jupyter Notebook": tutorials/ffn_balsam_interactive.ipynb
+    - ALCF-Theta Quickstart: tutorials/theta-quickstart.md
   - License: LICENSE.md
 
 
@@ -55,6 +55,5 @@ extra:
       link: 'https://github.com/balsam-alcf'
 
 plugins:
-  - mkdocs-jupyter
   - search
 
