@@ -23,7 +23,7 @@ class SummitNode(ComputeNode):
         return [cls(nid, host) for nid, host in zip(node_ids, node_hostnames)]
 
     @staticmethod
-    def get_batch_job_id():
+    def get_scheduler_id():
         id = os.environ.get("LSB_JOBID")
         if id is not None:
             return int(id)
