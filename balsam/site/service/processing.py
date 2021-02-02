@@ -45,7 +45,7 @@ def transition(app):
     try:
         msg = f"Running {transition_func.__name__} for Job {app.job.id}"
         logger.debug(msg)
-        sys.stdout.write(f"#BALSAM {msg}")
+        sys.stdout.write(f"#BALSAM {msg}\n")
         transition_func()
     except Exception as exc:
         logger.exception(f"An exception occured in {transition_func}: marking Job {app.job.id} FAILED")
