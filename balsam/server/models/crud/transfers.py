@@ -1,21 +1,32 @@
 from datetime import datetime
+from typing import Iterable, List, Optional, Sequence, Tuple, cast
 
 from sqlalchemy import orm
+from sqlalchemy.orm import Query, Session
 
+from balsam import schemas
 from balsam.server import ValidationError, models
+from balsam.server.util import FilterSet, Paginator
 
 
-def owned_transfer_query(db, owner):
-    return (
+def owned_transfer_query(db: Session, owner: schemas.UserOut) -> "Query[models.TransferItem]":
+    return cast(
+        "Query[models.TransferItem]",
         db.query(models.TransferItem)
-        .join(models.Job)
+        .join(models.Job)  # type: ignore
         .join(models.App)
         .join(models.Site)
-        .filter(models.Site.owner_id == owner.id)
+        .filter(models.Site.owner_id == owner.id),
     )
 
 
-def fetch(db, owner, paginator=None, transfer_id=None, filterset=None):
+def fetch(
+    db: Session,
+    owner: schemas.UserOut,
+    paginator: Paginator[models.TransferItem],
+    transfer_id: Optional[int] = None,
+    filterset: Optional[FilterSet[models.TransferItem]] = None,
+) -> Tuple[int, Iterable[models.TransferItem]]:
     qs = owned_transfer_query(db, owner)
     if transfer_id is not None:
         qs = qs.filter(models.TransferItem.id == transfer_id)
@@ -28,7 +39,7 @@ def fetch(db, owner, paginator=None, transfer_id=None, filterset=None):
     return count, transfers
 
 
-def _set_transfer_state(job):
+def _set_transfer_state(job: models.Job) -> bool:
     direction = "in" if job.state == "READY" else "out"
     is_done = all(item.state == "done" for item in job.transfer_items if item.direction == direction)
     if is_done:
@@ -36,11 +47,11 @@ def _set_transfer_state(job):
     return is_done
 
 
-def _update_jobs(db, job_ids):
+def _update_jobs(db: Session, job_ids: Sequence[int]) -> Tuple[List[models.Job], List[models.LogEvent]]:
     jobs = (
         db.query(models.Job)
         .filter(models.Job.id.in_(job_ids), models.Job.state.in_(["READY", "POSTPROCESSED"]))
-        .options(
+        .options(  # type: ignore
             orm.selectinload(models.Job.transfer_items).load_only(
                 models.TransferItem.direction,
                 models.TransferItem.state,
@@ -67,7 +78,9 @@ def _update_jobs(db, job_ids):
     return updates, events
 
 
-def update(db, owner, transfer_id, data):
+def update(
+    db: Session, owner: schemas.UserOut, transfer_id: int, data: schemas.TransferItemUpdate
+) -> Tuple[models.TransferItem, Optional[models.Job], Optional[models.LogEvent]]:
     item = owned_transfer_query(db, owner).filter(models.TransferItem.id == transfer_id).one()
     for k, v in data.dict(exclude_unset=True).items():
         setattr(item, k, v)
@@ -78,7 +91,9 @@ def update(db, owner, transfer_id, data):
     return item, updated_job, event
 
 
-def bulk_update(db, owner, update_list):
+def bulk_update(
+    db: Session, owner: schemas.UserOut, update_list: List[schemas.TransferItemBulkUpdate]
+) -> Tuple[List[models.TransferItem], List[models.Job], List[models.LogEvent]]:
     updates = {item.id: item.dict(exclude_unset=True) for item in update_list}
     db_items = owned_transfer_query(db, owner).filter(models.TransferItem.id.in_(updates.keys())).all()
     if len(db_items) < len(updates):

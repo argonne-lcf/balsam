@@ -1,5 +1,6 @@
 import math
 from datetime import datetime, timedelta
+from typing import List, Optional, Tuple
 
 from sqlalchemy import orm
 
@@ -10,20 +11,22 @@ from .jobs import set_parent_ids, update_states_by_query
 
 SESSION_EXPIRE_PERIOD = timedelta(minutes=5)
 SESSION_SWEEP_PERIOD = timedelta(minutes=3)
-_sweep_time = None
+_sweep_time: Optional[datetime] = None
+Session = orm.Session
+Query = orm.Query
 
 
-def owned_session_query(db, owner):
-    return db.query(models.Session).join(models.Site).filter(models.Site.owner_id == owner.id)
+def owned_session_query(db: Session, owner: schemas.UserOut) -> "Query[models.Session]":
+    return db.query(models.Session).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
 
 
-def fetch(db, owner):
+def fetch(db: Session, owner: schemas.UserOut) -> Tuple[int, List[models.Session]]:
     qs = owned_session_query(db, owner).all()
     count = len(qs)
     return count, qs
 
 
-def _clear_stale_sessions(db, owner):
+def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> Tuple[List[models.Job], List[models.LogEvent]]:
     global _sweep_time
     now = datetime.utcnow()
     if _sweep_time is not None and now < _sweep_time + SESSION_SWEEP_PERIOD:
@@ -50,11 +53,13 @@ def _clear_stale_sessions(db, owner):
     return expired_jobs, expiry_events
 
 
-def create(db, owner, session):
+def create(
+    db: Session, owner: schemas.UserOut, session: schemas.SessionCreate
+) -> Tuple[models.Session, List[models.Job], List[models.LogEvent]]:
     expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
 
     site_id = (
-        db.query(models.Site.id).filter(models.Site.owner_id == owner.id, models.Site.id == session.site_id).scalar()
+        db.query(models.Site.id).filter(models.Site.owner_id == owner.id, models.Site.id == session.site_id).scalar()  # type: ignore
     )
     if site_id is None:
         raise ValidationError(f"No site with ID {session.site_id}")
@@ -63,7 +68,7 @@ def create(db, owner, session):
             db.query(models.BatchJob.id)
             .filter(models.BatchJob.site_id == site_id)
             .filter(models.BatchJob.id == session.batch_job_id)
-        ).scalar()
+        ).scalar()  # type: ignore
         if batch_job_id is None:
             raise ValidationError(f"No batch_job with id {session.batch_job_id}")
 
@@ -73,18 +78,20 @@ def create(db, owner, session):
     return created_session, expired_jobs, expiry_events
 
 
-def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
+def acquire(
+    db: Session, owner: schemas.UserOut, session_id: int, spec: schemas.SessionAcquire
+) -> Tuple[List[models.Job], List[models.Job], List[models.LogEvent]]:
     expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
     session = (owned_session_query(db, owner).filter(models.Session.id == session_id)).one()
     session.heartbeat = datetime.utcnow()
 
-    qs = db.query(models.Job).join(models.App)
+    qs = db.query(models.Job).join(models.App)  # type: ignore
     qs = qs.options(orm.selectinload(models.Job.parents).load_only(models.Job.id))
     qs = qs.filter(models.App.site_id == session.site_id)  # At site
-    qs = qs.filter(models.Job.session_id.is_(None))  # Unlocked
+    qs = qs.filter(models.Job.session_id.is_(None))  # type: ignore # Unlocked
     qs = qs.filter(models.Job.state.in_(spec.states))  # Matching states
     print("Acquire: filtering for jobs with states:", spec.states)
-    qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # Matching tags
+    qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # type: ignore # Matching tags
     if spec.max_wall_time_min:
         qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
 
@@ -133,7 +140,9 @@ def acquire(db, owner, session_id, spec: schemas.SessionAcquire):
     return acquired_jobs, expired_jobs, expiry_events
 
 
-def tick(db, owner, session_id):
+def tick(
+    db: Session, owner: schemas.UserOut, session_id: int
+) -> Tuple[datetime, List[models.Job], List[models.LogEvent]]:
     expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
     in_db = owned_session_query(db, owner).filter(models.Session.id == session_id).one()
     ts = datetime.utcnow()
@@ -142,9 +151,8 @@ def tick(db, owner, session_id):
     return ts, expired_jobs, expiry_events
 
 
-def delete(db, owner, session_id):
+def delete(db: Session, owner: schemas.UserOut, session_id: int) -> None:
     qs = owned_session_query(db, owner).filter(models.Session.id == session_id)
     qs.one()
     db.query(models.Session).filter(models.Session.id == session_id).delete()
     db.flush()
-    return

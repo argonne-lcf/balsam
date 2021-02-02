@@ -27,7 +27,6 @@ from .user import UserCreate, UserOut
 __all__ = [
     "UserCreate",
     "UserOut",
-    "User",
     "SiteCreate",
     "SiteUpdate",
     "SiteOut",
@@ -49,7 +48,6 @@ __all__ = [
     "SessionOut",
     "PaginatedSessionsOut",
     "SessionAcquire",
-    "JobAcquireSpec",
     "JobCreate",
     "JobUpdate",
     "JobBulkUpdate",

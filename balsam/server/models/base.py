@@ -1,6 +1,8 @@
 import logging
+from typing import Iterator
 
 from sqlalchemy import create_engine, orm
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 
 import balsam.server
@@ -12,7 +14,7 @@ _engine = None
 _Session = None
 
 
-def get_engine():
+def get_engine() -> Engine:
     global _engine
     if _engine is None:
         logger.info(f"Creating DB engine: {balsam.server.settings.database_url}")
@@ -25,12 +27,12 @@ def get_engine():
     return _engine
 
 
-def get_session():
+def get_session() -> Iterator[orm.Session]:
     global _Session
     if _Session is None:
         _Session = orm.sessionmaker(bind=get_engine())
 
-    session = _Session()
+    session: orm.Session = _Session()
     try:
         yield session
     except:  # noqa: E722
@@ -40,5 +42,5 @@ def get_session():
         session.close()
 
 
-def create_tables():
+def create_tables() -> None:
     Base.metadata.create_all(get_engine())

@@ -64,7 +64,7 @@ class SiteBase(BaseModel):
     )
 
     @validator("path")
-    def path_is_absolute(cls, v: Path):
+    def path_is_absolute(cls, v: Path) -> Path:
         if not v.is_absolute():
             raise ValueError("path must be absolute")
         return v
@@ -75,8 +75,8 @@ class SiteCreate(SiteBase):
 
 
 class SiteUpdate(SiteBase):
-    hostname: Optional[str] = Field(None, example="thetalogin3.alcf.anl.gov")
-    path: Optional[Path] = Field(None, example="/projects/datascience/user/mySite")
+    hostname: Optional[str] = Field(None, example="thetalogin3.alcf.anl.gov")  # type: ignore
+    path: Optional[Path] = Field(None, example="/projects/datascience/user/mySite")  # type: ignore
 
 
 class SiteOut(SiteBase):

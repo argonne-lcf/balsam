@@ -5,8 +5,10 @@ import socket
 import sys
 import textwrap
 import time
+from pathlib import Path
+from typing import Tuple, Union
 
-import multiprocessing_logging
+import multiprocessing_logging  # type: ignore
 
 
 class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
@@ -21,12 +23,12 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
 
     def __init__(
         self,
-        capacity,
-        flushLevel=logging.ERROR,
-        target=None,
-        flushOnClose=True,
-        flush_period=30,
-    ):
+        capacity: int,
+        target: logging.Handler,
+        flushLevel: int = logging.ERROR,
+        flushOnClose: bool = True,
+        flush_period: int = 30,
+    ) -> None:
         super().__init__(
             capacity,
             flushLevel=flushLevel,
@@ -34,17 +36,17 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
             flushOnClose=flushOnClose,
         )
         self.flush_period = flush_period
-        self.last_flush = 0
+        self.last_flush = 0.0
         self.flushLevel = flushLevel
         self.target = target
         self.capacity = capacity
         self.flushOnClose = flushOnClose
 
-    def flush(self):
+    def flush(self) -> None:
         super().flush()
         self.last_flush = time.time()
 
-    def shouldFlush(self, record):
+    def shouldFlush(self, record: logging.LogRecord) -> bool:
         """
         Check for buffer full or a record at the flushLevel or higher.
         """
@@ -55,13 +57,14 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
         )
 
 
-def validate_log_level(level):
+def validate_log_level(level: Union[str, int]) -> int:
     if isinstance(level, str):
-        return getattr(logging, level, logging.DEBUG)
+        level = getattr(logging, level, logging.DEBUG)
+        return int(level)
     return min(50, max(0, level))
 
 
-def config_root_logger(level=None):
+def config_root_logger(level: Union[str, int, None] = None) -> Tuple[logging.Logger, logging.Handler]:
     if level is None:
         level = validate_log_level(os.environ.get("BALSAM_LOG_LEVEL", "DEBUG"))
     logger = logging.getLogger("balsam")
@@ -77,13 +80,13 @@ def config_root_logger(level=None):
 
 
 def config_file_logging(
-    filename,
-    level,
-    format,
-    datefmt,
-    buffer_num_records,
-    flush_period,
-):
+    filename: Union[str, Path],
+    level: int,
+    format: str,
+    datefmt: str,
+    buffer_num_records: int,
+    flush_period: int,
+) -> None:
     level = validate_log_level(level)
     root_logger, _ = config_root_logger(level)
 
@@ -108,12 +111,12 @@ def config_file_logging(
     sys.excepthook = log_uncaught_exceptions
 
 
-def log_uncaught_exceptions(exctype, value, tb):
+def log_uncaught_exceptions(exctype, value, tb):  # type: ignore
     root_logger = logging.getLogger("balsam")
     root_logger.error(f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb))
 
 
-def banner(message, color="HEADER"):
+def banner(message: str, color: str = "HEADER") -> None:
     bcolors = {
         "HEADER": "\033[95m",
         "OKBLUE": "\033[94m",

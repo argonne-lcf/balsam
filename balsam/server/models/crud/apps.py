@@ -1,19 +1,24 @@
+from typing import Any, Dict, List, Optional, Tuple, cast
+
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Query, Session
 
+from balsam import schemas
 from balsam.server import ValidationError, models
+from balsam.server.util import Paginator
 
 
 def fetch(
-    db,
-    owner,
-    paginator=None,
-    app_id=None,
-    filter_site_ids=None,
-    ids=None,
-    class_path=None,
-):
-    qs = db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)
+    db: Session,
+    owner: schemas.UserOut,
+    paginator: Optional[Paginator[models.App]] = None,
+    app_id: Optional[int] = None,
+    filter_site_ids: Optional[List[int]] = None,
+    ids: Optional[List[int]] = None,
+    class_path: Optional[str] = None,
+) -> "Tuple[int, Query[models.App]]":
+    qs = db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
     if filter_site_ids:
         qs = qs.filter(models.App.site_id.in_(filter_site_ids))
     if ids is not None:
@@ -24,11 +29,12 @@ def fetch(
         qs = qs.filter(models.App.id == app_id).one()
         return (1, qs)
     else:
+        assert paginator is not None
         count = qs.group_by(models.App.id).count()
         return count, paginator.paginate(qs)
 
 
-def flush_or_400(db):
+def flush_or_400(db: Session) -> None:
     try:
         db.flush()
     except IntegrityError as e:
@@ -39,7 +45,7 @@ def flush_or_400(db):
             raise
 
 
-def create(db, owner, app):
+def create(db: Session, owner: schemas.UserOut, app: schemas.AppCreate) -> models.App:
     # Will raise if the owner does not have a matching Site ID
     app.site_id = db.query(models.Site.id).filter_by(id=app.site_id, owner_id=owner.id).one()[0]
     new_app = models.App(**jsonable_encoder(app))
@@ -48,13 +54,13 @@ def create(db, owner, app):
     return new_app
 
 
-def update(db, owner, app_id, update_data):
+def update(db: Session, owner: schemas.UserOut, app_id: int, update_data: Dict[str, Any]) -> models.App:
     qs = (
         db.query(models.App)
-        .join(models.Site, models.App.site_id == models.Site.id)
+        .join(models.Site, models.App.site_id == models.Site.id)  # type: ignore
         .filter(models.Site.owner_id == owner.id, models.App.id == app_id)
     )
-    app_in_db = qs.one()
+    app_in_db = cast(models.App, qs.one())
     if "site_id" in update_data:
         update_data["site_id"] = (
             db.query(models.Site.id).filter_by(id=update_data["site_id"], owner_id=owner.id).one()
@@ -65,9 +71,9 @@ def update(db, owner, app_id, update_data):
     return app_in_db
 
 
-def delete(db, owner, app_id):
+def delete(db: Session, owner: schemas.UserOut, app_id: int) -> None:
     app_in_db = (
-        db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id, models.App.id == app_id).one()
+        db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id, models.App.id == app_id).one()  # type: ignore
     )
-    db.delete(app_in_db)
+    db.delete(app_in_db)  # type: ignore
     db.flush()

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Tuple, cast
 
 from fastapi import APIRouter, Depends, Query
 
@@ -7,21 +7,21 @@ from balsam import schemas
 from balsam.server import settings
 from balsam.server.models import Job, Site, TransferItem, crud, get_session
 from balsam.server.pubsub import pubsub
-from balsam.server.util import Paginator
+from balsam.server.util import FilterSet, Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
 @dataclass
-class TransferQuery:
+class TransferQuery(FilterSet):
     id: List[int] = Query(None)
     site_id: int = Query(None)
     job_id: List[int] = Query(None)
     state: Set[schemas.TransferItemState] = Query(None)
     direction: schemas.TransferDirection = Query(None)
     job_state: str = Query(None)
-    tags: str = Query(None)
+    tags: List[str] = Query(None)
 
     def apply_filters(self, qs):
         if self.id:
@@ -37,7 +37,7 @@ class TransferQuery:
         if self.job_state:
             qs = qs.filter(Job.state == self.job_state)
         if self.tags:
-            tags_dict = dict(t.split(":", 1) for t in self.tags if ":" in t)
+            tags_dict = dict(cast(Tuple[str, str], t.split(":", 1)) for t in self.tags if ":" in t)
             qs = qs.filter(Job.tags.contains(tags_dict))
         return qs
 

@@ -1,28 +1,38 @@
 from datetime import datetime
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import case, func, literal_column, orm
+from sqlalchemy.orm import Query, Session
 
+from balsam import schemas
 from balsam.schemas.job import JobState
 from balsam.server import ValidationError, models
+from balsam.server.util import FilterSet, Paginator
 
 
-def owned_job_query(db, owner, with_parents=False):
+def owned_job_query(db: Session, owner: schemas.UserOut, with_parents: bool = False) -> "Query[models.Job]":
+    qs: "Query[models.Job]"
     if with_parents:
-        qs = db.query(models.Job).options(orm.selectinload(models.Job.parents).load_only(models.Job.id))
+        qs = db.query(models.Job).options(orm.selectinload(models.Job.parents).load_only(models.Job.id))  # type: ignore
     else:
         qs = db.query(models.Job)
-    qs = qs.join(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)
+    qs = qs.join(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
     return qs
 
 
-def set_parent_ids(jobs):
+def set_parent_ids(jobs: Iterable[models.Job]) -> None:
     for job in jobs:
-        job.parent_ids = [p.id for p in job.parents]
+        job.parent_ids = [p.id for p in cast(Iterable[models.Job], job.parents)]
 
 
-def update_states_by_query(qs, state, data=None, timestamp=None):
+def update_states_by_query(
+    qs: "Query[models.Job]",
+    state: str,
+    data: Union[Dict[str, Any], str, None] = None,
+    timestamp: Optional[datetime] = None,
+) -> Tuple[List[models.Job], List[models.LogEvent]]:
     now = datetime.utcnow()
     if isinstance(data, str):
         data = {"message": data}
@@ -38,9 +48,10 @@ def update_states_by_query(qs, state, data=None, timestamp=None):
     return updated_jobs, events
 
 
-def validate_parameters(job):
-    allowed_params = set(job.app.parameters.keys())
-    required_params = {p for p in allowed_params if job.app.parameters[p]["required"]}
+def validate_parameters(job: models.Job) -> None:
+    param_dict: Dict[str, Any] = job.app.parameters
+    allowed_params = set(param_dict.keys())
+    required_params = {p for p in allowed_params if param_dict[p]["required"]}
     job_params = set(job.parameters.keys())
     extraneous_params = job_params.difference(allowed_params)
     missing_params = required_params.difference(job_params)
@@ -50,11 +61,11 @@ def validate_parameters(job):
         raise ValidationError(f"missing parameters: {missing_params}")
 
 
-def populate_transfers(db_job, job_spec):
+def populate_transfers(db_job: models.Job, job_spec: schemas.JobCreate) -> List[models.TransferItem]:
     for transfer_name, transfer_spec in job_spec.transfers.items():
         transfer_slot = db_job.app.transfers.get(transfer_name)
         if transfer_slot is None:
-            raise ValidationError(f"App {db_job.app.name} has no Transfer slot named {transfer_name}")
+            raise ValidationError(f"App {db_job.app.class_path} has no Transfer slot named {transfer_name}")
         direction, local_path = transfer_slot["direction"], transfer_slot["local_path"]
         recursive = transfer_slot["recursive"]
         assert direction in ["in", "out"]
@@ -80,7 +91,13 @@ def populate_transfers(db_job, job_spec):
     return db_job.transfer_items
 
 
-def fetch(db, owner, paginator=None, job_id=None, filterset=None):
+def fetch(
+    db: Session,
+    owner: schemas.UserOut,
+    paginator: Optional[Paginator[models.Job]] = None,
+    job_id: Optional[int] = None,
+    filterset: Optional[FilterSet[models.Job]] = None,
+) -> "Tuple[int, Union[List[models.Job], Query[models.Job]]]":
     qs = owned_job_query(db, owner, with_parents=True)
     if job_id is not None:
         qs = qs.filter(models.Job.id == job_id)
@@ -96,15 +113,17 @@ def fetch(db, owner, paginator=None, job_id=None, filterset=None):
     return count, jobs
 
 
-def bulk_create(db, owner, job_specs):
+def bulk_create(
+    db: Session, owner: schemas.UserOut, job_specs: List[schemas.JobCreate]
+) -> Tuple[List[models.Job], List[models.LogEvent], List[models.TransferItem]]:
     now = datetime.utcnow()
     app_ids = set(job.app_id for job in job_specs)
     parent_ids = set(pid for job in job_specs for pid in job.parent_ids)
 
-    apps = {
+    apps: Dict[int, models.App] = {
         app.id: app
         for app in db.query(models.App)
-        .join(models.App.site)
+        .join(models.App.site)  # type: ignore
         .filter(models.Site.owner_id == owner.id, models.App.id.in_(app_ids))
         .options(orm.selectinload(models.App.site).load_only(models.Site.transfer_locations))
         .all()
@@ -129,6 +148,7 @@ def bulk_create(db, owner, job_specs):
         db_job.app = apps[job_spec.app_id]
         validate_parameters(db_job)
 
+        assert isinstance(db_job.parents, list)
         db_job.parents.extend(parents[id] for id in job_spec.parent_ids)
         populate_transfers(db_job, job_spec)
         if any(job.state != JobState.job_finished for job in db_job.parents):
@@ -154,11 +174,13 @@ def bulk_create(db, owner, job_specs):
     return created_jobs, created_events, created_transfers
 
 
-def _update_state(job, state, state_timestamp, state_data):
+def _update_state(
+    job: models.Job, state: str, state_timestamp: datetime, state_data: Dict[str, Any]
+) -> Optional[models.LogEvent]:
     if state == job.state or state is None:
-        return
+        return None
     if state == "RESET" and job.state in ["AWAITING_PARENTS", "READY"]:
-        return
+        return None
     event = models.LogEvent(
         job=job,
         from_state=job.state,
@@ -166,6 +188,7 @@ def _update_state(job, state, state_timestamp, state_data):
         timestamp=state_timestamp,
         data=state_data,
     )
+    assert isinstance(event.data, dict)
     job.state = state
 
     if job.state != "RUNNING" and job.session_id is not None:
@@ -173,7 +196,7 @@ def _update_state(job, state, state_timestamp, state_data):
         job.session_id = None
 
     if job.state == "RESET":
-        if all(parent.state == "JOB_FINISHED" for parent in job.parents):
+        if all(parent.state == "JOB_FINISHED" for parent in cast(Iterable[models.Job], job.parents)):
             job.state = "READY"
         else:
             job.state = "AWAITING_PARENTS"
@@ -199,7 +222,7 @@ def _update_state(job, state, state_timestamp, state_data):
     return event
 
 
-def _update(job, data):
+def _update(job: models.Job, data: Dict[str, Any]) -> Optional[models.LogEvent]:
     state = data.pop("state", None)
     state_timestamp = data.pop("state_timestamp", datetime.utcnow())
     state_data = data.pop("state_data", {})
@@ -212,7 +235,7 @@ def _update(job, data):
     return event
 
 
-def _check_waiting_children(db, parent_ids):
+def _check_waiting_children(db: Session, parent_ids: Iterable[int]) -> Tuple[List[models.Job], List[models.LogEvent]]:
     parent_alias1 = orm.aliased(models.Job)
     parent_alias2 = orm.aliased(models.Job)
     num_parents = func.count(parent_alias1.id)
@@ -222,9 +245,9 @@ def _check_waiting_children(db, parent_ids):
             else_=literal_column("NULL"),
         )
     )
-    ready_children = (
+    ready_children: List[models.Job] = (
         db.query(models.Job)
-        .options(
+        .options(  # type: ignore
             orm.selectinload(models.Job.transfer_items).load_only(
                 models.TransferItem.state,
                 models.TransferItem.direction,
@@ -252,8 +275,8 @@ def _check_waiting_children(db, parent_ids):
     return ready_children, new_events
 
 
-def _select_jobs_for_update(qs):
-    qs = qs.options(
+def _select_jobs_for_update(qs: "Query[models.Job]") -> List[models.Job]:
+    qs = qs.options(  # type: ignore
         orm.selectinload(models.Job.parents).load_only(
             models.Job.id,
             models.Job.state,
@@ -266,7 +289,9 @@ def _select_jobs_for_update(qs):
     return qs.all()
 
 
-def _update_jobs(db, update_jobs, patch_dicts):
+def _update_jobs(
+    db: Session, update_jobs: List[models.Job], patch_dicts: Dict[int, Dict[str, Any]]
+) -> Tuple[List[models.Job], List[models.LogEvent]]:
     new_events = []
     # First, perform job-wise updates:
     for job in update_jobs:
@@ -285,7 +310,9 @@ def _update_jobs(db, update_jobs, patch_dicts):
     return update_jobs, new_events
 
 
-def bulk_update(db, owner, patch_dicts):
+def bulk_update(
+    db: Session, owner: schemas.UserOut, patch_dicts: Dict[int, Dict[str, Any]]
+) -> Tuple[List[models.Job], List[models.LogEvent]]:
     job_ids = set(patch_dicts.keys())
     qs = owned_job_query(db, owner).filter(models.Job.id.in_(job_ids))
     update_jobs = _select_jobs_for_update(qs)
@@ -294,7 +321,9 @@ def bulk_update(db, owner, patch_dicts):
     return _update_jobs(db, update_jobs, patch_dicts)
 
 
-def update_query(db, owner, update_data, filterset):
+def update_query(
+    db: Session, owner: schemas.UserOut, update_data: Dict[str, Any], filterset: FilterSet[models.Job]
+) -> Tuple[List[models.Job], List[models.LogEvent]]:
     qs = owned_job_query(db, owner)
     qs = filterset.apply_filters(qs)
     update_jobs = _select_jobs_for_update(qs)
@@ -302,29 +331,35 @@ def update_query(db, owner, update_data, filterset):
     return _update_jobs(db, update_jobs, patch_dicts)
 
 
-def _select_children(db, ids):
+def _select_children(db: Session, ids: Iterable[int]) -> List[int]:
     qs = db.query(models.Job).filter(models.Job.id.in_(ids))
-    qs = qs.options(
+    qs = qs.options(  # type: ignore
         orm.load_only(models.Job.id),
         orm.selectinload(models.Job.children).load_only(models.Job.id),
     )
     jobs = qs.all()
     selected_ids = [job.id for job in jobs]
-    child_ids = [child.id for job in jobs for child in job.children]
+    child_ids = [child.id for job in jobs for child in cast(Iterable[models.Job], job.children)]
     if child_ids:
         selected_ids.extend(_select_children(db, child_ids))
     return selected_ids
 
 
-def delete_query(db, owner, filterset=None, job_id=None):
+def delete_query(
+    db: Session,
+    owner: schemas.UserOut,
+    filterset: Optional[FilterSet[models.Job]] = None,
+    job_id: Optional[int] = None,
+) -> Set[int]:
     qs = owned_job_query(db, owner)
     if job_id is not None:
         qs = qs.filter(models.Job.id == job_id)
         qs.one()
     else:
+        assert filterset is not None
         qs = filterset.apply_filters(qs)
-    qs = qs.filter(models.Job.session_id.is_(None)).with_for_update(of=models.Job)
-    ids = [job.id for job in qs.options(orm.load_only(models.Job.id))]
+    qs = qs.filter(models.Job.session_id.is_(None)).with_for_update(of=models.Job)  # type: ignore
+    ids: List[int] = [job.id for job in qs.options(orm.load_only(models.Job.id))]  # type: ignore
     delete_ids = set(_select_children(db, ids))
     print("Deleting job ids:", delete_ids)
     db.query(models.Job).filter(models.Job.id.in_(delete_ids)).delete(synchronize_session=False)

@@ -1,7 +1,8 @@
 import json
 import logging
+from typing import Any, Optional
 
-import aredis
+import aredis  # type: ignore
 import redis
 from fastapi.encoders import jsonable_encoder
 
@@ -15,33 +16,33 @@ class _PubSub:
     Sync Publisher and Async Subscriber (for Websockets)
     """
 
-    def __init__(self):
-        self._redis = None
+    def __init__(self) -> None:
+        self._redis: Optional[redis.Redis[str]] = None
         self._async_redis = None
         self._has_warned = False
 
     @property
-    def r(self):
+    def r(self) -> "redis.Redis[str]":
         if self._redis is None:
             self._redis = redis.Redis(**settings.redis_params)
         return self._redis
 
     @property
-    def async_r(self):
+    def async_r(self) -> aredis.StrictRedis:
         if self._async_redis is None:
             self._async_redis = aredis.StrictRedis(**settings.redis_params)
         return self._async_redis
 
     @staticmethod
-    def get_topic(user_id):
+    def get_topic(user_id: int) -> str:
         return f"user-{user_id}"
 
-    async def subscribe(self, user_id):
+    async def subscribe(self, user_id: int) -> "aredis.PubSub":
         p = self.async_r.pubsub(ignore_subscribe_messages=True)
         await p.subscribe(self.get_topic(user_id))
         return p
 
-    def publish(self, user_id, action, type, data):
+    def publish(self, user_id: int, action: str, type: str, data: Any) -> None:
         msg = {"action": action, "type": type, "data": data}
         try:
             self.r.publish(self.get_topic(user_id), json.dumps(jsonable_encoder(msg)))

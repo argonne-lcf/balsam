@@ -17,7 +17,7 @@ app = FastAPI(
 )
 
 
-def setup_logging():
+def setup_logging() -> logging.Logger:
     _, handler = config_root_logger(settings.balsam_log_level)
     sqa_logger = logging.getLogger("sqlalchemy")
     sqa_logger.setLevel(settings.sqlalchemy_log_level)
@@ -31,7 +31,7 @@ logger = setup_logging()
 
 
 @app.exception_handler(NoResultFound)
-async def no_result_handler(request: Request, exc: NoResultFound):
+async def no_result_handler(request: Request, exc: NoResultFound) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
         content={"error": "Not found"},
@@ -103,7 +103,7 @@ app.include_router(
 
 
 @app.websocket("/subscribe-user")
-async def subscribe_user(websocket: WebSocket):
+async def subscribe_user(websocket: WebSocket) -> None:
     # Accept and receive token
     await websocket.accept()
     token = await websocket.receive_text()
@@ -173,7 +173,7 @@ ws_html = """
 
 
 @app.get("/user-events")
-def get_user_events():
+def get_user_events() -> HTMLResponse:
     return HTMLResponse(ws_html)
 
 

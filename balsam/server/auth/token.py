@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Tuple
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -11,7 +12,7 @@ from balsam.server import settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
 
-def create_access_token(user):
+def create_access_token(user: schemas.UserOut) -> Tuple[str, datetime]:
 
     expiry = datetime.utcnow() + settings.auth.token_ttl
     to_encode = {"sub": user.id, "exp": expiry, "username": user.username}
@@ -19,7 +20,7 @@ def create_access_token(user):
     return encoded_jwt, expiry
 
 
-def user_from_token(token: str = Depends(oauth2_scheme)):
+def user_from_token(token: str = Depends(oauth2_scheme)) -> schemas.UserOut:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

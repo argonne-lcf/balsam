@@ -3,6 +3,7 @@ import socket
 import subprocess
 import time
 from contextlib import closing
+from importlib.util import find_spec
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ def setup_database():
     subprocess.run("dropdb -U postgres balsam-test", shell=True)
     subprocess.run("createdb -U postgres balsam-test", check=True, shell=True)
 
-    models_dir = Path(__file__).parent.parent.joinpath("server/models")
+    models_dir = Path(find_spec("balsam.server.models").origin).parent
     os.environ["balsam_database_url"] = BALSAM_TEST_DB
     balsam.server.settings.database_url = BALSAM_TEST_DB
     subprocess.run("alembic upgrade head", cwd=models_dir, check=True, shell=True)

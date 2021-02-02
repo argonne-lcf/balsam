@@ -4,12 +4,13 @@ from enum import Enum
 from typing import List
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import orm
 
 from balsam import schemas
 from balsam.server import settings
 from balsam.server.models import BatchJob, crud, get_session
 from balsam.server.pubsub import pubsub
-from balsam.server.util import Paginator
+from balsam.server.util import FilterSet, Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -21,7 +22,7 @@ class BatchJobOrdering(str, Enum):
 
 
 @dataclass
-class BatchJobQuery:
+class BatchJobQuery(FilterSet):
     site_id: List[int] = Query(None)
     state: List[str] = Query(None)
     scheduler_id: int = Query(None)
@@ -33,7 +34,7 @@ class BatchJobQuery:
     end_time_after: datetime = Query(None)
     filter_tags: List[str] = Query(None)
 
-    def apply_filters(self, qs):
+    def apply_filters(self, qs: "orm.Query[BatchJob]") -> "orm.Query[BatchJob]":
         if self.site_id:
             qs = qs.filter(BatchJob.site_id.in_(self.site_id))
         if self.state:

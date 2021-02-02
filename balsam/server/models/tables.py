@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
     JSON,
@@ -51,10 +52,10 @@ class Site(Base):
     num_nodes = Column(Integer)
     backfill_windows = Column(JSON, default=list)
     queued_jobs = Column(JSON, default=list)
-    optional_batch_job_params = Column(JSON, default=dict)
+    optional_batch_job_params: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
     allowed_projects = Column(JSON, default=list)
-    allowed_queues = Column(JSON, default=dict)
-    transfer_locations = Column(pg.JSONB, default=dict)
+    allowed_queues: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
+    transfer_locations: Dict[str, Any] = Column(pg.JSONB, default=dict)  # type: ignore
 
     owner = orm.relationship(User, lazy="raise")
     apps = orm.relationship(
@@ -88,8 +89,8 @@ class App(Base):
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"))
     description = Column(Text)
     class_path = Column(String(200), nullable=False)
-    parameters = Column(JSON, default=dict)
-    transfers = Column(JSON, default=dict)
+    parameters: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
+    transfers: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
     last_modified = Column(Float, default=0.0)
 
     site = orm.relationship(Site, back_populates="apps")
@@ -136,7 +137,7 @@ class Job(Base):
         nullable=True,
         default=None,
     )
-    parameters = Column(pg.JSONB, default=dict)
+    parameters: Dict[str, Any] = Column(pg.JSONB, default=dict)  # type: ignore
     batch_job_id = Column(Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True)
     state = Column(String(32), index=True)
     last_update = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
@@ -150,6 +151,7 @@ class Job(Base):
         secondaryjoin=(id == job_deps.c.parent_id),
         back_populates="children",
     )
+    parent_ids: Optional[List[int]]
     children = orm.relationship(
         "Job",
         secondary=job_deps,
@@ -169,15 +171,15 @@ class Job(Base):
     launch_params = Column(JSON)
 
     app = orm.relationship("App", back_populates="jobs")
-    session = orm.relationship("Session", back_populates="jobs")
+    session: Optional["Session"] = orm.relationship("Session", back_populates="jobs")  # type: ignore
     batch_job = orm.relationship("BatchJob", back_populates="jobs")
-    transfer_items = orm.relationship(
+    transfer_items: List["TransferItem"] = orm.relationship(
         "TransferItem",
         lazy="raise",
         back_populates="job",
         cascade="all, delete-orphan",
         passive_deletes=True,
-    )
+    )  # type: ignore
     log_events = orm.relationship(
         "LogEvent",
         lazy="raise",
@@ -221,7 +223,7 @@ class Session(Base):
 
     batch_job = orm.relationship(BatchJob, lazy="raise", back_populates="sessions")
     site = orm.relationship(Site, lazy="raise", back_populates="sessions")
-    jobs = orm.relationship("Job", lazy="dynamic", back_populates="session")
+    jobs: "orm.Query[Job]" = orm.relationship("Job", lazy="dynamic", back_populates="session")  # type: ignore
 
 
 class TransferItem(Base):

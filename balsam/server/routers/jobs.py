@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -9,7 +9,7 @@ from balsam import schemas
 from balsam.server import ValidationError, settings
 from balsam.server.models import BatchJob, Job, Site, crud, get_session
 from balsam.server.pubsub import pubsub
-from balsam.server.util import Paginator
+from balsam.server.util import FilterSet, Paginator
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -27,7 +27,7 @@ class JobOrdering(str, Enum):
 
 
 @dataclass
-class JobQuery:
+class JobQuery(FilterSet):
     id: List[int] = Query(None)
     parent_id: List[int] = Query(None)
     app_id: int = Query(None)
@@ -65,7 +65,7 @@ class JobQuery:
         if self.state:
             qs = qs.filter(Job.state.in_(self.state))
         if self.tags:
-            tags_dict = dict(t.split(":", 1) for t in self.tags if ":" in t)
+            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)
             qs = qs.filter(Job.tags.contains(tags_dict))
         if self.parameters:
             params_dict = dict(p.split(":", 1) for p in self.parameters if ":" in p)

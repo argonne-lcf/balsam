@@ -1,5 +1,6 @@
 import os
 import subprocess
+from importlib.util import find_spec
 from pathlib import Path
 
 import pytest
@@ -20,7 +21,9 @@ def setup_database():
     balsam.server.settings.database_url = "postgresql://postgres@localhost:5432/balsam-test"
     os.environ["balsam_database_url"] = balsam.server.settings.database_url
 
-    models_dir = Path(__file__).parent.parent.joinpath("models")
+    models_dir = Path(find_spec("balsam.server.models").origin).parent
+    if models_dir is None:
+        raise RuntimeError
     subprocess.run("alembic -x db=test upgrade head", cwd=models_dir, check=True, shell=True)
 
 

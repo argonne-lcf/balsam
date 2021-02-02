@@ -1,24 +1,36 @@
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
+
+from sqlalchemy.orm import Query, Session
+
 from balsam import schemas
 from balsam.server import ValidationError, models
+from balsam.server.util import FilterSet, Paginator
 
 
-def fetch(db, owner, paginator=None, batch_job_id=None, filterset=None):
-    qs = db.query(models.BatchJob).join(models.Site).filter(models.Site.owner_id == owner.id)
+def fetch(
+    db: Session,
+    owner: schemas.UserOut,
+    paginator: Optional[Paginator[models.BatchJob]] = None,
+    batch_job_id: Optional[int] = None,
+    filterset: Optional[FilterSet[models.BatchJob]] = None,
+) -> "Tuple[int, Union[List[models.BatchJob], Query[models.BatchJob]]]":
+    qs: "Query[models.BatchJob]" = db.query(models.BatchJob).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
     if filterset is not None:
         qs = filterset.apply_filters(qs)
     if batch_job_id is not None:
         qs = qs.filter(models.BatchJob.id == batch_job_id)
         return 1, [qs.one()]
     count = qs.group_by(models.BatchJob.id).count()
+    assert paginator is not None
     batch_jobs = paginator.paginate(qs)
     return count, batch_jobs
 
 
-def create(db, owner, batch_job):
+def create(db: Session, owner: schemas.UserOut, batch_job: schemas.BatchJobCreate) -> models.BatchJob:
     site_id = (
         db.query(models.Site.id)
         .filter(models.Site.owner_id == owner.id, models.Site.id == batch_job.site_id)
-        .scalar()
+        .scalar()  # type: ignore
     )
     if site_id is None:
         raise ValidationError(f"No site with ID {batch_job.site_id}")
@@ -28,7 +40,7 @@ def create(db, owner, batch_job):
     return created_batch_job
 
 
-def _update_fields(in_db, update_dict):
+def _update_fields(in_db: models.BatchJob, update_dict: Dict[str, Any]) -> None:
     state_update = update_dict.pop("state", in_db.state)
     for k, v in update_dict.items():
         setattr(in_db, k, v)
@@ -38,26 +50,31 @@ def _update_fields(in_db, update_dict):
     in_db.state = state_update
 
 
-def update(db, owner, batch_job_id, batch_job):
-    in_db = (
+def update(
+    db: Session, owner: schemas.UserOut, batch_job_id: int, batch_job: schemas.BatchJobUpdate
+) -> models.BatchJob:
+    in_db = cast(
+        models.BatchJob,
         db.query(models.BatchJob)
-        .join(models.Site)
+        .join(models.Site)  # type: ignore
         .filter(models.Site.owner_id == owner.id)
         .filter(models.BatchJob.id == batch_job_id)
         .with_for_update(of=models.BatchJob, nowait=False, skip_locked=False)
-        .one()
+        .one(),
     )
     _update_fields(in_db, batch_job.dict(exclude_unset=True))
     db.flush()
     return in_db
 
 
-def bulk_update(db, owner, batch_jobs):
+def bulk_update(
+    db: Session, owner: schemas.UserOut, batch_jobs: List[schemas.BatchJobBulkUpdate]
+) -> List[models.BatchJob]:
     update_map = {j.id: j.dict(exclude_unset=True) for j in batch_jobs}
     ids = set(update_map.keys())
-    qs = (
+    qs: "Query[models.BatchJob]" = (
         db.query(models.BatchJob)
-        .join(models.Site)
+        .join(models.Site)  # type: ignore
         .filter(models.Site.owner_id == owner.id)
         .filter(models.BatchJob.id.in_(ids))
         .order_by(models.BatchJob.id)
@@ -75,10 +92,10 @@ def bulk_update(db, owner, batch_jobs):
     return list(db_jobs.values())
 
 
-def delete(db, owner, batch_job_id):
+def delete(db: Session, owner: schemas.UserOut, batch_job_id: int) -> None:
     qs = (
         db.query(models.BatchJob)
-        .join(models.Site)
+        .join(models.Site)  # type: ignore
         .filter(models.Site.owner_id == owner.id)
         .filter(models.BatchJob.id == batch_job_id)
     )

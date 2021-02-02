@@ -11,7 +11,7 @@ class JobTransferItem(BaseModel):
     path: Path
 
     @validator("path")
-    def is_absolute(cls, v):
+    def is_absolute(cls, v: Path) -> Path:
         if not v.is_absolute():
             raise ValueError("Must provide absolute path")
         return v
@@ -35,7 +35,7 @@ class JobState(str, Enum):
     failed = "FAILED"
 
     @classmethod
-    def is_valid(cls, state):
+    def is_valid(cls, state: str) -> bool:
         return state in cls._value2member_map_
 
 
@@ -59,7 +59,7 @@ class JobBase(BaseModel):
     wall_time_min: int = Field(0, example=30)
 
     @validator("workdir")
-    def path_is_relative(cls, v):
+    def path_is_relative(cls, v: Path) -> Path:
         if v.is_absolute():
             raise ValueError("Cannot use absolute path")
         return v

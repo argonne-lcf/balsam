@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -11,7 +11,7 @@ class AppParameter(BaseModel):
     help: str = ""
 
     @validator("default")
-    def is_required_or_has_default(cls, default_value, values):
+    def is_required_or_has_default(cls, default_value: Optional[str], values: Dict[str, Any]) -> Optional[str]:
         if values.get("required", True):
             if default_value:
                 raise ValueError("cannot be required and have default")
@@ -34,7 +34,7 @@ class TransferSlot(BaseModel):
     recursive: bool = False
 
     @validator("local_path")
-    def path_is_relative(cls, v):
+    def path_is_relative(cls, v: Path) -> Path:
         if v.is_absolute():
             raise ValueError("Cannot use absolute path")
         return v
@@ -69,7 +69,7 @@ class AppBase(BaseModel):
     last_modified: Optional[float] = Field(None)
 
     @validator("class_path")
-    def is_class_path(cls, v: str):
+    def is_class_path(cls, v: str) -> str:
         if not all(s.isidentifier() for s in v.split(".")):
             raise ValueError(f"{v} is not a valid class path")
         return v

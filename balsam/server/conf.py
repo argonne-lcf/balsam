@@ -1,10 +1,11 @@
 import logging
 from datetime import timedelta
 from importlib import import_module
-from typing import Union
+from typing import Any, Callable, Dict, Union
 
 from pydantic import BaseSettings, validator
 
+from balsam import schemas
 from balsam.util import validate_log_level
 
 logger = logging.getLogger(__name__)
@@ -18,9 +19,9 @@ class AuthSettings(BaseSettings):
     token_ttl: timedelta = timedelta(hours=12)
     auth_method: str = "balsam.server.auth.user_from_token"
 
-    def get_auth_method(self):
+    def get_auth_method(self) -> Callable[..., schemas.UserOut]:
         module, func = self.auth_method.rsplit(".", 1)
-        return getattr(import_module(module), func)
+        return getattr(import_module(module), func)  # type: ignore
 
 
 class Settings(BaseSettings):
@@ -31,16 +32,16 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://postgres@localhost:5432/balsam"
     auth: AuthSettings = AuthSettings()
-    redis_params: dict = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
-    balsam_log_level: Union[str, int] = logging.DEBUG
-    sqlalchemy_log_level: Union[str, int] = logging.DEBUG
+    redis_params: Dict[str, Any] = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
+    balsam_log_level: Union[str, int] = logging.WARNING
+    sqlalchemy_log_level: Union[str, int] = logging.WARNING
 
     @validator("balsam_log_level", always=True)
-    def validate_balsam_log_level(cls, v):
+    def validate_balsam_log_level(cls, v: Union[str, int]) -> int:
         return validate_log_level(v)
 
     @validator("sqlalchemy_log_level", always=True)
-    def validate_sqlalchemy_log_level(cls, v):
+    def validate_sqlalchemy_log_level(cls, v: Union[str, int]) -> int:
         return validate_log_level(v)
 
 
