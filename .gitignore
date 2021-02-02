@@ -13,6 +13,7 @@ balsam/*/__pycache__*
 !.travis.yml
 *.pyc
 !.github
+!.vscode/
 
 *_packer.cpython*
 balsam/service/pack/_packer.c
