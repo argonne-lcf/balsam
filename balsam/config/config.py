@@ -184,6 +184,7 @@ class SiteConfig:
 
     def __init__(self, site_path=None, settings=None):
         self.site_path: Path = self.resolve_site_path(site_path)
+        self.client = ClientSettings.load_from_home().build_client()
 
         if settings is not None:
             if not isinstance(settings, Settings):
@@ -202,7 +203,6 @@ class SiteConfig:
             self.settings = Settings.load(yaml_settings)
         except ValidationError as exc:
             raise InvalidSettings(f"{yaml_settings} is invalid:\n{exc}")
-        self.client = ClientSettings.load_from_home().build_client()
 
     def build_services(self):
         from balsam.site.service import ProcessingService, QueueMaintainerService, SchedulerService, TransferService
