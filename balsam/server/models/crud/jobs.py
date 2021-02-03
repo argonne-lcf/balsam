@@ -52,7 +52,7 @@ def validate_parameters(job: models.Job) -> None:
     param_dict: Dict[str, Any] = job.app.parameters
     allowed_params = set(param_dict.keys())
     required_params = {p for p in allowed_params if param_dict[p]["required"]}
-    job_params = set(job.parameters.keys())
+    job_params = set(cast(Dict[str, str], job.parameters).keys())
     extraneous_params = job_params.difference(allowed_params)
     missing_params = required_params.difference(job_params)
     if extraneous_params:

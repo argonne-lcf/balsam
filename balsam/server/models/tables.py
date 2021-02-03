@@ -137,7 +137,7 @@ class Job(Base):
         nullable=True,
         default=None,
     )
-    parameters: Dict[str, Any] = Column(pg.JSONB, default=dict)  # type: ignore
+    parameters = Column(pg.JSONB, default=dict)
     batch_job_id = Column(Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True)
     state = Column(String(32), index=True)
     last_update = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
