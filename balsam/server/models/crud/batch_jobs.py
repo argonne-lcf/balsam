@@ -4,7 +4,8 @@ from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
 from balsam.server import ValidationError, models
-from balsam.server.util import FilterSet, Paginator
+from balsam.server.routers.filters import BatchJobQuery
+from balsam.server.util import Paginator
 
 
 def fetch(
@@ -12,7 +13,7 @@ def fetch(
     owner: schemas.UserOut,
     paginator: Optional[Paginator[models.BatchJob]] = None,
     batch_job_id: Optional[int] = None,
-    filterset: Optional[FilterSet[models.BatchJob]] = None,
+    filterset: Optional[BatchJobQuery] = None,
 ) -> "Tuple[int, Union[List[models.BatchJob], Query[models.BatchJob]]]":
     qs: "Query[models.BatchJob]" = db.query(models.BatchJob).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
     if filterset is not None:

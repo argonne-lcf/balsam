@@ -1,81 +1,19 @@
-from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import orm
 
 from balsam import schemas
 from balsam.server import ValidationError, settings
-from balsam.server.models import BatchJob, Job, Site, crud, get_session
+from balsam.server.models import Job, crud, get_session
 from balsam.server.pubsub import pubsub
-from balsam.server.util import FilterSet, Paginator
+from balsam.server.util import Paginator
+
+from .filters import JobQuery
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
-
-
-class JobOrdering(str, Enum):
-    last_update = "last_update"
-    last_update_desc = "-last_update"
-    id = "id"
-    id_desc = "-id"
-    state = "state"
-    state_desc = "-state"
-    workdir = "workdir"
-    workdir_desc = "-workdir"
-
-
-@dataclass
-class JobQuery(FilterSet[Job]):
-    id: List[int] = Query(None)
-    parent_id: List[int] = Query(None)
-    app_id: int = Query(None)
-    site_id: int = Query(None)
-    batch_job_id: int = Query(None)
-    last_update_before: datetime = Query(None)
-    last_update_after: datetime = Query(None)
-    workdir__contains: str = Query(None)
-    state__ne: str = Query(None)
-    state: List[str] = Query(None)
-    tags: List[str] = Query(None)
-    parameters: List[str] = Query(None)
-    ordering: JobOrdering = Query(None)
-
-    def apply_filters(self, qs: "orm.Query[Job]") -> "orm.Query[Job]":
-        if self.id:
-            qs = qs.filter(Job.id.in_(self.id))
-        if self.parent_id:
-            qs = qs.filter(Job.parents.any(Job.id.in_(self.parent_id)))
-        if self.app_id:
-            qs = qs.filter(Job.app_id == self.app_id)
-        if self.site_id:
-            qs = qs.filter(Site.id == self.site_id)
-        if self.batch_job_id:
-            qs: "orm.Query[Job]" = qs.join(BatchJob)  # type: ignore
-            qs = qs.filter(BatchJob.id == self.batch_job_id)
-        if self.last_update_before:
-            qs = qs.filter(Job.last_update <= self.last_update_before)
-        if self.last_update_after:
-            qs = qs.filter(Job.last_update >= self.last_update_after)
-        if self.workdir__contains:
-            qs = qs.filter(Job.workdir.like(f"%{self.workdir__contains}%"))
-        if self.state__ne:
-            qs = qs.filter(Job.state != self.state__ne)
-        if self.state:
-            qs = qs.filter(Job.state.in_(self.state))
-        if self.tags:
-            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)  # type: ignore
-            qs = qs.filter(Job.tags.contains(tags_dict))  # type: ignore
-        if self.parameters:
-            params_dict: Dict[str, str] = dict(p.split(":", 1) for p in self.parameters if ":" in p)  # type: ignore
-            qs = qs.filter(Job.parameters.contains(params_dict))  # type: ignore
-        if self.ordering:
-            desc = self.ordering.startswith("-")
-            order_col = getattr(Job, self.ordering.lstrip("-"))
-            qs = qs.order_by(order_col.desc() if desc else order_col)
-        return qs
 
 
 @router.get("/", response_model=schemas.PaginatedJobsOut)

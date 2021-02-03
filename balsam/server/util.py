@@ -14,8 +14,3 @@ class Paginator(Generic[T]):
         if self.limit is not None:
             return iterable[self.offset : self.offset + self.limit]  # type: ignore
         return iterable[self.offset :]  # type:ignore
-
-
-class FilterSet(Generic[T]):
-    def apply_filters(self, qs: "Query[T]") -> "Query[T]":
-        return qs

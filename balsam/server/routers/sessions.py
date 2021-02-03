@@ -1,10 +1,11 @@
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, status
+from sqlalchemy import orm
 
 from balsam import schemas
 from balsam.server import settings
-from balsam.server.models import crud, get_session
+from balsam.server.models import Job, crud, get_session
 from balsam.server.pubsub import pubsub
 
 router = APIRouter()
@@ -12,13 +13,15 @@ auth = settings.auth.get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedSessionsOut)
-def list(db=Depends(get_session), user=Depends(auth)):
+def list(db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> Dict[str, Any]:
     count, sessions = crud.sessions.fetch(db, owner=user)
     return {"count": count, "results": sessions}
 
 
 @router.post("/", response_model=schemas.SessionOut, status_code=status.HTTP_201_CREATED)
-def create(session: schemas.SessionCreate, db=Depends(get_session), user=Depends(auth)):
+def create(
+    session: schemas.SessionCreate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+) -> schemas.SessionOut:
     created_session, expired_jobs, expiry_events = crud.sessions.create(db, owner=user, session=session)
     result = schemas.SessionOut.from_orm(created_session)
 
@@ -36,9 +39,9 @@ def create(session: schemas.SessionCreate, db=Depends(get_session), user=Depends
 def acquire(
     session_id: int,
     spec: schemas.SessionAcquire,
-    db=Depends(get_session),
-    user=Depends(auth),
-):
+    db: orm.Session = Depends(get_session),
+    user: schemas.UserOut = Depends(auth),
+) -> List[Job]:
     acquired_jobs, expired_jobs, expiry_events = crud.sessions.acquire(
         db, owner=user, session_id=session_id, spec=spec
     )
@@ -51,7 +54,7 @@ def acquire(
 
 
 @router.put("/{session_id}")
-def tick(session_id: int, db=Depends(get_session), user=Depends(auth)):
+def tick(session_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
     ts, expired_jobs, events = crud.sessions.tick(db, owner=user, session_id=session_id)
     result = {"id": session_id, "heartbeat": ts}
     pubsub.publish(user.id, "update", "session", result)
@@ -63,7 +66,7 @@ def tick(session_id: int, db=Depends(get_session), user=Depends(auth)):
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete(session_id: int, db=Depends(get_session), user=Depends(auth)):
+def delete(session_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
     crud.sessions.delete(db, owner=user, session_id=session_id)
     db.commit()
     pubsub.publish(user.id, "delete", "session", {"id": session_id})

@@ -4,11 +4,12 @@ from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
 from balsam.server import models
-from balsam.server.util import FilterSet, Paginator
+from balsam.server.routers.filters import EventQuery
+from balsam.server.util import Paginator
 
 
 def fetch(
-    db: Session, owner: schemas.UserOut, paginator: Paginator[models.LogEvent], filterset: FilterSet[models.LogEvent]
+    db: Session, owner: schemas.UserOut, paginator: Paginator[models.LogEvent], filterset: EventQuery
 ) -> "Tuple[int, Query[models.LogEvent]]":
     qs = db.query(models.LogEvent).join(models.Job).join(models.App).join(models.Site)  # type: ignore
     qs = qs.filter(models.Site.owner_id == owner.id)

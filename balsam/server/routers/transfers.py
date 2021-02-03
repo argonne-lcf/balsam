@@ -1,71 +1,48 @@
-from dataclasses import dataclass
-from typing import List, Set, Tuple, cast
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
+from sqlalchemy import orm
 
 from balsam import schemas
 from balsam.server import settings
-from balsam.server.models import Job, Site, TransferItem, crud, get_session
+from balsam.server.models import TransferItem, crud, get_session
 from balsam.server.pubsub import pubsub
-from balsam.server.util import FilterSet, Paginator
+from balsam.server.util import Paginator
+
+from .filters import TransferQuery
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
-@dataclass
-class TransferQuery(FilterSet):
-    id: List[int] = Query(None)
-    site_id: int = Query(None)
-    job_id: List[int] = Query(None)
-    state: Set[schemas.TransferItemState] = Query(None)
-    direction: schemas.TransferDirection = Query(None)
-    job_state: str = Query(None)
-    tags: List[str] = Query(None)
-
-    def apply_filters(self, qs):
-        if self.id:
-            qs = qs.filter(TransferItem.id.in_(self.id))
-        if self.site_id:
-            qs = qs.filter(Site.id == self.site_id)
-        if self.job_id:
-            qs = qs.filter(Job.id.in_(self.job_id))
-        if self.state:
-            qs = qs.filter(TransferItem.state.in_(self.state))
-        if self.direction:
-            qs = qs.filter(TransferItem.direction == self.direction)
-        if self.job_state:
-            qs = qs.filter(Job.state == self.job_state)
-        if self.tags:
-            tags_dict = dict(cast(Tuple[str, str], t.split(":", 1)) for t in self.tags if ":" in t)
-            qs = qs.filter(Job.tags.contains(tags_dict))
-        return qs
-
-
 @router.get("/", response_model=schemas.PaginatedTransferItemOut)
 def list(
-    db=Depends(get_session),
-    user=Depends(auth),
-    paginator=Depends(Paginator),
-    q=Depends(TransferQuery),
-):
+    db: orm.Session = Depends(get_session),
+    user: schemas.UserOut = Depends(auth),
+    paginator: Paginator[TransferItem] = Depends(Paginator),
+    q: TransferQuery = Depends(TransferQuery),
+) -> Dict[str, Any]:
     count, transfers = crud.transfers.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": transfers}
 
 
 @router.get("/{transfer_id}", response_model=schemas.TransferItemOut)
-def read(transfer_id: int, db=Depends(get_session), user=Depends(auth)):
+def read(
+    transfer_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+) -> TransferItem:
     count, transfers = crud.transfers.fetch(db, owner=user, transfer_id=transfer_id)
-    return transfers[0]
+    assert isinstance(transfers, List)
+    item: TransferItem = transfers[0]
+    return item
 
 
 @router.put("/{transfer_id}", response_model=schemas.TransferItemOut)
 def update(
     transfer_id: int,
     data: schemas.TransferItemUpdate,
-    db=Depends(get_session),
-    user=Depends(auth),
-):
+    db: orm.Session = Depends(get_session),
+    user: schemas.UserOut = Depends(auth),
+) -> schemas.TransferItemOut:
     updated_transfer, updated_job, log_event = crud.transfers.update(
         db, owner=user, transfer_id=transfer_id, data=data
     )
@@ -81,9 +58,9 @@ def update(
 @router.patch("/", response_model=List[schemas.TransferItemOut])
 def bulk_update(
     transfers: List[schemas.TransferItemBulkUpdate],
-    db=Depends(get_session),
-    user=Depends(auth),
-):
+    db: orm.Session = Depends(get_session),
+    user: schemas.UserOut = Depends(auth),
+) -> List[schemas.TransferItemOut]:
     updated_transfers, updated_jobs, log_events = crud.transfers.bulk_update(db, owner=user, update_list=transfers)
     result_transfers = [schemas.TransferItemOut.from_orm(t) for t in updated_transfers]
     result_jobs = [schemas.JobOut.from_orm(j) for j in updated_jobs]

@@ -6,7 +6,8 @@ from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
 from balsam.server import ValidationError, models
-from balsam.server.util import FilterSet, Paginator
+from balsam.server.routers.filters import TransferQuery
+from balsam.server.util import Paginator
 
 
 def owned_transfer_query(db: Session, owner: schemas.UserOut) -> "Query[models.TransferItem]":
@@ -23,9 +24,9 @@ def owned_transfer_query(db: Session, owner: schemas.UserOut) -> "Query[models.T
 def fetch(
     db: Session,
     owner: schemas.UserOut,
-    paginator: Paginator[models.TransferItem],
+    paginator: Optional[Paginator[models.TransferItem]] = None,
     transfer_id: Optional[int] = None,
-    filterset: Optional[FilterSet[models.TransferItem]] = None,
+    filterset: Optional[TransferQuery] = None,
 ) -> Tuple[int, Iterable[models.TransferItem]]:
     qs = owned_transfer_query(db, owner)
     if transfer_id is not None:
@@ -35,6 +36,7 @@ def fetch(
     if filterset is not None:
         qs = filterset.apply_filters(qs)
     count = qs.group_by(models.TransferItem.id).count()
+    assert paginator is not None
     transfers = paginator.paginate(qs)
     return count, transfers
 

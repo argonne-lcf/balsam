@@ -9,7 +9,8 @@ from sqlalchemy.orm import Query, Session
 from balsam import schemas
 from balsam.schemas.job import JobState
 from balsam.server import ValidationError, models
-from balsam.server.util import FilterSet, Paginator
+from balsam.server.routers.filters import JobQuery
+from balsam.server.util import Paginator
 
 
 def owned_job_query(db: Session, owner: schemas.UserOut, with_parents: bool = False) -> "Query[models.Job]":
@@ -96,7 +97,7 @@ def fetch(
     owner: schemas.UserOut,
     paginator: Optional[Paginator[models.Job]] = None,
     job_id: Optional[int] = None,
-    filterset: Optional[FilterSet[models.Job]] = None,
+    filterset: Optional[JobQuery] = None,
 ) -> "Tuple[int, Union[List[models.Job], Query[models.Job]]]":
     qs = owned_job_query(db, owner, with_parents=True)
     if job_id is not None:
@@ -322,7 +323,7 @@ def bulk_update(
 
 
 def update_query(
-    db: Session, owner: schemas.UserOut, update_data: Dict[str, Any], filterset: FilterSet[models.Job]
+    db: Session, owner: schemas.UserOut, update_data: Dict[str, Any], filterset: JobQuery
 ) -> Tuple[List[models.Job], List[models.LogEvent]]:
     qs = owned_job_query(db, owner)
     qs = filterset.apply_filters(qs)
@@ -348,7 +349,7 @@ def _select_children(db: Session, ids: Iterable[int]) -> List[int]:
 def delete_query(
     db: Session,
     owner: schemas.UserOut,
-    filterset: Optional[FilterSet[models.Job]] = None,
+    filterset: Optional[JobQuery] = None,
     job_id: Optional[int] = None,
 ) -> Set[int]:
     qs = owned_job_query(db, owner)
