@@ -18,8 +18,9 @@ mypy:
 	mypy --config-file setup.cfg --package balsam
 
 .PHONY: test-api
-	pytest tests/server --cov=balsam
-	pytest tests/api --cov=balsam --cov-append
+test-api:
+	pytest tests/server --cov=balsam --cov-config setup.cfg
+	pytest tests/api --cov=balsam --cov-append --cov-config setup.cfg
 
 .PHONY: testcov
 testcov: test-api

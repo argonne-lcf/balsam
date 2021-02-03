@@ -23,12 +23,18 @@ Before commiting any changes to the repository, install the development code int
 virtual environment and install the **pre-commit** hooks as follows:
 
 ```py3
-pip install -e .[dev,server]
+pip install -e .[dev,server,docs]
 pre-commit install
 ```
 
-On commit, code will be auto-formatted with `black` and linted with `flake8`.
+On commit, code will be auto-formatted with `isort` and `black` and linted with `flake8`.
 Linting errors will cause the commit to fail and point to errors.
+
+Contributors may also run the following to re-format, lint, type-check, and test the code:
+```bash
+$ make format
+$ make all
+```
 
 ## Testing
 
