@@ -10,6 +10,22 @@ from balsam import schemas
 from balsam.server.models import BatchJob, Job, LogEvent, Site, TransferItem
 
 
+@dataclass
+class SiteQuery:
+    hostname: str = Query(None)
+    path: str = Query(None)
+    id: List[int] = Query(None)
+
+    def apply_filters(self, qs: "orm.Query[Site]") -> "orm.Query[Site]":
+        if self.hostname:
+            qs = qs.filter(Site.hostname.like(f"%{self.hostname}%"))
+        if self.path:
+            qs = qs.filter(Site.path.like(f"%{self.path}%"))
+        if self.id:
+            qs = qs.filter(Site.id.in_(self.id))
+        return qs
+
+
 class EventOrdering(str, Enum):
     timestamp = "timestamp"
     timestamp_desc = "-timestamp"
