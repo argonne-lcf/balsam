@@ -51,46 +51,6 @@ class Site(BalsamModel):
         return super().__init__(**_kwargs)
 
 
-class SiteManager(Manager[Site]):
-    path = "sites/"
-    model_class = Site
-    query_class = Query[Site]
-
-    def create(
-        self,
-        hostname: str,
-        path: Union[Path, str],
-        globus_endpoint_id: Optional[UUID] = None,
-        num_nodes: int = 0,
-        backfill_windows: Optional[List[BackfillWindow]] = None,
-        queued_jobs: Optional[List[QueuedJob]] = None,
-        optional_batch_job_params: Optional[Dict[str, str]] = None,
-        allowed_projects: Optional[List[str]] = None,
-        allowed_queues: Optional[Dict[str, AllowedQueue]] = None,
-        transfer_locations: Optional[Dict[str, str]] = None,
-    ) -> Site:
-        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
-        return super()._create(**kwargs)
-
-    def filter(
-        self,
-        hostname: Optional[str] = None,
-        path: Union[str, Path, None] = None,
-        id: Union[int, List[int], None] = None,
-    ) -> "SiteQuery":
-        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
-        return SiteQuery(manager=self).filter(**kwargs)
-
-    def get(
-        self,
-        hostname: Optional[str] = None,
-        path: Union[str, Path, None] = None,
-        id: Union[int, List[int], None] = None,
-    ) -> Site:
-        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
-        return SiteQuery(manager=self).get(**kwargs)
-
-
 class SiteQuery(Query[Site]):
     def get(
         self,
@@ -128,3 +88,43 @@ class SiteQuery(Query[Site]):
 
     def order_by(self, *fields: str) -> "SiteQuery":
         return self._order_by(*fields)
+
+
+class SiteManager(Manager[Site]):
+    path = "sites/"
+    model_class = Site
+    query_class = SiteQuery
+
+    def create(
+        self,
+        hostname: str,
+        path: Union[Path, str],
+        globus_endpoint_id: Optional[UUID] = None,
+        num_nodes: int = 0,
+        backfill_windows: Optional[List[BackfillWindow]] = None,
+        queued_jobs: Optional[List[QueuedJob]] = None,
+        optional_batch_job_params: Optional[Dict[str, str]] = None,
+        allowed_projects: Optional[List[str]] = None,
+        allowed_queues: Optional[Dict[str, AllowedQueue]] = None,
+        transfer_locations: Optional[Dict[str, str]] = None,
+    ) -> Site:
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        return super()._create(**kwargs)
+
+    def filter(
+        self,
+        hostname: Optional[str] = None,
+        path: Union[str, Path, None] = None,
+        id: Union[int, List[int], None] = None,
+    ) -> "SiteQuery":
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        return SiteQuery(manager=self).filter(**kwargs)
+
+    def get(
+        self,
+        hostname: Optional[str] = None,
+        path: Union[str, Path, None] = None,
+        id: Union[int, List[int], None] = None,
+    ) -> Site:
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        return SiteQuery(manager=self).get(**kwargs)
