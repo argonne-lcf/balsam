@@ -75,7 +75,7 @@ class SiteQuery(Query[Site]):
         hostname: Optional[str] = None,
         path: Union[Path, str, None] = None,
         globus_endpoint_id: Optional[UUID] = None,
-        num_nodes: int = 0,
+        num_nodes: Optional[int] = None,
         backfill_windows: Optional[List[BackfillWindow]] = None,
         queued_jobs: Optional[List[QueuedJob]] = None,
         optional_batch_job_params: Optional[Dict[str, str]] = None,

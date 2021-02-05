@@ -15,24 +15,31 @@ class Field(Generic[F]):
 
     def __get__(self, obj: "BalsamModel", type: "Optional[Type[BalsamModel]]" = None) -> F:
         if obj._state == "clean":
+            # The field is clean and readable (fetched from REST API):
             if hasattr(obj._read_model, self.name):
                 return getattr(obj._read_model, self.name)  # type: ignore
+            # The field is write-only but not yet written to:
             elif obj.update_model_cls and self.name in obj.update_model_cls.__fields__:
                 return cast(F, None)
             else:
                 raise AttributeError(f"Cannot access Field {self.name}")
         elif obj._state == "creating":
+            # The field is writeable at object creation time (not yet sent to REST API):
             if hasattr(obj._create_model, self.name):
                 return getattr(obj._create_model, self.name)  # type: ignore
+            # The field is readable but not yet established by creation:
             elif self.name in obj.read_model_cls.__fields__:
                 return cast(F, None)
             else:
                 raise AttributeError(f"Cannot access Field {self.name}")
         else:
+            # The field has been mutated locally:
             if self.name in obj._dirty_fields:
                 return getattr(obj._update_model, self.name)  # type: ignore
+            # The field is clean and readable (fetched from REST API):
             elif hasattr(obj._read_model, self.name):
                 return getattr(obj._read_model, self.name)  # type: ignore
+            # The field is write-only but not yet written to:
             elif obj.update_model_cls and self.name in obj.update_model_cls.__fields__:
                 return cast(F, None)
             else:
