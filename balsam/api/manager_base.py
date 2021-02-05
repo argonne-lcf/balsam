@@ -1,60 +1,53 @@
 import logging
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
 from .query import Query
+
+if TYPE_CHECKING:
+    from balsam.api.model_base import BalsamModel
+    from balsam.client import RESTClient
+
+    T = TypeVar("T", bound=BalsamModel)
 
 logger = logging.getLogger(__name__)
 
 
-class Manager:
-    model_class = None
-    bulk_create_enabled = False
-    bulk_update_enabled = False
-    bulk_delete_enabled = False
-    paginated_list_response = True
-    path = ""
+class Manager(Generic[T]):
+    model_class: Type[T]
+    query_class: Type[Query[T]]
+    bulk_create_enabled: bool = False
+    bulk_update_enabled: bool = False
+    bulk_delete_enabled: bool = False
+    paginated_list_response: bool = True
+    path: str = ""
 
-    def __init__(self, client):
+    def __init__(self, client: "RESTClient") -> None:
         self._client = client
         self.model_class.objects = self
 
-    def __get__(self, instance, cls=None):
-        if instance is not None:
-            raise AttributeError(
-                f"Manager isn't accessible via {cls.__name__} instances. "
-                f"Access it via the class using `{cls.__name__}.objects`."
-            )
-        return self
+    def all(self) -> Query[T]:
+        return self.query_class(manager=self)
 
-    def all(self):
-        return Query(manager=self)
-
-    def count(self):
+    def count(self) -> Optional[int]:
         return self.all().count()
 
-    def first(self):
+    def first(self) -> T:
         return self.all().first()
 
-    def filter(self, **kwargs):
-        # TODO: kwargs should expand to filterable fields
-        return Query(manager=self).filter(**kwargs)
-
-    def get(self, **kwargs):
-        # TODO: kwargs should expand to filterable fields
-        return Query(manager=self).get(**kwargs)
-
-    def create(self, **data):
+    def _create(self, **data: Any) -> T:
         # We want to pass through the BalsamModel constructor for validation
         instance = self.model_class(**data)
         if self.bulk_create_enabled:
-            created = self.bulk_create([instance])
-            created = created[0]
+            created_list = self.bulk_create([instance])
+            created = created_list[0]
         else:
+            assert instance._create_model is not None
             data = instance._create_model.dict()
             created = self._client.post(self.path, **data)
             created = self.model_class.from_api(created)
         return created
 
-    def bulk_create(self, instances):
+    def bulk_create(self, instances: List[T]) -> List[T]:
         """Returns a list of newly created instances"""
         if not self.bulk_create_enabled:
             raise NotImplementedError("The {self.model_class.__name__} API does not offer bulk_create")
@@ -62,16 +55,17 @@ class Manager:
         if not isinstance(instances, list):
             raise TypeError(f"instances must be a list of {self.model_class.__name__} instances")
 
+        assert self.model_class.create_model_cls is not None
         assert all(
             isinstance(obj._create_model, self.model_class.create_model_cls) for obj in instances
         ), f"bulk_create requires all items to be instances of {self.model_class.__name__}"
 
-        data_list = [obj._create_model.dict() for obj in instances]
+        data_list = [obj._create_model.dict() for obj in instances]  # type: ignore # (checked in the assert above)
         response_data = self._client.bulk_post(self.path, data_list)
         # Cannot update in-place: no IDs to perform the mapping yet
         return [self.model_class.from_api(dat) for dat in response_data]
 
-    def bulk_update(self, instances):
+    def bulk_update(self, instances: List[T]) -> None:
         """
         Perform a bulk patch of instances from the modified `instances` list and set of
         `update_fields`. Modifies the instances list in-place and returns None.
@@ -80,11 +74,12 @@ class Manager:
         if not self.bulk_update_enabled:
             raise NotImplementedError("The {self.model_class.__name__} API does not offer bulk_update")
 
-        patch_list = [
-            {"id": obj.id, **obj._update_model.dict(exclude_unset=True)}
-            for obj in instances
-            if getattr(obj, "_update_model", None) is not None
-        ]
+        patch_list = []
+        for obj in instances:
+            if obj._update_model is not None:
+                patch = {"id": obj.id, **obj._update_model.dict(exclude_unset=True)}
+                patch_list.append(patch)
+
         if not patch_list:
             logger.debug("bulk-update: patch_list is empty (nothing to update!)")
             return
@@ -99,7 +94,13 @@ class Manager:
                 logger.debug(f"refreshing object id={obj.id} from response_map")
                 obj._refresh_from_dict(response_map[obj.id])
 
-    def _build_query_params(self, filters, ordering=None, limit=None, offset=None):
+    def _build_query_params(
+        self,
+        filters: Dict[str, Any],
+        ordering: Optional[Tuple[str, ...]] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> Dict[str, Any]:
         d = {}
         d.update(filters)
         if ordering is not None:
@@ -110,7 +111,13 @@ class Manager:
             d.update(offset=offset)
         return d
 
-    def _get_list(self, filters, ordering, limit, offset):
+    def _get_list(
+        self,
+        filters: Dict[str, Any],
+        ordering: Optional[Tuple[str, ...]],
+        limit: Optional[int],
+        offset: Optional[int],
+    ) -> Tuple[List[T], Optional[int]]:
         query_params = self._build_query_params(filters, ordering, limit, offset)
         response_data = self._client.get(self.path, **query_params)
         if self.paginated_list_response:
@@ -122,14 +129,16 @@ class Manager:
         instances = [self.model_class.from_api(dat) for dat in results]
         return instances, count
 
-    def _do_update(self, instance):
+    def _do_update(self, instance: T) -> None:
+        assert instance._update_model is not None
+        update_data = instance._update_model.dict(exclude_unset=True)
         response_data = self._client.put(
             self.path + f"{instance.id}",
-            **instance._update_model.dict(exclude_unset=True),
+            **update_data,
         )
         instance._refresh_from_dict(response_data)
 
-    def _do_bulk_update_query(self, patch, filters):
+    def _do_bulk_update_query(self, patch: Dict[str, Any], filters: Dict[str, Any]) -> List[T]:
         if not self.bulk_update_enabled:
             raise NotImplementedError(f"The {self.model_class.__name__} API does not offer bulk updates")
         query_params = self._build_query_params(filters)
@@ -137,11 +146,12 @@ class Manager:
         instances = [self.model_class.from_api(dat) for dat in response_data]
         return instances
 
-    def _do_delete(self, instance):
+    def _do_delete(self, instance: T) -> None:
         self._client.delete(self.path + f"{instance.id}")
-        instance._read_model.id = None
+        if instance._read_model is not None:
+            instance._read_model.id = None  # type: ignore
 
-    def _do_bulk_delete(self, filters):
+    def _do_bulk_delete(self, filters: Dict[str, Any]) -> None:
         if not self.bulk_delete_enabled:
             raise NotImplementedError(f"The {self.model_class.__name__} API does not offer bulk deletes")
         query_params = self._build_query_params(filters)
