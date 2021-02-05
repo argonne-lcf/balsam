@@ -54,15 +54,15 @@ class Job(BalsamModel):
 
 class JobQuery(Query["Job"]):
     def get(self, id: Optional[int] = None) -> Job:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
     def filter(self, id: Optional[int] = None) -> "JobQuery":
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
     def update(self, num_nodes: Optional[int] = None) -> List[Job]:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
     def order_by(self, *fields: str) -> "JobQuery":
@@ -77,11 +77,11 @@ class JobManager(Manager[Job]):
     model_class = Job
 
     def filter(self, id: Optional[int] = None) -> "JobQuery":
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return JobQuery(manager=self).filter(**kwargs)
 
     def get(self, id: Optional[int] = None) -> Job:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return JobQuery(manager=self).get(**kwargs)
 
     def create(self, workdir: str) -> Job:

@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 from pydantic import AnyUrl
@@ -44,9 +44,11 @@ class Site(BalsamModel):
         allowed_projects: Optional[List[str]] = None,
         allowed_queues: Optional[Dict[str, AllowedQueue]] = None,
         transfer_locations: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
     ) -> None:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
-        return super().__init__(**kwargs)
+        _kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        _kwargs.update(kwargs)
+        return super().__init__(**_kwargs)
 
 
 class SiteManager(Manager[Site]):
@@ -67,7 +69,7 @@ class SiteManager(Manager[Site]):
         allowed_queues: Optional[Dict[str, AllowedQueue]] = None,
         transfer_locations: Optional[Dict[str, str]] = None,
     ) -> Site:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
 
     def filter(
@@ -76,7 +78,7 @@ class SiteManager(Manager[Site]):
         path: Union[str, Path, None] = None,
         id: Union[int, List[int], None] = None,
     ) -> "SiteQuery":
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return SiteQuery(manager=self).filter(**kwargs)
 
     def get(
@@ -85,7 +87,7 @@ class SiteManager(Manager[Site]):
         path: Union[str, Path, None] = None,
         id: Union[int, List[int], None] = None,
     ) -> Site:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return SiteQuery(manager=self).get(**kwargs)
 
 
@@ -96,7 +98,7 @@ class SiteQuery(Query[Site]):
         path: Union[str, Path, None] = None,
         id: Union[int, List[int], None] = None,
     ) -> Site:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
     def filter(
@@ -105,7 +107,7 @@ class SiteQuery(Query[Site]):
         path: Union[str, Path, None] = None,
         id: Union[int, List[int], None] = None,
     ) -> "SiteQuery":
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
     def update(
@@ -121,7 +123,7 @@ class SiteQuery(Query[Site]):
         allowed_queues: Optional[Dict[str, AllowedQueue]] = None,
         transfer_locations: Optional[Dict[str, str]] = None,
     ) -> List[Site]:
-        kwargs = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
     def order_by(self, *fields: str) -> "SiteQuery":

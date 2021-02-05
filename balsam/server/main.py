@@ -21,6 +21,7 @@ def setup_logging() -> logging.Logger:
     _, handler = config_root_logger(settings.balsam_log_level)
     sqa_logger = logging.getLogger("sqlalchemy")
     sqa_logger.setLevel(settings.sqlalchemy_log_level)
+    logging.getLogger("sqlalchemy.orm").setLevel(settings.sqlalchemy_log_level)
     sqa_logger.handlers.clear()
     sqa_logger.addHandler(handler)
     logging.getLogger("sqlalchemy.engine").propagate = True

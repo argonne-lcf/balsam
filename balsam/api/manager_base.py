@@ -1,15 +1,16 @@
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
+from balsam.api.model_base import BalsamModel
+
 from .query import Query
 
 if TYPE_CHECKING:
-    from balsam.api.model_base import BalsamModel
     from balsam.client import RESTClient
 
-    T = TypeVar("T", bound=BalsamModel)
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T", bound=BalsamModel)
 
 
 class Manager(Generic[T]):

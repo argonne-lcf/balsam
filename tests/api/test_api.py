@@ -25,12 +25,6 @@ class TestSite:
         assert newsite._state == "clean"
         assert newsite.id is not None
 
-    def test_cannot_access_manager_from_instance(self, client):
-        Site = client.Site
-        newsite = Site.objects.create(hostname="theta", path="/projects/foo")
-        with pytest.raises(AttributeError):
-            newsite.objects.count()
-
     def test_update_status(self, client):
         Site = client.Site
         site = Site.objects.create(hostname="theta", path="/projects/foo")

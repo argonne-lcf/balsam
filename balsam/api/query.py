@@ -1,19 +1,20 @@
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union, cast
 
-if TYPE_CHECKING:
-    from balsam.api.model_base import BalsamModel
+from balsam.api.model_base import BalsamModel
 
+T = TypeVar("T", bound=BalsamModel)
+
+if TYPE_CHECKING:
     from .manager_base import Manager
 
-    T = TypeVar("T", bound=BalsamModel)
     U = TypeVar("U", bound="Query")  # type: ignore
 
 REPR_OUTPUT_SIZE = 20
 
 
 class Query(Iterable[T]):
-    def __init__(self, manager: Manager[T]) -> None:
-        self._manager: Manager[T] = manager
+    def __init__(self, manager: "Manager[T]") -> None:
+        self._manager: "Manager[T]" = manager
         self._result_cache: Optional[List[T]] = None
         self._filters: Dict[str, Any] = {}
         self._order_fields: Tuple[str, ...] = tuple()
@@ -84,7 +85,7 @@ class Query(Iterable[T]):
     def _is_sliced(self) -> bool:
         return not (self._limit is None and self._offset is None)
 
-    def _clone(self: U) -> U:
+    def _clone(self: "U") -> "U":
         clone = type(self)(manager=self._manager)
         clone._filters = self._filters.copy()
         clone._order_fields = self._order_fields
@@ -117,7 +118,7 @@ class Query(Iterable[T]):
             self._count = count
         self._result_cache = instances
 
-    def _filter(self: U, **kwargs: Any) -> U:
+    def _filter(self: "U", **kwargs: Any) -> "U":
         # TODO: kwargs should expand to the set of filterable model fields
         if self._is_sliced:
             raise AttributeError("Cannot filter a sliced Query")
@@ -129,7 +130,7 @@ class Query(Iterable[T]):
         clone._filters.update(kwargs)
         return clone
 
-    def _order_by(self: U, *fields: str) -> U:
+    def _order_by(self: "U", *fields: str) -> "U":
         # TODO: should validate that only order-able fields are accepted
         if self._is_sliced:
             raise AttributeError("Cannot re-order a sliced Query")
