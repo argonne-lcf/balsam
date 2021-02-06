@@ -98,7 +98,7 @@ class {{manager_name}}(Manager[{{model_name}}], {{manager_mixin}}):
         {% endfor %}
     ) -> {{model_name}}:
         kwargs = {k: v for k,v in locals().items() if k not in ["self", "__class__"] and v is not None}
-        return super()._create(**_kwargs)
+        return super()._create(**kwargs)
     {% endif %}
 
     def get(
@@ -187,6 +187,8 @@ def filter_signature(filterset: object) -> List[str]:
             continue
         try:
             field_type = qual_path(field.type)
+            if field_type.startswith("builtins."):
+                field_type = field_type.split(".")[1]
         except AttributeError:
             field_type = str(field.type)
         kwarg = f"{field.name}: Optional[{field_type}] = None"
@@ -231,6 +233,7 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_mixin: type, filterset:
     name = base_name[: base_name.find("Base")]
     manager_name = f"{name}Manager"
     query_name = f"{name}Query"
+    base_name = qual_path(model_base)
 
     create_fields, update_fields, read_fields = get_model_fields(model_base)
     create_kwargs = model_create_signature(create_fields) if create_fields else None
@@ -284,9 +287,17 @@ def main(model_base: str, manager_mixin: str, filterset: str) -> None:
     model_ctx = get_model_ctx(conf.model_base, conf.manager_mixin, conf.filterset)  # type: ignore
 
     imports = [
+        "from datetime import datetime",
+        "import typing",
+        "from typing import Optional, Any, List",
+        "from pathlib import Path",
+        "from uuid import UUID",
+        "import pydantic",
         "import balsam.api.model_base",
+        "import balsam.api.bases",
         "import balsam.api.manager_base",
-        "import balsam.api.models.bases",
+        "from balsam.api.manager_base import Manager",
+        "from balsam.api.query import Query",
         "import balsam.server.routers.filters",
         "from balsam.api.model_base import Field",
     ]
