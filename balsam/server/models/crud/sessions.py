@@ -6,6 +6,7 @@ from sqlalchemy import orm
 
 from balsam import schemas
 from balsam.server import ValidationError, models
+from balsam.server.routers.filters import SessionQuery
 
 from .jobs import set_parent_ids, update_states_by_query
 
@@ -20,10 +21,11 @@ def owned_session_query(db: Session, owner: schemas.UserOut) -> "Query[models.Se
     return db.query(models.Session).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
 
 
-def fetch(db: Session, owner: schemas.UserOut) -> Tuple[int, List[models.Session]]:
-    qs = owned_session_query(db, owner).all()
-    count = len(qs)
-    return count, qs
+def fetch(db: Session, owner: schemas.UserOut, filterset: SessionQuery) -> Tuple[int, List[models.Session]]:
+    qs = owned_session_query(db, owner)
+    result = filterset.apply_filters(qs).all()
+    count = len(result)
+    return count, result
 
 
 def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> Tuple[List[models.Job], List[models.LogEvent]]:

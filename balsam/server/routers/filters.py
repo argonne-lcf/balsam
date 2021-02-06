@@ -7,7 +7,7 @@ from fastapi import Query
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server.models import BatchJob, Job, LogEvent, Site, TransferItem
+from balsam.server.models import App, BatchJob, Job, LogEvent, Session, Site, TransferItem
 
 
 @dataclass
@@ -23,6 +23,28 @@ class SiteQuery:
             qs = qs.filter(Site.path.like(f"%{self.path}%"))
         if self.id:
             qs = qs.filter(Site.id.in_(self.id))
+        return qs
+
+
+@dataclass
+class AppQuery:
+    site_id: List[int] = Query(None)
+    id: List[int] = Query(None)
+    class_path: str = Query(None)
+
+    def apply_filters(self, qs: "orm.Query[App]") -> "orm.Query[App]":
+        if self.site_id:
+            qs = qs.filter(App.site_id.in_(self.site_id))
+        if self.id:
+            qs = qs.filter(App.id.in_(self.id))
+        if self.class_path is not None:
+            qs = qs.filter(App.class_path == self.class_path)
+        return qs
+
+
+@dataclass
+class SessionQuery:
+    def apply_filters(self, qs: "orm.Query[Session]") -> "orm.Query[Session]":
         return qs
 
 

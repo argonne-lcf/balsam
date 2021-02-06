@@ -1,7 +1,7 @@
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import orm
 
 from balsam import schemas
@@ -9,6 +9,8 @@ from balsam.server import models, settings
 from balsam.server.models import crud, get_session
 from balsam.server.pubsub import pubsub
 from balsam.server.util import Paginator
+
+from .filters import AppQuery
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -19,17 +21,13 @@ def list(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[models.App] = Depends(Paginator),
-    site_id: List[int] = Query(None),
-    id: List[int] = Query(None),
-    class_path: str = Query(None),
+    q: AppQuery = Depends(AppQuery),
 ) -> Dict[str, Any]:
     count, apps = crud.apps.fetch(
         db,
         owner=user,
         paginator=paginator,
-        filter_site_ids=site_id,
-        ids=id,
-        class_path=class_path,
+        filterset=q,
     )
     return {"count": count, "results": apps}
 
