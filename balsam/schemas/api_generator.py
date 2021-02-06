@@ -8,7 +8,7 @@ import jinja2
 from pydantic import BaseModel, PyObject
 from pydantic.fields import ModelField
 
-from balsam.api.model_base import BalsamModel
+from balsam.api.model import BalsamModel
 
 FieldDict = Dict[str, Any]
 
@@ -24,9 +24,9 @@ master_template = env.from_string(
 {% endfor %}
 
 class {{model_name}}({{model_base}}):
-    create_model_cls = {{create_model_cls}}
-    update_model_cls = {{update_model_cls}}
-    read_model_cls = {{read_model_cls}}
+    _create_model_cls = {{_create_model_cls}}
+    _update_model_cls = {{_update_model_cls}}
+    _read_model_cls = {{_read_model_cls}}
     objects: "{{manager_name}}"
 
     {% for field in model_fields.values() %}
@@ -86,9 +86,9 @@ class {{query_name}}(Query[{{model_name}}]):
     {% endif %}
 
 class {{manager_name}}(Manager[{{model_name}}], {{manager_mixin}}):
-    path = "{{manager_url}}"
-    model_class = {{model_name}}
-    query_class = {{query_name}}
+    _api_path = "{{manager_url}}"
+    _model_class = {{model_name}}
+    _query_class = {{query_name}}
 
     {% if model_create_kwargs %}
     def create(
@@ -100,6 +100,9 @@ class {{manager_name}}(Manager[{{model_name}}], {{manager_mixin}}):
         kwargs = {k: v for k,v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
     {% endif %}
+
+    def all(self) -> "{{query_name}}":
+        return self._query_class(manager=self)
 
     def get(
         self,
@@ -214,9 +217,9 @@ def order_by_typename(filterset: object) -> Optional[str]:
 
 
 def get_model_fields(model_base: Type[BalsamModel]) -> Tuple[FieldDict, FieldDict, FieldDict]:
-    create_model = model_base.__dict__["create_model_cls"]
-    update_model = model_base.__dict__["update_model_cls"]
-    read_model = model_base.__dict__["read_model_cls"]
+    create_model = model_base.__dict__["_create_model_cls"]
+    update_model = model_base.__dict__["_update_model_cls"]
+    read_model = model_base.__dict__["_read_model_cls"]
 
     create_fields = get_schema_fields(create_model) if create_model is not None else {}
     update_fields = get_schema_fields(update_model) if update_model is not None else {}
@@ -257,15 +260,15 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_mixin: type, filterset:
     return dict(
         model_name=name,
         model_base=base_name,
-        create_model_cls=qual_path(model_base.__dict__["create_model_cls"]),
-        update_model_cls=qual_path(model_base.__dict__["update_model_cls"]),
-        read_model_cls=qual_path(model_base.__dict__["read_model_cls"]),
+        _create_model_cls=qual_path(model_base.__dict__["_create_model_cls"]),
+        _update_model_cls=qual_path(model_base.__dict__["_update_model_cls"]),
+        _read_model_cls=qual_path(model_base.__dict__["_read_model_cls"]),
         manager_name=manager_name,
         query_name=query_name,
         model_fields=fields,
         model_create_kwargs=create_kwargs,
         manager_mixin=qual_path(manager_mixin),
-        manager_url=manager_mixin.path,  # type: ignore
+        manager_url=manager_mixin._api_path,  # type: ignore
         model_update_kwargs=update_kwargs,
         model_filter_kwargs=filter_kwargs,
         order_by_type=order_by_type,
@@ -293,13 +296,13 @@ def main(model_base: str, manager_mixin: str, filterset: str) -> None:
         "from pathlib import Path",
         "from uuid import UUID",
         "import pydantic",
-        "import balsam.api.model_base",
+        "import balsam.api.model",
         "import balsam.api.bases",
-        "import balsam.api.manager_base",
-        "from balsam.api.manager_base import Manager",
+        "import balsam.api.manager",
+        "from balsam.api.manager import Manager",
         "from balsam.api.query import Query",
         "import balsam.server.routers.filters",
-        "from balsam.api.model_base import Field",
+        "from balsam.api.model import Field",
     ]
 
     result = master_template.render(

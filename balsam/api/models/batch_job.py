@@ -1,12 +1,12 @@
 from balsam import schemas
-from balsam.api.manager_base import Manager
-from balsam.api.model_base import BalsamModel
+from balsam.api.manager import Manager
+from balsam.api.model import BalsamModel
 
 
 class BatchJob(BalsamModel):
-    create_model_cls = schemas.BatchJobCreate
-    update_model_cls = schemas.BatchJobUpdate
-    read_model_cls = schemas.BatchJobOut
+    _create_model_cls = schemas.BatchJobCreate
+    _update_model_cls = schemas.BatchJobUpdate
+    _read_model_cls = schemas.BatchJobOut
 
     def validate(self, allowed_queues, allowed_projects, optional_batch_job_params):
         if self.queue not in allowed_queues:
@@ -47,5 +47,5 @@ class BatchJob(BalsamModel):
 
 class BatchJobManager(Manager):
     path = "batch-jobs/"
-    bulk_update_enabled = True
-    model_class = BatchJob
+    _bulk_update_enabled = True
+    _model_class = BatchJob

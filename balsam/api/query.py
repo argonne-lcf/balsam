@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union, cast
 
-from balsam.api.model_base import BalsamModel
+from .model import BalsamModel
 
 T = TypeVar("T", bound=BalsamModel)
 
 if TYPE_CHECKING:
-    from .manager_base import Manager
+    from .manager import Manager
 
     U = TypeVar("U", bound="Query")  # type: ignore
 
@@ -150,9 +150,9 @@ class Query(Iterable[T]):
         if nobj == 1:
             return results[0]
         elif nobj == 0:
-            raise self._manager.model_class.DoesNotExist
+            raise self._manager._model_class.DoesNotExist
         else:
-            raise self._manager.model_class.MultipleObjectsReturned(nobj)
+            raise self._manager._model_class.MultipleObjectsReturned(nobj)
 
     def first(self) -> T:
         return cast(T, self[0])

@@ -1,8 +1,8 @@
 from typing import Dict, Optional, Set
 
 from balsam import schemas
-from balsam.api.manager_base import Manager
-from balsam.api.model_base import BalsamModel
+from balsam.api.manager import Manager
+from balsam.api.model import BalsamModel
 
 from .job import Job
 
@@ -11,9 +11,9 @@ RUNNABLE_STATES = schemas.RUNNABLE_STATES
 
 
 class Session(BalsamModel):
-    create_model_cls = schemas.SessionCreate
-    update_model_cls = None
-    read_model_cls = schemas.SessionOut
+    _create_model_cls = schemas.SessionCreate
+    _update_model_cls = None
+    _read_model_cls = schemas.SessionOut
 
     def acquire_jobs(
         self,
@@ -44,11 +44,11 @@ class Session(BalsamModel):
 
 class SessionManager(Manager):
     path = "sessions/"
-    model_class = Session
+    _model_class = Session
 
     def _do_acquire(self, instance, **kwargs):
         acquired_raw = self._client.post(self.path + f"{instance.id}", **kwargs)
-        jobs = [Job.from_api(dat) for dat in acquired_raw]
+        jobs = [Job._from_api(dat) for dat in acquired_raw]
         return jobs
 
     def _do_tick(self, instance):

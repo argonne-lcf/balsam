@@ -5,7 +5,7 @@ import yaml
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from .manager_base import Manager
+    from .manager import Manager
 
 F = TypeVar("F")
 
@@ -19,7 +19,7 @@ class Field(Generic[F]):
             if hasattr(obj._read_model, self.name):
                 return getattr(obj._read_model, self.name)  # type: ignore
             # The field is write-only but not yet written to:
-            elif obj.update_model_cls and self.name in obj.update_model_cls.__fields__:
+            elif obj._update_model_cls and self.name in obj._update_model_cls.__fields__:
                 return cast(F, None)
             else:
                 raise AttributeError(f"Cannot access Field {self.name}")
@@ -28,7 +28,7 @@ class Field(Generic[F]):
             if hasattr(obj._create_model, self.name):
                 return getattr(obj._create_model, self.name)  # type: ignore
             # The field is readable but not yet established by creation:
-            elif self.name in obj.read_model_cls.__fields__:
+            elif self.name in obj._read_model_cls.__fields__:
                 return cast(F, None)
             else:
                 raise AttributeError(f"Cannot access Field {self.name}")
@@ -40,7 +40,7 @@ class Field(Generic[F]):
             elif hasattr(obj._read_model, self.name):
                 return getattr(obj._read_model, self.name)  # type: ignore
             # The field is write-only but not yet written to:
-            elif obj.update_model_cls and self.name in obj.update_model_cls.__fields__:
+            elif obj._update_model_cls and self.name in obj._update_model_cls.__fields__:
                 return cast(F, None)
             else:
                 raise AttributeError(f"Cannot access Field {self.name}")
@@ -52,7 +52,7 @@ class Field(Generic[F]):
             setattr(obj._create_model, self.name, value)
         else:
             if obj._update_model is None:
-                obj._update_model = obj.update_model_cls()  # type: ignore
+                obj._update_model = obj._update_model_cls()  # type: ignore
             if self.name not in obj._update_model.__fields__:
                 raise AttributeError(f"Cannot set {self.name} when updating {obj._modelname}")
             setattr(obj._update_model, self.name, value)
@@ -70,9 +70,9 @@ class BalsamModelMeta(type):
 
         field_names = set()
         for model_cls in [
-            attrs["create_model_cls"],
-            attrs["update_model_cls"],
-            attrs["read_model_cls"],
+            attrs["_create_model_cls"],
+            attrs["_update_model_cls"],
+            attrs["_read_model_cls"],
         ]:
             if model_cls is not None:
                 field_names.update(model_cls.__fields__)
@@ -85,9 +85,9 @@ class BalsamModelMeta(type):
 
 class BalsamModel(metaclass=BalsamModelMeta):
     id: Field[Optional[int]]
-    create_model_cls: Optional[Type[BaseModel]]
-    update_model_cls: Optional[Type[BaseModel]]
-    read_model_cls: Type[BaseModel]
+    _create_model_cls: Optional[Type[BaseModel]]
+    _update_model_cls: Optional[Type[BaseModel]]
+    _read_model_cls: Type[BaseModel]
     _create_model: Optional[BaseModel]
     _update_model: Optional[BaseModel]
     _read_model: Optional[BaseModel]
@@ -101,12 +101,12 @@ class BalsamModel(metaclass=BalsamModelMeta):
         self._dirty_fields: Set[str] = set()
 
         if _api_data:
-            self._read_model = self.read_model_cls(**kwargs)
+            self._read_model = self._read_model_cls(**kwargs)
             self._state = "clean"
         else:
-            if self.create_model_cls is None:
+            if self._create_model_cls is None:
                 raise ValueError(f"{self._modelname} is read only")
-            self._create_model = self.create_model_cls(**kwargs)
+            self._create_model = self._create_model_cls(**kwargs)
             self._state = "creating"
 
     def _set_clean(self) -> None:
@@ -119,11 +119,11 @@ class BalsamModel(metaclass=BalsamModelMeta):
         return self.__class__.__name__
 
     @classmethod
-    def from_api(cls: Type[T], data: Any) -> T:
+    def _from_api(cls: Type[T], data: Any) -> T:
         return cls(_api_data=True, **data)
 
     def _refresh_from_dict(self, data: Dict[Any, Any]) -> None:
-        self._read_model = self.read_model_cls(**data)
+        self._read_model = self._read_model_cls(**data)
         self._set_clean()
 
     def save(self) -> None:

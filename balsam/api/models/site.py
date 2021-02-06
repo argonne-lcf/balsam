@@ -6,16 +6,16 @@ from uuid import UUID
 from pydantic import AnyUrl
 
 from balsam import schemas
-from balsam.api.manager_base import Manager
-from balsam.api.model_base import BalsamModel, Field
+from balsam.api.manager import Manager
+from balsam.api.model import BalsamModel, Field
 from balsam.api.query import Query
 from balsam.schemas.site import AllowedQueue, BackfillWindow, QueuedJob
 
 
 class Site(BalsamModel):
-    create_model_cls = schemas.SiteCreate
-    update_model_cls = schemas.SiteUpdate
-    read_model_cls = schemas.SiteOut
+    _create_model_cls = schemas.SiteCreate
+    _update_model_cls = schemas.SiteUpdate
+    _read_model_cls = schemas.SiteOut
     objects: "SiteManager"
 
     id = Field[Optional[int]]()
@@ -92,8 +92,8 @@ class SiteQuery(Query[Site]):
 
 class SiteManager(Manager[Site]):
     path = "sites/"
-    model_class = Site
-    query_class = SiteQuery
+    _model_class = Site
+    _query_class = SiteQuery
 
     def create(
         self,

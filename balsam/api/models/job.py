@@ -2,15 +2,15 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from balsam import schemas
-from balsam.api.manager_base import Manager
-from balsam.api.model_base import BalsamModel
+from balsam.api.manager import Manager
+from balsam.api.model import BalsamModel
 from balsam.api.query import Query
 
 
 class Job(BalsamModel):
-    create_model_cls = schemas.JobCreate
-    update_model_cls = schemas.JobUpdate
-    read_model_cls = schemas.JobOut
+    _create_model_cls = schemas.JobCreate
+    _update_model_cls = schemas.JobUpdate
+    _read_model_cls = schemas.JobOut
     objects: "JobManager"
 
     def __init__(
@@ -71,10 +71,10 @@ class JobQuery(Query["Job"]):
 
 class JobManager(Manager[Job]):
     path = "jobs/"
-    bulk_create_enabled = True
-    bulk_update_enabled = True
-    bulk_delete_enabled = True
-    model_class = Job
+    _bulk_create_enabled = True
+    _bulk_update_enabled = True
+    _bulk_delete_enabled = True
+    _model_class = Job
 
     def filter(self, id: Optional[int] = None) -> "JobQuery":
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}

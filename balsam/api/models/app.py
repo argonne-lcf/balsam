@@ -1,17 +1,17 @@
 from typing import Dict
 
 from balsam import schemas
-from balsam.api.manager_base import Manager
-from balsam.api.model_base import BalsamModel
+from balsam.api.manager import Manager
+from balsam.api.model import BalsamModel
 
 AppParameter = schemas.AppParameter
 TransferSlot = schemas.TransferSlot
 
 
 class App(BalsamModel):
-    create_model_cls = schemas.AppCreate
-    update_model_cls = schemas.AppUpdate
-    read_model_cls = schemas.AppOut
+    _create_model_cls = schemas.AppCreate
+    _update_model_cls = schemas.AppUpdate
+    _read_model_cls = schemas.AppOut
 
     def __init__(
         self,
@@ -36,4 +36,4 @@ class App(BalsamModel):
 
 class AppManager(Manager):
     path = "apps/"
-    model_class = App
+    _model_class = App

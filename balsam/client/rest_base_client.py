@@ -84,28 +84,28 @@ class RESTClient:
 
     @property
     def Site(self) -> Type[Site]:
-        return SiteManager(client=self).model_class
+        return SiteManager(client=self)._model_class
 
     @property
     def App(self) -> Type[App]:
-        return AppManager(client=self).model_class
+        return AppManager(client=self)._model_class
 
     @property
     def BatchJob(self) -> Type[BatchJob]:
-        return BatchJobManager(client=self).model_class
+        return BatchJobManager(client=self)._model_class
 
     @property
     def Job(self) -> Type[Job]:
-        return JobManager(client=self).model_class
+        return JobManager(client=self)._model_class
 
     @property
     def TransferItem(self) -> Type[TransferItem]:
-        return TransferItemManager(client=self).model_class
+        return TransferItemManager(client=self)._model_class
 
     @property
     def Session(self) -> Type[Session]:
-        return SessionManager(client=self).model_class
+        return SessionManager(client=self)._model_class
 
     @property
     def EventLog(self) -> Type[EventLog]:
-        return EventLogManager(client=self).model_class
+        return EventLogManager(client=self)._model_class
