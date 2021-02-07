@@ -1,4 +1,4 @@
-from typing import Any, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 from balsam.api.models import (
     App,
@@ -40,7 +40,7 @@ class RESTClient:
         self,
         url: str,
         http_method: str,
-        params: Any = None,
+        params: Optional[Dict[str, Any]] = None,
         json: Any = None,
         data: Any = None,
         authenticating: bool = False,

@@ -3,6 +3,7 @@ import os
 import time
 from json import JSONDecodeError
 from pprint import pformat
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 
@@ -10,24 +11,28 @@ from .rest_base_client import RESTClient
 
 logger = logging.getLogger(__name__)
 
+OptionalAnyJSON = Optional[Union[Dict[str, Any], List[Any]]]
+
 
 class NotAuthenticatedError(Exception):
     pass
 
 
 class RequestsClient(RESTClient):
-    def __init__(self, api_root, connect_timeout=3.1, read_timeout=60, retry_count=3):
+    def __init__(
+        self, api_root: str, connect_timeout: float = 3.1, read_timeout: float = 60, retry_count: int = 3
+    ) -> None:
         self.api_root = api_root
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         self.retry_count = retry_count
-        self._session = None
+        self._session: Optional[requests.Session] = None
         self._pid = os.getpid()
         self._authenticated = False
-        self.token = None
+        self.token: Optional[str] = None
 
     @property
-    def session(self):
+    def session(self) -> requests.Session:
         """
         !!! WARNING !!!
         requests.Session is not multiprocessing-safe. You will get
@@ -43,10 +48,19 @@ class RequestsClient(RESTClient):
                 self._session.headers["Authorization"] = f"Bearer {self.token}"
         return self._session
 
-    def close_session(self):
+    def close_session(self) -> None:
         self._session = None
+        return None
 
-    def request(self, url, http_method, params=None, json=None, data=None, authenticating=False):
+    def request(
+        self,
+        url: str,
+        http_method: str,
+        params: Optional[Dict[str, Any]] = None,
+        json: OptionalAnyJSON = None,
+        data: OptionalAnyJSON = None,
+        authenticating: bool = False,
+    ) -> OptionalAnyJSON:
         if not self._authenticated and not authenticating:
             raise NotAuthenticatedError("Cannot perform unauthenticated request. Please login with `balsam login`")
         absolute_url = self.api_root.rstrip("/") + "/" + url.lstrip("/")
@@ -68,13 +82,21 @@ class RequestsClient(RESTClient):
                     raise
             else:
                 try:
-                    return response.json()
+                    return response.json()  # type: ignore
                 except JSONDecodeError:
                     if http_method != "DELETE":
                         raise
                     return None
+        return None
 
-    def _do_request(self, absolute_url, http_method, params, json, data):
+    def _do_request(
+        self,
+        absolute_url: str,
+        http_method: str,
+        params: Optional[Dict[str, Any]],
+        json: OptionalAnyJSON,
+        data: OptionalAnyJSON,
+    ) -> requests.Response:
         response = self.session.request(
             http_method,
             url=absolute_url,
@@ -87,7 +109,7 @@ class RequestsClient(RESTClient):
             self._raise_with_explanation(response)
         return response
 
-    def _raise_with_explanation(self, response):
+    def _raise_with_explanation(self, response: requests.Response) -> None:
         """
         Add the API's informative error message to Requests' generic status Exception
         """
