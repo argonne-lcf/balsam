@@ -17,6 +17,10 @@ lint:
 mypy:
 	mypy --config-file setup.cfg --package balsam
 
+balsam/api/models.py: balsam/api/bases.py  balsam/server/routers/filters.py
+	python balsam/schemas/api_generator.py > balsam/api/models.py
+	
+
 .PHONY: test-api
 test-api:
 	pytest tests/server --cov=balsam --cov-config setup.cfg
@@ -28,4 +32,4 @@ testcov: test-api
 	@coverage html
 
 .PHONY: all
-all: lint mypy testcov
+all: balsam/api/models.py format lint mypy testcov
