@@ -83,3 +83,16 @@ class BatchJobBase(BalsamModel):
 class BatchJobManagerMixin:
     _api_path = "batch-jobs/"
     _bulk_update_enabled = True
+
+
+class JobBase(BalsamModel):
+    _create_model_cls = schemas.JobCreate
+    _update_model_cls = schemas.JobUpdate
+    _read_model_cls = schemas.JobOut
+
+
+class JobManagerMixin:
+    _api_path = "jobs/"
+    _bulk_create_enabled = True
+    _bulk_update_enabled = True
+    _bulk_delete_enabled = True

@@ -67,7 +67,7 @@ class JobBase(BaseModel):
 
 class JobCreate(JobBase):
     app_id: int = Field(..., example=3)
-    parent_ids: Set[int] = Field({}, example={2, 3})
+    parent_ids: Set[int] = Field(set(), example={2, 3})
     transfers: Dict[str, JobTransferItem] = Field(
         {},
         example={
