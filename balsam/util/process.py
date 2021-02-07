@@ -9,12 +9,14 @@ from .log import log_uncaught_exceptions
 
 
 class Process(multiprocessing.Process):
-    def run(self):
+    def _run(self) -> None:
+        raise NotImplementedError
+
+    def run(self) -> None:
         try:
-            if hasattr(self, "_run"):
-                self._run()
-            else:
-                super().run()
+            self._run()
+        except NotImplementedError:
+            super().run()
         except Exception:
             log_uncaught_exceptions(*sys.exc_info())
             raise
