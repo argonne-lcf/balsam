@@ -51,6 +51,10 @@ class {{model_name}}({{model_base}}):
     {% endif %}
 
 class {{query_name}}(Query[{{model_name}}]):
+    {% if not model_filter_kwargs and not order_by_type %}
+    pass
+    {% endif %}
+    {% if model_filter_kwargs %}
     def get(
         self,
         {% for line in model_filter_kwargs %}
@@ -68,6 +72,7 @@ class {{query_name}}(Query[{{model_name}}]):
     ) -> "{{query_name}}":
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
+    {% endif %}
 
     {% if model_update_kwargs %}
     def update(
@@ -108,6 +113,7 @@ class {{manager_name}}({{manager_mixin}}, Manager[{{model_name}}]):
     def all(self) -> "{{query_name}}":
         return self._query_class(manager=self)
 
+    {% if model_filter_kwargs %}
     def get(
         self,
         {% for line in model_filter_kwargs %}
@@ -125,6 +131,7 @@ class {{manager_name}}({{manager_mixin}}, Manager[{{model_name}}]):
     ) -> "{{query_name}}":
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return {{query_name}}(manager=self).filter(**kwargs)
+    {% endif %}
 
 """
 )
@@ -235,7 +242,7 @@ def get_model_fields(model_base: Type[BalsamModel]) -> Tuple[FieldDict, FieldDic
 
 
 def qual_path(obj: type) -> str:
-    return f"{obj.__module__}.{obj.__name__}"
+    return f"{obj.__module__}.{obj.__name__}" if obj is not None else "None"
 
 
 def get_model_ctx(model_base: Type[BalsamModel], manager_mixin: type, filterset: type) -> Dict[str, Any]:

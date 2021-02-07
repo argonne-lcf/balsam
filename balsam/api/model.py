@@ -51,8 +51,10 @@ class Field(Generic[F]):
                 raise AttributeError(f"Cannot set {self.name} when creating {obj._modelname}")
             setattr(obj._create_model, self.name, value)
         else:
+            if obj._update_model_cls is None:
+                raise AttributeError(f"{obj.__class__.__name__} is read-only")
             if obj._update_model is None:
-                obj._update_model = obj._update_model_cls()  # type: ignore
+                obj._update_model = obj._update_model_cls()
             if self.name not in obj._update_model.__fields__:
                 raise AttributeError(f"Cannot set {self.name} when updating {obj._modelname}")
             setattr(obj._update_model, self.name, value)

@@ -54,7 +54,7 @@ class EventOrdering(str, Enum):
 
 
 @dataclass
-class EventQuery:
+class EventLogQuery:
     job_id: List[int] = Query(None)
     batch_job_id: int = Query(None)
     scheduler_id: int = Query(None)
@@ -159,7 +159,7 @@ class JobQuery:
 
 
 @dataclass
-class TransferQuery:
+class TransferItemQuery:
     id: List[int] = Query(None)
     site_id: int = Query(None)
     job_id: List[int] = Query(None)

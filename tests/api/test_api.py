@@ -622,13 +622,16 @@ class TestEvents:
     def test_cannot_create_or_update(self, client):
         self.setup_scenario(client)
         EventLog = client.EventLog
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(AttributeError, match="has no attribute 'create'"):
             EventLog.objects.create(
                 job_id=1,
                 from_state="RUNNING",
                 to_state="RUN_DONE",
             )
-        assert "EventLog is read only" in str(e)
+        log = EventLog.objects.first()
+        with pytest.raises(AttributeError, match="EventLog is read-only"):
+            log.from_state = "CREATED"
+        log.save()
 
 
 class TestBatchJobs:
