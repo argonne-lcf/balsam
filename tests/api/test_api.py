@@ -667,6 +667,33 @@ class TestBatchJobs:
         assert from_db.id == bjob.id
         assert bjob.id is not None
 
+    def test_filter_by_site_id(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
+        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
+        assert site1.id != site2.id
+        BatchJob.objects.create(
+            site_id=site1.id,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+        )
+        BatchJob.objects.create(
+            site_id=site2.id,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+        )
+        from_db = BatchJob.objects.filter(site_id=site1.id)
+        assert len(from_db) == 1 and from_db[0].site_id == site1.id
+        from_db = BatchJob.objects.filter(site_id=site2.id)
+        assert len(from_db) == 1 and from_db[0].site_id == site2.id
+
     def test_bulk_update(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
@@ -684,13 +711,13 @@ class TestBatchJobs:
 
         assert BatchJob.objects.count() == 3
 
-        bjobs = BatchJob.objects.filter(site=site.id)
+        bjobs = BatchJob.objects.filter(site_id=site.id)
         for job, sched_id in zip(bjobs, [123, 124, 125]):
             job.state = "queued"
             job.scheduler_id = sched_id
         BatchJob.objects.bulk_update(bjobs)
 
-        after_update = list(BatchJob.objects.filter(site=site.id))
+        after_update = list(BatchJob.objects.filter(site_id=site.id))
         assert after_update == list(bjobs)
 
     def test_delete(self, client):
@@ -710,7 +737,7 @@ class TestBatchJobs:
         assert BatchJob.objects.count() == 3
 
         with pytest.raises(NotImplementedError):
-            BatchJob.objects.filter(site=site.id).delete()
+            BatchJob.objects.filter(site_id=site.id).delete()
 
         for job in BatchJob.objects.all():
             job.delete()

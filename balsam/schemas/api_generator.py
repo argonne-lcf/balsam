@@ -30,7 +30,7 @@ class {{model_name}}({{model_base}}):
     objects: "{{manager_name}}"
 
     {% for field in model_fields.values() %}
-    {% if field.allowed_none %}
+    {% if field.allowed_none and 'Optional' not in field.annotation %}
     {{field.name}} = Field[Optional[{{field.annotation}}]]()
     {% else %}
     {{field.name}} = Field[{{field.annotation}}]()
@@ -85,10 +85,14 @@ class {{query_name}}(Query[{{model_name}}]):
         return self._order_by(field)
     {% endif %}
 
-class {{manager_name}}(Manager[{{model_name}}], {{manager_mixin}}):
+class {{manager_name}}({{manager_mixin}}, Manager[{{model_name}}]):
     _api_path = "{{manager_url}}"
     _model_class = {{model_name}}
     _query_class = {{query_name}}
+    _bulk_create_enabled = {{_bulk_create_enabled}}
+    _bulk_update_enabled = {{_bulk_update_enabled}}
+    _bulk_delete_enabled = {{_bulk_delete_enabled}}
+    _paginated_list_response = {{_paginated_list_response}}
 
     {% if model_create_kwargs %}
     def create(
@@ -144,12 +148,15 @@ def field_to_dict(field: ModelField, schema: BaseModel) -> FieldDict:
         annotation = None
         for cls in schema.mro():  # type: ignore
             if field.name in cls.__annotations__:
-                annotation = cls.__annotations__[field.name]
+                annotation = str(cls.__annotations__[field.name])
                 break
         else:
             raise RuntimeError(f"Could not find annotation for {field.name} on {schema.__name__} MRO")  # type: ignore
     else:
-        annotation = field.type_.__name__
+        if qual_path(field.type_).startswith("builtins."):
+            annotation = str(field.type_.__name__)
+        else:
+            annotation = qual_path(field.type_)
 
     assert annotation is not None
     return {
@@ -177,9 +184,9 @@ def model_create_signature(create_fields: FieldDict) -> List[str]:
         result += [f'{field["name"]}: {field["annotation"]}']
     for field in fields.values():
         if field["optional_create"]:
-            result += [f'{field["name"]}: Optional[{field["annotation"]}] = {field["default_create"]}']
+            result += [f'{field["name"]}: Optional[{field["annotation"]}] = {repr(field["default_create"])}']
         else:
-            result += [f'{field["name"]}: {field["annotation"]} = {field["default_create"]}']
+            result += [f'{field["name"]}: {field["annotation"]} = {repr(field["default_create"])}']
     return result
 
 
@@ -269,6 +276,10 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_mixin: type, filterset:
         model_create_kwargs=create_kwargs,
         manager_mixin=qual_path(manager_mixin),
         manager_url=manager_mixin._api_path,  # type: ignore
+        _bulk_create_enabled=getattr(manager_mixin, "_bulk_create_enabled", False),
+        _bulk_update_enabled=getattr(manager_mixin, "_bulk_update_enabled", False),
+        _bulk_delete_enabled=getattr(manager_mixin, "_bulk_delete_enabled", False),
+        _paginated_list_response=getattr(manager_mixin, "_paginated_list_response", True),
         model_update_kwargs=update_kwargs,
         model_filter_kwargs=filter_kwargs,
         order_by_type=order_by_type,
@@ -290,11 +301,11 @@ def main(model_base: str, manager_mixin: str, filterset: str) -> None:
     model_ctx = get_model_ctx(conf.model_base, conf.manager_mixin, conf.filterset)  # type: ignore
 
     imports = [
-        "from datetime import datetime",
+        "import datetime",
         "import typing",
         "from typing import Optional, Any, List",
-        "from pathlib import Path",
-        "from uuid import UUID",
+        "import pathlib",
+        "import uuid",
         "import pydantic",
         "import balsam.api.model",
         "import balsam.api.bases",

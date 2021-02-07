@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, TypeVar, Union, cast
 
 from .model import BalsamModel
 
@@ -17,7 +17,7 @@ class Query(Iterable[T]):
         self._manager: "Manager[T]" = manager
         self._result_cache: Optional[List[T]] = None
         self._filters: Dict[str, Any] = {}
-        self._order_fields: Tuple[str, ...] = tuple()
+        self._order_field: Optional[str] = None
         self._count: Optional[int] = None
         self._limit: Optional[int] = None
         self._offset: Optional[int] = None
@@ -88,7 +88,7 @@ class Query(Iterable[T]):
     def _clone(self: "U") -> "U":
         clone = type(self)(manager=self._manager)
         clone._filters = self._filters.copy()
-        clone._order_fields = self._order_fields
+        clone._order_field = self._order_field
         clone._limit = self._limit
         clone._offset = self._offset
         return clone
@@ -110,7 +110,7 @@ class Query(Iterable[T]):
             return
         instances, count = self._manager._get_list(
             filters=self._filters,
-            ordering=self._order_fields,
+            ordering=self._order_field,
             limit=self._limit,
             offset=self._offset,
         )
@@ -130,12 +130,12 @@ class Query(Iterable[T]):
         clone._filters.update(kwargs)
         return clone
 
-    def _order_by(self: "U", *fields: str) -> "U":
+    def _order_by(self: "U", field: Optional[str]) -> "U":
         # TODO: should validate that only order-able fields are accepted
         if self._is_sliced:
             raise AttributeError("Cannot re-order a sliced Query")
         clone = self._clone()
-        clone._order_fields = tuple(fields)
+        clone._order_field = field
         return clone
 
     # Methods that do not return a Query

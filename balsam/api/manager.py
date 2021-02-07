@@ -15,10 +15,10 @@ T = TypeVar("T", bound=BalsamModel)
 class Manager(Generic[T]):
     _model_class: Type[T]
     _query_class: Type[Query[T]]
-    _bulk_create_enabled: bool = False
-    _bulk_update_enabled: bool = False
-    bulk_delete_enabled: bool = False
-    paginated_list_response: bool = True
+    _bulk_create_enabled: bool
+    _bulk_update_enabled: bool
+    _bulk_delete_enabled: bool
+    _paginated_list_response: bool
     _api_path: str
 
     def __init__(self, client: "RESTClient") -> None:
@@ -97,7 +97,7 @@ class Manager(Generic[T]):
     def _build_query_params(
         self,
         filters: Dict[str, Any],
-        ordering: Optional[Tuple[str, ...]] = None,
+        ordering: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -114,13 +114,13 @@ class Manager(Generic[T]):
     def _get_list(
         self,
         filters: Dict[str, Any],
-        ordering: Optional[Tuple[str, ...]],
+        ordering: Optional[str],
         limit: Optional[int],
         offset: Optional[int],
     ) -> Tuple[List[T], Optional[int]]:
         query_params = self._build_query_params(filters, ordering, limit, offset)
         response_data = self._client.get(self._api_path, **query_params)
-        if self.paginated_list_response:
+        if self._paginated_list_response:
             count = response_data["count"]
             results = response_data["results"]
         else:
@@ -152,7 +152,7 @@ class Manager(Generic[T]):
             instance._read_model.id = None  # type: ignore
 
     def _do_bulk_delete(self, filters: Dict[str, Any]) -> None:
-        if not self.bulk_delete_enabled:
+        if not self._bulk_delete_enabled:
             raise NotImplementedError(f"The {self._model_class.__name__} API does not offer bulk deletes")
         query_params = self._build_query_params(filters)
         self._client.bulk_delete(self._api_path, **query_params)
