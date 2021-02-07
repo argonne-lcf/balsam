@@ -3,7 +3,6 @@ import sys
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-import click
 import jinja2
 from pydantic import BaseModel, PyObject
 from pydantic.fields import ModelField
@@ -13,7 +12,7 @@ from balsam.api.model import BalsamModel
 FieldDict = Dict[str, Any]
 
 env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True)
-master_template = env.from_string(
+header_template = env.from_string(
     """
 # This file was auto-generated via {{ generator_name }}
 # [git rev {{git_ref}}]
@@ -23,6 +22,10 @@ master_template = env.from_string(
 {{ imp_statement }}
 {% endfor %}
 
+    """
+)
+master_template = env.from_string(
+    """
 class {{model_name}}({{model_base}}):
     _create_model_cls = {{_create_model_cls}}
     _update_model_cls = {{_update_model_cls}}
@@ -90,7 +93,7 @@ class {{query_name}}(Query[{{model_name}}]):
         return self._order_by(field)
     {% endif %}
 
-class {{manager_name}}({{manager_mixin}}, Manager[{{model_name}}]):
+class {{manager_name}}({{manager_base}}):
     _api_path = "{{manager_url}}"
     _model_class = {{model_name}}
     _query_class = {{query_name}}
@@ -245,7 +248,7 @@ def qual_path(obj: type) -> str:
     return f"{obj.__module__}.{obj.__name__}" if obj is not None else "None"
 
 
-def get_model_ctx(model_base: Type[BalsamModel], manager_mixin: type, filterset: type) -> Dict[str, Any]:
+def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: type) -> Dict[str, Any]:
     base_name = model_base.__name__
     name = base_name[: base_name.find("Base")]
     manager_name = f"{name}Manager"
@@ -281,12 +284,12 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_mixin: type, filterset:
         query_name=query_name,
         model_fields=fields,
         model_create_kwargs=create_kwargs,
-        manager_mixin=qual_path(manager_mixin),
-        manager_url=manager_mixin._api_path,  # type: ignore
-        _bulk_create_enabled=getattr(manager_mixin, "_bulk_create_enabled", False),
-        _bulk_update_enabled=getattr(manager_mixin, "_bulk_update_enabled", False),
-        _bulk_delete_enabled=getattr(manager_mixin, "_bulk_delete_enabled", False),
-        _paginated_list_response=getattr(manager_mixin, "_paginated_list_response", True),
+        manager_base=qual_path(manager_base),
+        manager_url=manager_base._api_path,  # type: ignore
+        _bulk_create_enabled=getattr(manager_base, "_bulk_create_enabled", False),
+        _bulk_update_enabled=getattr(manager_base, "_bulk_update_enabled", False),
+        _bulk_delete_enabled=getattr(manager_base, "_bulk_delete_enabled", False),
+        _paginated_list_response=getattr(manager_base, "_paginated_list_response", True),
         model_update_kwargs=update_kwargs,
         model_filter_kwargs=filter_kwargs,
         order_by_type=order_by_type,
@@ -295,18 +298,11 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_mixin: type, filterset:
 
 class APIConf(BaseModel):
     model_base: PyObject
-    manager_mixin: PyObject
+    manager_base: PyObject
     filterset: PyObject
 
 
-@click.command()
-@click.argument("model-base")
-@click.argument("manager-mixin")
-@click.argument("filterset")
-def main(model_base: str, manager_mixin: str, filterset: str) -> None:
-    conf = APIConf(model_base=model_base, manager_mixin=manager_mixin, filterset=filterset)
-    model_ctx = get_model_ctx(conf.model_base, conf.manager_mixin, conf.filterset)  # type: ignore
-
+def main() -> None:
     imports = [
         "import datetime",
         "import typing",
@@ -316,20 +312,35 @@ def main(model_base: str, manager_mixin: str, filterset: str) -> None:
         "import pydantic",
         "import balsam.api.model",
         "import balsam.api.bases",
-        "import balsam.api.manager",
-        "from balsam.api.manager import Manager",
         "from balsam.api.query import Query",
         "import balsam.server.routers.filters",
         "from balsam.api.model import Field",
     ]
-
-    result = master_template.render(
+    header = header_template.render(
         generator_name=f"{sys.executable} {' '.join(sys.argv)}",
         git_ref=get_git_hash(),
         import_modules=imports,
-        **model_ctx,
     )
-    print(result)
+    print(header)
+
+    models = [
+        "Site",
+        "App",
+        "Job",
+        "BatchJob",
+        "Session",
+        "TransferItem",
+        "EventLog",
+    ]
+    for model in models:
+        conf = APIConf(
+            model_base=f"balsam.api.bases.{model}Base",
+            manager_base=f"balsam.api.bases.{model}ManagerBase",
+            filterset=f"balsam.server.routers.filters.{model}Query",
+        )
+        model_ctx = get_model_ctx(conf.model_base, conf.manager_base, conf.filterset)  # type: ignore
+        result = master_template.render(**model_ctx)
+        print(result)
 
 
 if __name__ == "__main__":

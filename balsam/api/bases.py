@@ -2,10 +2,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from balsam import schemas
 
+from .manager import Manager
 from .model import BalsamModel, Field
 
 if TYPE_CHECKING:
-    from balsam.api.models import Job, SessionManager
+    from balsam.api.models import App, BatchJob, EventLog, Job, Session, Site, TransferItem  # noqa: F401
     from balsam.client import RESTClient
 
 JobState = schemas.JobState
@@ -18,7 +19,7 @@ class SiteBase(BalsamModel):
     _read_model_cls = schemas.SiteOut
 
 
-class SiteManagerMixin:
+class SiteManagerBase(Manager["Site"]):
     _api_path = "sites/"
 
 
@@ -28,7 +29,7 @@ class AppBase(BalsamModel):
     _read_model_cls = schemas.AppOut
 
 
-class AppManagerMixin:
+class AppManagerBase(Manager["App"]):
     _api_path = "apps/"
 
 
@@ -87,7 +88,7 @@ class BatchJobBase(BalsamModel):
         return args
 
 
-class BatchJobManagerMixin:
+class BatchJobManagerBase(Manager["BatchJob"]):
     _api_path = "batch-jobs/"
     _bulk_update_enabled = True
 
@@ -98,7 +99,7 @@ class JobBase(BalsamModel):
     _read_model_cls = schemas.JobOut
 
 
-class JobManagerMixin:
+class JobManagerBase(Manager["Job"]):
     _api_path = "jobs/"
     _bulk_create_enabled = True
     _bulk_update_enabled = True
@@ -109,7 +110,7 @@ class SessionBase(BalsamModel):
     _create_model_cls = schemas.SessionCreate
     _update_model_cls = None
     _read_model_cls = schemas.SessionOut
-    objects: "SessionManager"
+    objects: "SessionManagerBase"
 
     def acquire_jobs(
         self,
@@ -138,7 +139,7 @@ class SessionBase(BalsamModel):
         return self.__class__.objects._do_tick(self)
 
 
-class SessionManagerMixin:
+class SessionManagerBase(Manager["Session"]):
     _api_path = "sessions/"
     _client: "RESTClient"
 
@@ -159,7 +160,7 @@ class TransferItemBase(BalsamModel):
     _read_model_cls = schemas.TransferItemOut
 
 
-class TransferItemManagerMixin:
+class TransferItemManagerBase(Manager["TransferItem"]):
     _api_path = "transfers/"
     _bulk_update_enabled = True
 
@@ -170,5 +171,5 @@ class EventLogBase(BalsamModel):
     _read_model_cls = schemas.LogEventOut
 
 
-class EventLogManagerMixin:
+class EventLogManagerBase(Manager["EventLog"]):
     _api_path = "events/"
