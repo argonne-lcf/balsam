@@ -1,3 +1,5 @@
+from typing import Any, Dict, List
+
 import click
 import yaml
 
@@ -6,7 +8,7 @@ from .utils import load_site_config, validate_partitions, validate_tags
 
 @click.group()
 @click.pass_context
-def queue(ctx):
+def queue(ctx: Any) -> None:
     """
     Submit and monitor queued launcher jobs
     """
@@ -24,16 +26,16 @@ def queue(ctx):
 @click.option("-x", "--extra-param", "optional_params", multiple=True, callback=validate_tags)
 @click.pass_context
 def submit(
-    ctx,
-    num_nodes,
-    wall_time_min,
-    queue,
-    project,
-    job_mode,
-    filter_tags,
-    partitions,
-    optional_params,
-):
+    ctx: Any,
+    num_nodes: int,
+    wall_time_min: int,
+    queue: str,
+    project: str,
+    job_mode: str,
+    filter_tags: Dict[str, str],
+    partitions: List[Dict[str, Any]],
+    optional_params: Dict[str, str],
+) -> None:
     BatchJob = ctx.obj.client.BatchJob
     settings = ctx.obj.settings
     job = BatchJob(
@@ -61,7 +63,7 @@ def submit(
 
 @queue.command()
 @click.pass_context
-def ls(ctx):
+def ls(ctx: Any) -> None:
     BatchJob = ctx.obj.client.BatchJob
     site_id = ctx.obj.settings.site_id
 

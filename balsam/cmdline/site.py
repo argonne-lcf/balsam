@@ -5,9 +5,10 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Dict, Union
 
 import click
-import psutil
+import psutil  # type: ignore
 
 from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig
 from balsam.site.service import update_site_from_config
@@ -18,7 +19,7 @@ PID_FILENAME = "balsam-service.pid"
 
 
 @click.group()
-def site():
+def site() -> None:
     """
     Setup or manage your Balsam sites
     """
@@ -26,7 +27,7 @@ def site():
 
 
 @site.command()
-def start():
+def start() -> None:
     """Start up the site daemon"""
     cf = load_site_config()
     site_dir = cf.site_path
@@ -47,7 +48,7 @@ def start():
 
 
 @site.command()
-def stop():
+def stop() -> None:
     """Stop site daemon"""
     cf = load_site_config()
     site_dir: Path = cf.site_path
@@ -56,6 +57,7 @@ def stop():
         raise click.BadArgumentUsage(f"There is no {PID_FILENAME} in {site_dir}")
 
     try:
+        service_pid: Union[str, int]
         service_host, service_pid = pid_file.read_text().split("\n")[:2]
         service_pid = int(service_pid)
     except ValueError:
@@ -97,7 +99,7 @@ def stop():
                 break
 
 
-def load_settings_comments(settings_dirs):
+def load_settings_comments(settings_dirs: Dict[str, Path]) -> Dict[str, str]:
     descriptions = {name: "" for name in settings_dirs}
     for name, dir in settings_dirs.items():
         firstline = dir.joinpath("settings.yml").read_text().split("\n")[0]
@@ -110,13 +112,13 @@ def load_settings_comments(settings_dirs):
 @site.command()
 @click.argument("site-path", type=click.Path(writable=True))
 @click.option("-h", "--hostname")
-def init(site_path, hostname):
+def init(site_path: Union[str, Path], hostname: str) -> None:
     """
     Create a new balsam site at SITE-PATH
 
     balsam site init path/to/site
     """
-    import inquirer
+    import inquirer  # type: ignore
 
     site_path = Path(site_path).absolute()
     default_dirs = {v.name: v for v in SiteConfig.load_default_config_dirs()}
@@ -149,7 +151,7 @@ def init(site_path, hostname):
 @site.command()
 @click.argument("src", type=click.Path(exists=True, file_okay=False))
 @click.argument("dest", type=click.Path(exists=False, writable=True))
-def mv(src, dest):
+def mv(src: Union[Path, str], dest: Union[Path, str]) -> None:
     """
     Move a balsam site
 
@@ -174,7 +176,7 @@ def mv(src, dest):
 
 @site.command()
 @click.argument("path", type=click.Path(exists=True, file_okay=False))
-def rm(path):
+def rm(path: Union[str, Path]) -> None:
     """
     Remove a balsam site
 
@@ -195,7 +197,7 @@ def rm(path):
 @site.command()
 @click.argument("path", type=click.Path(exists=True, file_okay=False))
 @click.argument("name")
-def rename(path, name):
+def rename(path: Union[str, None], name: str) -> None:
     """
     Change the hostname of a balsam site
     """
@@ -208,7 +210,7 @@ def rename(path, name):
 
 
 @site.command()
-def ls():
+def ls() -> None:
     """
     List my balsam sites
     """
@@ -220,18 +222,18 @@ def ls():
 
 
 @site.command()
-def sync():
+def sync() -> None:
     """
     Sync changes in local settings.yml with Balsam online
     """
     cf = load_site_config()
     client = cf.client
-    site = client.Site.objects.get(site_id=cf.settings.site_id)
+    site = client.Site.objects.get(id=cf.settings.site_id)
     update_site_from_config(site, cf.settings)
 
 
 @site.command()
-def sample_settings():
+def sample_settings() -> None:
     """
     Print a sample settings.yml site configuration
     """

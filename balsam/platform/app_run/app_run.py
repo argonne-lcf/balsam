@@ -40,7 +40,7 @@ class AppRun(ABC):
     def __init__(
         self,
         cmdline: str,
-        preamble: Union[str, List[str]],
+        preamble: Union[None, str, List[str]],
         envs: Dict[str, str],
         cwd: Path,
         outfile_path: Path,
@@ -67,7 +67,7 @@ class AppRun(ABC):
         return self._ranks_per_node * len(self._node_spec.node_ids)
 
     @abstractmethod
-    def start(self):
+    def start(self) -> None:
         pass
 
     @abstractmethod
@@ -147,7 +147,7 @@ class SubprocessAppRun(AppRun):
     def _post_popen(self):
         pass
 
-    def start(self):
+    def start(self) -> None:
         cmdline = self._build_preamble() + self._build_cmdline()
         logger.info(f"{self.__class__.__name__} Popen: {cmdline}")
         self._outfile = self._open_outfile()

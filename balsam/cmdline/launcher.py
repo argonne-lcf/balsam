@@ -6,19 +6,24 @@ import subprocess
 import sys
 from datetime import datetime
 from importlib.util import find_spec
+from pathlib import Path
+from typing import Any, Dict, List, Union
 
 import click
 
 from balsam.cmdline.utils import load_site_config, validate_partitions, validate_tags
+from balsam.config import SiteConfig
+from balsam.platform.app_run import AppRun
+from balsam.platform.compute_node import ComputeNode
 from balsam.site.launcher import NodeSpec
 
-MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin
-SERIAL_MODE_PATH = find_spec("balsam.site.launcher.serial_mode").origin
+MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin  # type: ignore
+SERIAL_MODE_PATH = find_spec("balsam.site.launcher.serial_mode").origin  # type: ignore
 PART_INDEX = 0
 logger = logging.getLogger("balsam.cmdline.launcher")
 
 
-def get_run_basename(base):
+def get_run_basename(base: str) -> str:
     global PART_INDEX
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     fname = f"{base}_{timestamp}.{PART_INDEX}"
@@ -26,7 +31,9 @@ def get_run_basename(base):
     return fname
 
 
-def start_mpi_mode(site_config, wall_time_min, nodes, filter_tags):
+def start_mpi_mode(
+    site_config: SiteConfig, wall_time_min: int, nodes: List[ComputeNode], filter_tags: Dict[str, str]
+) -> "subprocess.Popen[bytes]":
     basename = get_run_basename("mpi_mode")
     log_filename = site_config.log_path.joinpath(basename + ".log")
     stdout_filename = site_config.log_path.joinpath(basename + ".out")
@@ -49,11 +56,13 @@ def start_mpi_mode(site_config, wall_time_min, nodes, filter_tags):
         stdout=open(stdout_filename, "wb"),
         stderr=subprocess.STDOUT,
     )
-    logger.debug(f"Started MPI mode launcher: {proc.args}")
+    logger.debug(f"Started MPI mode launcher: {str(proc.args)}")
     return proc
 
 
-def start_serial_mode(site_config, wall_time_min, nodes, filter_tags):
+def start_serial_mode(
+    site_config: SiteConfig, wall_time_min: int, nodes: List[ComputeNode], filter_tags: Dict[str, str]
+) -> AppRun:
     master_host = nodes[0].hostname
     master_port = 19876
     basename = get_run_basename("serial_mode")
@@ -75,12 +84,12 @@ def start_serial_mode(site_config, wall_time_min, nodes, filter_tags):
     args += f"--num-workers {len(nodes)} "
     args += f"--filter-tags {shlex.quote(json.dumps(filter_tags))} "
 
-    app_run = site_config.launcher.mpi_app_launcher
+    app_run = site_config.settings.launcher.mpi_app_launcher
     app = app_run(
         cmdline=args,
         preamble=None,
         envs=env,
-        cwd=os.getcwd(),
+        cwd=Path.cwd(),
         outfile_path=stdout_filename,
         node_spec=node_spec,
         ranks_per_node=1,
@@ -100,11 +109,11 @@ def start_serial_mode(site_config, wall_time_min, nodes, filter_tags):
 @click.option("-p", "--part", "partitions", multiple=True, callback=validate_partitions)
 @click.option("-t", "--wall-time-min", required=True, type=int)
 def launcher(
-    job_mode,
-    filter_tags,
-    partitions,
-    wall_time_min,
-):
+    job_mode: str,
+    filter_tags: Dict[str, str],
+    partitions: List[Dict[str, Any]],
+    wall_time_min: int,
+) -> None:
     site_config = load_site_config()
     node_cls = site_config.launcher.compute_node
     nodes = node_cls.get_job_nodelist()
@@ -123,6 +132,7 @@ def launcher(
     launcher_procs = []
     for part in partitions:
         job_mode = part.pop("job_mode")
+        proc: "Union[subprocess.Popen[bytes], AppRun]"
         if job_mode == "mpi":
             proc = start_mpi_mode(
                 site_config=site_config,

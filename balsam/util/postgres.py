@@ -172,7 +172,7 @@ def version_check() -> bool:
     raise RuntimeError(f"PostgreSQL {version_info} too old. {POSTGRES_MSG}")
 
 
-def mutate_conf_port(db_path: str, port: int) -> None:
+def mutate_conf_port(db_path: Union[str, Path], port: int) -> None:
     settings_path = Path(db_path) / Path("postgresql.conf")
     if not settings_path.exists():
         raise ValueError(f"nonexistant {settings_path}")
@@ -226,7 +226,7 @@ def start_db(db_path: Union[Path, str]) -> None:
     subprocess.run(start_cmd, shell=True, check=True)
 
 
-def stop_db(db_path: str) -> None:
+def stop_db(db_path: Union[Path, str]) -> None:
     stop_cmd = f"pg_ctl -w stop -D {db_path} --mode=smart"
     res = subprocess.run(stop_cmd, shell=True)
     if res.returncode != 0:
