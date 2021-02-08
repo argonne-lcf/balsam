@@ -1,27 +1,29 @@
+from typing import Any, Dict, List, Tuple, cast
+
 import click
 
 from balsam.config import SiteConfig
 
 
-def list_to_dict(arg_list):
-    return dict(arg.split("=") for arg in arg_list)
+def list_to_dict(arg_list: List[str]) -> Dict[str, str]:
+    return dict(cast(Tuple[str, str], arg.split("=", maxsplit=1)) for arg in arg_list)
 
 
-def validate_tags(ctx, param, value):
+def validate_tags(ctx: Any, param: Any, value: List[str]) -> Dict[str, str]:
     try:
         return list_to_dict(value)
     except ValueError:
         raise click.BadParameter("needs to be in format KEY=VALUE")
 
 
-def validate_partitions(ctx, param, value):
+def validate_partitions(ctx: Any, param: Any, value: List[str]) -> List[Dict[str, Any]]:
     partitions = []
     for arg in value:
         try:
-            job_mode, num_nodes, *filter_tags = value.split(":")
+            job_mode, num_nodes, *filter_tags_list = arg.split(":")
         except ValueError:
             raise click.BadParameter("needs to be in format MODE:NUM_NODES[:KEY=VALUE]")
-        filter_tags = validate_tags(ctx, param, filter_tags)
+        filter_tags: Dict[str, str] = validate_tags(ctx, param, filter_tags_list)
         partitions.append({"job_mode": job_mode, "num_nodes": num_nodes, "filter_tags": filter_tags})
     return partitions
 

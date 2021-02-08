@@ -66,7 +66,7 @@ class ClientSettings(BaseSettings):
 
     @validator("client_class", pre=True, always=True)
     def load_client_class(cls, v: str) -> Type[RESTClient]:
-        loaded = import_string(v)
+        loaded = import_string(v) if isinstance(v, str) else v
         if not issubclass(loaded, RESTClient):
             raise TypeError(f"client_class must subclass {get_class_path(RESTClient)}")
         return cast(Type[RESTClient], loaded)
@@ -128,7 +128,7 @@ class SchedulerSettings(BaseSettings):
 
     @validator("scheduler_class", pre=True, always=True)
     def load_scheduler_class(cls, v: str) -> Type[SchedulerInterface]:
-        loaded = import_string(v)
+        loaded = import_string(v) if isinstance(v, str) else v
         if not issubclass(loaded, SchedulerInterface):
             raise TypeError(f"scheduler_class must subclass {get_class_path(SchedulerInterface)}")
         return cast(Type[SchedulerInterface], loaded)
@@ -172,21 +172,21 @@ class LauncherSettings(BaseSettings):
 
     @validator("compute_node", pre=True, always=True)
     def load_compute_node_class(cls, v: str) -> Type[ComputeNode]:
-        loaded = import_string(v)
+        loaded = import_string(v) if isinstance(v, str) else v
         if not issubclass(loaded, ComputeNode):
             raise TypeError(f"compute_node must subclass {get_class_path(ComputeNode)}")
         return cast(Type[ComputeNode], loaded)
 
     @validator("mpi_app_launcher", pre=True, always=True)
     def load_mpi_app_launcher(cls, v: str) -> Type[AppRun]:
-        loaded = import_string(v)
+        loaded = import_string(v) if isinstance(v, str) else v
         if not issubclass(loaded, AppRun):
             raise TypeError(f"mpi_app_launcher must subclass {get_class_path(AppRun)}")
         return cast(Type[AppRun], loaded)
 
     @validator("local_app_launcher", pre=True, always=True)
     def load_local_app_launcher(cls, v: str) -> Type[AppRun]:
-        loaded = import_string(v)
+        loaded = import_string(v) if isinstance(v, str) else v
         if not issubclass(loaded, AppRun):
             raise TypeError(f"local_app_launcher must subclass {get_class_path(AppRun)}")
         return cast(Type[AppRun], loaded)

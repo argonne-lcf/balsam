@@ -6,7 +6,7 @@ from .manager import Manager
 from .model import BalsamModel, Field
 
 if TYPE_CHECKING:
-    from balsam.api.models import App, BatchJob, EventLog, Job, Session, Site, TransferItem  # noqa: F401
+    from balsam._api.models import App, BatchJob, EventLog, Job, Session, Site, TransferItem  # noqa: F401
     from balsam.client import RESTClient
 
 JobState = schemas.JobState
@@ -144,7 +144,7 @@ class SessionManagerBase(Manager["Session"]):
     _client: "RESTClient"
 
     def _do_acquire(self, instance: "SessionBase", **kwargs: Any) -> "List[Job]":
-        from balsam.api.models import Job
+        from balsam._api.models import Job
 
         acquired_raw = self._client.post(self._api_path + f"{instance.id}", **kwargs)
         jobs = [Job._from_api(dat) for dat in acquired_raw]

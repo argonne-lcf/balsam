@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Type
 
-from balsam.api.models import (
+from balsam._api.models import (
     App,
     AppManager,
     BatchJob,

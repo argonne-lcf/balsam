@@ -75,7 +75,7 @@ From the top `balsam` directory, test the client API with PyTest:
 Test the DRF backend with PyTest:
 
 ```bash
-pytest balsam/api/
+pytest tests/api
 ```
 This will run an extensive set of tests with the test database (balsam-test) as a backend. It will automatically start and stop Gunicorn as needed.
 

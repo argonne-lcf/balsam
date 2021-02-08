@@ -14,7 +14,7 @@ client = BasicAuthRequestsClient("http://localhost:8000", username="misha2", pas
 client.refresh_auth()  # Trade password for an access token
 
 # Now you can freely use the client API
-# See examples in balsam/api/test_api.py
+# See examples in tests/api/
 
 Site = client.Site
 if Site.objects.count() == 0:

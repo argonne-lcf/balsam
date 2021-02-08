@@ -7,7 +7,7 @@ import jinja2
 from pydantic import BaseModel, PyObject
 from pydantic.fields import ModelField
 
-from balsam.api.model import BalsamModel
+from balsam._api.model import BalsamModel
 
 FieldDict = Dict[str, Any]
 
@@ -163,10 +163,7 @@ def field_to_dict(field: ModelField, schema: BaseModel) -> FieldDict:
         else:
             raise RuntimeError(f"Could not find annotation for {field.name} on {schema.__name__} MRO")  # type: ignore
     else:
-        if qual_path(field.type_).startswith("builtins."):
-            annotation = str(field.type_.__name__)
-        else:
-            annotation = qual_path(field.type_)
+        annotation = qual_path(field.type_)
 
     assert annotation is not None
     return {
@@ -207,11 +204,14 @@ def filter_signature(filterset: object) -> List[str]:
             continue
         try:
             field_type = qual_path(field.type)
-            if field_type.startswith("builtins."):
-                field_type = field_type.split(".")[1]
         except AttributeError:
             field_type = str(field.type)
-        kwarg = f"{field.name}: Optional[{field_type}] = None"
+        if getattr(field.type, "_name", None) in ["List", "Set"]:
+            inner_type = qual_path(field.type.__args__[0])
+            annotation = f"Union[{field_type}, {inner_type}, None]"
+        else:
+            annotation = f"Optional[{field_type}]"
+        kwarg = f"{field.name}: {annotation} = None"
         result.append(kwarg)
     return result
 
@@ -245,7 +245,12 @@ def get_model_fields(model_base: Type[BalsamModel]) -> Tuple[FieldDict, FieldDic
 
 
 def qual_path(obj: type) -> str:
-    return f"{obj.__module__}.{obj.__name__}" if obj is not None else "None"
+    if obj is None:
+        return "None"
+    mod, name = str(obj.__module__), str(obj.__name__)
+    if mod == "builtins":
+        return name
+    return f"{mod}.{name}"
 
 
 def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: type) -> Dict[str, Any]:
@@ -306,15 +311,15 @@ def main() -> None:
     imports = [
         "import datetime",
         "import typing",
-        "from typing import Optional, Any, List",
+        "from typing import Optional, Any, List, Union",
         "import pathlib",
         "import uuid",
         "import pydantic",
-        "import balsam.api.model",
-        "import balsam.api.bases",
-        "from balsam.api.query import Query",
+        "import balsam._api.model",
+        "import balsam._api.bases",
+        "from balsam._api.query import Query",
         "import balsam.server.routers.filters",
-        "from balsam.api.model import Field",
+        "from balsam._api.model import Field",
     ]
     header = header_template.render(
         generator_name=f"{sys.executable} {' '.join(sys.argv)}",
@@ -334,8 +339,8 @@ def main() -> None:
     ]
     for model in models:
         conf = APIConf(
-            model_base=f"balsam.api.bases.{model}Base",
-            manager_base=f"balsam.api.bases.{model}ManagerBase",
+            model_base=f"balsam._api.bases.{model}Base",
+            manager_base=f"balsam._api.bases.{model}ManagerBase",
             filterset=f"balsam.server.routers.filters.{model}Query",
         )
         model_ctx = get_model_ctx(conf.model_base, conf.manager_base, conf.filterset)  # type: ignore

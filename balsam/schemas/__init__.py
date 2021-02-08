@@ -6,12 +6,22 @@ from .batchjob import (
     BatchJobPartition,
     BatchJobState,
     BatchJobUpdate,
+    JobMode,
     PaginatedBatchJobOut,
     SchedulerBackfillWindow,
     SchedulerJobLog,
     SchedulerJobStatus,
 )
-from .job import RUNNABLE_STATES, JobBulkUpdate, JobCreate, JobOut, JobState, JobUpdate, PaginatedJobsOut
+from .job import (
+    RUNNABLE_STATES,
+    JobBulkUpdate,
+    JobCreate,
+    JobOut,
+    JobState,
+    JobTransferItem,
+    JobUpdate,
+    PaginatedJobsOut,
+)
 from .logevent import LogEventOut, PaginatedLogEventOut
 from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
@@ -45,6 +55,7 @@ __all__ = [
     "BatchJobState",
     "BatchJobPartition",
     "BatchJobOut",
+    "JobMode",
     "PaginatedBatchJobOut",
     "SessionCreate",
     "SessionOut",
@@ -56,6 +67,7 @@ __all__ = [
     "PaginatedJobsOut",
     "JobOut",
     "JobState",
+    "JobTransferItem",
     "RUNNABLE_STATES",
     "TransferItemOut",
     "PaginatedTransferItemOut",

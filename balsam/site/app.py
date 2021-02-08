@@ -3,10 +3,16 @@ import logging
 import os
 import shlex
 from pathlib import Path
-from typing import Tuple
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple, Type, Union, cast
 
 import jinja2
 import jinja2.meta
+
+from balsam.schemas import JobState
+
+if TYPE_CHECKING:
+    from balsam._api.models import Job
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +21,8 @@ def split_class_path(class_path: str) -> Tuple[str, str]:
     """
     'my_module.ClassName' --> ('my_module', 'ClassName')
     """
-    filename, *class_name = class_path.split(".")
-    class_name = ".".join(class_name)
+    filename, *class_name_tup = class_path.split(".")
+    class_name = ".".join(class_name_tup)
     if not filename:
         raise ValueError(f"{class_path} must refer to a Python class with the form Module.Class")
     if not class_name or "." in class_name:
@@ -24,22 +30,24 @@ def split_class_path(class_path: str) -> Tuple[str, str]:
     return filename, class_name
 
 
-def load_module(fpath):
+def load_module(fpath: Union[str, Path]) -> ModuleType:
     if not Path(fpath).is_file():
         raise FileNotFoundError(f"Could not find App definition file {fpath}")
 
     fpath = str(fpath)
     spec = importlib.util.spec_from_file_location(fpath, fpath)
     module = importlib.util.module_from_spec(spec)
+    if spec.loader is None:
+        raise ImportError(f"Failed to load {fpath}: spec has no loader")
     try:
-        spec.loader.exec_module(module)
+        cast(Any, spec.loader).exec_module(module)
     except Exception as exc:
         logger.exception(f"Failed to load {fpath} because of an exception in the module:\n{exc}")
         raise
     return module
 
 
-def is_appdef(attr):
+def is_appdef(attr: type) -> bool:
     return (
         isinstance(attr, type)
         and issubclass(attr, ApplicationDefinition)
@@ -47,7 +55,7 @@ def is_appdef(attr):
     )
 
 
-def find_app_classes(module):
+def find_app_classes(module: ModuleType) -> List[Type["ApplicationDefinition"]]:
     app_classes = []
     for obj_name in dir(module):
         attr = getattr(module, obj_name)
@@ -57,9 +65,15 @@ def find_app_classes(module):
 
 
 class ApplicationDefinitionMeta(type):
-    def __new__(mcls, name, bases, attrs):
+    _loaded_apps: Dict[Tuple[str, str], Type["ApplicationDefinition"]]
+    environment_variables: Dict[str, str]
+    command_template: str
+    parameters: Dict[str, Any]
+    transfers: Dict[str, Any]
+
+    def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "ApplicationDefinitionMeta":
         super_new = super().__new__
-        cls = super_new(mcls, name, bases, attrs)
+        cls = cast(ApplicationDefinitionMeta, super_new(mcls, name, bases, attrs))
         if not bases:
             return cls
 
@@ -71,7 +85,7 @@ class ApplicationDefinitionMeta(type):
         cls.command_template = " ".join(cls.command_template.strip().split())
         ctx = jinja2.Environment().parse(cls.command_template)
 
-        detected_params = jinja2.meta.find_undeclared_variables(ctx)
+        detected_params: Set[str] = jinja2.meta.find_undeclared_variables(ctx)  # type: ignore
         cls_params = set(cls.parameters.keys())
 
         extraneous = cls_params.difference(detected_params)
@@ -92,22 +106,22 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     class ModuleLoadError(Exception):
         pass
 
-    _loaded_apps: dict = {}
-    environment_variables: dict = {}
+    _loaded_apps: Dict[Tuple[str, str], Type["ApplicationDefinition"]] = {}
+    environment_variables: Dict[str, str] = {}
     command_template: str = ""
-    parameters: dict = {}
-    transfers: dict = {}
+    parameters: Dict[str, Any] = {}
+    transfers: Dict[str, Any] = {}
 
-    def __init__(self, job):
+    def __init__(self, job: "Job") -> None:
         self.job = job
 
     def get_arg_str(self) -> str:
         return self._render_command(self.job.parameters)
 
-    def get_arg_list(self) -> list:
+    def get_arg_list(self) -> List[str]:
         return shlex.split(self.get_arg_str())
 
-    def get_environ_vars(self) -> dict:
+    def get_environ_vars(self) -> Dict[str, str]:
         envs = os.environ.copy()
         envs.update(self.environment_variables)
         envs["BALSAM_JOB_ID"] = str(self.job.id)
@@ -115,7 +129,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             envs["OMP_NUM_THREADS"] = str(self.job.threads_per_rank)
         return envs
 
-    def _render_command(self, arg_dict: dict) -> str:
+    def _render_command(self, arg_dict: Dict[str, str]) -> str:
         """
         Args:
             - arg_dict: value for each required parameter
@@ -131,23 +145,23 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         sanitized_args = {key: shlex.quote(str(arg_dict[key])) for key in self.parameters}
         return jinja2.Template(self.command_template).render(sanitized_args)
 
-    def preprocess(self):
-        self.job.state = "PREPROCESSED"
+    def preprocess(self) -> None:
+        self.job.state = JobState.preprocessed
 
-    def postprocess(self):
-        self.job.state = "POSTPROCESSED"
+    def postprocess(self) -> None:
+        self.job.state = JobState.postprocessed
 
-    def shell_preamble(self):
+    def shell_preamble(self) -> Union[str, List[str]]:
         return []
 
-    def handle_timeout(self):
-        self.job.state = "RESTART_READY"
+    def handle_timeout(self) -> None:
+        self.job.state = JobState.restart_ready
 
-    def handle_error(self):
-        self.job.state = "FAILED"
+    def handle_error(self) -> None:
+        self.job.state = JobState.failed
 
     @classmethod
-    def load_app_class(cls, apps_dir, class_path):
+    def load_app_class(cls, apps_dir: Union[Path, str], class_path: str) -> Type["ApplicationDefinition"]:
         """
         Load the ApplicationDefinition subclass located in directory apps_dir
         """
@@ -168,10 +182,10 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             raise TypeError(f"{class_path} must subclass {cls.__name__}")
 
         cls._loaded_apps[key] = app_class
-        return app_class
+        return cast(Type[ApplicationDefinition], app_class)
 
     @classmethod
-    def as_dict(cls):
+    def as_dict(cls) -> Dict[str, Any]:
         return dict(
             description=cls.__doc__,
             parameters=cls.parameters,
@@ -179,7 +193,8 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         )
 
 
-app_template = '''
+app_template = jinja2.Template(
+    '''
 from balsam.site import ApplicationDefinition
 
 class {{cls_name}}(ApplicationDefinition):
@@ -207,5 +222,4 @@ class {{cls_name}}(ApplicationDefinition):
         self.job.state = "FAILED"
 
 '''.lstrip()
-
-app_template = jinja2.Template(app_template)
+)
