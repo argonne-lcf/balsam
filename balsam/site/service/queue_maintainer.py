@@ -19,7 +19,7 @@ class QueueMaintainerService(BalsamService):
         num_queued_jobs=5,
         num_nodes=20,
         wall_time_min=127,
-    ):
+    ) -> None:
         super().__init__(client=client, service_period=submit_period)
         self.site_id = site_id
         self.project = submit_project

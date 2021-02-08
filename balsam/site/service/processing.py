@@ -101,7 +101,7 @@ class ProcessingService(object):
         data_path,
         filter_tags=None,
         num_workers=5,
-    ):
+    ) -> None:
         self.site_id = site_id
         self.job_source = FixedDepthJobSource(
             client=client,

@@ -25,7 +25,7 @@ class TransferService(BalsamService):
         transfer_batch_size,
         num_items_query_limit,
         service_period,
-    ):
+    ) -> None:
         super().__init__(client=client, service_period=service_period)
         self.site_id = site_id
         self.data_path = data_path

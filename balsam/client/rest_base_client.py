@@ -25,6 +25,9 @@ class AuthError(Exception):
 
 
 class RESTClient:
+    def __init__(*args: Any, **kwargs: Any) -> None:
+        raise NotImplementedError
+
     def interactive_login(self) -> Any:
         """Initiate interactive login flow"""
         raise NotImplementedError

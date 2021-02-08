@@ -25,7 +25,7 @@ class SchedulerService(BalsamService):
         job_template_path,
         submit_directory,
         filter_tags,
-    ):
+    ) -> None:
         super().__init__(client=client, service_period=sync_period)
         self.site_id = site_id
         self.scheduler = scheduler_class()

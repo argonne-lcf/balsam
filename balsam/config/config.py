@@ -4,54 +4,79 @@ import shutil
 import socket
 from abc import ABCMeta
 from datetime import datetime
+from importlib import import_module
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union, cast
 from uuid import UUID
 
 import jinja2
 import yaml
-from pydantic import BaseSettings, PyObject, ValidationError, validator
+from pydantic import BaseSettings, Field, ValidationError, validator
 
 from balsam.client import NotAuthenticatedError, RESTClient
+from balsam.platform.app_run import AppRun
+from balsam.platform.compute_node import ComputeNode
+from balsam.platform.scheduler import SchedulerInterface
 from balsam.platform.transfer import GlobusTransferInterface
 from balsam.schemas import AllowedQueue
 from balsam.util import config_file_logging
+
+if TYPE_CHECKING:
+    from balsam.site.service.service_base import BalsamService
 
 
 class InvalidSettings(Exception):
     pass
 
 
-def balsam_home():
+def balsam_home() -> Path:
     return Path.home().joinpath(".balsam")
 
 
-def get_class_path(cls):
+def get_class_path(cls: type) -> str:
     return cls.__module__ + "." + cls.__name__
+
+
+def import_string(dotted_path: str) -> Any:
+    """
+    Stolen from pydantic. Import a dotted module path and return the attribute/class designated by the
+    last name in the path. Raise ImportError if the import fails.
+    """
+    try:
+        module_path, class_name = dotted_path.strip(" ").rsplit(".", 1)
+    except ValueError as e:
+        raise ImportError(f'"{dotted_path}" doesn\'t look like a module path') from e
+
+    module = import_module(module_path)
+    try:
+        return getattr(module, class_name)
+    except AttributeError as e:
+        raise ImportError(f'Module "{module_path}" does not define a "{class_name}" attribute') from e
 
 
 class ClientSettings(BaseSettings):
     api_root: str
     username: str
-    client_class: PyObject = "balsam.client.BasicAuthRequestsClient"
+    client_class: Type[RESTClient] = Field("balsam.client.BasicAuthRequestsClient")
     token: Optional[str] = None
     token_expiry: Optional[datetime] = None
     connect_timeout: float = 3.1
     read_timeout: float = 5.0
     retry_count: int = 3
 
-    @validator("client_class")
-    def client_type_is_correct(cls, v):
-        if not issubclass(v, RESTClient):
-            raise TypeError("client_class must subclass balsam.client.RESTClient")
-        return v
+    @validator("client_class", pre=True, always=True)
+    def load_client_class(cls, v: str) -> Type[RESTClient]:
+        loaded = import_string(v)
+        if not issubclass(loaded, RESTClient):
+            raise TypeError(f"client_class must subclass {get_class_path(RESTClient)}")
+        return cast(Type[RESTClient], loaded)
 
     @staticmethod
-    def settings_path():
+    def settings_path() -> Path:
         return balsam_home().joinpath("client.yml")
 
     @classmethod
-    def load_from_home(cls):
+    def load_from_home(cls) -> "ClientSettings":
         try:
             with open(cls.settings_path()) as fp:
                 data = yaml.safe_load(fp)
@@ -61,7 +86,7 @@ class ClientSettings(BaseSettings):
             )
         return cls(**data)
 
-    def save_to_home(self):
+    def save_to_home(self) -> None:
         data = self.dict()
         cls = data["client_class"]
         data["client_class"] = get_class_path(cls)
@@ -77,7 +102,7 @@ class ClientSettings(BaseSettings):
         with open(settings_path, "w+") as fp:
             yaml.dump(data, fp, sort_keys=False, indent=4)
 
-    def build_client(self):
+    def build_client(self) -> RESTClient:
         client = self.client_class(**self.dict(exclude={"client_class"}))
         return client
 
@@ -91,7 +116,7 @@ class LoggingConfig(BaseSettings):
 
 
 class SchedulerSettings(BaseSettings):
-    scheduler_class: PyObject = "balsam.platform.scheduler.CobaltScheduler"
+    scheduler_class: Type[SchedulerInterface] = Field("balsam.platform.scheduler.CobaltScheduler")
     sync_period: int = 60
     allowed_queues: Dict[str, AllowedQueue] = {
         "default": AllowedQueue(max_nodes=4010, max_walltime=24 * 60, max_queued_jobs=20),
@@ -100,6 +125,13 @@ class SchedulerSettings(BaseSettings):
     allowed_projects: List[str] = ["datascience", "magstructsADSP"]
     optional_batch_job_params: Dict[str, str] = {"singularity_prime_cache": "no"}
     job_template_path: Path = Path("job-template.sh")
+
+    @validator("scheduler_class", pre=True, always=True)
+    def load_scheduler_class(cls, v: str) -> Type[SchedulerInterface]:
+        loaded = import_string(v)
+        if not issubclass(loaded, SchedulerInterface):
+            raise TypeError(f"scheduler_class must subclass {get_class_path(SchedulerInterface)}")
+        return cast(Type[SchedulerInterface], loaded)
 
 
 class QueueMaintainerSettings(BaseSettings):
@@ -131,12 +163,33 @@ class LauncherSettings(BaseSettings):
     delay_sec: int = 1
     error_tail_num_lines: int = 10
     max_concurrent_mpiruns: int = 1000
-    compute_node: PyObject = "balsam.platform.compute_node.ThetaKNLNode"
-    mpi_app_launcher: PyObject = "balsam.platform.app_run.ThetaAprun"
-    local_app_launcher: PyObject = "balsam.platform.app_run.LocalAppRun"
+    compute_node: Type[ComputeNode] = Field("balsam.platform.compute_node.ThetaKNLNode")
+    mpi_app_launcher: Type[AppRun] = Field("balsam.platform.app_run.ThetaAprun")
+    local_app_launcher: Type[AppRun] = Field("balsam.platform.app_run.LocalAppRun")
     mpirun_allows_node_packing: bool = False
     serial_mode_prefetch_per_rank: int = 64
-    serial_mode_startup_params: dict = {"cpu_affinity": "none"}
+    serial_mode_startup_params: Dict[str, str] = {"cpu_affinity": "none"}
+
+    @validator("compute_node", pre=True, always=True)
+    def load_compute_node_class(cls, v: str) -> Type[ComputeNode]:
+        loaded = import_string(v)
+        if not issubclass(loaded, ComputeNode):
+            raise TypeError(f"compute_node must subclass {get_class_path(ComputeNode)}")
+        return cast(Type[ComputeNode], loaded)
+
+    @validator("mpi_app_launcher", pre=True, always=True)
+    def load_mpi_app_launcher(cls, v: str) -> Type[AppRun]:
+        loaded = import_string(v)
+        if not issubclass(loaded, AppRun):
+            raise TypeError(f"mpi_app_launcher must subclass {get_class_path(AppRun)}")
+        return cast(Type[AppRun], loaded)
+
+    @validator("local_app_launcher", pre=True, always=True)
+    def load_local_app_launcher(cls, v: str) -> Type[AppRun]:
+        loaded = import_string(v)
+        if not issubclass(loaded, AppRun):
+            raise TypeError(f"local_app_launcher must subclass {get_class_path(AppRun)}")
+        return cast(Type[AppRun], loaded)
 
 
 class Settings(BaseSettings):
@@ -151,19 +204,22 @@ class Settings(BaseSettings):
     transfers: Optional[TransferSettings] = TransferSettings()
     queue_maintainer: Optional[QueueMaintainerSettings] = QueueMaintainerSettings()
 
-    def save(self, path):
+    def save(self, path: Union[str, Path]) -> None:
         with open(path, "w") as fp:
             fp.write(self.dump_yaml())
 
-    def dump_yaml(self):
-        return yaml.dump(
-            json.loads(self.json()),
-            sort_keys=False,
-            indent=4,
+    def dump_yaml(self) -> str:
+        return cast(
+            str,
+            yaml.dump(
+                json.loads(self.json()),
+                sort_keys=False,
+                indent=4,
+            ),
         )
 
     @classmethod
-    def load(cls, path):
+    def load(cls, path: Union[str, Path]) -> "Settings":
         with open(path) as fp:
             raw_data = yaml.safe_load(fp)
         return cls(**raw_data)
@@ -182,7 +238,7 @@ class SiteConfig:
     Instead, this class builds and injects needed settings/dependencies at runtime
     """
 
-    def __init__(self, site_path=None, settings=None):
+    def __init__(self, site_path: Union[str, Path, None] = None, settings: Optional[Settings] = None) -> None:
         self.site_path: Path = self.resolve_site_path(site_path)
         self.client = ClientSettings.load_from_home().build_client()
 
@@ -204,10 +260,10 @@ class SiteConfig:
         except ValidationError as exc:
             raise InvalidSettings(f"{yaml_settings} is invalid:\n{exc}")
 
-    def build_services(self):
+    def build_services(self) -> "List[BalsamService]":
         from balsam.site.service import ProcessingService, QueueMaintainerService, SchedulerService, TransferService
 
-        services = []
+        services: List[BalsamService] = []
 
         if self.settings.scheduler:
             scheduler_service = SchedulerService(
@@ -237,7 +293,7 @@ class SiteConfig:
                 filter_tags=self.settings.filter_tags,
                 **dict(self.settings.processing),  # does not convert sub-models to dicts
             )
-            services.append(processing_service)
+            services.append(cast("BalsamService", processing_service))
 
         if self.settings.transfers:
             transfer_settings = dict(self.settings.transfers)
@@ -256,7 +312,7 @@ class SiteConfig:
         return services
 
     @staticmethod
-    def load_default_config_dirs():
+    def load_default_config_dirs() -> List[Path]:
         """
         Get list of pre-configured Site directories for new site setup
         """
@@ -265,16 +321,18 @@ class SiteConfig:
         return [p.parent for p in default_settings_files]
 
     @staticmethod
-    def load_settings_template(path):
+    def load_settings_template(path: Path) -> jinja2.Template:
         raw = path.read_text()
         ctx = jinja2.Environment().parse(raw)
-        detected_params = jinja2.meta.find_undeclared_variables(ctx)
+        detected_params: Set[str] = jinja2.meta.find_undeclared_variables(ctx)  # type: ignore
         if "site_id" not in detected_params:
             raise ValueError("{{ site_id }} missing from default settings.yml")
         return jinja2.Template(raw)
 
     @classmethod
-    def new_site_setup(cls, site_path, default_site_path, hostname=None):
+    def new_site_setup(
+        cls, site_path: Union[str, Path], default_site_path: Path, hostname: Optional[str] = None
+    ) -> None:
         """
         Creates a new site directory, registers Site
         with Balsam API, and writes default settings.yml into
@@ -310,8 +368,12 @@ class SiteConfig:
                 src=default_site_path.joinpath("apps"),
                 dst=cf.apps_path,
             )
+            if settings.scheduler is not None:
+                job_template_path = settings.scheduler.job_template_path
+            else:
+                job_template_path = Path("job-template.sh")
             shutil.copy(
-                src=default_site_path.joinpath(settings.scheduler.job_template_path),
+                src=default_site_path.joinpath(job_template_path),
                 dst=cf.site_path,
             )
         except FileNotFoundError:
@@ -320,7 +382,7 @@ class SiteConfig:
             raise
 
     @staticmethod
-    def resolve_site_path(site_path=None) -> Path:
+    def resolve_site_path(site_path: Union[None, str, Path] = None) -> Path:
         # Site determined from either passed argument, environ,
         # or walking up parent directories, in that order
         site_path = site_path or os.environ.get("BALSAM_SITE_PATH") or SiteConfig.search_site_dir()
@@ -342,33 +404,34 @@ class SiteConfig:
         return site_path
 
     @staticmethod
-    def search_site_dir():
+    def search_site_dir() -> Optional[Path]:
         check_dir = Path.cwd()
         while check_dir.as_posix() != "/":
             if check_dir.joinpath(".balsam-site").is_file():
                 return check_dir
             check_dir = check_dir.parent
+        return None
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         return getattr(self.settings, item)
 
     @property
-    def apps_path(self):
+    def apps_path(self) -> Path:
         return self.site_path.joinpath("apps")
 
     @property
-    def log_path(self):
+    def log_path(self) -> Path:
         return self.site_path.joinpath("log")
 
     @property
-    def job_path(self):
+    def job_path(self) -> Path:
         return self.site_path.joinpath("qsubmit")
 
     @property
-    def data_path(self):
+    def data_path(self) -> Path:
         return self.site_path.joinpath("data")
 
-    def enable_logging(self, basename, filename=None):
+    def enable_logging(self, basename: str, filename: Optional[str] = None) -> Dict[str, Any]:
         if filename is None:
             ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             filename = f"{basename}_{ts}.log"
