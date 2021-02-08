@@ -19,6 +19,10 @@ mypy:
 
 balsam/api/models.py: balsam/api/bases.py  balsam/server/routers/filters.py
 	python balsam/schemas/api_generator.py > balsam/api/models.py
+
+.PHONY: validate-defaults
+validate-defaults:
+	python balsam/config/defaults/validate.py
 	
 
 .PHONY: test-api
@@ -32,4 +36,4 @@ testcov: test-api
 	@coverage html
 
 .PHONY: all
-all: balsam/api/models.py format lint mypy testcov
+all: balsam/api/models.py validate-defaults format lint mypy testcov

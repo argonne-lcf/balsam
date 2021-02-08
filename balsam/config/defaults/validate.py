@@ -17,4 +17,4 @@ if __name__ == "__main__":
             print(f"Invalid settings file {settings_file}\n  --> {exc}")
             sys.exit(1)
         else:
-            print(f"{settings_file.parent}: OK")
+            print(f"{settings_file.parent.name}: OK")
