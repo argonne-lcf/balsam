@@ -67,7 +67,7 @@ T = TypeVar("T", bound="BalsamModel")
 
 class BalsamModelMeta(type):
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "BalsamModelMeta":
-        if bases == (object,) or bases == ():
+        if bases == (object,) or bases == () or "_read_model_cls" not in attrs:
             return cast(BalsamModelMeta, super().__new__(mcls, name, bases, attrs))
 
         field_names = set()
@@ -86,7 +86,6 @@ class BalsamModelMeta(type):
 
 
 class BalsamModel(metaclass=BalsamModelMeta):
-    id: Field[Optional[int]]
     _create_model_cls: Optional[Type[BaseModel]]
     _update_model_cls: Optional[Type[BaseModel]]
     _read_model_cls: Type[BaseModel]
@@ -94,6 +93,7 @@ class BalsamModel(metaclass=BalsamModelMeta):
     _update_model: Optional[BaseModel]
     _read_model: Optional[BaseModel]
     objects: "Manager"  # type: ignore
+    id: Any
 
     def __init__(self, _api_data: bool = False, **kwargs: Any) -> None:
         self._create_model = None
@@ -185,3 +185,11 @@ class BalsamModel(metaclass=BalsamModelMeta):
         if not isinstance(other, BalsamModel):
             return False
         return self._state == "clean" and other._state == "clean" and self._read_model == other._read_model
+
+
+class NonCreatableBalsamModel(BalsamModel):
+    id: Field[int]
+
+
+class CreatableBalsamModel(BalsamModel):
+    id: Field[Optional[int]]

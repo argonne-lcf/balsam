@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev e1e1657]
+# [git rev 6c83c28]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -582,7 +582,7 @@ class Session(balsam._api.bases.SessionBase):
     _read_model_cls = balsam.schemas.session.SessionOut
     objects: "SessionManager"
 
-    site_id = Field[Optional[int]]()
+    site_id = Field[int]()
     batch_job_id = Field[Optional[int]]()
     id = Field[Optional[int]]()
     heartbeat = Field[Optional[datetime.datetime]]()
@@ -629,16 +629,16 @@ class TransferItem(balsam._api.bases.TransferItemBase):
     _read_model_cls = balsam.schemas.transfer.TransferItemOut
     objects: "TransferItemManager"
 
-    state = Field[Optional[balsam.schemas.transfer.TransferItemState]]()
-    task_id = Field[Optional[str]]()
-    transfer_info = Field[Optional[typing.Dict[str, typing.Any]]]()
-    id = Field[Optional[int]]()
-    job_id = Field[Optional[int]]()
-    direction = Field[Optional[balsam.schemas.transfer.TransferDirection]]()
-    local_path = Field[Optional[pathlib.Path]]()
-    remote_path = Field[Optional[pathlib.Path]]()
-    location_alias = Field[Optional[str]]()
-    recursive = Field[Optional[bool]]()
+    state = Field[balsam.schemas.transfer.TransferItemState]()
+    task_id = Field[str]()
+    transfer_info = Field[typing.Dict[str, typing.Any]]()
+    id = Field[int]()
+    job_id = Field[int]()
+    direction = Field[balsam.schemas.transfer.TransferDirection]()
+    local_path = Field[pathlib.Path]()
+    remote_path = Field[pathlib.Path]()
+    location_alias = Field[str]()
+    recursive = Field[bool]()
 
 
 class TransferItemQuery(Query[TransferItem]):
@@ -731,12 +731,12 @@ class EventLog(balsam._api.bases.EventLogBase):
     _read_model_cls = balsam.schemas.logevent.LogEventOut
     objects: "EventLogManager"
 
-    id = Field[Optional[int]]()
-    job_id = Field[Optional[int]]()
-    timestamp = Field[Optional[datetime.datetime]]()
-    from_state = Field[Optional[str]]()
-    to_state = Field[Optional[str]]()
-    data = Field[Optional[typing.Dict[str, typing.Any]]]()
+    id = Field[int]()
+    job_id = Field[int]()
+    timestamp = Field[datetime.datetime]()
+    from_state = Field[str]()
+    to_state = Field[str]()
+    data = Field[typing.Dict[str, typing.Any]]()
 
 
 class EventLogQuery(Query[EventLog]):

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, TypeVar, Union, overload
 
 from .model import BalsamModel
 
@@ -23,7 +23,7 @@ class Query(Iterable[T]):
         self._offset: Optional[int] = None
 
     def __repr__(self) -> str:
-        data = list(self[: REPR_OUTPUT_SIZE + 1])  # type: ignore
+        data = list(self[: REPR_OUTPUT_SIZE + 1])
         if len(data) > REPR_OUTPUT_SIZE:
             data[-1] = "...(remaining elements truncated)..."  # type: ignore
         return "<%s %r>" % (self.__class__.__name__, data)
@@ -47,7 +47,15 @@ class Query(Iterable[T]):
         assert isinstance(self._result_cache, list)
         self._result_cache[k] = v
 
-    def __getitem__(self, k: Union[int, slice]) -> Union[List[T], T, "Query[T]"]:
+    @overload
+    def __getitem__(self, k: int) -> T:
+        ...
+
+    @overload
+    def __getitem__(self, k: slice) -> Union[List[T], "Query[T]"]:  # noqa: F811
+        ...
+
+    def __getitem__(self, k: Union[int, slice]) -> Union[List[T], T, "Query[T]"]:  # noqa: F811
         """
         Retrieve an item or slice from the set of results.
         """
@@ -155,7 +163,7 @@ class Query(Iterable[T]):
             raise self._manager._model_class.MultipleObjectsReturned(nobj)
 
     def first(self) -> T:
-        return cast(T, self[0])
+        return self[0]
 
     def count(self) -> Optional[int]:
         if self._count is None:

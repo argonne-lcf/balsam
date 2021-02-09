@@ -8,7 +8,7 @@ from uuid import UUID
 from globus_cli.services.transfer import get_client  # type: ignore
 from globus_sdk import TransferData  # type: ignore
 
-from .transfer import TaskInfo, TransferInterface, TransferSubmitError, TransferTaskID
+from .transfer import TaskInfo, TransferInterface, TransferSubmitError
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ class GlobusTransferInterface(TransferInterface):
         remote_loc: str,
         direction: str,
         transfer_paths: Sequence[Tuple[PathLike, PathLike, bool]],
-    ) -> TransferTaskID:
+    ) -> str:
         """Submit Transfer Task via Globus CLI"""
         if direction == "in":
             src_endpoint, dest_endpoint = UUID(str(remote_loc)), self.endpoint_id
@@ -103,10 +103,10 @@ class GlobusTransferInterface(TransferInterface):
         else:
             raise ValueError("direction must be in or out")
         task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths)
-        return task_id
+        return str(task_id)
 
     @staticmethod
-    def _poll_tasks(task_ids: Sequence[TransferTaskID]) -> List[TaskInfo]:
+    def _poll_tasks(task_ids: Sequence[str]) -> List[TaskInfo]:
         client = get_client()
         filter_values = {"task_id": ",".join(map(str, task_ids))}
         filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())

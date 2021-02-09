@@ -17,7 +17,7 @@ from balsam.client import NotAuthenticatedError, RESTClient
 from balsam.platform.app_run import AppRun
 from balsam.platform.compute_node import ComputeNode
 from balsam.platform.scheduler import SchedulerInterface
-from balsam.platform.transfer import GlobusTransferInterface
+from balsam.platform.transfer import GlobusTransferInterface, TransferInterface
 from balsam.schemas import AllowedQueue
 from balsam.util import config_file_logging
 
@@ -297,7 +297,7 @@ class SiteConfig:
 
         if self.settings.transfers:
             transfer_settings = dict(self.settings.transfers)
-            transfer_interfaces = {}
+            transfer_interfaces: Dict[str, TransferInterface] = {}
             endpoint_id = transfer_settings.pop("globus_endpoint_id")
             if endpoint_id:
                 transfer_interfaces["globus"] = GlobusTransferInterface(endpoint_id)

@@ -4,6 +4,8 @@ from uuid import uuid4
 
 import pytest
 
+from balsam.schemas import TransferItemState
+
 
 class TestSite:
     def test_create_and_list(self, client):
@@ -542,7 +544,13 @@ class TestTransfers:
         )
         pending = TransferItem.objects.filter(state="pending")
         assert pending.count() == 1
+        pending = TransferItem.objects.filter(state=TransferItemState.pending)
+        assert pending.count() == 1
+        done = TransferItem.objects.filter(state=TransferItemState.done)
+        assert done.count() == 0
         all_t = TransferItem.objects.filter(state=["pending", "awaiting_job"])
+        assert all_t.count() == 2
+        all_t = TransferItem.objects.filter(state={"pending", "awaiting_job"})
         assert all_t.count() == 2
 
 

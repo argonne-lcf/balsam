@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any, Dict, List, Optional, Type
 
 from balsam._api.models import (
@@ -25,6 +26,8 @@ class AuthError(Exception):
 
 
 class RESTClient:
+    expires_in: timedelta
+
     def __init__(*args: Any, **kwargs: Any) -> None:
         raise NotImplementedError
 
@@ -37,6 +40,9 @@ class RESTClient:
         Reload credentials if stored/not expired.
         Set appropriate Auth headers on HTTP session.
         """
+        raise NotImplementedError
+
+    def close_session(self) -> None:
         raise NotImplementedError
 
     def request(

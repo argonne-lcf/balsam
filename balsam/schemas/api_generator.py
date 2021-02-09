@@ -144,7 +144,7 @@ def get_git_hash() -> str:
     return subprocess.check_output("git rev-parse --short HEAD", shell=True, encoding="utf-8").strip()
 
 
-def field_to_dict(field: ModelField, schema: BaseModel) -> FieldDict:
+def field_to_dict(field: ModelField, schema: Type[BaseModel]) -> FieldDict:
     if field.default == [] or field.default == {}:
         assert not field.required
         default_create = None
@@ -156,12 +156,12 @@ def field_to_dict(field: ModelField, schema: BaseModel) -> FieldDict:
         default_create = ...
     if field.is_complex():
         annotation = None
-        for cls in schema.mro():  # type: ignore
+        for cls in schema.mro():
             if field.name in cls.__annotations__:
                 annotation = str(cls.__annotations__[field.name])
                 break
         else:
-            raise RuntimeError(f"Could not find annotation for {field.name} on {schema.__name__} MRO")  # type: ignore
+            raise RuntimeError(f"Could not find annotation for {field.name} on {schema.__name__} MRO")
     else:
         annotation = qual_path(field.type_)
 
@@ -176,7 +176,7 @@ def field_to_dict(field: ModelField, schema: BaseModel) -> FieldDict:
     }
 
 
-def get_schema_fields(schema: BaseModel) -> Dict[str, FieldDict]:
+def get_schema_fields(schema: Type[BaseModel]) -> Dict[str, FieldDict]:
     return {k: field_to_dict(v, schema) for k, v in schema.__fields__.items()}
 
 
@@ -234,9 +234,9 @@ def order_by_typename(filterset: object) -> Optional[str]:
 
 
 def get_model_fields(model_base: Type[BalsamModel]) -> Tuple[FieldDict, FieldDict, FieldDict]:
-    create_model = model_base.__dict__["_create_model_cls"]
-    update_model = model_base.__dict__["_update_model_cls"]
-    read_model = model_base.__dict__["_read_model_cls"]
+    create_model = model_base._create_model_cls
+    update_model = model_base._update_model_cls
+    read_model = model_base._read_model_cls
 
     create_fields = get_schema_fields(create_model) if create_model is not None else {}
     update_fields = get_schema_fields(update_model) if update_model is not None else {}
@@ -267,8 +267,8 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: 
     order_by_type = order_by_typename(filterset)
     fields = {**create_fields, **update_fields, **read_fields}
     for field in fields:
-        # A read-only field can be None (e.g. not created yet, id is None)
-        if field in read_fields and field not in create_fields:
+        # A read-only field can be None if the model is creatable (e.g. not created yet, id is None)
+        if field in read_fields and field not in create_fields and model_base._create_model_cls is not None:
             fields[field]["allowed_none"] = True
         # A write-only field can be None (e.g. state_timestamp not written yet)
         elif field in update_fields and field not in read_fields:

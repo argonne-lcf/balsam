@@ -2,12 +2,9 @@ import abc
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple, Type, Union
-from uuid import UUID
+from typing import Any, Dict, List, Sequence, Tuple, Type
 
 from pydantic import BaseModel
-
-TransferTaskID = Union[str, int, UUID]
 
 
 class TransferSubmitError(Exception):
@@ -22,7 +19,7 @@ class TaskState(str, Enum):
 
 
 class TaskInfo(BaseModel):
-    task_id: TransferTaskID
+    task_id: str
     state: TaskState
     info: Dict[str, Any]
 
@@ -36,16 +33,16 @@ class TransferInterface(abc.ABC):
         remote_loc: str,
         direction: str,
         transfer_paths: List[Tuple[Path, Path, bool]],
-    ) -> TransferTaskID:
+    ) -> str:
         raise NotImplementedError
 
     @abc.abstractmethod
     @staticmethod
-    def _poll_tasks(task_ids: Sequence[TransferTaskID]) -> List[TaskInfo]:
+    def _poll_tasks(task_ids: Sequence[str]) -> List[TaskInfo]:
         raise NotImplementedError
 
     @staticmethod
-    def poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    def poll_tasks(task_ids: List[str]) -> List[TaskInfo]:
         ids_by_protocol = defaultdict(list)
         for task_id in task_ids:
             protocol, id = str(task_id).split(":")

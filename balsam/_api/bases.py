@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 from balsam import schemas
 
 from .manager import Manager
-from .model import BalsamModel, Field
+from .model import CreatableBalsamModel, Field, NonCreatableBalsamModel
 
 if TYPE_CHECKING:
     from balsam._api.models import App, BatchJob, EventLog, Job, Session, Site, TransferItem  # noqa: F401
@@ -13,7 +13,7 @@ JobState = schemas.JobState
 RUNNABLE_STATES = schemas.RUNNABLE_STATES
 
 
-class SiteBase(BalsamModel):
+class SiteBase(CreatableBalsamModel):
     _create_model_cls = schemas.SiteCreate
     _update_model_cls = schemas.SiteUpdate
     _read_model_cls = schemas.SiteOut
@@ -23,7 +23,7 @@ class SiteManagerBase(Manager["Site"]):
     _api_path = "sites/"
 
 
-class AppBase(BalsamModel):
+class AppBase(CreatableBalsamModel):
     _create_model_cls = schemas.AppCreate
     _update_model_cls = schemas.AppUpdate
     _read_model_cls = schemas.AppOut
@@ -33,7 +33,7 @@ class AppManagerBase(Manager["App"]):
     _api_path = "apps/"
 
 
-class BatchJobBase(BalsamModel):
+class BatchJobBase(CreatableBalsamModel):
     _create_model_cls = schemas.BatchJobCreate
     _update_model_cls = schemas.BatchJobUpdate
     _read_model_cls = schemas.BatchJobOut
@@ -93,7 +93,7 @@ class BatchJobManagerBase(Manager["BatchJob"]):
     _bulk_update_enabled = True
 
 
-class JobBase(BalsamModel):
+class JobBase(CreatableBalsamModel):
     _create_model_cls = schemas.JobCreate
     _update_model_cls = schemas.JobUpdate
     _read_model_cls = schemas.JobOut
@@ -106,7 +106,7 @@ class JobManagerBase(Manager["Job"]):
     _bulk_delete_enabled = True
 
 
-class SessionBase(BalsamModel):
+class SessionBase(CreatableBalsamModel):
     _create_model_cls = schemas.SessionCreate
     _update_model_cls = None
     _read_model_cls = schemas.SessionOut
@@ -154,7 +154,7 @@ class SessionManagerBase(Manager["Session"]):
         self._client.put(self._api_path + f"{instance.id}")
 
 
-class TransferItemBase(BalsamModel):
+class TransferItemBase(NonCreatableBalsamModel):
     _create_model_cls = None
     _update_model_cls = schemas.TransferItemUpdate
     _read_model_cls = schemas.TransferItemOut
@@ -165,7 +165,7 @@ class TransferItemManagerBase(Manager["TransferItem"]):
     _bulk_update_enabled = True
 
 
-class EventLogBase(BalsamModel):
+class EventLogBase(NonCreatableBalsamModel):
     _create_model_cls = None
     _update_model_cls = None
     _read_model_cls = schemas.LogEventOut
