@@ -5,24 +5,30 @@ import signal
 import socket
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, cast
+
+from pydantic import AnyUrl
 
 from balsam.config import Settings, SiteConfig
+
+if TYPE_CHECKING:
+    from balsam._api.models import Site
 
 logger = logging.getLogger("balsam.site.service.main")
 
 EXIT_FLAG = False
 
 
-def handler(signum, stack):
+def handler(signum: int, stack: Any) -> None:
     global EXIT_FLAG
     EXIT_FLAG = True
 
 
 class PIDFile:
-    def __init__(self, site_path: Path):
+    def __init__(self, site_path: Path) -> None:
         self.path: Path = site_path.joinpath("balsam-service.pid")
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self.path.exists():
             raise RuntimeError(
                 f"{self.path} already exists: will not start Balsam service because it's already running. "
@@ -31,18 +37,18 @@ class PIDFile:
         with open(self.path, "w") as fp:
             fp.write(f"{socket.gethostname()}\n{os.getpid()}")
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         self.path.unlink()
 
 
-def update_site_from_config(site, settings: Settings):
+def update_site_from_config(site: "Site", settings: Settings) -> None:
     old_dict = site.display_dict()
     if settings.scheduler:
         site.allowed_projects = settings.scheduler.allowed_projects
         site.allowed_queues = settings.scheduler.allowed_queues
         site.optional_batch_job_params = settings.scheduler.optional_batch_job_params
     if settings.transfers:
-        site.transfer_locations = settings.transfers.transfer_locations
+        site.transfer_locations = cast(Dict[str, AnyUrl], settings.transfers.transfer_locations)
         site.globus_endpoint_id = settings.transfers.globus_endpoint_id
 
     new_dict = site.display_dict()
@@ -53,7 +59,7 @@ def update_site_from_config(site, settings: Settings):
         logger.info(f"Updated Site parameters:\n{diff_str}")
 
 
-def main(config: SiteConfig, run_time_sec: int):
+def main(config: SiteConfig, run_time_sec: int) -> None:
     start_time = time.time()
     config.enable_logging(basename="service")
     m, s = divmod(run_time_sec, 60)

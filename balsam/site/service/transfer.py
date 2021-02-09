@@ -4,27 +4,35 @@ from collections import defaultdict
 from itertools import islice
 from math import ceil
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Union, cast
 from urllib.parse import urlparse
+from uuid import UUID
 
-from balsam.platform.transfer import TransferInterface, TransferSubmitError
+from balsam.platform.transfer import TaskInfo, TransferInterface, TransferSubmitError
+from balsam.schemas import TransferItemState
 
 from .service_base import BalsamService
 
+if TYPE_CHECKING:
+    from balsam._api.models import Job, TransferItem, TransferItemQuery
+    from balsam.client import RESTClient
+
 logger = logging.getLogger(__name__)
+GetPathsFunc = Callable[["TransferItem"], Tuple[Path, Path]]
 
 
 class TransferService(BalsamService):
     def __init__(
         self,
-        client,
-        site_id,
-        data_path,
-        transfer_interfaces,
-        transfer_locations,
-        max_concurrent_transfers,
-        transfer_batch_size,
-        num_items_query_limit,
-        service_period,
+        client: "RESTClient",
+        site_id: int,
+        data_path: Path,
+        transfer_interfaces: Dict[str, TransferInterface],
+        transfer_locations: Dict[str, str],
+        max_concurrent_transfers: int,
+        transfer_batch_size: int,
+        num_items_query_limit: int,
+        service_period: int,
     ) -> None:
         super().__init__(client=client, service_period=service_period)
         self.site_id = site_id
@@ -37,26 +45,26 @@ class TransferService(BalsamService):
         logger.info(f"Initialized TransferService:\n{self.__dict__}")
 
     @staticmethod
-    def build_task_map(transfer_items):
+    def build_task_map(transfer_items: Iterable["TransferItem"]) -> defaultdict[str, List["TransferItem"]]:
         task_map = defaultdict(list)
         for item in transfer_items:
             task_map[item.task_id].append(item)
         return task_map
 
-    def update_transfers(self, transfer_items, task):
+    def update_transfers(self, transfer_items: List["TransferItem"], task: TaskInfo) -> None:
         for item in transfer_items:
-            item.state = task.state
+            item.state = cast(TransferItemState, task.state)
             item.transfer_info = {**item.transfer_info, **task.info}
         self.client.TransferItem.objects.bulk_update(transfer_items)
         logger.info(f"Updated {len(transfer_items)} TransferItems " f"with task {task.task_id} to state {task.state}")
 
     @staticmethod
-    def batch_iter(li, bsize):
+    def batch_iter(li: List[Any], bsize: int) -> Iterable[List[Any]]:
         nbatches = ceil(len(li) / bsize)
         for i in range(nbatches):
             yield li[i * bsize : (i + 1) * bsize]
 
-    def item_batch_iter(self, items):
+    def item_batch_iter(self, items: "TransferItemQuery") -> Iterable[List["TransferItem"]]:
         transfer_candidates = defaultdict(list)
         for item in items[: self.num_items_query_limit]:
             transfer_candidates[(item.direction, item.location_alias)].append(item)
@@ -66,18 +74,18 @@ class TransferService(BalsamService):
             reverse=True,
         )
         for key in task_keys:
-            items = transfer_candidates[key]
-            for batch in self.batch_iter(items, bsize=self.transfer_batch_size):
+            key_items = transfer_candidates[key]
+            for batch in self.batch_iter(key_items, bsize=self.transfer_batch_size):
                 yield batch
 
     @staticmethod
-    def error_items(items, msg):
+    def error_items(items: List["TransferItem"], msg: str) -> None:
         logger.warning(msg)
         for item in items:
-            item.state = "error"
+            item.state = TransferItemState.error
             item.transfer_info = {**item.transfer_info, "error": msg}
 
-    def get_transfer_loc(self, loc_alias):
+    def get_transfer_loc(self, loc_alias: str) -> Tuple[TransferInterface, str]:
         """Lookup trusted remote datastore and transfer method"""
         transfer_location = self.transfer_locations.get(loc_alias)
         if transfer_location is None:
@@ -90,7 +98,7 @@ class TransferService(BalsamService):
         transfer_interface = self.transfer_interfaces[protocol]
         return transfer_interface, remote_loc
 
-    def get_workdirs_by_id(self, batch):
+    def get_workdirs_by_id(self, batch: List["TransferItem"]) -> Dict[int, Path]:
         """Build map of job workdirs, ensuring existence"""
         job_ids = [item.job_id for item in batch]
         jobs = {job.id: job for job in self.client.Job.objects.filter(id=job_ids)}
@@ -100,10 +108,11 @@ class TransferService(BalsamService):
         for job_id, job in jobs.items():
             workdir = Path(self.data_path).joinpath(job.workdir).resolve()
             workdir.mkdir(parents=True, exist_ok=True)
+            assert job_id is not None
             workdirs[job_id] = workdir
         return workdirs
 
-    def submit_task(self, batch):
+    def submit_task(self, batch: List["TransferItem"]) -> None:
         loc_alias = batch[0].location_alias
         direction = batch[0].direction
 
@@ -120,16 +129,12 @@ class TransferService(BalsamService):
             return self.error_items(batch, str(exc))
 
         workdirs = self.get_workdirs_by_id(batch)
+        get_paths: GetPathsFunc
         if direction == "in":
-            get_paths = lambda item: (
-                item.remote_path,
-                workdirs[item.job_id].joinpath(item.local_path),
-            )
+            get_paths = lambda item: (item.remote_path, workdirs[item.job_id].joinpath(item.local_path))
         else:
-            get_paths = lambda item: (
-                workdirs[item.job_id].joinpath(item.local_path),
-                item.remote_path,
-            )
+            get_paths = lambda item: (workdirs[item.job_id].joinpath(item.local_path), item.remote_path)
+
         transfer_paths = [(*get_paths(item), item.recursive) for item in batch]
 
         try:
@@ -137,16 +142,18 @@ class TransferService(BalsamService):
         except TransferSubmitError as exc:
             return self.error_items(batch, f"TransferSubmitError: {exc}")
         for item in batch:
-            item.task_id = task_id
-            item.state = "active"
+            item.task_id = str(task_id)
+            item.state = TransferItemState.active
 
-    def run_cycle(self):
+    def run_cycle(self) -> None:
         TransferItem = self.client.TransferItem
-        pending_submit = TransferItem.objects.filter(site_id=self.site_id, state=["pending"])
-        in_flight = TransferItem.objects.filter(site_id=self.site_id, state=["active", "inactive"])
+        pending_submit = TransferItem.objects.filter(site_id=self.site_id, state={TransferItemState.pending})
+        in_flight = TransferItem.objects.filter(
+            site_id=self.site_id, state={TransferItemState.active, TransferItemState.inactive}
+        )
 
         task_map = self.build_task_map(in_flight)
-        task_ids = list(task_map.keys())
+        task_ids: List[str] = list(task_map.keys())
         num_active_tasks = len(task_map)
 
         tasks = TransferInterface.poll_tasks(task_ids)
@@ -161,5 +168,5 @@ class TransferService(BalsamService):
                 self.submit_task(batch)
                 TransferItem.objects.bulk_update(batch)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         pass
