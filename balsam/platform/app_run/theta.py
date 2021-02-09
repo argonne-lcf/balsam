@@ -8,10 +8,10 @@ class ThetaAprun(SubprocessAppRun):
     https://www.alcf.anl.gov/support-center/theta/running-jobs-and-submission-scripts
     """
 
-    def _pre_popen(self):
+    def _pre_popen(self) -> None:
         time.sleep(0.01)
 
-    def _build_cmdline(self):
+    def _build_cmdline(self) -> str:
         node_ids = [nid for nid in self._node_spec.node_ids]
         nid_str = ",".join(map(str, node_ids))
         cpu_affinity = self._launch_params.get("cpu_affinity", "none")

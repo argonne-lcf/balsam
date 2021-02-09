@@ -2,7 +2,7 @@ import abc
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Type, Union
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -27,20 +27,8 @@ class TaskInfo(BaseModel):
     info: Dict[str, Any]
 
 
-def all_absolute(*paths):
-    for p in paths:
-        if not Path(p).is_absolute():
-            raise ValueError(f"{p} must be an absolute path")
-
-
-def all_relative(*paths):
-    for p in paths:
-        if Path(p).is_absolute():
-            raise ValueError(f"{p} must be a relative path")
-
-
 class TransferInterface(abc.ABC):
-    _registry = {}
+    _registry: Dict[str, Type["TransferInterface"]] = {}
 
     @abc.abstractmethod
     def submit_task(
@@ -51,8 +39,9 @@ class TransferInterface(abc.ABC):
     ) -> TransferTaskID:
         raise NotImplementedError
 
-    @abc.abstractstaticmethod
-    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    @abc.abstractmethod
+    @staticmethod
+    def _poll_tasks(task_ids: Sequence[TransferTaskID]) -> List[TaskInfo]:
         raise NotImplementedError
 
     @staticmethod

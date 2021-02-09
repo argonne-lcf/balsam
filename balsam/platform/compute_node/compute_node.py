@@ -1,19 +1,27 @@
+from typing import Type  # noqa: F401
+from typing import Any, Dict, List, TypeVar, Union
+
+IntStr = Union[int, str]
+
+U = TypeVar("U", bound="Type[ComputeNode]")
+
+
 class ComputeNode:
 
-    cpu_ids = []
-    gpu_ids = []
+    cpu_ids: List[IntStr] = []
+    gpu_ids: List[IntStr] = []
 
-    def __init__(self, node_id, hostname):
+    def __init__(self, node_id: IntStr, hostname: str) -> None:
         self.node_id = node_id
         self.hostname = hostname
         self.occupancy = 0.0
-        self.jobs = {}
-        self.idle_cpus = [i for i in self.cpu_ids]
-        self.busy_cpus = []
-        self.idle_gpus = [i for i in self.gpu_ids]
-        self.busy_gpus = []
+        self.jobs: Dict[int, Dict[str, Any]] = {}
+        self.idle_cpus: List[IntStr] = [i for i in self.cpu_ids]
+        self.busy_cpus: List[IntStr] = []
+        self.idle_gpus: List[IntStr] = [i for i in self.gpu_ids]
+        self.busy_gpus: List[IntStr] = []
 
-    def check_fit(self, num_cpus, num_gpus, occupancy):
+    def check_fit(self, num_cpus: int, num_gpus: int, occupancy: float) -> bool:
         if self.occupancy + occupancy > 1.001:
             return False
         elif num_cpus > len(self.idle_cpus):
@@ -23,7 +31,7 @@ class ComputeNode:
         else:
             return True
 
-    def assign(self, job_id, num_cpus=0, num_gpus=0, occupancy=1.0):
+    def assign(self, job_id: int, num_cpus: int = 0, num_gpus: int = 0, occupancy: float = 1.0) -> Dict[str, Any]:
         if job_id in self.jobs:
             raise ValueError(f"Already have job {job_id}")
 
@@ -47,7 +55,7 @@ class ComputeNode:
         self.jobs[job_id] = resource_spec
         return resource_spec
 
-    def free(self, job_id):
+    def free(self, job_id: int) -> None:
         resource_spec = self.jobs.pop(job_id)
         self.occupancy -= resource_spec["occupancy"]
         if self.occupancy < 0.001:
@@ -62,15 +70,15 @@ class ComputeNode:
             self.busy_gpus = [i for i in self.busy_gpus if i not in gpu_ids]
 
     @classmethod
-    def get_job_nodelist(cls, job_mode):
+    def get_job_nodelist(cls: U, job_mode: str) -> "List[U]":
         """
         Get all compute nodes allocated in the current job context
         """
         return []
 
     @staticmethod
-    def get_scheduler_id():
+    def get_scheduler_id() -> Union[int, str, None]:
         return None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(id={self.node_id}, hostname={self.hostname})"

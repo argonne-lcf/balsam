@@ -4,9 +4,9 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import IO, Dict, List, Optional, Union, cast
 
-import psutil
+import psutil  # type: ignore
 
 from balsam.site.launcher import NodeSpec
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class _MockProcess:
-    def cpu_affinity(self, cpus=None):
+    def cpu_affinity(self, cpus: Optional[List[int]] = None) -> None:
         pass
 
 
@@ -63,7 +63,7 @@ class AppRun(ABC):
         self._launch_params = launch_params
         self._gpus_per_rank = gpus_per_rank
 
-    def get_num_ranks(self):
+    def get_num_ranks(self) -> int:
         return self._ranks_per_node * len(self._node_spec.node_ids)
 
     @abstractmethod
@@ -71,37 +71,37 @@ class AppRun(ABC):
         pass
 
     @abstractmethod
-    def poll(self):
+    def poll(self) -> Optional[int]:
         pass
 
     @abstractmethod
-    def terminate(self):
+    def terminate(self) -> None:
         pass
 
     @abstractmethod
-    def kill(self):
+    def kill(self) -> None:
         pass
 
     @abstractmethod
-    def tail_output(self, nlines=10):
+    def tail_output(self, nlines: int = 10) -> str:
         pass
 
     @abstractmethod
-    def wait(self, timeout=None):
+    def wait(self, timeout: Optional[float] = None) -> int:
         pass
 
 
 class FailedStartProcess:
-    def poll(self):
+    def poll(self) -> Optional[int]:
         return 12345
 
-    def terminate(self):
+    def terminate(self) -> None:
         pass
 
-    def kill(self):
+    def kill(self) -> None:
         pass
 
-    def wait(self, timeout=None):
+    def wait(self, timeout: Optional[float] = None) -> int:
         return 12345
 
 
@@ -110,12 +110,12 @@ class SubprocessAppRun(AppRun):
     Implements subprocess management for apps launched via Popen
     """
 
-    _preamble_cache = {}
+    _preamble_cache: Dict[str, Path] = {}
 
-    def _build_cmdline(self):
+    def _build_cmdline(self) -> str:
         return ""
 
-    def _build_preamble(self):
+    def _build_preamble(self) -> str:
         if not self._preamble:
             return ""
         if isinstance(self._preamble, list):
@@ -128,7 +128,7 @@ class SubprocessAppRun(AppRun):
                 self._preamble_cache[self._preamble] = Path(fp.name).resolve()
         return f"source {self._preamble_cache[self._preamble]} && "
 
-    def _get_envs(self):
+    def _get_envs(self) -> Dict[str, str]:
         envs = os.environ.copy()
         envs.update(self._envs)
         # Check the assigned GPU ID list from the first compute node:
@@ -138,13 +138,13 @@ class SubprocessAppRun(AppRun):
             envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
         return envs
 
-    def _open_outfile(self):
+    def _open_outfile(self) -> IO[bytes]:
         return open(self._outfile_path, "wb")
 
-    def _pre_popen(self):
+    def _pre_popen(self) -> None:
         pass
 
-    def _post_popen(self):
+    def _post_popen(self) -> None:
         pass
 
     def start(self) -> None:
@@ -167,24 +167,24 @@ class SubprocessAppRun(AppRun):
             )
         except Exception as e:
             logger.error(f"Popen failed: {e}")
-            self._process = FailedStartProcess()
+            self._process = cast("subprocess.Popen[bytes]", FailedStartProcess())
         self._post_popen()
 
-    def poll(self):
+    def poll(self) -> Optional[int]:
         returncode = self._process.poll()
         if returncode is not None:
             self._outfile.close()
         return returncode
 
-    def terminate(self):
+    def terminate(self) -> None:
         return self._process.terminate()
 
-    def kill(self):
+    def kill(self) -> None:
         self._process.kill()
         self._outfile.close()
         self._process.poll()
 
-    def wait(self, timeout=None):
+    def wait(self, timeout: Optional[float] = None) -> int:
         try:
             retcode = self._process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -193,7 +193,7 @@ class SubprocessAppRun(AppRun):
             self._outfile.close()
             return retcode
 
-    def tail_output(self, nlines=10):
+    def tail_output(self, nlines: int = 10) -> str:
         return subprocess.check_output(
             ["tail", "-n", str(nlines), self._outfile_path],
             encoding="utf-8",
@@ -201,13 +201,13 @@ class SubprocessAppRun(AppRun):
 
 
 class LocalAppRun(SubprocessAppRun):
-    def _build_cmdline(self):
+    def _build_cmdline(self) -> str:
         return self._cmdline
 
-    def _pre_popen(self):
+    def _pre_popen(self) -> None:
         cpu_ids = self._node_spec.cpu_ids[0]
         if cpu_ids:
             _psutil_process.cpu_affinity(cpu_ids)
 
-    def _post_popen(self):
+    def _post_popen(self) -> None:
         _psutil_process.cpu_affinity([])

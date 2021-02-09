@@ -1,19 +1,13 @@
 import getpass
 import subprocess
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-import psutil
+import psutil  # type: ignore
 
-from .scheduler import (
-    Dict,
-    List,
-    Optional,
-    PathLike,
-    SchedulerBackfillWindow,
-    SchedulerInterface,
-    SchedulerJobLog,
-    SchedulerJobStatus,
-)
+from .scheduler import SchedulerBackfillWindow, SchedulerInterface, SchedulerJobLog, SchedulerJobStatus
+
+PathLike = Union[str, Path]
 
 
 class LocalProcessScheduler(SchedulerInterface):
@@ -22,7 +16,7 @@ class LocalProcessScheduler(SchedulerInterface):
         psutil.STATUS_DEAD: "finished",
     }
 
-    _subprocesses = []
+    _subprocesses: List["subprocess.Popen[bytes]"] = []
 
     @classmethod
     def submit(
@@ -33,8 +27,8 @@ class LocalProcessScheduler(SchedulerInterface):
         num_nodes: int,
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
-        **kwargs,
-    ) -> int:
+        **kwargs: Any,
+    ) -> Union[str, int]:
         """
         Submit the script at `script_path` to a local job queue.
         Returns scheduler ID of the submitted job.
@@ -56,12 +50,12 @@ class LocalProcessScheduler(SchedulerInterface):
         project: Optional[str] = None,
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
-    ) -> Dict[int, SchedulerJobStatus]:
+    ) -> Dict[Union[int, str], SchedulerJobStatus]:
         """
         Returns dictionary keyed on scheduler job id and a value of JobStatus for each
           job belonging to current user, project, and/or queue
         """
-        results = {}
+        results: Dict[Union[int, str], SchedulerJobStatus] = {}
         for p in psutil.process_iter(attrs=["pid", "username", "status"]):
             if p.info["username"] == user:
                 pid = int(p.info["pid"])
@@ -79,12 +73,13 @@ class LocalProcessScheduler(SchedulerInterface):
         return results
 
     @classmethod
-    def delete_job(cls, scheduler_id: int):
+    def delete_job(cls, scheduler_id: int) -> str:
         """
         Deletes the batch job matching `scheduler_id`
         """
         if psutil.pid_exists(scheduler_id):
             psutil.Process(scheduler_id).terminate()
+        return str(scheduler_id)
 
     @classmethod
     def get_backfill_windows(cls) -> Dict[str, List[SchedulerBackfillWindow]]:

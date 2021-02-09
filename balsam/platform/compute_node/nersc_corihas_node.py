@@ -1,27 +1,16 @@
 import os
+from typing import List, Union
 
-from compute_node import ComputeNode
+from .compute_node import ComputeNode
 
 
-class CoriHaswelNode(ComputeNode):
+class CoriHaswellNode(ComputeNode):
 
-    num_cpu = 32
-    num_gpu = 0
-    cpu_identifiers = list(range(num_cpu))
-    gpu_identifiers = list(range(num_gpu))
-    cpu_type = "Intel Xeon E5-2698"
-    cpu_mem_gb = 125
-    gpu_type = ""
-    gpu_mem_gb = 0
-
-    def __init__(self, node_id, hostname, job_mode=""):
-        super(CoriHaswelNode, self).__init__(node_id, hostname, job_mode)
-
-    def __str__(self):
-        return f"{self.hostname}:cpu{self.num_cpu}:gpu{self.num_gpu}"
+    cpu_ids = list(range(32))
+    gpu_ids: List[Union[int, str]] = []
 
     @classmethod
-    def get_job_nodelist(cls):
+    def get_job_nodelist(cls, job_mode: str) -> List["CoriHaswellNode"]:
         """
         Get all compute nodes allocated in the current job context
         """
@@ -38,6 +27,8 @@ class CoriHaswelNode(ComputeNode):
         # split by comma
         node_ranges_str = nodelist_str.split(",")
         node_ids = []
+        lo: Union[str, int]
+        hi: Union[int, List[str]]
         for node_range_str in node_ranges_str:
             lo, *hi = node_range_str.split("-")
             lo = int(lo)
@@ -51,8 +42,6 @@ class CoriHaswelNode(ComputeNode):
 
 
 if __name__ == "__main__":
-
     if "SLURM_NODELIST" not in os.environ:
         os.environ["SLURM_NODELIST"] = "nid0[3038-3039,8241-8246]"
-
-    print([str(x) for x in CoriHaswelNode.get_job_nodelist()])
+    print([str(x) for x in CoriHaswellNode.get_job_nodelist(job_mode="mpi")])

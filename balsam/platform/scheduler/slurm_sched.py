@@ -1,13 +1,16 @@
 import logging
 import os
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from .scheduler import SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
+from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
 
+PathLike = Union[Path, str]
 logger = logging.getLogger(__name__)
 
 
 # parse "00:00:00" to minutes
-def parse_clock(t_str):
+def parse_clock(t_str: str) -> int:
     parts = t_str.split(":")
     n = len(parts)
     H = M = S = 0
@@ -20,7 +23,7 @@ def parse_clock(t_str):
 
 
 # parse "1-00:00:00" to minutes
-def parse_time_minutes(t_str):
+def parse_time_minutes(t_str: str) -> Optional[int]:
     mins = 0
     try:
         parts = t_str.split("-")
@@ -40,8 +43,8 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     submit_exe = "sbatch"
     delete_exe = "scancel"
     backfill_exe = "sinfo"
-    default_submit_kwargs = {}
-    submit_kwargs_flag_map = {}
+    default_submit_kwargs: Dict[str, str] = {}
+    submit_kwargs_flag_map: Dict[str, str] = {}
 
     # maps scheduler states to Balsam states
     job_states = {
@@ -63,7 +66,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     }
 
     @staticmethod
-    def _job_state_map(scheduler_state):
+    def _job_state_map(scheduler_state: str) -> str:
         return SlurmScheduler.job_states.get(scheduler_state, "unknown")
 
     # maps Balsam status fields to the scheduler fields
@@ -81,7 +84,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     # when reading these fields from the scheduler apply
     # these maps to the string extracted from the output
     @staticmethod
-    def _status_field_map(balsam_field):
+    def _status_field_map(balsam_field: str) -> Optional[Callable[[str], Any]]:
         status_field_map = {
             "scheduler_id": lambda id: int(id),
             "state": SlurmScheduler._job_state_map,
@@ -116,7 +119,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     }
 
     @staticmethod
-    def _node_state_map(nodelist_state):
+    def _node_state_map(nodelist_state: str) -> str:
         try:
             # removing special symbols that have some meaning
             # in the future we might want to encode this info
@@ -156,7 +159,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     # when reading these fields from the scheduler apply
     # these maps to the string extracted from the output
     @staticmethod
-    def _backfill_field_map(balsam_field):
+    def _backfill_field_map(balsam_field: str) -> Callable[[str], Any]:
         nodelist_field_map = {
             "queues": lambda q: q.split(":"),
             "state": SlurmScheduler._node_state_map,
@@ -165,7 +168,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return nodelist_field_map.get(balsam_field, lambda x: x)
 
     @staticmethod
-    def _set_envs():
+    def _set_envs() -> Dict[str, str]:
         env = {}
         fields = SlurmScheduler._status_fields.values()
         env["SQUEUE_FORMAT2"] = ",".join(fields)
@@ -175,7 +178,9 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return env
 
     @staticmethod
-    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs):
+    def _render_submit_args(
+        script_path: PathLike, project: str, queue: str, num_nodes: int, wall_time_min: int, **kwargs: Any
+    ) -> List[str]:
         args = [
             SlurmScheduler.submit_exe,
             "-o",
@@ -197,11 +202,13 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             value = kwargs.setdefault(key, default_value)
             args += [flag, value]
 
-        args.append(script_path)
+        args.append(str(script_path))
         return args
 
     @staticmethod
-    def _render_status_args(project=None, user=None, queue=None):
+    def _render_status_args(
+        project: Optional[str] = None, user: Optional[str] = None, queue: Optional[str] = None
+    ) -> List[str]:
         SlurmScheduler._set_envs()
         args = [SlurmScheduler.status_exe]
         if user is not None:
@@ -213,16 +220,16 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return args
 
     @staticmethod
-    def _render_delete_args(job_id):
+    def _render_delete_args(job_id: Union[int, str]) -> List[str]:
         return [SlurmScheduler.delete_exe, str(job_id)]
 
     @staticmethod
-    def _render_backfill_args():
+    def _render_backfill_args() -> List[str]:
         SlurmScheduler._set_envs()
         return [SlurmScheduler.backfill_exe]
 
     @staticmethod
-    def _parse_submit_output(submit_output):
+    def _parse_submit_output(submit_output: str) -> Union[int, str]:
         try:
             scheduler_id = int(submit_output)
         except ValueError:
@@ -230,9 +237,9 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return scheduler_id
 
     @staticmethod
-    def _parse_status_output(raw_output):
+    def _parse_status_output(raw_output: str) -> Dict[Union[int, str], SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
-        status_dict = {}
+        status_dict: Dict[Union[int, str], SchedulerJobStatus] = {}
         job_lines = raw_output.strip().split("\n")[1:]
         for line in job_lines:
             try:
@@ -241,11 +248,11 @@ class SlurmScheduler(SubprocessSchedulerInterface):
                 logger.debug(f"Cannot parse job status: {line}")
                 continue
             else:
-                status_dict[job_stat.id] = job_stat
+                status_dict[job_stat.scheduler_id] = job_stat
         return status_dict
 
     @staticmethod
-    def _parse_status_line(line):
+    def _parse_status_line(line: str) -> SchedulerJobStatus:
         fields = line.split()
         actual = len(fields)
         expected = len(SlurmScheduler._status_fields)
@@ -261,11 +268,11 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return SchedulerJobStatus(**status)
 
     @staticmethod
-    def _parse_backfill_output(stdout):
+    def _parse_backfill_output(stdout: str) -> Dict[str, List[SchedulerBackfillWindow]]:
         # TODO: NERSC currently does not provide this kind of information
         return {}
 
     @staticmethod
-    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+    def _parse_logs(scheduler_id: Union[int, str], job_script_path: PathLike) -> SchedulerJobLog:
         # TODO: return job start/stop time from files?
         return SchedulerJobLog()

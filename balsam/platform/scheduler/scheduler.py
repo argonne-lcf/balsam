@@ -2,7 +2,7 @@ import abc
 import getpass
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from balsam.schemas import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus
 
@@ -17,7 +17,7 @@ class SchedulerSubmitError(Exception):
     pass
 
 
-def scheduler_subproc(args: list, cwd: Optional[PathLike] = None) -> str:
+def scheduler_subproc(args: List[str], cwd: Optional[PathLike] = None) -> str:
     p = subprocess.run(
         args,
         stdout=subprocess.PIPE,
@@ -41,8 +41,8 @@ class SchedulerInterface(abc.ABC):
         num_nodes: int,
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
-        **kwargs,
-    ) -> int:
+        **kwargs: Any,
+    ) -> Union[int, str]:
         """
         Submit the script at `script_path` to a local job queue.
         Returns scheduler ID of the submitted job.
@@ -56,7 +56,7 @@ class SchedulerInterface(abc.ABC):
         project: Optional[str] = None,
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
-    ) -> Dict[int, SchedulerJobStatus]:
+    ) -> Dict[Union[int, str], SchedulerJobStatus]:
         """
         Returns dictionary keyed on scheduler job id and a value of JobStatus for each
           job belonging to current user, project, and/or queue
@@ -65,7 +65,7 @@ class SchedulerInterface(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def delete_job(cls, scheduler_id: int):
+    def delete_job(cls, scheduler_id: int) -> str:
         """
         Deletes the batch job matching `scheduler_id`
         """
@@ -99,8 +99,8 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
         num_nodes: int,
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
-        **kwargs,
-    ) -> int:
+        **kwargs: Any,
+    ) -> Union[int, str]:
         submit_args = cls._render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs)
         stdout = scheduler_subproc(submit_args, cwd=cwd)
         scheduler_id = cls._parse_submit_output(stdout)
@@ -112,14 +112,14 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
         project: Optional[str] = None,
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
-    ) -> Dict[int, SchedulerJobStatus]:
+    ) -> Dict[Union[int, str], SchedulerJobStatus]:
         stat_args = cls._render_status_args(project, user, queue)
         stdout = scheduler_subproc(stat_args)
         stat_dict = cls._parse_status_output(stdout)
         return stat_dict
 
     @classmethod
-    def delete_job(cls, scheduler_id: int):
+    def delete_job(cls, scheduler_id: int) -> str:
         delete_args = cls._render_delete_args(scheduler_id)
         stdout = scheduler_subproc(delete_args)
         return stdout
@@ -138,27 +138,29 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs) -> List[str]:
+    def _render_submit_args(
+        script_path: PathLike, project: str, queue: str, num_nodes: int, wall_time_min: int, **kwargs: Any
+    ) -> List[str]:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def _parse_submit_output(output) -> int:
+    def _parse_submit_output(output: str) -> Union[int, str]:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def _render_status_args(project, user, queue) -> List[str]:
+    def _render_status_args(project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def _parse_status_output(output) -> Dict[int, SchedulerJobStatus]:
+    def _parse_status_output(output: str) -> Dict[Union[int, str], SchedulerJobStatus]:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def _render_delete_args(scheduler_id) -> List[str]:
+    def _render_delete_args(scheduler_id: Union[int, str]) -> List[str]:
         pass
 
     @staticmethod
@@ -168,10 +170,19 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _parse_backfill_output(output) -> Dict[str, List[SchedulerBackfillWindow]]:
+    def _parse_backfill_output(output: str) -> Dict[str, List[SchedulerBackfillWindow]]:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+    def _parse_logs(scheduler_id: Union[int, str], job_script_path: PathLike) -> SchedulerJobLog:
         pass
+
+
+__all__ = [
+    "SchedulerBackfillWindow",
+    "SchedulerInterface",
+    "SubprocessSchedulerInterface",
+    "SchedulerJobLog",
+    "SchedulerJobStatus",
+]
