@@ -229,7 +229,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return [SlurmScheduler.backfill_exe]
 
     @staticmethod
-    def _parse_submit_output(submit_output: str) -> Union[int, str]:
+    def _parse_submit_output(submit_output: str) -> int:
         try:
             scheduler_id = int(submit_output)
         except ValueError:
@@ -237,9 +237,9 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return scheduler_id
 
     @staticmethod
-    def _parse_status_output(raw_output: str) -> Dict[Union[int, str], SchedulerJobStatus]:
+    def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
-        status_dict: Dict[Union[int, str], SchedulerJobStatus] = {}
+        status_dict = {}
         job_lines = raw_output.strip().split("\n")[1:]
         for line in job_lines:
             try:
@@ -273,6 +273,6 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return {}
 
     @staticmethod
-    def _parse_logs(scheduler_id: Union[int, str], job_script_path: PathLike) -> SchedulerJobLog:
+    def _parse_logs(scheduler_id: Union[int, str], job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         # TODO: return job start/stop time from files?
         return SchedulerJobLog()

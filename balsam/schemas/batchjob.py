@@ -27,6 +27,7 @@ class SchedulerJobStatus(BaseModel):
     wall_time_min: int
     project: str
     time_remaining_min: int
+    queued_time_min: int
 
 
 class SchedulerBackfillWindow(BaseModel):

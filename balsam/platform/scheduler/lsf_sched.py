@@ -158,7 +158,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return [LsfScheduler.backfill_exe, '-R"select[CN]"']
 
     @staticmethod
-    def _parse_submit_output(submit_output: str) -> Union[int, str]:
+    def _parse_submit_output(submit_output: str) -> int:
         try:
             start = len("Job <")
             end = submit_output.find(">", start)
@@ -168,7 +168,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return scheduler_id
 
     @staticmethod
-    def _parse_status_output(raw_output: str) -> Dict[Union[int, str], SchedulerJobStatus]:
+    def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # Example output:
         # ------------------------------- Running Jobs: 1 (batch: 4619/4625=99.87% + batch-hm: 46/54=85.19%) -------------------------------
         # JobID      User       Queue    Project    Nodes Remain     StartTime       JobName
@@ -177,7 +177,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         # JobID      User       Queue    Project    Nodes Walltime   QueueTime       Priority JobName
         # 696996     parton     batch    CSC388     1     20:00      01/27 16:12:21  504.00   Not_Specified
         # -------------------------------------------------------- Blocked Jobs: 0 ---------------------------------------------------------
-        status_dict: Dict[Union[int, str], SchedulerJobStatus] = {}
+        status_dict = {}
         job_lines = raw_output.strip().split("\n")
         state = None
         run = False
@@ -287,6 +287,6 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return SchedulerBackfillWindow(num_nodes=nodes, wall_time_min=backfill_time)
 
     @staticmethod
-    def _parse_logs(scheduler_id: Union[int, str], job_script_path: PathLike) -> SchedulerJobLog:
+    def _parse_logs(scheduler_id: Union[int, str], job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         # TODO: Return job start/stop time from log file or command
         return SchedulerJobLog()

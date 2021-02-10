@@ -4,7 +4,7 @@ import shutil
 import sys
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 from jinja2 import Template
 
@@ -39,7 +39,7 @@ class ScriptTemplate:
         wall_time_min: int,
         job_mode: JobMode,
         filter_tags: Optional[Dict[str, str]] = None,
-        partitions: Optional[Dict[str, Any]] = None,
+        partitions: Optional[str] = None,
         **kwargs: str,
     ) -> str:
         """

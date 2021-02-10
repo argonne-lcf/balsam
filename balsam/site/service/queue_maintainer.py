@@ -1,24 +1,28 @@
 import getpass
 import logging
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from .service_base import BalsamService
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from balsam.client import RESTClient
+
 
 class QueueMaintainerService(BalsamService):
     def __init__(
         self,
-        client,
-        site_id,
-        submit_period=60,
-        submit_project="datascience",
-        submit_queue="balsam",
-        job_mode="mpi",
-        filter_tags=None,
-        num_queued_jobs=5,
-        num_nodes=20,
-        wall_time_min=127,
+        client: "RESTClient",
+        site_id: int,
+        submit_period: int = 60,
+        submit_project: str = "datascience",
+        submit_queue: str = "balsam",
+        job_mode: str = "mpi",
+        filter_tags: Optional[Dict[str, str]] = None,
+        num_queued_jobs: int = 5,
+        num_nodes: int = 20,
+        wall_time_min: int = 127,
     ) -> None:
         super().__init__(client=client, service_period=submit_period)
         self.site_id = site_id
@@ -32,7 +36,7 @@ class QueueMaintainerService(BalsamService):
         self.username = getpass.getuser()
         logger.info(f"Initialized QueueMaintainerService:\n{self.__dict__}")
 
-    def get_next_submission(self):
+    def get_next_submission(self) -> Dict[str, Any]:
         return {
             "project": self.project,
             "queue": self.submit_queue,
@@ -43,12 +47,13 @@ class QueueMaintainerService(BalsamService):
             "site_id": self.site_id,
         }
 
-    def run_cycle(self):
+    def run_cycle(self) -> None:
         num_current = self.client.BatchJob.objects.filter(
             site_id=self.site_id,
             queue=self.submit_queue,
             state=["pending_submission", "queued", "running", "pending_deletion"],
         ).count()
+        assert num_current is not None
         logger.debug(f"{num_current} currently active BatchJobs")
         if num_current < self.num_queued_jobs:
             sub = self.get_next_submission()
@@ -56,5 +61,5 @@ class QueueMaintainerService(BalsamService):
             new_job.save()
             logger.info(f"Submitted new BatchJob: {new_job}")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         logger.info("Exiting QueueMaintainer service")

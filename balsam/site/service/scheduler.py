@@ -3,11 +3,19 @@ import logging
 import os
 import stat
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Type
 
 from balsam.platform.scheduler import SchedulerSubmitError
+from balsam.schemas import AllowedQueue, BatchJobState, SchedulerJobStatus
 from balsam.site import ScriptTemplate
 
 from .service_base import BalsamService
+
+if TYPE_CHECKING:
+    from balsam._api.models import BatchJob
+    from balsam.client import RESTClient
+    from balsam.platform.scheduler import SchedulerInterface  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -15,16 +23,16 @@ logger = logging.getLogger(__name__)
 class SchedulerService(BalsamService):
     def __init__(
         self,
-        client,
-        site_id,
-        scheduler_class,
-        sync_period,
-        allowed_queues,
-        allowed_projects,
-        optional_batch_job_params,
-        job_template_path,
-        submit_directory,
-        filter_tags,
+        client: "RESTClient",
+        site_id: int,
+        scheduler_class: Type["SchedulerInterface"],
+        sync_period: int,
+        allowed_queues: Dict[str, AllowedQueue],
+        allowed_projects: List[str],
+        optional_batch_job_params: Dict[str, str],
+        job_template_path: Path,
+        submit_directory: Path,
+        filter_tags: Dict[str, str],
     ) -> None:
         super().__init__(client=client, service_period=sync_period)
         self.site_id = site_id
@@ -38,12 +46,12 @@ class SchedulerService(BalsamService):
         self.filter_tags = filter_tags
         logger.info(f"Initialized SchedulerService:\n{self.__dict__}")
 
-    def fail_submit(self, job, msg):
-        job.state = "submit_failed"
-        job.status_info = {**job.status_info, "error": msg}
+    def fail_submit(self, job: "BatchJob", msg: str) -> None:
+        job.state = BatchJobState.submit_failed
+        job.status_info = {**(job.status_info or {}), "error": msg}
         logger.error(f"Submit failed for BatchJob {job.id}: {msg}")
 
-    def submit_launch(self, job, scheduler_jobs):
+    def submit_launch(self, job: "BatchJob", scheduler_jobs: Dict[int, SchedulerJobStatus]) -> None:
         try:
             job.validate(
                 self.allowed_queues,
@@ -90,22 +98,24 @@ class SchedulerService(BalsamService):
         except SchedulerSubmitError as e:
             return self.fail_submit(job, f"Scheduler submit error:\n{e}")
         else:
+            assert scheduler_id is not None
             job.scheduler_id = scheduler_id
-            job.state = "queued"
+            job.state = BatchJobState.queued
             job.status_info = {
-                **job.status_info,
-                "submit_script": script_path,
-                "submit_time": datetime.utcnow(),
+                **(job.status_info or {}),
+                "submit_script": script_path.as_posix(),
+                "submit_time": str(datetime.utcnow()),
             }
             logger.info(f"Submit OK: {job}")
 
-    def run_cycle(self):
+    def run_cycle(self) -> None:
         BatchJob = self.client.BatchJob
-        api_jobs = BatchJob.objects.filter(
-            site_id=self.site_id,
-            state=["pending_submission", "queued", "running", "pending_deletion"],
+        api_jobs = list(
+            BatchJob.objects.filter(
+                site_id=self.site_id,
+                state=["pending_submission", "queued", "running", "pending_deletion"],
+            )
         )
-        api_jobs = list(api_jobs)
         logger.info(f"Fetched API BatchJobs: {[(j.id, j.state) for j in api_jobs]}")
         scheduler_jobs = self.scheduler.get_statuses(user=self.username)
 
@@ -127,7 +137,9 @@ class SchedulerService(BalsamService):
                 logger.info(
                     f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses: finished"
                 )
-                job.state = "finished"
+                job.state = BatchJobState.finished
+                assert job.scheduler_id is not None
+                assert job.status_info is not None
                 job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
                 start_time = job_log.start_time
                 end_time = job_log.end_time
@@ -141,7 +153,7 @@ class SchedulerService(BalsamService):
         BatchJob.objects.bulk_update(api_jobs)
         self.update_site_info()
 
-    def update_site_info(self):
+    def update_site_info(self) -> None:
         """Update on Site from nodelist & qstat"""
         # TODO: Periodically update Site nodelist; queues from here:
         site = self.client.Site.objects.get(id=self.site_id)
@@ -151,5 +163,5 @@ class SchedulerService(BalsamService):
         site.save()
         logger.info(f"Updated Site info: {site.display_dict()}")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         logger.info("SchedulerService exiting")

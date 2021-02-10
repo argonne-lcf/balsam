@@ -9,6 +9,8 @@ import dateutil.parser
 
 from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
 
+PathLike = Union[Path, str]
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +57,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         "num_nodes": "Nodes",
         "project": "Project",
         "time_remaining_min": "TimeRemaining",
+        "queued_time_min": "QueuedTime",
     }
 
     # when reading these fields from the scheduler apply
@@ -67,6 +70,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             "queue": lambda queue: str(queue),
             "num_nodes": lambda n: int(n),
             "time_remaining_min": parse_cobalt_time_minutes,
+            "queued_time_min": parse_cobalt_time_minutes,
             "project": lambda project: str(project),
             "wall_time_min": parse_cobalt_time_minutes,
         }
@@ -161,7 +165,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return [CobaltScheduler.backfill_exe]
 
     @staticmethod
-    def _parse_submit_output(submit_output: str) -> Union[int, str]:
+    def _parse_submit_output(submit_output: str) -> int:
         try:
             scheduler_id = int(submit_output)
         except ValueError:
@@ -169,9 +173,9 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return scheduler_id
 
     @staticmethod
-    def _parse_status_output(raw_output: str) -> Dict[Union[int, str], SchedulerJobStatus]:
+    def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
-        status_dict: Dict[Union[int, str], SchedulerJobStatus] = {}
+        status_dict = {}
         job_lines = raw_output.split("\n")[2:]
         for line in job_lines:
             if not line.strip():
@@ -267,7 +271,10 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         return dateutil.parser.parse(time_str)
 
     @staticmethod
-    def _parse_logs(scheduler_id: Union[int, str], job_script_path: Union[Path, str]) -> SchedulerJobLog:
+    def _parse_logs(scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
+        if job_script_path is None:
+            logger.warning("No job script path provided; cannot parse logs from scheduler_id alone")
+            return SchedulerJobLog()
         logfile = Path(job_script_path).with_suffix(".cobaltlog")
         try:
             logger.info(f"Attempting to parse {logfile}")

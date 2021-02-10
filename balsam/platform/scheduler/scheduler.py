@@ -31,6 +31,9 @@ def scheduler_subproc(args: List[str], cwd: Optional[PathLike] = None) -> str:
 
 
 class SchedulerInterface(abc.ABC):
+    def __init__(self) -> None:
+        pass
+
     @classmethod
     @abc.abstractmethod
     def submit(
@@ -42,7 +45,7 @@ class SchedulerInterface(abc.ABC):
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
         **kwargs: Any,
-    ) -> Union[int, str]:
+    ) -> int:
         """
         Submit the script at `script_path` to a local job queue.
         Returns scheduler ID of the submitted job.
@@ -56,7 +59,7 @@ class SchedulerInterface(abc.ABC):
         project: Optional[str] = None,
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
-    ) -> Dict[Union[int, str], SchedulerJobStatus]:
+    ) -> Dict[int, SchedulerJobStatus]:
         """
         Returns dictionary keyed on scheduler job id and a value of JobStatus for each
           job belonging to current user, project, and/or queue
@@ -82,7 +85,7 @@ class SchedulerInterface(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def parse_logs(cls, scheduler_id: int, job_script_path: str) -> SchedulerJobLog:
+    def parse_logs(cls, scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         """
         Reads the scheduler logs to determine job metadata like start_time and end_time
         """
@@ -100,7 +103,7 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
         **kwargs: Any,
-    ) -> Union[int, str]:
+    ) -> int:
         submit_args = cls._render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs)
         stdout = scheduler_subproc(submit_args, cwd=cwd)
         scheduler_id = cls._parse_submit_output(stdout)
@@ -112,7 +115,7 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
         project: Optional[str] = None,
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
-    ) -> Dict[Union[int, str], SchedulerJobStatus]:
+    ) -> Dict[int, SchedulerJobStatus]:
         stat_args = cls._render_status_args(project, user, queue)
         stdout = scheduler_subproc(stat_args)
         stat_dict = cls._parse_status_output(stdout)
@@ -132,7 +135,7 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
         return backfill_windows
 
     @classmethod
-    def parse_logs(cls, scheduler_id: int, job_script_path: str) -> SchedulerJobLog:
+    def parse_logs(cls, scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         log_data = cls._parse_logs(scheduler_id, job_script_path)
         return log_data
 
@@ -145,7 +148,7 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _parse_submit_output(output: str) -> Union[int, str]:
+    def _parse_submit_output(output: str) -> int:
         pass
 
     @staticmethod
@@ -155,12 +158,12 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _parse_status_output(output: str) -> Dict[Union[int, str], SchedulerJobStatus]:
+    def _parse_status_output(output: str) -> Dict[int, SchedulerJobStatus]:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def _render_delete_args(scheduler_id: Union[int, str]) -> List[str]:
+    def _render_delete_args(scheduler_id: int) -> List[str]:
         pass
 
     @staticmethod
@@ -175,7 +178,7 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _parse_logs(scheduler_id: Union[int, str], job_script_path: PathLike) -> SchedulerJobLog:
+    def _parse_logs(scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         pass
 
 

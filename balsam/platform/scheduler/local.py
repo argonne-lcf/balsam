@@ -28,7 +28,7 @@ class LocalProcessScheduler(SchedulerInterface):
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
         **kwargs: Any,
-    ) -> Union[str, int]:
+    ) -> int:
         """
         Submit the script at `script_path` to a local job queue.
         Returns scheduler ID of the submitted job.
@@ -50,12 +50,12 @@ class LocalProcessScheduler(SchedulerInterface):
         project: Optional[str] = None,
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
-    ) -> Dict[Union[int, str], SchedulerJobStatus]:
+    ) -> Dict[int, SchedulerJobStatus]:
         """
         Returns dictionary keyed on scheduler job id and a value of JobStatus for each
           job belonging to current user, project, and/or queue
         """
-        results: Dict[Union[int, str], SchedulerJobStatus] = {}
+        results = {}
         for p in psutil.process_iter(attrs=["pid", "username", "status"]):
             if p.info["username"] == user:
                 pid = int(p.info["pid"])
@@ -68,6 +68,7 @@ class LocalProcessScheduler(SchedulerInterface):
                     wall_time_min=0,
                     project="local",
                     time_remaining_min=1000,
+                    queued_time_min=0,
                 )
         cls._subprocesses = [p for p in cls._subprocesses if p.poll() is None]
         return results
@@ -90,7 +91,7 @@ class LocalProcessScheduler(SchedulerInterface):
         return {}
 
     @classmethod
-    def parse_logs(cls, scheduler_id: int, job_script_path: str) -> SchedulerJobLog:
+    def parse_logs(cls, scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         """
         Reads the scheduler logs to determine job metadata like start_time and end_time
         """

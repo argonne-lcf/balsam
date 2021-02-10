@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev 6c83c28]
+# [git rev c92f12e]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -308,8 +308,8 @@ class JobQuery(Query[Job]):
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
         workdir__contains: Optional[str] = None,
-        state__ne: Optional[str] = None,
-        state: Union[typing.List[str], str, None] = None,
+        state__ne: Optional[balsam.schemas.job.JobState] = None,
+        state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> Job:
@@ -326,8 +326,8 @@ class JobQuery(Query[Job]):
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
         workdir__contains: Optional[str] = None,
-        state__ne: Optional[str] = None,
-        state: Union[typing.List[str], str, None] = None,
+        state__ne: Optional[balsam.schemas.job.JobState] = None,
+        state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> "JobQuery":
@@ -405,8 +405,8 @@ class JobManager(balsam._api.bases.JobManagerBase):
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
         workdir__contains: Optional[str] = None,
-        state__ne: Optional[str] = None,
-        state: Union[typing.List[str], str, None] = None,
+        state__ne: Optional[balsam.schemas.job.JobState] = None,
+        state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> Job:
@@ -423,8 +423,8 @@ class JobManager(balsam._api.bases.JobManagerBase):
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
         workdir__contains: Optional[str] = None,
-        state__ne: Optional[str] = None,
-        state: Union[typing.List[str], str, None] = None,
+        state__ne: Optional[balsam.schemas.job.JobState] = None,
+        state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> "JobQuery":
