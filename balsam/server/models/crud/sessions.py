@@ -108,7 +108,7 @@ def acquire(
         models.Job.wall_time_min.desc(),
     )
 
-    if spec.max_aggregate_nodes:
+    if spec.max_aggregate_nodes is not None:
         aggregate_nodes = spec.max_aggregate_nodes + 0.001
     else:
         aggregate_nodes = math.inf
