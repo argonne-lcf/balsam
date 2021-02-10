@@ -340,15 +340,19 @@ class SiteConfig:
         """
         defaults_path = default_site_path.joinpath("settings.yml")
         settings_template = cls.load_settings_template(defaults_path)
+        client = ClientSettings.load_from_home().build_client()
         site_path = Path(site_path)
-        site_path.mkdir(exist_ok=False, parents=True)
+        site_path.mkdir(exist_ok=False, parents=False)
         site_path.joinpath(".balsam-site").touch()
 
-        client = ClientSettings.load_from_home().build_client()
-        site = client.Site.objects.create(
-            hostname=socket.gethostname() if hostname is None else hostname,
-            path=site_path,
-        )
+        try:
+            site = client.Site.objects.create(
+                hostname=socket.gethostname() if hostname is None else hostname,
+                path=site_path,
+            )
+        except Exception:
+            shutil.rmtree(site_path)
+            raise
         settings_ctx = {"site_id": site.id}
         with open(site_path.joinpath("settings.yml"), "w") as fp:
             fp.write(settings_template.render(settings_ctx) + "\n")
