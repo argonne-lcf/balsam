@@ -318,7 +318,6 @@ def main() -> None:
         "import balsam._api.model",
         "import balsam._api.bases",
         "from balsam._api.query import Query",
-        "import balsam.server.routers.filters",
         "from balsam._api.model import Field",
     ]
     header = header_template.render(

@@ -55,10 +55,8 @@ def validate_set(all_params: Set[str], required_params: Set[str], provided_param
         raise click.BadParameter(f"Extraneous values: {extraneous_params}")
 
 
-def validate_parameters(ctx: Any, param: Any, value: List[str]) -> Dict[str, str]:
-    app = ctx.params["app"]
-    params = validate_tags(ctx, param, value)
-
+def validate_parameters(parameters: List[str], app: "App") -> Dict[str, str]:
+    params = validate_tags(None, None, parameters)
     all_params = set(app.parameters.keys())
     required_params = {k for k in all_params if app.parameters[k].required}
     provided = set(params.keys())
@@ -101,7 +99,7 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
 @click.option("-w", "--workdir", required=True, type=str)
 @click.option("-a", "--app", required=True, type=str, callback=validate_app)
 @click.option("-tag", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
-@click.option("-p", "--param", "parameters", multiple=True, type=str, callback=validate_parameters)
+@click.option("-p", "--param", "parameters", multiple=True, type=str)
 @click.option("-n", "--num-nodes", default=1, type=int)
 @click.option("-rpn", "--ranks-per-node", default=1, type=int)
 @click.option("-tpr", "--threads-per-rank", default=1, type=int)
@@ -139,7 +137,7 @@ def create(
     workdir: str,
     app: "App",
     tags: List[str],
-    parameters: str,
+    parameters: List[str],
     num_nodes: int,
     ranks_per_node: int,
     threads_per_rank: int,
@@ -157,11 +155,12 @@ def create(
     client = ctx.obj.client
     if Path(workdir).is_absolute():
         raise click.BadParameter("workdir must be a relative path: cannot start with '/'")
+    parameters_dict = validate_parameters(parameters, app)
     job = client.Job(
         workdir=workdir,
         app_id=app.id,
         tags=tags,
-        parameters=parameters,
+        parameters=parameters_dict,
         num_nodes=num_nodes,
         ranks_per_node=ranks_per_node,
         threads_per_rank=threads_per_rank,

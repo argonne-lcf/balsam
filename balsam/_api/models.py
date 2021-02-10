@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev 4ae4bc8]
+# [git rev 472d854]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -12,7 +12,6 @@ import pydantic
 
 import balsam._api.bases
 import balsam._api.model
-import balsam.server.routers.filters
 from balsam._api.model import Field
 from balsam._api.query import Query
 
@@ -357,7 +356,7 @@ class JobQuery(Query[Job]):
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
-    def order_by(self, field: Optional[balsam.server.routers.filters.JobOrdering]) -> "JobQuery":
+    def order_by(self, field: Optional[balsam.schemas.job.JobOrdering]) -> "JobQuery":
         return self._order_by(field)
 
 
@@ -514,7 +513,7 @@ class BatchJobQuery(Query[BatchJob]):
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
-    def order_by(self, field: Optional[balsam.server.routers.filters.BatchJobOrdering]) -> "BatchJobQuery":
+    def order_by(self, field: Optional[balsam.schemas.batchjob.BatchJobOrdering]) -> "BatchJobQuery":
         return self._order_by(field)
 
 
@@ -770,7 +769,7 @@ class EventLogQuery(Query[EventLog]):
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
-    def order_by(self, field: Optional[balsam.server.routers.filters.EventOrdering]) -> "EventLogQuery":
+    def order_by(self, field: Optional[balsam.schemas.logevent.EventOrdering]) -> "EventLogQuery":
         return self._order_by(field)
 
 

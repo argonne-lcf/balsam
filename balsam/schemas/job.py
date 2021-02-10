@@ -39,6 +39,17 @@ class JobState(str, Enum):
         return state in cls._value2member_map_
 
 
+class JobOrdering(str, Enum):
+    last_update = "last_update"
+    last_update_desc = "-last_update"
+    id = "id"
+    id_desc = "-id"
+    state = "state"
+    state_desc = "-state"
+    workdir = "workdir"
+    workdir_desc = "-workdir"
+
+
 RUNNABLE_STATES = {JobState.preprocessed, JobState.restart_ready}
 
 

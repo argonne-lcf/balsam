@@ -1,7 +1,13 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
+
+
+class EventOrdering(str, Enum):
+    timestamp = "timestamp"
+    timestamp_desc = "-timestamp"
 
 
 class LogEventOut(BaseModel):

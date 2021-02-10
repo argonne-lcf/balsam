@@ -2,6 +2,7 @@ from .apps import AppCreate, AppOut, AppParameter, AppUpdate, PaginatedAppsOut, 
 from .batchjob import (
     BatchJobBulkUpdate,
     BatchJobCreate,
+    BatchJobOrdering,
     BatchJobOut,
     BatchJobPartition,
     BatchJobState,
@@ -16,13 +17,14 @@ from .job import (
     RUNNABLE_STATES,
     JobBulkUpdate,
     JobCreate,
+    JobOrdering,
     JobOut,
     JobState,
     JobTransferItem,
     JobUpdate,
     PaginatedJobsOut,
 )
-from .logevent import LogEventOut, PaginatedLogEventOut
+from .logevent import EventOrdering, LogEventOut, PaginatedLogEventOut
 from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
 from .transfer import (
@@ -55,6 +57,7 @@ __all__ = [
     "BatchJobState",
     "BatchJobPartition",
     "BatchJobOut",
+    "BatchJobOrdering",
     "JobMode",
     "PaginatedBatchJobOut",
     "SessionCreate",
@@ -67,6 +70,7 @@ __all__ = [
     "PaginatedJobsOut",
     "JobOut",
     "JobState",
+    "JobOrdering",
     "JobTransferItem",
     "RUNNABLE_STATES",
     "TransferItemOut",
@@ -77,6 +81,7 @@ __all__ = [
     "TransferDirection",
     "LogEventOut",
     "PaginatedLogEventOut",
+    "EventOrdering",
     "SchedulerBackfillWindow",
     "SchedulerJobLog",
     "SchedulerJobStatus",

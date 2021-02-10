@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Dict, List, Set, Tuple, cast
 
 from fastapi import Query
@@ -48,11 +47,6 @@ class SessionQuery:
         return qs
 
 
-class EventOrdering(str, Enum):
-    timestamp = "timestamp"
-    timestamp_desc = "-timestamp"
-
-
 @dataclass
 class EventLogQuery:
     job_id: List[int] = Query(None)
@@ -64,7 +58,7 @@ class EventLogQuery:
     timestamp_after: datetime = Query(None)
     from_state: str = Query(None)
     to_state: str = Query(None)
-    ordering: EventOrdering = Query("-timestamp")
+    ordering: schemas.EventOrdering = Query("-timestamp")
 
     def apply_filters(self, qs: "orm.Query[LogEvent]") -> "orm.Query[LogEvent]":
         if self.job_id:
@@ -96,17 +90,6 @@ class EventLogQuery:
         return qs
 
 
-class JobOrdering(str, Enum):
-    last_update = "last_update"
-    last_update_desc = "-last_update"
-    id = "id"
-    id_desc = "-id"
-    state = "state"
-    state_desc = "-state"
-    workdir = "workdir"
-    workdir_desc = "-workdir"
-
-
 @dataclass
 class JobQuery:
     id: List[int] = Query(None)
@@ -121,7 +104,7 @@ class JobQuery:
     state: Set[schemas.JobState] = Query(None)
     tags: List[str] = Query(None)
     parameters: List[str] = Query(None)
-    ordering: JobOrdering = Query(None)
+    ordering: schemas.JobOrdering = Query(None)
 
     def apply_filters(self, qs: "orm.Query[Job]") -> "orm.Query[Job]":
         if self.id:
@@ -187,18 +170,13 @@ class TransferItemQuery:
         return qs
 
 
-class BatchJobOrdering(str, Enum):
-    start_time = "start_time"
-    start_time_desc = "-start_time"
-
-
 @dataclass
 class BatchJobQuery:
     site_id: List[int] = Query(None)
     state: List[str] = Query(None)
     scheduler_id: int = Query(None)
     queue: str = Query(None)
-    ordering: BatchJobOrdering = Query(None)
+    ordering: schemas.BatchJobOrdering = Query(None)
     start_time_before: datetime = Query(None)
     start_time_after: datetime = Query(None)
     end_time_before: datetime = Query(None)
