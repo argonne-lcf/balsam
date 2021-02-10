@@ -1,0 +1,70 @@
+name: CI
+on:
+  push:
+    branches:
+      - develop
+  pull_request: {}
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: set up python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: install
+        run: |
+          pip install -e .[dev,server]
+          pip freeze
+      - name: lint
+        run: make lint
+      - name: check default Site settings.yml files
+        run: make validate-defaults
+      - name: mypy
+        run: make mypy
+
+  test-linux:
+    name: test py${{ matrix.python-version }} on linux
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Docker Hub image
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps tcp port 5432 on service container to the host
+          - 5432:5432
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.9']
+    env:
+      PYTHON: ${{ matrix.python-version }}
+      OS: ubuntu
+      BALSAM_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/balsam
+    steps:
+      - uses: actions/checkout@v2
+      - name: set up python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: install
+        run: |
+          pip install -e .[dev,server]
+          pip freeze
+      - name: test-api
+        run: |
+          make test-api
+      - run: coverage xml
+      - uses: codecov/codecov-action@v1
+        with:
+          files: ./coverage.xml
+          env_vars: PYTHON,OS
