@@ -15,6 +15,7 @@ from balsam.cmdline.utils import load_site_config, validate_partitions, validate
 from balsam.config import SiteConfig
 from balsam.platform.app_run import AppRun
 from balsam.platform.compute_node import ComputeNode
+from balsam.schemas import BatchJobPartition
 from balsam.site.launcher import NodeSpec
 
 MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin  # type: ignore
@@ -111,7 +112,7 @@ def start_serial_mode(
 def launcher(
     job_mode: str,
     filter_tags: Dict[str, str],
-    partitions: List[Dict[str, Any]],
+    partitions: List[BatchJobPartition],
     wall_time_min: int,
 ) -> None:
     site_config = load_site_config()
@@ -119,18 +120,19 @@ def launcher(
     nodes = node_cls.get_job_nodelist()
 
     if not partitions:
-        partitions = [{"num_nodes": len(nodes), "job_mode": job_mode, "filter_tags": filter_tags}]
+        partitions = [BatchJobPartition(num_nodes=len(nodes), job_mode=job_mode, filter_tags=filter_tags)]
 
-    assert sum(p["num_nodes"] for p in partitions) == len(nodes)
+    partition_dicts: List[Dict[str, Any]] = [part.dict() for part in partitions]
+    assert sum(p["num_nodes"] for p in partition_dicts) == len(nodes)
     idx = 0
-    for part in partitions:
+    for part in partition_dicts:
         num_nodes = part.pop("num_nodes")
         start, end = idx, idx + num_nodes
         part["nodes"] = nodes[start:end]
         idx += num_nodes
 
     launcher_procs = []
-    for part in partitions:
+    for part in partition_dicts:
         job_mode = part.pop("job_mode")
         proc: "Union[subprocess.Popen[bytes], AppRun]"
         if job_mode == "mpi":

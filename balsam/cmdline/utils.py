@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Tuple, cast
 import click
 
 from balsam.config import SiteConfig
+from balsam.schemas import BatchJobPartition
 
 
 def list_to_dict(arg_list: List[str]) -> Dict[str, str]:
@@ -16,7 +17,7 @@ def validate_tags(ctx: Any, param: Any, value: List[str]) -> Dict[str, str]:
         raise click.BadParameter("needs to be in format KEY=VALUE")
 
 
-def validate_partitions(ctx: Any, param: Any, value: List[str]) -> List[Dict[str, Any]]:
+def validate_partitions(ctx: Any, param: Any, value: List[str]) -> List[BatchJobPartition]:
     partitions = []
     for arg in value:
         try:
@@ -24,7 +25,7 @@ def validate_partitions(ctx: Any, param: Any, value: List[str]) -> List[Dict[str
         except ValueError:
             raise click.BadParameter("needs to be in format MODE:NUM_NODES[:KEY=VALUE]")
         filter_tags: Dict[str, str] = validate_tags(ctx, param, filter_tags_list)
-        partitions.append({"job_mode": job_mode, "num_nodes": num_nodes, "filter_tags": filter_tags})
+        partitions.append(BatchJobPartition(job_mode=job_mode, num_nodes=num_nodes, filter_tags=filter_tags))
     return partitions
 
 

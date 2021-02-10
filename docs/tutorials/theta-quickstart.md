@@ -108,7 +108,7 @@ cf = SiteConfig()
 client = cf.client
 App, Job = client.App, client.Job 
 
-hello_app = App.objects.get(site_id=cf.site_id, class_path="test.Hello")
+hello_app = App.objects.get(site_id=cf.settings.site_id, class_path="test.Hello")
 for i in range(10):
     job = Job(
         f"test-api/{i}", 

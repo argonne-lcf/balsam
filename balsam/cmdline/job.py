@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
 import click
 import yaml
 
-from balsam.schemas import JobState
+from balsam.config import SiteConfig
+from balsam.schemas import JobState, JobTransferItem
 
 from .utils import load_site_config, validate_tags
 
@@ -22,19 +23,20 @@ def job(ctx: Any) -> None:
     ctx.obj = load_site_config()
 
 
-def validate_state(ctx: Any, param: Any, value: Union[None, str, JobState]) -> Union[None, str, JobState]:
+def validate_state(ctx: Any, param: Any, value: Union[None, str, JobState]) -> Union[None, JobState]:
     if value is None:
         return value
     if not JobState.is_valid(value):
         raise click.BadParameter(f"Invalid state {value}")
-    return value
+    return cast(JobState, value)
 
 
 def validate_app(ctx: Any, param: Any, value: str) -> "App":
-    site_id = ctx.obj.settings.site_id
-    client = cast("RESTClient", ctx.obj.client)
+    site_config: SiteConfig = ctx.obj
+    site_id = site_config.settings.site_id
+    client = site_config.client
     App = client.App
-    lookup = {"site_id": site_id}
+    lookup: Dict[str, Any] = {"site_id": site_id}
     if value.isdigit():
         lookup["id"] = int(value)
     else:
@@ -64,26 +66,26 @@ def validate_parameters(parameters: List[str], app: "App") -> Dict[str, str]:
     return params
 
 
-def validate_transfers(ctx: Any, param: Any, value: List[str]) -> Dict[str, Dict[str, Any]]:
+def validate_transfers(ctx: Any, param: Any, value: List[str]) -> Dict[str, JobTransferItem]:
     transfers = validate_tags(ctx, param, value)
-    app = ctx.params["app"]
+    app: App = ctx.params["app"]
     all_transfers = set(app.transfers.keys())
     required_transfers = {k for k in all_transfers if app.transfers[k].required}
     provided = set(transfers.keys())
     validate_set(all_transfers, required_transfers, provided)
 
-    transfer_dicts = {}
+    transfers_by_name = {}
     for name in transfers:
         try:
             loc, path = transfers[name].split(":")
         except ValueError:
             raise click.BadParameter("Transfers must take the form LOCATION_ALIAS:PATH")
-        transfer_dicts[name] = {"location_alias": loc, "path": path}
-    return transfer_dicts
+        transfers_by_name[name] = JobTransferItem(location_alias=loc, path=path)
+    return transfers_by_name
 
 
 def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
-    client = ctx.obj.client
+    client: RESTClient = ctx.obj.client
     parent_ids = value
     if not parent_ids:
         return []
@@ -136,7 +138,7 @@ def create(
     ctx: Any,
     workdir: str,
     app: "App",
-    tags: List[str],
+    tags: Dict[str, str],
     parameters: List[str],
     num_nodes: int,
     ranks_per_node: int,
@@ -144,20 +146,21 @@ def create(
     threads_per_core: int,
     gpus_per_rank: int,
     node_packing_count: int,
-    launch_params: List[str],
+    launch_params: Dict[str, str],
     wall_time_min: int,
     parent_ids: List[int],
-    transfers: List[str],
+    transfers: Dict[str, JobTransferItem],
 ) -> None:
     """
     Add a new Balsam Job to run an App at this Site
     """
-    client = ctx.obj.client
+    client: RESTClient = ctx.obj.client
     if Path(workdir).is_absolute():
         raise click.BadParameter("workdir must be a relative path: cannot start with '/'")
     parameters_dict = validate_parameters(parameters, app)
+    assert app.id is not None, "Could not resolve application ID"
     job = client.Job(
-        workdir=workdir,
+        workdir=Path(workdir),
         app_id=app.id,
         tags=tags,
         parameters=parameters_dict,
@@ -169,7 +172,7 @@ def create(
         node_packing_count=node_packing_count,
         launch_params=launch_params,
         wall_time_min=wall_time_min,
-        parent_ids=parent_ids,
+        parent_ids=set(parent_ids),
         transfers=transfers,
     )
     click.echo(yaml.dump(job.display_dict(), sort_keys=False, indent=4))
@@ -185,12 +188,19 @@ def create(
 @click.option("-w", "--workdir", type=str)
 @click.option("-v", "--verbose", is_flag=True)
 @click.pass_context
-def ls(ctx: Any, tags: List[str], state: str, exclude_state: str, workdir: str, verbose: bool) -> None:
+def ls(
+    ctx: Any,
+    tags: List[str],
+    state: Optional[JobState],
+    exclude_state: Optional[JobState],
+    workdir: Optional[str],
+    verbose: bool,
+) -> None:
     """
     List Balsam Jobs
     """
-    client = ctx.obj.client
-    site_id = ctx.obj.settings.site_id
+    client: RESTClient = ctx.obj.client
+    site_id: int = ctx.obj.settings.site_id
     jobs = client.Job.objects.filter(site_id=site_id)
     if tags:
         jobs = jobs.filter(tags=tags)
@@ -220,8 +230,8 @@ def rm(ctx: Any, job_ids: List[int], tags: List[str]) -> None:
     """
     Remove Jobs
     """
-    site_id = ctx.obj.settings.site_id
-    client = ctx.obj.client
+    site_id: int = ctx.obj.settings.site_id
+    client: RESTClient = ctx.obj.client
     jobs = client.Job.objects.filter(site_id=site_id)
     if job_ids:
         jobs = jobs.filter(id=job_ids)
@@ -230,6 +240,7 @@ def rm(ctx: Any, job_ids: List[int], tags: List[str]) -> None:
     else:
         raise click.BadParameter("Provide either list of Job ids or tags to delete")
     count = jobs.count()
+    assert count is not None
     if count < 1:
         click.echo("No jobs match deletion query")
     elif click.confirm(f"Really delete {count} jobs?"):

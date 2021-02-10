@@ -1,7 +1,10 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import click
 import yaml
+
+from balsam.config import SiteConfig
+from balsam.schemas import BatchJobPartition, JobMode
 
 from .utils import load_site_config, validate_partitions, validate_tags
 
@@ -33,18 +36,22 @@ def submit(
     project: str,
     job_mode: str,
     filter_tags: Dict[str, str],
-    partitions: List[Dict[str, Any]],
+    partitions: List[BatchJobPartition],
     optional_params: Dict[str, str],
 ) -> None:
-    BatchJob = ctx.obj.client.BatchJob
-    settings = ctx.obj.settings
+    site_config: SiteConfig = ctx.obj
+    BatchJob = site_config.client.BatchJob
+    settings = site_config.settings
+    if settings.scheduler is None:
+        raise RuntimeError("There is no SchedulerInterface configured in the Site settings.")
+
     job = BatchJob(
         site_id=settings.site_id,
         num_nodes=num_nodes,
         wall_time_min=wall_time_min,
         queue=queue,
         project=project,
-        job_mode=job_mode,
+        job_mode=cast(JobMode, job_mode),
         optional_params=optional_params,
         filter_tags=filter_tags,
         partitions=partitions,
@@ -64,8 +71,9 @@ def submit(
 @queue.command()
 @click.pass_context
 def ls(ctx: Any) -> None:
-    BatchJob = ctx.obj.client.BatchJob
-    site_id = ctx.obj.settings.site_id
+    site_config: SiteConfig = ctx.obj
+    BatchJob = site_config.client.BatchJob
+    site_id = site_config.settings.site_id
 
     jobs = [j.display_dict() for j in BatchJob.objects.filter(site_id=site_id)]
     fields = [
