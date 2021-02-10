@@ -36,8 +36,8 @@ class TransferInterface(abc.ABC):
     ) -> str:
         raise NotImplementedError
 
-    @abc.abstractmethod
     @staticmethod
+    @abc.abstractmethod
     def _poll_tasks(task_ids: Sequence[str]) -> List[TaskInfo]:
         raise NotImplementedError
 
