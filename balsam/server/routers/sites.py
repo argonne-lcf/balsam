@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import orm
 
 from balsam import schemas
@@ -10,15 +10,15 @@ from balsam.server.models import Site, crud, get_session
 from balsam.server.pubsub import pubsub
 from balsam.server.util import Paginator
 
+from .filters import SiteQuery
+
 router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedSitesOut)
 def list(
-    hostname: Optional[str] = None,
-    path: Optional[str] = None,
-    id: List[int] = Query(None),
+    q: SiteQuery = Depends(SiteQuery),
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[Site] = Depends(Paginator),
@@ -27,9 +27,7 @@ def list(
         db,
         owner=user,
         paginator=paginator,
-        host_contains=hostname,
-        path_contains=path,
-        ids=id,
+        filterset=q,
     )
     return {"count": count, "results": sites}
 

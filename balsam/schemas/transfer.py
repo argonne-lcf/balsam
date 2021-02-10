@@ -32,13 +32,13 @@ class TransferItemBase(BaseModel):
 
 
 class TransferItemOut(TransferItemBase):
-    id: int
-    job_id: int
-    direction: TransferDirection
-    local_path: Path
-    remote_path: Path
-    location_alias: str
-    recursive: bool
+    id: int = Field(...)
+    job_id: int = Field(...)
+    direction: TransferDirection = Field(...)
+    local_path: Path = Field(...)
+    remote_path: Path = Field(...)
+    location_alias: str = Field(...)
+    recursive: bool = Field(...)
 
     class Config:
         orm_mode = True

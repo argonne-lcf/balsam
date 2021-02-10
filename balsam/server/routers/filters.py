@@ -1,22 +1,54 @@
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Dict, List, Set, Tuple, cast
 
 from fastapi import Query
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server.models import BatchJob, Job, LogEvent, Site, TransferItem
-
-
-class EventOrdering(str, Enum):
-    timestamp = "timestamp"
-    timestamp_desc = "-timestamp"
+from balsam.server.models import App, BatchJob, Job, LogEvent, Session, Site, TransferItem
 
 
 @dataclass
-class EventQuery:
+class SiteQuery:
+    hostname: str = Query(None)
+    path: str = Query(None)
+    id: List[int] = Query(None)
+
+    def apply_filters(self, qs: "orm.Query[Site]") -> "orm.Query[Site]":
+        if self.hostname:
+            qs = qs.filter(Site.hostname.like(f"%{self.hostname}%"))
+        if self.path:
+            qs = qs.filter(Site.path.like(f"%{self.path}%"))
+        if self.id:
+            qs = qs.filter(Site.id.in_(self.id))
+        return qs
+
+
+@dataclass
+class AppQuery:
+    site_id: List[int] = Query(None)
+    id: List[int] = Query(None)
+    class_path: str = Query(None)
+
+    def apply_filters(self, qs: "orm.Query[App]") -> "orm.Query[App]":
+        if self.site_id:
+            qs = qs.filter(App.site_id.in_(self.site_id))
+        if self.id:
+            qs = qs.filter(App.id.in_(self.id))
+        if self.class_path is not None:
+            qs = qs.filter(App.class_path == self.class_path)
+        return qs
+
+
+@dataclass
+class SessionQuery:
+    def apply_filters(self, qs: "orm.Query[Session]") -> "orm.Query[Session]":
+        return qs
+
+
+@dataclass
+class EventLogQuery:
     job_id: List[int] = Query(None)
     batch_job_id: int = Query(None)
     scheduler_id: int = Query(None)
@@ -26,7 +58,7 @@ class EventQuery:
     timestamp_after: datetime = Query(None)
     from_state: str = Query(None)
     to_state: str = Query(None)
-    ordering: EventOrdering = Query("-timestamp")
+    ordering: schemas.EventOrdering = Query("-timestamp")
 
     def apply_filters(self, qs: "orm.Query[LogEvent]") -> "orm.Query[LogEvent]":
         if self.job_id:
@@ -58,17 +90,6 @@ class EventQuery:
         return qs
 
 
-class JobOrdering(str, Enum):
-    last_update = "last_update"
-    last_update_desc = "-last_update"
-    id = "id"
-    id_desc = "-id"
-    state = "state"
-    state_desc = "-state"
-    workdir = "workdir"
-    workdir_desc = "-workdir"
-
-
 @dataclass
 class JobQuery:
     id: List[int] = Query(None)
@@ -79,11 +100,11 @@ class JobQuery:
     last_update_before: datetime = Query(None)
     last_update_after: datetime = Query(None)
     workdir__contains: str = Query(None)
-    state__ne: str = Query(None)
-    state: List[str] = Query(None)
+    state__ne: schemas.JobState = Query(None)
+    state: Set[schemas.JobState] = Query(None)
     tags: List[str] = Query(None)
     parameters: List[str] = Query(None)
-    ordering: JobOrdering = Query(None)
+    ordering: schemas.JobOrdering = Query(None)
 
     def apply_filters(self, qs: "orm.Query[Job]") -> "orm.Query[Job]":
         if self.id:
@@ -121,7 +142,7 @@ class JobQuery:
 
 
 @dataclass
-class TransferQuery:
+class TransferItemQuery:
     id: List[int] = Query(None)
     site_id: int = Query(None)
     job_id: List[int] = Query(None)
@@ -149,18 +170,13 @@ class TransferQuery:
         return qs
 
 
-class BatchJobOrdering(str, Enum):
-    start_time = "start_time"
-    start_time_desc = "-start_time"
-
-
 @dataclass
 class BatchJobQuery:
     site_id: List[int] = Query(None)
     state: List[str] = Query(None)
     scheduler_id: int = Query(None)
     queue: str = Query(None)
-    ordering: BatchJobOrdering = Query(None)
+    ordering: schemas.BatchJobOrdering = Query(None)
     start_time_before: datetime = Query(None)
     start_time_after: datetime = Query(None)
     end_time_before: datetime = Query(None)

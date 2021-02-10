@@ -17,6 +17,15 @@ lint:
 mypy:
 	mypy --config-file setup.cfg --package balsam
 
+.PHONY: generate-api
+generate-api:
+	python balsam/schemas/api_generator.py > balsam/_api/models.py
+
+.PHONY: validate-defaults
+validate-defaults:
+	python balsam/config/defaults/validate.py
+	
+
 .PHONY: test-api
 test-api:
 	pytest tests/server --cov=balsam --cov-config setup.cfg
@@ -28,4 +37,4 @@ testcov: test-api
 	@coverage html
 
 .PHONY: all
-all: lint mypy testcov
+all: generate-api validate-defaults format lint mypy testcov

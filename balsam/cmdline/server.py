@@ -4,6 +4,7 @@ import signal
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Optional, Union
 
 import click
 import jinja2
@@ -18,7 +19,7 @@ REDIS_TMPL = Path(balsam.server.__file__).parent.joinpath("redis.conf.tmpl")
 
 
 @click.group()
-def server():
+def server() -> None:
     """
     Deploy and manage a local Balsam server
     """
@@ -27,7 +28,7 @@ def server():
 
 @server.command()
 @click.option("-p", "--path", required=True, type=click.Path(exists=True, file_okay=False))
-def down(path):
+def down(path: Union[str, Path]) -> None:
     """
     Shut down the Balsam server (Postgres, Redis, and Gunicorn)
     """
@@ -37,8 +38,7 @@ def down(path):
     for serv, pid_file in zip(services, pid_files):
         try:
             with open(path.joinpath(pid_file)) as fp:
-                pid = fp.readline()
-            pid = int(pid)
+                pid = int(fp.readline())
         except (FileNotFoundError, ValueError):
             click.echo(f"Could not read pidfile for stopping {serv}")
         else:
@@ -54,7 +54,7 @@ def down(path):
 @click.option("-b", "--bind", default="0.0.0.0:8000")
 @click.option("-l", "--log-level", default="debug")
 @click.option("-w", "--num-workers", default=1, type=int)
-def up(path, bind, log_level, num_workers):
+def up(path: Union[Path, str], bind: str, log_level: str, num_workers: int) -> None:
     """
     Starts up the services comprising the Balsam server (Postgres, Redis, and Gunicorn)
     """
@@ -76,7 +76,7 @@ def up(path, bind, log_level, num_workers):
 @click.option("-b", "--bind", default="0.0.0.0:8000")
 @click.option("-l", "--log-level", default="debug")
 @click.option("-w", "--num-workers", default=1, type=int)
-def deploy(path, bind, log_level, num_workers):
+def deploy(path: Union[Path, str], bind: str, log_level: str, num_workers: int) -> None:
     """
     Create a new Balsam database and API server instance
     """
@@ -103,17 +103,17 @@ def deploy(path, bind, log_level, num_workers):
     start_gunicorn(path, bind, log_level, num_workers)
 
 
-def write_redis_conf(conf_path):
+def write_redis_conf(conf_path: Path) -> None:
     tmpl = jinja2.Template(REDIS_TMPL.read_text())
     with tempfile.NamedTemporaryFile(prefix="redis-balsam", suffix=".sock") as fp:
         tmp_name = Path(fp.name).resolve().as_posix()
     conf = tmpl.render({"unix_sock_path": tmp_name, "run_path": str(conf_path.parent)})
-    with open(conf_path, "w") as fp:
-        fp.write(conf)
+    with open(conf_path, "w") as f:
+        f.write(conf)
     click.echo(f"Wrote redis conf to: {conf_path}")
 
 
-def start_redis(path, config_filename="redis.conf"):
+def start_redis(path: Path, config_filename: str = "redis.conf") -> None:
     config_file = path.joinpath(config_filename)
     with open(config_file) as fp:
         for line in fp:
@@ -135,7 +135,7 @@ def start_redis(path, config_filename="redis.conf"):
     click.echo("Started redis daemon")
 
 
-def start_gunicorn(path, bind="0.0.0.0:8000", log_level="debug", num_workers=1):
+def start_gunicorn(path: Path, bind: str = "0.0.0.0:8000", log_level: str = "debug", num_workers: int = 1) -> None:
     args = [
         "gunicorn",
         "-k",
@@ -160,7 +160,7 @@ def start_gunicorn(path, bind="0.0.0.0:8000", log_level="debug", num_workers=1):
 
 
 @server.group()
-def db():
+def db() -> None:
     """
     Setup or manage a local Postgres DB
 
@@ -174,7 +174,7 @@ def db():
 
 @db.command()
 @click.argument("db-path", type=click.Path(writable=True))
-def init(db_path):
+def init(db_path: Union[Path, str]) -> None:
     """
     Setup & start a new Postgres DB
 
@@ -195,7 +195,7 @@ def init(db_path):
 @db.command()
 @click.argument("db-path", type=click.Path(exists=True))
 @click.option("--downgrade", default=None)
-def migrate(db_path, downgrade):
+def migrate(db_path: Union[Path, str], downgrade: Optional[str]) -> None:
     """
     Update DB schema (run after upgrading Balsam version)
     """
@@ -224,7 +224,7 @@ def migrate(db_path, downgrade):
 
 @db.command()
 @click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def start(db_path):
+def start(db_path: Union[Path, str]) -> None:
     """
     Start a Postgres DB server locally, if not already running
     """
@@ -256,7 +256,7 @@ def start(db_path):
 
 @db.command()
 @click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def stop(db_path):
+def stop(db_path: Union[str, Path]) -> None:
     """
     Stop a local Postgres DB server process
     """
@@ -268,7 +268,7 @@ def stop(db_path):
 
 @db.command()
 @click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def connections(db_path):
+def connections(db_path: Union[Path, str]) -> None:
     """
     List currently open database connections
     """
@@ -287,7 +287,7 @@ def connections(db_path):
 @db.command()
 @click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
 @click.argument("user")
-def add_user(db_path, user):
+def add_user(db_path: Union[Path, str], user: str) -> None:
     """
     Add a new authorized user to the DB
 
@@ -306,7 +306,7 @@ def add_user(db_path, user):
 @db.command()
 @click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
 @click.argument("user")
-def drop_user(db_path, user):
+def drop_user(db_path: Union[str, Path], user: str) -> None:
     """
     Remove a user from the DB
     """
@@ -323,7 +323,7 @@ def drop_user(db_path, user):
 
 @db.command()
 @click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def list_users(db_path):
+def list_users(db_path: Union[str, Path]) -> None:
     """
     List authorized DB users
     """

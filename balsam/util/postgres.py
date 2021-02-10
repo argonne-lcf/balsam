@@ -5,11 +5,11 @@ import secrets
 import shutil
 import socket
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import psycopg2
+import psycopg2  # type: ignore
 import yaml
 
 import balsam.server
@@ -30,7 +30,7 @@ def make_token() -> str:
     return secrets.token_urlsafe()
 
 
-def make_token_file():
+def make_token_file() -> Tuple[str, str]:
     with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as fp:
         token = make_token()
         fp.write(token)
@@ -46,13 +46,21 @@ def identify_free_port() -> int:
     return port
 
 
-def identify_hostport():
+def identify_hostport() -> Tuple[str, int]:
     host = socket.gethostname()
     port = identify_free_port()
     return (host, port)
 
 
-def write_pwfile(db_path, username, password, host, port, database, filename=SERVER_INFO_FILENAME):
+def write_pwfile(
+    db_path: Union[Path, str],
+    username: str,
+    password: str,
+    host: str,
+    port: int,
+    database: str,
+    filename: str = SERVER_INFO_FILENAME,
+) -> Dict[str, Any]:
     pw_dict = dict(username=username, password=password, host=host, port=port, database=database)
     pw_dict["scheme"] = "postgres"
     pw_dict["client_class"] = "balsam.client.DirectAPIClient"
@@ -61,13 +69,14 @@ def write_pwfile(db_path, username, password, host, port, database, filename=SER
     return pw_dict
 
 
-def load_pwfile(db_path, filename=SERVER_INFO_FILENAME):
+def load_pwfile(db_path: Union[Path, str], filename: str = SERVER_INFO_FILENAME) -> Dict[str, Any]:
     with open(Path(db_path).joinpath(filename)) as fp:
         pw_dict = yaml.safe_load(fp)
+    assert isinstance(pw_dict, dict)
     return pw_dict
 
 
-def load_dsn(db_path, filename=SERVER_INFO_FILENAME):
+def load_dsn(db_path: Union[Path, str], filename: str = SERVER_INFO_FILENAME) -> str:
     pw_dict = load_pwfile(db_path, filename)
     user = pw_dict["username"]
     pwd = pw_dict["password"]
@@ -77,7 +86,7 @@ def load_dsn(db_path, filename=SERVER_INFO_FILENAME):
     return f"postgresql://{user}:{pwd}@{host}:{port}/{db}"
 
 
-def create_new_db(db_path="balsamdb", database="balsam"):
+def create_new_db(db_path: Union[Path, str] = "balsamdb", database: str = "balsam") -> Dict[str, Any]:
     """
     Create & start a new PostgresDB cluster inside `db_path`
     A DB named `database` is created. If `pwfile` given, write DB credentials to
@@ -88,7 +97,7 @@ def create_new_db(db_path="balsamdb", database="balsam"):
 
     superuser, password = init_db_cluster(db_path)
     host, port = identify_hostport()
-    mutate_conf_port(db_path, port)
+    mutate_conf_port(str(db_path), port)
 
     pw_dict = write_pwfile(
         db_path=db_path,
@@ -99,67 +108,26 @@ def create_new_db(db_path="balsamdb", database="balsam"):
         database=database,
     )
 
-    start_db(db_path)
+    start_db(str(db_path))
     create_database(new_dbname=database, **pw_dict)
     return pw_dict
 
 
-def configure_balsam_server(username, password, host, port, database, **kwargs):
+def configure_balsam_server(username: str, password: str, host: str, port: int, database: str, **kwargs: Any) -> str:
     dsn = f"postgresql://{username}:{password}@{host}:{port}/{database}"
     os.environ["balsam_database_url"] = dsn
     balsam.server.settings.database_url = dsn
     return dsn
 
 
-def configure_balsam_server_from_dsn(dsn):
+def configure_balsam_server_from_dsn(dsn: str) -> None:
     os.environ["balsam_database_url"] = dsn
     balsam.server.settings.database_url = dsn
 
 
-def configure_django_database(
-    username,
-    password,
-    host,
-    port,
-    database="balsam",
-    engine="django.db.backends.postgresql",
-    conn_max_age=60,
-    db_options={
-        "connect_timeout": 30,
-        "client_encoding": "UTF8",
-    },
-    **kwargs,
-):
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "balsam.server.conf.settings")
-    import django
-    from django import db
-    from django.conf import settings
-
-    new_db = dict(
-        ENGINE=engine,
-        NAME=database,
-        OPTIONS=db_options,
-        USER=username,
-        PASSWORD=password,
-        HOST=host,
-        PORT=port,
-        CONN_MAX_AGE=conn_max_age,
-    )
-    settings.DATABASES = {"default": new_db}
-    django.setup()
-    db.connections.close_all()
-
-
-def run_django_migrations():
-    from django.core.management import call_command
-
-    isatty = sys.stdout.isatty()
-    call_command("migrate", interactive=isatty, verbosity=2)
-
-
-def run_alembic_migrations(dsn, downgrade=None):
-    from alembic import command
-    from alembic.config import Config
+def run_alembic_migrations(dsn: str, downgrade: Any = None) -> None:
+    from alembic import command  # type: ignore
+    from alembic.config import Config  # type: ignore
 
     import balsam.server.models.alembic as alembic
 
@@ -178,7 +146,7 @@ def run_alembic_migrations(dsn, downgrade=None):
 # *******************************
 # Functions that use a subprocess
 # *******************************
-def version_check():
+def version_check() -> bool:
     p = subprocess.run(
         "pg_ctl --version",
         shell=True,
@@ -189,8 +157,12 @@ def version_check():
     )
     stdout = p.stdout.strip()
     pattern = re.compile(r"(\d+\.)?(\d+\.)?(\*|\d+)$")
-    match = pattern.search(stdout).group()
+    search_result = pattern.search(stdout)
+    if not search_result:
+        raise RuntimeError(f"Could not parse Postgres version from `pg_ctl --version`: {stdout}")
+    match = search_result.group()
     major, minor, *rest = match.split(".")
+    version_info: Tuple[int, ...]
     if rest and int(rest[0]) > 0:
         version_info = (int(major), int(minor), int(rest[0]))
     else:
@@ -200,7 +172,7 @@ def version_check():
     raise RuntimeError(f"PostgreSQL {version_info} too old. {POSTGRES_MSG}")
 
 
-def mutate_conf_port(db_path: str, port: int) -> None:
+def mutate_conf_port(db_path: Union[str, Path], port: int) -> None:
     settings_path = Path(db_path) / Path("postgresql.conf")
     if not settings_path.exists():
         raise ValueError(f"nonexistant {settings_path}")
@@ -210,7 +182,7 @@ def mutate_conf_port(db_path: str, port: int) -> None:
     subprocess.run(cmd, shell=True, check=True)
 
 
-def init_db_cluster(db_path, superuser="postgres"):
+def init_db_cluster(db_path: Union[Path, str], superuser: str = "postgres") -> Tuple[str, str]:
     db_path = Path(db_path)
     if db_path.exists():
         raise ValueError(f"{db_path} already exists")
@@ -247,14 +219,14 @@ def init_db_cluster(db_path, superuser="postgres"):
     return superuser, token
 
 
-def start_db(db_path: str) -> None:
+def start_db(db_path: Union[Path, str]) -> None:
     log_path = Path(db_path) / "postgres.log"
     start_cmd = f"pg_ctl -w start -D {db_path} -l {log_path} --mode=smart"
     logger.info(start_cmd)
     subprocess.run(start_cmd, shell=True, check=True)
 
 
-def stop_db(db_path: str) -> None:
+def stop_db(db_path: Union[Path, str]) -> None:
     stop_cmd = f"pg_ctl -w stop -D {db_path} --mode=smart"
     res = subprocess.run(stop_cmd, shell=True)
     if res.returncode != 0:
@@ -265,7 +237,9 @@ def stop_db(db_path: str) -> None:
 # Functions that use a psycopg cursor
 # ***********************************
 class PgCursor:
-    def __init__(self, host, port, username, password, database="balsam", autocommit=False):
+    def __init__(
+        self, host: str, port: int, username: str, password: str, database: str = "balsam", autocommit: bool = False
+    ) -> None:
         self.host = host
         self.port = port
         self.username = username
@@ -273,7 +247,7 @@ class PgCursor:
         self.database = database
         self.autocommit = autocommit
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         self.conn = psycopg2.connect(
             dbname=self.database,
             user=self.username,
@@ -285,7 +259,7 @@ class PgCursor:
         self.cursor = self.conn.cursor()
         return self.cursor
 
-    def __exit__(self, exc_type, value, traceback):
+    def __exit__(self, exc_type: Any, value: Any, traceback: Any) -> None:
         if not self.autocommit:
             if exc_type is None:
                 self.conn.commit()
@@ -295,7 +269,7 @@ class PgCursor:
         self.conn.close()
 
 
-def create_database(new_dbname, host, port, username, password, **kwargs):
+def create_database(new_dbname: str, host: str, port: int, username: str, password: str, **kwargs: Any) -> None:
     with PgCursor(host, port, username, password, database="", autocommit=True) as cur:
         cur.execute(
             f"""
@@ -304,7 +278,9 @@ def create_database(new_dbname, host, port, username, password, **kwargs):
         )
 
 
-def connections_list(host, port, username, password, database="balsam", **kwargs):
+def connections_list(
+    host: str, port: int, username: str, password: str, database: str = "balsam", **kwargs: Any
+) -> List[str]:
     with PgCursor(host, port, username, password) as cur:
         cur.execute(
             f"""
@@ -312,10 +288,19 @@ def connections_list(host, port, username, password, database="balsam", **kwargs
         FROM pg_stat_activity WHERE datname = '{database}';
         """
         )
-        return cur.fetchall()
+        conns = cur.fetchall()
+        return list(conns)
 
 
-def create_user_and_pwfile(new_user, host, port, username, password, database="balsam", pwfile=None):
+def create_user_and_pwfile(
+    new_user: str,
+    host: str,
+    port: int,
+    username: str,
+    password: str,
+    database: str = "balsam",
+    pwfile: Optional[str] = None,
+) -> None:
     """
     Create new Postgres user `new_user` and auto-generated
     token for the database at `host:port`.  A pwfile
@@ -345,7 +330,9 @@ def create_user_and_pwfile(new_user, host, port, username, password, database="b
     )
 
 
-def pg_add_user(new_user, new_password, host, port, username, password, database="balsam"):
+def pg_add_user(
+    new_user: str, new_password: str, host: str, port: int, username: str, password: str, database: str = "balsam"
+) -> None:
     with PgCursor(host, port, username, password) as cur:
         cur.execute(
             f"""
@@ -357,7 +344,9 @@ def pg_add_user(new_user, new_password, host, port, username, password, database
         )
 
 
-def drop_user(deleting_user, host, port, username, password, database="balsam", **kwargs):
+def drop_user(
+    deleting_user: str, host: str, port: int, username: str, password: str, database: str = "balsam", **kwargs: Any
+) -> None:
     with PgCursor(host, port, username, password) as cur:
         cur.execute(
             f"""
@@ -369,7 +358,8 @@ def drop_user(deleting_user, host, port, username, password, database="balsam", 
         )
 
 
-def list_users(host, port, username, password, **kwargs):
+def list_users(host: str, port: int, username: str, password: str, **kwargs: Any) -> List[str]:
     with PgCursor(host, port, username, password) as cur:
         cur.execute("SELECT usename FROM pg_catalog.pg_user;")
-        return cur.fetchall()
+        user_list = cur.fetchall()
+        return list(user_list)

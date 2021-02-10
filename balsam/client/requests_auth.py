@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
 
 import click
 import dateutil.parser
@@ -15,15 +16,15 @@ logger = logging.getLogger(__name__)
 class BasicAuthRequestsClient(RequestsClient):
     def __init__(
         self,
-        api_root,
-        username,
-        password=None,
-        token=None,
-        token_expiry=None,
-        connect_timeout=3.1,
-        read_timeout=60,
-        retry_count=3,
-    ):
+        api_root: str,
+        username: str,
+        password: Optional[str] = None,
+        token: Optional[str] = None,
+        token_expiry: Optional[datetime] = None,
+        connect_timeout: float = 3.1,
+        read_timeout: float = 60.0,
+        retry_count: int = 3,
+    ) -> None:
         super().__init__(
             api_root,
             connect_timeout=connect_timeout,
@@ -47,7 +48,7 @@ class BasicAuthRequestsClient(RequestsClient):
             elif self.expires_in < timedelta(hours=24):
                 logger.warning(f"Auth Token will expire in {self.expires_in}; please refresh with `balsam login`")
 
-    def refresh_auth(self):
+    def refresh_auth(self) -> None:
         if self.password is None:
             raise ValueError("Cannot refresh_auth: self.password is None. Please provide a password")
         # Login with HTTPBasic Auth to get a token:
@@ -62,6 +63,7 @@ class BasicAuthRequestsClient(RequestsClient):
                 time.sleep(1)
             else:
                 break
+        assert isinstance(resp, dict)
         if resp is not None and "access_token" in resp:
             self.token = resp["access_token"]
             self.token_expiry = dateutil.parser.parse(resp["expiration"])
@@ -73,7 +75,7 @@ class BasicAuthRequestsClient(RequestsClient):
         self.session.headers["Authorization"] = f"Bearer {self.token}"
         self._authenticated = True
 
-    def interactive_login(self):
+    def interactive_login(self) -> Dict[str, Any]:
         """Initiate interactive login flow"""
         self.password = click.prompt("Balsam password", hide_input=True)
         self.refresh_auth()

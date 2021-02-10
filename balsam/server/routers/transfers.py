@@ -9,7 +9,7 @@ from balsam.server.models import TransferItem, crud, get_session
 from balsam.server.pubsub import pubsub
 from balsam.server.util import Paginator
 
-from .filters import TransferQuery
+from .filters import TransferItemQuery
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -20,7 +20,7 @@ def list(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[TransferItem] = Depends(Paginator),
-    q: TransferQuery = Depends(TransferQuery),
+    q: TransferItemQuery = Depends(TransferItemQuery),
 ) -> Dict[str, Any]:
     count, transfers = crud.transfers.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": transfers}

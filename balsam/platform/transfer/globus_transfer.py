@@ -2,18 +2,22 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Sequence, Tuple, Union
 from uuid import UUID
 
-from globus_cli.services.transfer import get_client
-from globus_sdk import TransferData
+from globus_cli.services.transfer import get_client  # type: ignore
+from globus_sdk import TransferData  # type: ignore
 
-from .transfer import TaskInfo, TransferInterface, TransferSubmitError, TransferTaskID
+from .transfer import TaskInfo, TransferInterface, TransferSubmitError
 
 logger = logging.getLogger(__name__)
 
 
-def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch):
+PathLike = Union[str, Path]
+SrcDestRecursive = Tuple[PathLike, PathLike, bool]
+
+
+def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch: Sequence[SrcDestRecursive]) -> str:
     client = get_client()
     notify_opts = {
         "notify_on_succeeded": False,
@@ -45,7 +49,7 @@ def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch):
     return "globus:" + str(task_id)
 
 
-def submit_subproc(src_endpoint, dest_endpoint, batch):
+def submit_subproc(src_endpoint: UUID, dest_endpoint: UUID, batch: List[SrcDestRecursive]) -> str:
     env = os.environ.copy()
     env["LC_ALL"] = "C.UTF-8"
     env["LANG"] = "C.UTF-8"
@@ -69,7 +73,7 @@ def submit_subproc(src_endpoint, dest_endpoint, batch):
     for line in proc.stdout.split("\n"):
         if "Task ID" in line:
             return "globus:" + line.split()[-1]
-    return proc
+    raise TransferSubmitError("Could not parse Task ID from submission")
 
 
 class GlobusTransferInterface(TransferInterface):
@@ -77,7 +81,7 @@ class GlobusTransferInterface(TransferInterface):
         self.endpoint_id: UUID = UUID(str(endpoint_id))
 
     @staticmethod
-    def _state_map(status):
+    def _state_map(status: str) -> str:
         return {
             "active": "active",
             "inactive": "inactive",
@@ -89,8 +93,8 @@ class GlobusTransferInterface(TransferInterface):
         self,
         remote_loc: str,
         direction: str,
-        transfer_paths: List[Tuple[Path, Path, bool]],
-    ) -> TransferTaskID:
+        transfer_paths: Sequence[Tuple[PathLike, PathLike, bool]],
+    ) -> str:
         """Submit Transfer Task via Globus CLI"""
         if direction == "in":
             src_endpoint, dest_endpoint = UUID(str(remote_loc)), self.endpoint_id
@@ -99,10 +103,10 @@ class GlobusTransferInterface(TransferInterface):
         else:
             raise ValueError("direction must be in or out")
         task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths)
-        return task_id
+        return str(task_id)
 
     @staticmethod
-    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    def _poll_tasks(task_ids: Sequence[str]) -> List[TaskInfo]:
         client = get_client()
         filter_values = {"task_id": ",".join(map(str, task_ids))}
         filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())

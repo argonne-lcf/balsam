@@ -8,13 +8,19 @@ from balsam.server import settings
 from balsam.server.models import Job, crud, get_session
 from balsam.server.pubsub import pubsub
 
+from .filters import SessionQuery
+
 router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedSessionsOut)
-def list(db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> Dict[str, Any]:
-    count, sessions = crud.sessions.fetch(db, owner=user)
+def list(
+    db: orm.Session = Depends(get_session),
+    user: schemas.UserOut = Depends(auth),
+    q: SessionQuery = Depends(SessionQuery),
+) -> Dict[str, Any]:
+    count, sessions = crud.sessions.fetch(db, owner=user, filterset=q)
     return {"count": count, "results": sessions}
 
 

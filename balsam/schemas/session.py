@@ -1,21 +1,21 @@
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .job import RUNNABLE_STATES, JobState
 
 
 class SessionCreate(BaseModel):
-    site_id: int
-    batch_job_id: Optional[int]
+    site_id: int = Field(...)
+    batch_job_id: Optional[int] = Field(None)
 
 
 class SessionOut(BaseModel):
-    id: int
-    site_id: int
-    batch_job_id: Optional[int]
-    heartbeat: datetime
+    id: int = Field(...)
+    site_id: int = Field(...)
+    batch_job_id: Optional[int] = Field(None)
+    heartbeat: datetime = Field(...)
 
     class Config:
         orm_mode = True

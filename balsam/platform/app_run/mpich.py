@@ -6,7 +6,7 @@ class MPICHRun(SubprocessAppRun):
     https://wiki.mpich.org/mpich/index.php/Using_the_Hydra_Process_Manager
     """
 
-    def _build_cmdline(self):
+    def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
         env_args = [("--env", f'{var}="{val}"') for var, val in self._envs.items()]
         nid_str = ",".join(map(str, node_ids))

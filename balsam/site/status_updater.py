@@ -3,27 +3,30 @@ import queue
 import signal
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from balsam.schemas import JobState
 from balsam.util import Process
 
 from .util import Queue
 
+if TYPE_CHECKING:
+    from balsam.client import RESTClient
+
 logger = logging.getLogger(__name__)
 
 
 class StatusUpdater(Process):
-    def __init__(self, client):
+    def __init__(self, client: "RESTClient") -> None:
         super().__init__()
         self.client = client
-        self.queue = Queue()
+        self.queue: "Queue[Dict[str, Any]]" = Queue()
 
-    def _run(self):
+    def _run(self) -> None:
         self.client.close_session()
         EXIT_FLAG = False
 
-        def handler(signum, stack):
+        def handler(signum: Any, stack: Any) -> Any:
             nonlocal EXIT_FLAG
             EXIT_FLAG = True
 
@@ -49,7 +52,7 @@ class StatusUpdater(Process):
         self._drain_queue()
         logger.info("StatusUpdater thread finished.")
 
-    def _drain_queue(self):
+    def _drain_queue(self) -> None:
         updates = []
         while True:
             try:
@@ -65,8 +68,8 @@ class StatusUpdater(Process):
         id: int,
         state: JobState,
         state_timestamp: Optional[datetime] = None,
-        state_data: Dict[str, Any] = None,
-    ):
+        state_data: Optional[Dict[str, Any]] = None,
+    ) -> None:
         if state_data is None:
             state_data = {}
         self.queue.put_nowait(
@@ -78,19 +81,19 @@ class StatusUpdater(Process):
             }
         )
 
-    def _perform_updates(self, updates: List[Dict]):
+    def _perform_updates(self, updates: List[Dict[str, Any]]) -> None:
         raise NotImplementedError
 
 
 class BulkStatusUpdater(StatusUpdater):
-    def _perform_updates(self, updates: List[dict]):
+    def _perform_updates(self, updates: List[Dict[str, Any]]) -> None:
         """
         In case two job updates occur in the same window,
         we sort updates by timestamp and avoid duplicate job
         updates in the same API call
         """
-        updates_by_id = defaultdict(list)
-        for update in sorted(updates, key=lambda x: x["state_timestamp"]):
+        updates_by_id = cast(Dict[Any, List[Dict[str, Any]]], defaultdict(list))
+        for update in sorted(updates, key=lambda x: x["state_timestamp"]):  # type: ignore
             updates_by_id[update["id"]].append(update)
 
         while updates_by_id:

@@ -1,5 +1,6 @@
 import multiprocessing
 from multiprocessing.queues import Queue as QueueBase
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 # The following implementation of custom MyQueue to avoid NotImplementedError
 # when calling queue.qsize() in MacOS X comes almost entirely from this github
@@ -19,21 +20,34 @@ class SharedCounter(object):
     http://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing/
     """
 
-    def __init__(self, n=0):
+    def __init__(self, n: int = 0) -> None:
         self.count = multiprocessing.Value("i", n)
 
-    def increment(self, n=1):
+    def increment(self, n: int = 1) -> None:
         """ Increment the counter by n (default = 1) """
         with self.count.get_lock():
             self.count.value += n
 
     @property
-    def value(self):
+    def value(self) -> int:
         """ Return the value of the counter """
-        return self.count.value
+        return cast(int, self.count.value)
 
 
-class _FallbackQueue(QueueBase):
+T = TypeVar("T")
+if TYPE_CHECKING:
+
+    class _QueueBase(QueueBase[T]):
+        pass
+
+
+else:
+
+    class _QueueBase(Generic[T], QueueBase):
+        pass
+
+
+class _FallbackQueue(_QueueBase[T]):
     """A portable implementation of multiprocessing.Queue.
     Because of multithreading / multiprocessing semantics, Queue.qsize() may
     raise the NotImplementedError exception on Unix platforms like Mac OS X
@@ -45,24 +59,24 @@ class _FallbackQueue(QueueBase):
     qsize() and empty().
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(ctx=multiprocessing.get_context())
         self.size = SharedCounter(0)
 
-    def put(self, *args, **kwargs):
+    def put(self, *args: Any, **kwargs: Any) -> None:
         super().put(*args, **kwargs)
         self.size.increment(1)
 
-    def get(self, *args, **kwargs):
+    def get(self, *args: Any, **kwargs: Any) -> T:
         result = super().get(*args, **kwargs)
         self.size.increment(-1)
         return result
 
-    def qsize(self):
+    def qsize(self) -> int:
         """ Reliable implementation of multiprocessing.Queue.qsize() """
         return self.size.value
 
-    def empty(self):
+    def empty(self) -> bool:
         """ Reliable implementation of multiprocessing.Queue.empty() """
         return not self.qsize()
 
@@ -72,4 +86,4 @@ try:
 except NotImplementedError:
     Queue = _FallbackQueue
 else:
-    Queue = multiprocessing.Queue
+    Queue = multiprocessing.Queue  # type: ignore

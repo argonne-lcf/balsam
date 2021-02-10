@@ -2,12 +2,9 @@ import abc
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
-from uuid import UUID
+from typing import Any, Dict, List, Sequence, Tuple, Type
 
 from pydantic import BaseModel
-
-TransferTaskID = Union[str, int, UUID]
 
 
 class TransferSubmitError(Exception):
@@ -22,25 +19,13 @@ class TaskState(str, Enum):
 
 
 class TaskInfo(BaseModel):
-    task_id: TransferTaskID
+    task_id: str
     state: TaskState
     info: Dict[str, Any]
 
 
-def all_absolute(*paths):
-    for p in paths:
-        if not Path(p).is_absolute():
-            raise ValueError(f"{p} must be an absolute path")
-
-
-def all_relative(*paths):
-    for p in paths:
-        if Path(p).is_absolute():
-            raise ValueError(f"{p} must be a relative path")
-
-
 class TransferInterface(abc.ABC):
-    _registry = {}
+    _registry: Dict[str, Type["TransferInterface"]] = {}
 
     @abc.abstractmethod
     def submit_task(
@@ -48,15 +33,16 @@ class TransferInterface(abc.ABC):
         remote_loc: str,
         direction: str,
         transfer_paths: List[Tuple[Path, Path, bool]],
-    ) -> TransferTaskID:
-        raise NotImplementedError
-
-    @abc.abstractstaticmethod
-    def _poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    ) -> str:
         raise NotImplementedError
 
     @staticmethod
-    def poll_tasks(task_ids: List[TransferTaskID]) -> List[TaskInfo]:
+    @abc.abstractmethod
+    def _poll_tasks(task_ids: Sequence[str]) -> List[TaskInfo]:
+        raise NotImplementedError
+
+    @staticmethod
+    def poll_tasks(task_ids: List[str]) -> List[TaskInfo]:
         ids_by_protocol = defaultdict(list)
         for task_id in task_ids:
             protocol, id = str(task_id).split(":")

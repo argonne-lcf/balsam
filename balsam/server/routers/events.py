@@ -8,7 +8,7 @@ from balsam.server import settings
 from balsam.server.models import LogEvent, crud, get_session
 from balsam.server.util import Paginator
 
-from .filters import EventQuery
+from .filters import EventLogQuery
 
 router = APIRouter()
 auth = settings.auth.get_auth_method()
@@ -19,7 +19,7 @@ def list(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[LogEvent] = Depends(Paginator),
-    q: EventQuery = Depends(EventQuery),
+    q: EventLogQuery = Depends(EventLogQuery),
 ) -> Dict[str, Any]:
     count, events = crud.events.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": events}

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
 from balsam.server import ValidationError, models
-from balsam.server.routers.filters import TransferQuery
+from balsam.server.routers.filters import TransferItemQuery
 from balsam.server.util import Paginator
 
 
@@ -26,7 +26,7 @@ def fetch(
     owner: schemas.UserOut,
     paginator: Optional[Paginator[models.TransferItem]] = None,
     transfer_id: Optional[int] = None,
-    filterset: Optional[TransferQuery] = None,
+    filterset: Optional[TransferItemQuery] = None,
 ) -> Tuple[int, Iterable[models.TransferItem]]:
     qs = owned_transfer_query(db, owner)
     if transfer_id is not None:

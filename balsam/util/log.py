@@ -6,7 +6,7 @@ import sys
 import textwrap
 import time
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Any, Tuple, Union
 
 import multiprocessing_logging  # type: ignore
 
@@ -111,7 +111,7 @@ def config_file_logging(
     sys.excepthook = log_uncaught_exceptions
 
 
-def log_uncaught_exceptions(exctype, value, tb):  # type: ignore
+def log_uncaught_exceptions(exctype: Any, value: Any, tb: Any) -> None:
     root_logger = logging.getLogger("balsam")
     root_logger.error(f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb))
 

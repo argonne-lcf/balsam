@@ -1,19 +1,13 @@
 import getpass
 import subprocess
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-import psutil
+import psutil  # type: ignore
 
-from .scheduler import (
-    Dict,
-    List,
-    Optional,
-    PathLike,
-    SchedulerBackfillWindow,
-    SchedulerInterface,
-    SchedulerJobLog,
-    SchedulerJobStatus,
-)
+from .scheduler import SchedulerBackfillWindow, SchedulerInterface, SchedulerJobLog, SchedulerJobStatus
+
+PathLike = Union[str, Path]
 
 
 class LocalProcessScheduler(SchedulerInterface):
@@ -22,7 +16,7 @@ class LocalProcessScheduler(SchedulerInterface):
         psutil.STATUS_DEAD: "finished",
     }
 
-    _subprocesses = []
+    _subprocesses: List["subprocess.Popen[bytes]"] = []
 
     @classmethod
     def submit(
@@ -33,7 +27,7 @@ class LocalProcessScheduler(SchedulerInterface):
         num_nodes: int,
         wall_time_min: int,
         cwd: Optional[PathLike] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> int:
         """
         Submit the script at `script_path` to a local job queue.
@@ -74,17 +68,19 @@ class LocalProcessScheduler(SchedulerInterface):
                     wall_time_min=0,
                     project="local",
                     time_remaining_min=1000,
+                    queued_time_min=0,
                 )
         cls._subprocesses = [p for p in cls._subprocesses if p.poll() is None]
         return results
 
     @classmethod
-    def delete_job(cls, scheduler_id: int):
+    def delete_job(cls, scheduler_id: int) -> str:
         """
         Deletes the batch job matching `scheduler_id`
         """
         if psutil.pid_exists(scheduler_id):
             psutil.Process(scheduler_id).terminate()
+        return str(scheduler_id)
 
     @classmethod
     def get_backfill_windows(cls) -> Dict[str, List[SchedulerBackfillWindow]]:
@@ -95,7 +91,7 @@ class LocalProcessScheduler(SchedulerInterface):
         return {}
 
     @classmethod
-    def parse_logs(cls, scheduler_id: int, job_script_path: str) -> SchedulerJobLog:
+    def parse_logs(cls, scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         """
         Reads the scheduler logs to determine job metadata like start_time and end_time
         """

@@ -1,27 +1,18 @@
 import os
+from typing import List, Union
 
-from compute_node import ComputeNode
+from .compute_node import ComputeNode
+
+IntStr = Union[int, str]
 
 
-class CoriKnlNode(ComputeNode):
+class CoriKNLNode(ComputeNode):
 
-    num_cpu = 68
-    num_gpu = 0
-    cpu_identifiers = list(range(num_cpu))
-    gpu_identifiers = list(range(num_gpu))
-    cpu_type = "Intel Xeon Phi 7250"
-    cpu_mem_gb = 94
-    gpu_type = ""
-    gpu_mem_gb = 0
-
-    def __init__(self, node_id, hostname, job_mode=""):
-        super(CoriKnlNode, self).__init__(node_id, hostname, job_mode)
-
-    def __str__(self):
-        return f"{self.hostname}:cpu{self.num_cpu}:gpu{self.num_gpu}"
+    cpu_ids: List[IntStr] = list(range(68))
+    gpu_ids: List[IntStr] = []
 
     @classmethod
-    def get_job_nodelist(cls):
+    def get_job_nodelist(cls) -> List["CoriKNLNode"]:
         """
         Get all compute nodes allocated in the current job context
         """
@@ -38,6 +29,8 @@ class CoriKnlNode(ComputeNode):
         # split by comma
         node_ranges_str = nodelist_str.split(",")
         node_ids = []
+        lo: Union[str, int]
+        hi: Union[int, List[str]]
         for node_range_str in node_ranges_str:
             lo, *hi = node_range_str.split("-")
             lo = int(lo)
@@ -51,8 +44,6 @@ class CoriKnlNode(ComputeNode):
 
 
 if __name__ == "__main__":
-
     if "SLURM_NODELIST" not in os.environ:
         os.environ["SLURM_NODELIST"] = "nid0[3038-3039,8241-8246]"
-
-    print([str(x) for x in CoriKnlNode.get_job_nodelist()])
+    print([str(x) for x in CoriKNLNode.get_job_nodelist()])

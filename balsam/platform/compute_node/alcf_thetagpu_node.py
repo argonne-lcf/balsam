@@ -1,4 +1,5 @@
 import os
+from typing import List, Optional
 
 from .compute_node import ComputeNode
 
@@ -9,7 +10,7 @@ class ThetaGPUNode(ComputeNode):
     gpu_ids = list(range(8))
 
     @classmethod
-    def get_job_nodelist(cls):
+    def get_job_nodelist(cls) -> List["ThetaGPUNode"]:
         """
         Get all compute nodes allocated in the current job context
         """
@@ -26,7 +27,7 @@ class ThetaGPUNode(ComputeNode):
         return [cls(nid, hostname) for nid, hostname in zip(node_ids, hostnames)]
 
     @staticmethod
-    def get_scheduler_id():
+    def get_scheduler_id() -> Optional[int]:
         id = os.environ.get("COBALT_JOBID")
         if id is not None:
             return int(id)

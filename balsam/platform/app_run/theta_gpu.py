@@ -8,7 +8,7 @@ class ThetaGPURun(SubprocessAppRun):
     https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
     """
 
-    def _build_cmdline(self):
+    def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
         env_args = [("-x", var) for var in self._envs.keys()]
         nid_str = ",".join(map(str, node_ids))

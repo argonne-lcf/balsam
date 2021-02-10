@@ -10,6 +10,11 @@ class JobMode(str, Enum):
     mpi = "mpi"
 
 
+class BatchJobOrdering(str, Enum):
+    start_time = "start_time"
+    start_time_desc = "-start_time"
+
+
 class BatchJobState(str, Enum):
     pending_submission = "pending_submission"
     queued = "queued"
@@ -27,6 +32,7 @@ class SchedulerJobStatus(BaseModel):
     wall_time_min: int
     project: str
     time_remaining_min: int
+    queued_time_min: int
 
 
 class SchedulerBackfillWindow(BaseModel):

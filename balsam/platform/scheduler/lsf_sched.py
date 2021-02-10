@@ -2,14 +2,17 @@ import datetime
 import logging
 import os
 import re
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
 
+PathLike = Union[Path, str]
 logger = logging.getLogger(__name__)
 
 
 # parse "00:00:00:00" to minutes
-def parse_clock(t_str):
+def parse_clock(t_str: str) -> int:
     parts = t_str.split(":")
     n = len(parts)
     D = H = M = S = 0
@@ -24,7 +27,7 @@ def parse_clock(t_str):
 
 
 #   "02/17 15:56:28"
-def parse_datetime(t_str):
+def parse_datetime(t_str: str) -> datetime.datetime:
     return datetime.datetime.strptime(t_str, "%m/%d %H:%M:%S")
 
 
@@ -33,8 +36,8 @@ class LsfScheduler(SubprocessSchedulerInterface):
     submit_exe = "bsub"
     delete_exe = "bkill"
     backfill_exe = "bslots"
-    default_submit_kwargs = {}
-    submit_kwargs_flag_map = {}
+    default_submit_kwargs: Dict[str, str] = {}
+    submit_kwargs_flag_map: Dict[str, str] = {}
 
     _queue_name = "batch"
 
@@ -46,7 +49,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     }
 
     @staticmethod
-    def _job_state_map(scheduler_state):
+    def _job_state_map(scheduler_state: str) -> str:
         return LsfScheduler._job_states.get(scheduler_state, "unknown")
 
     # maps Balsam status fields to the scheduler fields
@@ -89,7 +92,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     # when reading these fields from the scheduler apply
     # these maps to the string extracted from the output
     @staticmethod
-    def _status_field_map(balsam_field):
+    def _status_field_map(balsam_field: str) -> Optional[Callable[[str], Any]]:
         status_field_map = {
             "scheduler_id": lambda id: int(id),
             "state": lambda state: str(state),
@@ -106,7 +109,9 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return status_field_map.get(balsam_field, None)
 
     @staticmethod
-    def _render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs):
+    def _render_submit_args(
+        script_path: PathLike, project: str, queue: str, num_nodes: int, wall_time_min: int, **kwargs: Any
+    ) -> List[str]:
         args = [
             LsfScheduler.submit_exe,
             "-o",
@@ -128,11 +133,13 @@ class LsfScheduler(SubprocessSchedulerInterface):
             value = kwargs.setdefault(key, default_value)
             args += [flag, value]
 
-        args.append(script_path)
+        args.append(str(script_path))
         return args
 
     @staticmethod
-    def _render_status_args(project=None, user=None, queue=None):
+    def _render_status_args(
+        project: Optional[str] = None, user: Optional[str] = None, queue: Optional[str] = None
+    ) -> List[str]:
         args = [LsfScheduler.status_exe]
         if user is not None:
             args += ["-u", user]
@@ -143,15 +150,15 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return args
 
     @staticmethod
-    def _render_delete_args(job_id):
+    def _render_delete_args(job_id: Union[int, str]) -> List[str]:
         return [LsfScheduler.delete_exe, str(job_id)]
 
     @staticmethod
-    def _render_backfill_args():
+    def _render_backfill_args() -> List[str]:
         return [LsfScheduler.backfill_exe, '-R"select[CN]"']
 
     @staticmethod
-    def _parse_submit_output(submit_output):
+    def _parse_submit_output(submit_output: str) -> int:
         try:
             start = len("Job <")
             end = submit_output.find(">", start)
@@ -161,7 +168,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return scheduler_id
 
     @staticmethod
-    def _parse_status_output(raw_output):
+    def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # Example output:
         # ------------------------------- Running Jobs: 1 (batch: 4619/4625=99.87% + batch-hm: 46/54=85.19%) -------------------------------
         # JobID      User       Queue    Project    Nodes Remain     StartTime       JobName
@@ -242,7 +249,9 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return status_dict
 
     @staticmethod
-    def _parse_job_status(fields, status_fields, status):
+    def _parse_job_status(
+        fields: List[str], status_fields: Dict[str, str], status: Dict[str, Any]
+    ) -> SchedulerJobStatus:
         actual = len(fields)
         expected = len(status_fields)
         if actual != expected:
@@ -254,9 +263,9 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return SchedulerJobStatus(**status)
 
     @staticmethod
-    def _parse_backfill_output(stdout):
+    def _parse_backfill_output(stdout: str) -> Dict[str, List[SchedulerBackfillWindow]]:
         raw_lines = stdout.split("\n")
-        windows = {LsfScheduler._queue_name: []}
+        windows: Dict[str, List[SchedulerBackfillWindow]] = {LsfScheduler._queue_name: []}
         node_lines = raw_lines[1:]
         for line in node_lines:
             if len(line.strip()) == 0:
@@ -265,7 +274,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return windows
 
     @staticmethod
-    def _parse_bslots_line(line):
+    def _parse_bslots_line(line: str) -> SchedulerBackfillWindow:
         parts = line.split()
         nodes = int(parts[0])
         backfill_time = 0
@@ -278,6 +287,6 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return SchedulerBackfillWindow(num_nodes=nodes, wall_time_min=backfill_time)
 
     @staticmethod
-    def _parse_logs(scheduler_id, job_script_path) -> SchedulerJobLog:
+    def _parse_logs(scheduler_id: Union[int, str], job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         # TODO: Return job start/stop time from log file or command
         return SchedulerJobLog()

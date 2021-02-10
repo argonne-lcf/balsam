@@ -9,7 +9,7 @@ from balsam.config import ClientSettings
 @click.command()
 @click.option("-a", "--address")
 @click.option("-u", "--username")
-def login(address, username):
+def login(address: str, username: str) -> None:
     """
     Set client information and authenticate to server
     """
@@ -42,7 +42,7 @@ def login(address, username):
 @click.command()
 @click.option("-a", "--address", prompt="Balsam server address")
 @click.option("-u", "--username", prompt="Balsam username")
-def register(address, username):
+def register(address: str, username: str) -> None:
     """
     Register a new user account with Balsam server
     """

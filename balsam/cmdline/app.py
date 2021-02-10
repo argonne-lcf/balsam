@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type, Union
 
 import click
 import yaml
@@ -9,8 +10,15 @@ from balsam.site.app import find_app_classes, load_module
 
 from .utils import load_site_config
 
+if TYPE_CHECKING:
+    from balsam._api.models import App
+    from balsam.client import RESTClient
 
-def load_apps(apps_path):
+ModTimeDict = Dict[str, float]
+AppClassDict = Dict[str, List[Type[ApplicationDefinition]]]
+
+
+def load_apps(apps_path: Union[str, Path]) -> Tuple[AppClassDict, ModTimeDict]:
     """
     Fetch all ApplicationDefinitions and their local modification times
     Returns two dicts keyed by module name
@@ -27,7 +35,7 @@ def load_apps(apps_path):
 
 
 @click.group()
-def app():
+def app() -> None:
     """
     Sync and manage Balsam applications
     """
@@ -43,7 +51,7 @@ def app():
     prompt="Application Template [e.g. 'echo Hello {{ name }}!']",
 )
 @click.option("-d", "--description", default="Application description")
-def create(name, command_template, description):
+def create(name: str, command_template: str, description: str) -> None:
     """
     Create a new Balsam App in the current Site.
 
@@ -93,7 +101,14 @@ def create(name, command_template, description):
     )
 
 
-def sync_app(client, app_class, class_path, mtime, registered_app, site_id):
+def sync_app(
+    client: "RESTClient",
+    app_class: Type[ApplicationDefinition],
+    class_path: str,
+    mtime: float,
+    registered_app: Optional["App"],
+    site_id: int,
+) -> None:
     # App not in DB: create it
     if registered_app is None:
         app = client.App.objects.create(
@@ -116,7 +131,7 @@ def sync_app(client, app_class, class_path, mtime, registered_app, site_id):
     return
 
 
-def app_deletion_prompt(client, app):
+def app_deletion_prompt(client: "RESTClient", app: "App") -> None:
     job_count = client.Job.objects.filter(app_id=app.id).count()
     click.echo(f"DELETED/RENAMED {app.class_path} (app_id={app.id})")
     click.echo("   --> You either renamed this ApplicationDefinition or deleted it.")
@@ -130,7 +145,7 @@ def app_deletion_prompt(client, app):
 
 
 @app.command()
-def sync():
+def sync() -> None:
     """
     Sync local ApplicationDefinitions with Balsam
     """
@@ -162,7 +177,7 @@ def sync():
 
 
 @app.command()
-def ls():
+def ls() -> None:
     """
     List my Apps
     """

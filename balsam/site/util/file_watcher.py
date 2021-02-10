@@ -1,8 +1,9 @@
 import time
 from pathlib import Path
+from typing import Any, Callable, Dict, Iterable, Tuple
 
 
-def _snapshot_files(directory, pattern):
+def _snapshot_files(directory: str, pattern: str) -> Iterable[Tuple[Path, float]]:
     seen_files = set()
     for file in Path(directory).glob(pattern):
         if file in seen_files:
@@ -15,15 +16,15 @@ def _snapshot_files(directory, pattern):
         yield file, mtime
 
 
-def watcher(callback, directory, glob_pattern, sleep_time):
+def watcher(callback: Callable[[str], Any], directory: str, glob_pattern: str, sleep_time: float) -> None:
     """
     Invokes callback(path) for every modified file
     """
-    mtimes = {}
+    mtimes: Dict[Path, float] = {}
     while True:
         time.sleep(sleep_time)
         for filepath, mtime in _snapshot_files(directory, glob_pattern):
             old_time = mtimes.get(filepath)
             mtimes[filepath] = mtime
             if old_time is None or mtime > old_time:
-                callback(filepath)
+                callback(filepath.as_posix())

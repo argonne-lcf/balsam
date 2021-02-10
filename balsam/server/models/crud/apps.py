@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, Optional, Tuple, cast
 
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import IntegrityError
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
 from balsam.server import ValidationError, models
+from balsam.server.routers.filters import AppQuery
 from balsam.server.util import Paginator
 
 
@@ -14,17 +15,11 @@ def fetch(
     owner: schemas.UserOut,
     paginator: Optional[Paginator[models.App]] = None,
     app_id: Optional[int] = None,
-    filter_site_ids: Optional[List[int]] = None,
-    ids: Optional[List[int]] = None,
-    class_path: Optional[str] = None,
+    filterset: Optional[AppQuery] = None,
 ) -> "Tuple[int, Query[models.App]]":
     qs = db.query(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
-    if filter_site_ids:
-        qs = qs.filter(models.App.site_id.in_(filter_site_ids))
-    if ids is not None:
-        qs = qs.filter(models.App.id.in_(ids))
-    if class_path is not None:
-        qs = qs.filter(models.App.class_path == class_path)
+    if filterset is not None:
+        qs = filterset.apply_filters(qs)
     if app_id is not None:
         qs = qs.filter(models.App.id == app_id).one()
         return (1, qs)

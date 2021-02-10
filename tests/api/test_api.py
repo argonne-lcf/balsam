@@ -4,6 +4,8 @@ from uuid import uuid4
 
 import pytest
 
+from balsam.schemas import TransferItemState
+
 
 class TestSite:
     def test_create_and_list(self, client):
@@ -24,12 +26,6 @@ class TestSite:
         newsite.save()
         assert newsite._state == "clean"
         assert newsite.id is not None
-
-    def test_cannot_access_manager_from_instance(self, client):
-        Site = client.Site
-        newsite = Site.objects.create(hostname="theta", path="/projects/foo")
-        with pytest.raises(AttributeError):
-            newsite.objects.count()
 
     def test_update_status(self, client):
         Site = client.Site
@@ -548,7 +544,13 @@ class TestTransfers:
         )
         pending = TransferItem.objects.filter(state="pending")
         assert pending.count() == 1
+        pending = TransferItem.objects.filter(state=TransferItemState.pending)
+        assert pending.count() == 1
+        done = TransferItem.objects.filter(state=TransferItemState.done)
+        assert done.count() == 0
         all_t = TransferItem.objects.filter(state=["pending", "awaiting_job"])
+        assert all_t.count() == 2
+        all_t = TransferItem.objects.filter(state={"pending", "awaiting_job"})
         assert all_t.count() == 2
 
 
@@ -628,13 +630,16 @@ class TestEvents:
     def test_cannot_create_or_update(self, client):
         self.setup_scenario(client)
         EventLog = client.EventLog
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(AttributeError, match="has no attribute 'create'"):
             EventLog.objects.create(
                 job_id=1,
                 from_state="RUNNING",
                 to_state="RUN_DONE",
             )
-        assert "EventLog is read only" in str(e)
+        log = EventLog.objects.first()
+        with pytest.raises(AttributeError, match="EventLog is read-only"):
+            log.from_state = "CREATED"
+        log.save()
 
 
 class TestBatchJobs:
@@ -673,6 +678,33 @@ class TestBatchJobs:
         assert from_db.id == bjob.id
         assert bjob.id is not None
 
+    def test_filter_by_site_id(self, client):
+        Site = client.Site
+        BatchJob = client.BatchJob
+        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
+        assert site1.id != site2.id
+        BatchJob.objects.create(
+            site_id=site1.id,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+        )
+        BatchJob.objects.create(
+            site_id=site2.id,
+            project="datascience",
+            queue="default",
+            num_nodes=128,
+            wall_time_min=30,
+            job_mode="mpi",
+        )
+        from_db = BatchJob.objects.filter(site_id=site1.id)
+        assert len(from_db) == 1 and from_db[0].site_id == site1.id
+        from_db = BatchJob.objects.filter(site_id=site2.id)
+        assert len(from_db) == 1 and from_db[0].site_id == site2.id
+
     def test_bulk_update(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
@@ -690,13 +722,13 @@ class TestBatchJobs:
 
         assert BatchJob.objects.count() == 3
 
-        bjobs = BatchJob.objects.filter(site=site.id)
+        bjobs = BatchJob.objects.filter(site_id=site.id)
         for job, sched_id in zip(bjobs, [123, 124, 125]):
             job.state = "queued"
             job.scheduler_id = sched_id
         BatchJob.objects.bulk_update(bjobs)
 
-        after_update = list(BatchJob.objects.filter(site=site.id))
+        after_update = list(BatchJob.objects.filter(site_id=site.id))
         assert after_update == list(bjobs)
 
     def test_delete(self, client):
@@ -716,7 +748,7 @@ class TestBatchJobs:
         assert BatchJob.objects.count() == 3
 
         with pytest.raises(NotImplementedError):
-            BatchJob.objects.filter(site=site.id).delete()
+            BatchJob.objects.filter(site_id=site.id).delete()
 
         for job in BatchJob.objects.all():
             job.delete()

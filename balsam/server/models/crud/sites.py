@@ -1,11 +1,12 @@
 from datetime import datetime
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
 from balsam.server import ValidationError, models
+from balsam.server.routers.filters import SiteQuery
 from balsam.server.util import Paginator
 
 
@@ -13,18 +14,12 @@ def fetch(
     db: Session,
     owner: schemas.UserOut,
     paginator: Optional[Paginator[models.Site]] = None,
-    host_contains: Optional[str] = None,
-    path_contains: Optional[str] = None,
     site_id: Optional[int] = None,
-    ids: Optional[Sequence[int]] = None,
+    filterset: Optional[SiteQuery] = None,
 ) -> "Tuple[int, Union[models.Site, Query[models.Site]]]":
     qs = db.query(models.Site).filter(models.Site.owner_id == owner.id)
-    if host_contains:
-        qs = qs.filter(models.Site.hostname.like(f"%{host_contains}%"))
-    if path_contains:
-        qs = qs.filter(models.Site.path.like(f"%{path_contains}%"))
-    if ids:
-        qs = qs.filter(models.Site.id.in_(ids))
+    if filterset is not None:
+        qs = filterset.apply_filters(qs)
 
     if site_id is not None:
         site = qs.filter(models.Site.id == site_id).one()
