@@ -12,7 +12,7 @@ class CoriKNLNode(ComputeNode):
     gpu_ids: List[IntStr] = []
 
     @classmethod
-    def get_job_nodelist(cls, job_mode: str) -> List["CoriKNLNode"]:
+    def get_job_nodelist(cls) -> List["CoriKNLNode"]:
         """
         Get all compute nodes allocated in the current job context
         """
@@ -46,4 +46,4 @@ class CoriKNLNode(ComputeNode):
 if __name__ == "__main__":
     if "SLURM_NODELIST" not in os.environ:
         os.environ["SLURM_NODELIST"] = "nid0[3038-3039,8241-8246]"
-    print([str(x) for x in CoriKNLNode.get_job_nodelist(job_mode="mpi")])
+    print([str(x) for x in CoriKNLNode.get_job_nodelist()])

@@ -95,7 +95,7 @@ def start_serial_mode(
         ranks_per_node=1,
         threads_per_rank=1,
         threads_per_core=1,
-        launch_params=site_config.launcher.serial_mode_startup_params,
+        launch_params=site_config.settings.launcher.serial_mode_startup_params,
         gpus_per_rank=len(nodes[0].gpu_ids),
     )
     app.start()
@@ -115,7 +115,7 @@ def launcher(
     wall_time_min: int,
 ) -> None:
     site_config = load_site_config()
-    node_cls = site_config.launcher.compute_node
+    node_cls = site_config.settings.launcher.compute_node
     nodes = node_cls.get_job_nodelist()
 
     if not partitions:

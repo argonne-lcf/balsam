@@ -287,7 +287,7 @@ class SiteConfig:
         if self.settings.processing:
             processing_service = ProcessingService(
                 client=self.client,
-                site_id=self.site_id,
+                site_id=self.settings.site_id,
                 data_path=self.data_path,
                 apps_path=self.apps_path,
                 filter_tags=self.settings.filter_tags,
@@ -411,9 +411,6 @@ class SiteConfig:
                 return check_dir
             check_dir = check_dir.parent
         return None
-
-    def __getattr__(self, item: str) -> Any:
-        return getattr(self.settings, item)
 
     @property
     def apps_path(self) -> Path:

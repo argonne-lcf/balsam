@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Optional, Union
 
 from .compute_node import ComputeNode
 
@@ -10,7 +10,7 @@ class ThetaKNLNode(ComputeNode):
     gpu_ids: List[Union[int, str]] = []
 
     @classmethod
-    def get_job_nodelist(cls, job_mode: str) -> List["ThetaKNLNode"]:
+    def get_job_nodelist(cls) -> List["ThetaKNLNode"]:
         """
         Get all compute nodes allocated in the current job context
         """
@@ -32,7 +32,7 @@ class ThetaKNLNode(ComputeNode):
         return [cls(node_id, f"nid{node_id:05d}") for node_id in node_ids]
 
     @staticmethod
-    def get_scheduler_id() -> Union[int, str, None]:
+    def get_scheduler_id() -> Optional[int]:
         id = os.environ.get("COBALT_JOBID")
         if id is not None:
             return int(id)

@@ -392,12 +392,13 @@ def run_master_launcher(
     num_workers: int,
     filter_tags: Optional[Dict[str, str]],
 ) -> None:
-    node_cls = site_config.launcher.compute_node
+    launch_settings = site_config.settings.launcher
+    node_cls = launch_settings.compute_node
     scheduler_id = node_cls.get_scheduler_id()
     job_source = FixedDepthJobSource(
         client=site_config.client,
-        site_id=site_config.site_id,
-        prefetch_depth=num_workers * site_config.launcher.serial_mode_prefetch_per_rank,
+        site_id=site_config.settings.site_id,
+        prefetch_depth=num_workers * launch_settings.serial_mode_prefetch_per_rank,
         filter_tags=filter_tags,
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
@@ -409,7 +410,7 @@ def run_master_launcher(
     App = site_config.client.App
     app_cache = {
         app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
-        for app in App.objects.filter(site_id=site_config.site_id)
+        for app in App.objects.filter(site_id=site_config.settings.site_id)
         if app.id is not None
     }
 
@@ -420,24 +421,25 @@ def run_master_launcher(
         wall_time_min=wall_time_min,
         master_port=master_port,
         data_dir=site_config.data_path,
-        idle_ttl_sec=site_config.launcher.idle_ttl_sec,
+        idle_ttl_sec=launch_settings.idle_ttl_sec,
         num_workers=num_workers,
     )
     master.run()
 
 
 def run_worker(site_config: SiteConfig, master_host: str, master_port: int, hostname: str) -> None:
-    node_cls = site_config.launcher.compute_node
+    launch_settings = site_config.settings.launcher
+    node_cls = launch_settings.compute_node
     nodes = [node for node in node_cls.get_job_nodelist() if node.hostname == hostname]
-    node_manager = NodeManager(nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing)
+    node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
     worker = Worker(
-        app_run=site_config.launcher.local_app_launcher,
+        app_run=launch_settings.local_app_launcher,
         node_manager=node_manager,
         master_host=master_host,
         master_port=master_port,
-        delay_sec=site_config.launcher.delay_sec,
-        error_tail_num_lines=site_config.launcher.error_tail_num_lines,
-        num_prefetch_jobs=site_config.launcher.serial_mode_prefetch_per_rank,
+        delay_sec=launch_settings.delay_sec,
+        error_tail_num_lines=launch_settings.error_tail_num_lines,
+        num_prefetch_jobs=launch_settings.serial_mode_prefetch_per_rank,
     )
     worker.run()
 

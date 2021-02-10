@@ -12,6 +12,6 @@ class DefaultNode(ComputeNode):
     gpu_ids: List[Union[int, str]] = []
 
     @classmethod
-    def get_job_nodelist(cls, job_mode: str) -> List["DefaultNode"]:
+    def get_job_nodelist(cls) -> List["DefaultNode"]:
         hostname = socket.gethostname()
         return [cls(hostname, hostname)]

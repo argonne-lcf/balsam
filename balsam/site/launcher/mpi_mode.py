@@ -5,7 +5,7 @@ import signal
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Union, cast
 
 import click
 
@@ -211,16 +211,17 @@ def main(
     site_config = SiteConfig()
     site_config.enable_logging("mpi_mode", filename=log_filename)
     filter_tags_dict: Dict[str, str] = json.loads(filter_tags)
-    node_ids = json.loads(node_ids)
+    node_ids_list: List[Union[int, str]] = json.loads(node_ids)
 
-    node_cls = site_config.launcher.compute_node
-    nodes = [node for node in node_cls.get_job_nodelist() if node.node_id in node_ids]
-    node_manager = NodeManager(nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing)
+    launch_settings = site_config.settings.launcher
+    node_cls = launch_settings.compute_node
+    nodes = [node for node in node_cls.get_job_nodelist() if node.node_id in node_ids_list]
+    node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
 
     scheduler_id = node_cls.get_scheduler_id()
     job_source = SynchronousJobSource(
         client=site_config.client,
-        site_id=site_config.site_id,
+        site_id=site_config.settings.site_id,
         filter_tags=filter_tags_dict,
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
@@ -230,21 +231,21 @@ def main(
     App = site_config.client.App
     app_cache = {
         app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
-        for app in App.objects.filter(site_id=site_config.site_id)
+        for app in App.objects.filter(site_id=site_config.settings.site_id)
         if app.id is not None
     }
     launcher = Launcher(
         data_dir=site_config.data_path,
         app_cache=app_cache,
-        idle_ttl_sec=site_config.launcher.idle_ttl_sec,
-        delay_sec=site_config.launcher.delay_sec,
-        app_run=site_config.launcher.mpi_app_launcher,
+        idle_ttl_sec=launch_settings.idle_ttl_sec,
+        delay_sec=launch_settings.delay_sec,
+        app_run=launch_settings.mpi_app_launcher,
         node_manager=node_manager,
         job_source=job_source,
         status_updater=status_updater,
         wall_time_min=wall_time_min,
-        error_tail_num_lines=site_config.launcher.error_tail_num_lines,
-        max_concurrent_runs=site_config.launcher.max_concurrent_mpiruns,
+        error_tail_num_lines=launch_settings.error_tail_num_lines,
+        max_concurrent_runs=launch_settings.max_concurrent_mpiruns,
     )
     launcher.run()
 

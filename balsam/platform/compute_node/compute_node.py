@@ -1,9 +1,8 @@
-from typing import Type  # noqa: F401
-from typing import Any, Dict, List, TypeVar, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 IntStr = Union[int, str]
 
-U = TypeVar("U", bound="Type[ComputeNode]")
+U = TypeVar("U")
 
 
 class ComputeNode:
@@ -70,14 +69,14 @@ class ComputeNode:
             self.busy_gpus = [i for i in self.busy_gpus if i not in gpu_ids]
 
     @classmethod
-    def get_job_nodelist(cls: U, job_mode: str) -> "List[U]":
+    def get_job_nodelist(cls: Type[U]) -> "List[U]":
         """
         Get all compute nodes allocated in the current job context
         """
         return []
 
     @staticmethod
-    def get_scheduler_id() -> Union[int, str, None]:
+    def get_scheduler_id() -> Optional[int]:
         return None
 
     def __repr__(self) -> str:
