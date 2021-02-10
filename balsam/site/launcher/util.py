@@ -1,11 +1,11 @@
 import logging
 import time
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterator, List
 
 logger = logging.getLogger(__name__)
 
 
-def countdown_timer_min(time_limit_min: int, delay_sec: int) -> Iterable[float]:
+def countdown_timer_min(time_limit_min: int, delay_sec: int) -> Iterator[float]:
     start = time.time()
     next_time = start + delay_sec
     while True:

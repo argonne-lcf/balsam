@@ -8,21 +8,27 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type, Union, cast
 
 import click
-import zmq
+import zmq  # type: ignore
 
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
+from balsam.schemas import JobState
 from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobSource
-from balsam.site.launcher.node_manager import InsufficientResources, NodeManager
+from balsam.site.launcher.node_manager import InsufficientResources, NodeManager, NodeSpec
 from balsam.site.launcher.util import countdown_timer_min
+
+if TYPE_CHECKING:
+    from balsam._api.models import Job
+    from balsam.platform.app_run import AppRun  # noqa: F401
 
 logger = logging.getLogger("balsam.site.launcher.serial_mode")
 EXIT_FLAG = False
 
 
-def handle_term(signum, stack):
+def handle_term(signum: int, stack: Any) -> None:
     global EXIT_FLAG
     EXIT_FLAG = True
 
@@ -30,23 +36,23 @@ def handle_term(signum, stack):
 class Master:
     def __init__(
         self,
-        job_source,
-        status_updater,
-        app_cache,
-        wall_time_min,
-        master_port,
-        data_dir,
-        idle_ttl_sec,
-        num_workers,
-    ):
+        job_source: FixedDepthJobSource,
+        status_updater: BulkStatusUpdater,
+        app_cache: Dict[int, Type[ApplicationDefinition]],
+        wall_time_min: int,
+        master_port: int,
+        data_dir: Path,
+        idle_ttl_sec: int,
+        num_workers: int,
+    ) -> None:
         self.job_source = job_source
         self.status_updater = status_updater
         self.app_cache = app_cache
         self.data_dir = data_dir
-        self.remaining_timer = countdown_timer_min(wall_time_min, delay_sec=0.0)
+        self.remaining_timer = countdown_timer_min(wall_time_min, delay_sec=0)
         self.idle_ttl_sec = idle_ttl_sec
-        self.idle_time = None
-        self.active_ids = set()
+        self.idle_time: Optional[float] = None
+        self.active_ids: Set[int] = set()
         self.num_workers = num_workers
 
         next(self.remaining_timer)
@@ -60,7 +66,7 @@ class Master:
         self.socket.bind(f"tcp://*:{master_port}")
         logger.debug("Master ZMQ socket bound.")
 
-    def job_to_dict(self, job):
+    def job_to_dict(self, job: "Job") -> Dict[str, Any]:
         app_cls = self.app_cache[job.app_id]
         app = app_cls(job)
         workdir = self.data_dir.joinpath(app.job.workdir).as_posix()
@@ -80,21 +86,21 @@ class Master:
             gpus_per_rank=job.gpus_per_rank,
         )
 
-    def handle_request(self):
+    def handle_request(self) -> None:
         msg = self.socket.recv_json()
         now = datetime.utcnow()
         finished_ids = set()
         for id in msg["done"]:
             self.status_updater.put(
                 id,
-                "RUN_DONE",
+                JobState.run_done,
                 state_timestamp=now,
             )
             finished_ids.add(id)
         for (id, retcode, tail) in msg["error"]:
             self.status_updater.put(
                 id,
-                "RUN_ERROR",
+                JobState.run_error,
                 state_timestamp=now,
                 state_data={
                     "returncode": retcode,
@@ -105,7 +111,7 @@ class Master:
         for id in msg["started"]:
             self.status_updater.put(
                 id,
-                "RUNNING",
+                JobState.running,
                 state_timestamp=now,
             )
             self.active_ids.add(id)
@@ -122,7 +128,7 @@ class Master:
         if new_job_specs:
             logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
-    def idle_check(self):
+    def idle_check(self) -> None:
         global EXIT_FLAG
         if not self.active_ids:
             if self.idle_time is None:
@@ -133,7 +139,7 @@ class Master:
         else:
             self.idle_time = None
 
-    def run(self):
+    def run(self) -> None:
         global EXIT_FLAG
         logger.debug("In master run")
         try:
@@ -150,13 +156,13 @@ class Master:
             self.shutdown()
             logger.info("shutdown done: ensemble master exit gracefully")
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         now = datetime.utcnow()
         logger.info(f"Timing out {len(self.active_ids)} active runs")
         for id in self.active_ids:
             self.status_updater.put(
                 id,
-                "RUN_TIMEOUT",
+                JobState.run_timeout,
                 state_timestamp=now,
             )
 
@@ -187,14 +193,14 @@ class Worker:
 
     def __init__(
         self,
-        app_run,
-        node_manager,
-        master_host,
-        master_port,
-        delay_sec,
-        error_tail_num_lines,
-        num_prefetch_jobs,
-    ):
+        app_run: Type["AppRun"],
+        node_manager: NodeManager,
+        master_host: str,
+        master_port: int,
+        delay_sec: int,
+        error_tail_num_lines: int,
+        num_prefetch_jobs: int,
+    ) -> None:
         self.hostname = socket.gethostname()
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
@@ -205,39 +211,36 @@ class Worker:
         self.error_tail_num_lines = error_tail_num_lines
         self.num_prefetch_jobs = num_prefetch_jobs
 
-        self.app_runs = {}
-        self.start_times = {}
-        self.retry_counts = {}
-        self.job_specs = {}
-        self.node_specs = {}
-        self.runnable_cache = {}
+        self.app_runs: Dict[int, "AppRun"] = {}
+        self.start_times: Dict[int, float] = {}
+        self.retry_counts: Dict[int, int] = {}
+        self.job_specs: Dict[int, Dict[str, Any]] = {}
+        self.node_specs: Dict[int, NodeSpec] = {}
+        self.runnable_cache: Dict[int, Dict[str, Any]] = {}
 
-    def cleanup_proc(self, id, timeout=0):
+    def cleanup_proc(self, id: int, timeout: float = 0) -> None:
         self.kill(id, timeout=timeout)
         self.node_manager.free(id)
-        for d in (
-            self.app_runs,
-            self.start_times,
-            self.retry_counts,
-            self.job_specs,
-            self.node_specs,
-        ):
-            del d[id]
+        del self.app_runs[id]
+        del self.start_times[id]
+        del self.retry_counts[id]
+        del self.job_specs[id]
+        del self.node_specs[id]
 
-    def check_retcodes(self):
+    def check_retcodes(self) -> List[Tuple[int, Optional[int]]]:
         id_retcodes = []
         for id, proc in self.app_runs.items():
             retcode = proc.poll()
             id_retcodes.append((id, retcode))
         return id_retcodes
 
-    def log_error_tail(self, id, retcode):
+    def log_error_tail(self, id: int, retcode: int) -> str:
         tail = self.app_runs[id].tail_output(self.error_tail_num_lines)
         logmsg = f"Job {id} nonzero return {retcode}:\n {tail}"
         logger.error(logmsg)
         return tail
 
-    def can_retry(self, id, retcode):
+    def can_retry(self, id: int, retcode: int) -> bool:
         if retcode in self.RETRY_CODES:
             elapsed = time.time() - self.start_times[id]
             retry_count = self.retry_counts[id]
@@ -250,7 +253,7 @@ class Worker:
                 return True
         return False
 
-    def kill(self, id, timeout=0):
+    def kill(self, id: int, timeout: float = 0) -> None:
         p = self.app_runs[id]
         if p.poll() is None:
             p.terminate()
@@ -260,7 +263,7 @@ class Worker:
             except TimeoutExpired:
                 p.kill()
 
-    def launch_run(self, id):
+    def launch_run(self, id: int) -> None:
         job_spec = self.job_specs[id].copy()
         node_spec = self.node_specs[id]
         job_spec.pop("id")
@@ -277,7 +280,7 @@ class Worker:
         proc.start()
         self.app_runs[id] = proc
 
-    def handle_error(self, id, retcode):
+    def handle_error(self, id: int, retcode: int) -> Union[Tuple[int, str], str]:
         tail = self.log_error_tail(id, retcode)
 
         if not self.can_retry(id, retcode):
@@ -289,7 +292,7 @@ class Worker:
             self.launch_run(id)
             return "running"
 
-    def poll_processes(self):
+    def poll_processes(self) -> Tuple[List[int], List[Tuple[int, int, str]]]:
         done, error = [], []
         for id, retcode in self.check_retcodes():
             if retcode is None:
@@ -302,17 +305,17 @@ class Worker:
                 logger.info(f"Job {id} WORKER_ERROR")
                 status = self.handle_error(id, retcode)
                 if status != "running":
-                    retcode, tail = status
+                    retcode, tail = cast(Tuple[int, str], status)
                     error.append((id, retcode, tail))
         return done, error
 
-    def exit(self):
+    def exit(self) -> None:
         ids = list(self.app_runs.keys())
         for id in ids:
             self.cleanup_proc(id, timeout=self.CHECK_PERIOD)
         sys.exit(0)
 
-    def start_jobs(self):
+    def start_jobs(self) -> List[int]:
         started_ids = []
 
         for id, job_spec in self.runnable_cache.items():
@@ -335,7 +338,7 @@ class Worker:
         self.runnable_cache = {k: v for k, v in self.runnable_cache.items() if k not in started_ids}
         return started_ids
 
-    def run(self):
+    def run(self) -> None:
         global EXIT_FLAG
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected to {self.master_address}")
@@ -377,12 +380,18 @@ class Worker:
         self.exit()
 
 
-def launch_master_subprocess():
+def launch_master_subprocess() -> "subprocess.Popen[bytes]":
     args = [sys.executable] + sys.argv + ["--run-master"]
     return subprocess.Popen(args)
 
 
-def run_master_launcher(site_config, wall_time_min, master_port, num_workers, filter_tags):
+def run_master_launcher(
+    site_config: SiteConfig,
+    wall_time_min: int,
+    master_port: int,
+    num_workers: int,
+    filter_tags: Optional[Dict[str, str]],
+) -> None:
     node_cls = site_config.launcher.compute_node
     scheduler_id = node_cls.get_scheduler_id()
     job_source = FixedDepthJobSource(
@@ -401,6 +410,7 @@ def run_master_launcher(site_config, wall_time_min, master_port, num_workers, fi
     app_cache = {
         app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
         for app in App.objects.filter(site_id=site_config.site_id)
+        if app.id is not None
     }
 
     master = Master(
@@ -416,7 +426,7 @@ def run_master_launcher(site_config, wall_time_min, master_port, num_workers, fi
     master.run()
 
 
-def run_worker(site_config, master_host, master_port, hostname):
+def run_worker(site_config: SiteConfig, master_host: str, master_port: int, hostname: str) -> None:
     node_cls = site_config.launcher.compute_node
     nodes = [node for node in node_cls.get_job_nodelist() if node.hostname == hostname]
     node_manager = NodeManager(nodes, allow_node_packing=site_config.launcher.mpirun_allows_node_packing)
@@ -439,10 +449,12 @@ def run_worker(site_config, master_host, master_port, hostname):
 @click.option("--log-filename")
 @click.option("--num-workers", type=int)
 @click.option("--filter-tags")
-def main(wall_time_min, master_address, run_master, log_filename, num_workers, filter_tags):
+def main(
+    wall_time_min: int, master_address: str, run_master: bool, log_filename: str, num_workers: int, filter_tags: str
+) -> None:
     master_host, master_port = master_address.split(":")
     site_config = SiteConfig()
-    filter_tags = json.loads(filter_tags)
+    filter_tags_dict: Optional[Dict[str, str]] = json.loads(filter_tags)
     hostname = socket.gethostname()
     master_proc = None
 
@@ -452,9 +464,9 @@ def main(wall_time_min, master_address, run_master, log_filename, num_workers, f
         run_master_launcher(
             site_config,
             wall_time_min,
-            master_port,
+            int(master_port),
             num_workers,
-            filter_tags,
+            filter_tags_dict,
         )
     else:
         site_config.enable_logging("serial_mode", filename=log_filename + f".{hostname}")
@@ -464,7 +476,7 @@ def main(wall_time_min, master_address, run_master, log_filename, num_workers, f
 
         logger.debug("Launching worker")
         try:
-            run_worker(site_config, master_host, master_port, hostname)
+            run_worker(site_config, master_host, int(master_port), hostname)
         except:  # noqa
             raise
         finally:

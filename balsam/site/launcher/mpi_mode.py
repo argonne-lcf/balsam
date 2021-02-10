@@ -4,33 +4,40 @@ import multiprocessing
 import signal
 import time
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type, cast
 
 import click
 
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
+from balsam.schemas import JobState
 from balsam.site import ApplicationDefinition, BulkStatusUpdater, SynchronousJobSource
 from balsam.site.launcher.node_manager import NodeManager
 from balsam.site.launcher.util import countdown_timer_min
 
 logger = logging.getLogger("balsam.site.launcher.mpi_mode")
 
+if TYPE_CHECKING:
+    from balsam._api.models import Job
+    from balsam.platform.app_run import AppRun
+
 
 class Launcher:
     def __init__(
         self,
-        data_dir,
-        app_cache,
-        idle_ttl_sec,
-        app_run,
-        node_manager,
-        job_source,
-        status_updater,
-        wall_time_min,
-        delay_sec,
-        error_tail_num_lines,
-        max_concurrent_runs,
-    ):
+        data_dir: Path,
+        app_cache: Dict[int, Type[ApplicationDefinition]],
+        idle_ttl_sec: int,
+        app_run: Type["AppRun"],
+        node_manager: NodeManager,
+        job_source: SynchronousJobSource,
+        status_updater: BulkStatusUpdater,
+        wall_time_min: int,
+        delay_sec: int,
+        error_tail_num_lines: int,
+        max_concurrent_runs: int,
+    ) -> None:
         self.data_dir = data_dir
         self.app_cache = app_cache
         self.idle_ttl_sec = idle_ttl_sec
@@ -44,17 +51,17 @@ class Launcher:
 
         self.status_updater.start()
         self.job_source.start()
-        self.active_runs = {}
-        self.idle_time = None
+        self.active_runs: Dict[int, "AppRun"] = {}
+        self.idle_time: Optional[float] = None
         self.max_concurrent_runs = max_concurrent_runs
 
-        def signal_handler(signum, stack):
+        def signal_handler(signum: int, stack: Any) -> None:
             self.exit_flag = True
 
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
 
-    def time_step(self):
+    def time_step(self) -> None:
         try:
             min_left = next(self.timer)
         except StopIteration:
@@ -64,7 +71,7 @@ class Launcher:
         m, s = map(int, divmod(min_left * 60, 60))
         logger.debug(f"{m:02d}m:{s:02d}s remaining")
 
-    def check_exit(self):
+    def check_exit(self) -> None:
         if not self.active_runs:
             if self.idle_time is None:
                 self.idle_time = time.time()
@@ -74,7 +81,7 @@ class Launcher:
         else:
             self.idle_time = None
 
-    def start_job(self, job):
+    def start_job(self, job: "Job") -> "AppRun":
         app_cls = self.app_cache[job.app_id]
         app = app_cls(job)
         workdir = self.data_dir.joinpath(app.job.workdir)
@@ -97,11 +104,11 @@ class Launcher:
             threads_per_rank=job.threads_per_rank,
             threads_per_core=job.threads_per_core,
             launch_params=job.launch_params,
-            gpus_per_rank=job.gpus_per_rank,
+            gpus_per_rank=int(job.gpus_per_rank),
         )
         return run
 
-    def launch_runs(self):
+    def launch_runs(self) -> None:
         max_nodes_per_job = self.node_manager.count_empty_nodes()
         max_aggregate_nodes = self.node_manager.aggregate_free_nodes()
         max_num_to_acquire = max(0, self.max_concurrent_runs - len(self.active_runs))
@@ -117,13 +124,13 @@ class Launcher:
             run = self.start_job(job)
             run.start()
             self.status_updater.put(
-                job.id,
-                state="RUNNING",
+                cast(int, job.id),  # acquired jobs will not have None id
+                state=JobState.running,
                 state_timestamp=datetime.utcnow(),
             )
-            self.active_runs[job.id] = run
+            self.active_runs[cast(int, job.id)] = run
 
-    def check_run(self, run):
+    def check_run(self, run: "AppRun") -> Dict[str, Any]:
         retcode = run.poll()
         if retcode is None:
             return {"state": "RUNNING"}
@@ -138,7 +145,7 @@ class Launcher:
             }
 
     @staticmethod
-    def timeout_kill(runs, timeout=10):
+    def timeout_kill(runs: Iterable["AppRun"], timeout: float = 10) -> None:
         start = time.time()
         for run in runs:
             remaining = max(0, timeout - (time.time() - start))
@@ -147,13 +154,13 @@ class Launcher:
             except TimeoutExpired:
                 run.kill()
 
-    def update_states(self, timeout=False):
+    def update_states(self, timeout: bool = False) -> None:
         remaining_runs = {}
         for id, run in self.active_runs.items():
             status = self.check_run(run)
             if status["state"] == "RUNNING" and timeout:
                 run.terminate()
-                self.status_updater.put(id, state="RUN_TIMEOUT", state_timestamp=datetime.utcnow())
+                self.status_updater.put(id, state=JobState.run_timeout, state_timestamp=datetime.utcnow())
                 self.node_manager.free(id)
                 remaining_runs[id] = run
             elif status["state"] == "RUNNING":
@@ -167,7 +174,7 @@ class Launcher:
         else:
             self.active_runs = remaining_runs
 
-    def run(self):
+    def run(self) -> None:
         try:
             while not self.exit_flag:
                 self.time_step()
@@ -185,8 +192,8 @@ class Launcher:
             self.job_source.join()
             self.status_updater.join()
 
-    def timeout_runs(self):
-        for run in self.active_runs:
+    def timeout_runs(self) -> None:
+        for run in self.active_runs.values():
             run.terminate()
 
 
@@ -196,14 +203,14 @@ class Launcher:
 @click.option("--node-ids")
 @click.option("--filter-tags")
 def main(
-    wall_time_min,
-    log_filename,
-    node_ids,
-    filter_tags,
-):
+    wall_time_min: int,
+    log_filename: str,
+    node_ids: str,
+    filter_tags: str,
+) -> None:
     site_config = SiteConfig()
     site_config.enable_logging("mpi_mode", filename=log_filename)
-    filter_tags = json.loads(filter_tags)
+    filter_tags_dict: Dict[str, str] = json.loads(filter_tags)
     node_ids = json.loads(node_ids)
 
     node_cls = site_config.launcher.compute_node
@@ -214,7 +221,7 @@ def main(
     job_source = SynchronousJobSource(
         client=site_config.client,
         site_id=site_config.site_id,
-        filter_tags=filter_tags,
+        filter_tags=filter_tags_dict,
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
     )
@@ -224,6 +231,7 @@ def main(
     app_cache = {
         app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
         for app in App.objects.filter(site_id=site_config.site_id)
+        if app.id is not None
     }
     launcher = Launcher(
         data_dir=site_config.data_path,
