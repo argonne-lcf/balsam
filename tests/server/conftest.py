@@ -1,30 +1,27 @@
 import os
-import subprocess
-from importlib.util import find_spec
-from pathlib import Path
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import balsam.server
 from balsam.server import models
 from balsam.server.main import app
+from balsam.util import postgres as pg
 
 from .util import BalsamTestClient
 
 
 @pytest.fixture(scope="session")
 def setup_database():
-    subprocess.run("dropdb -U postgres balsam-test", shell=True)
-    subprocess.run("createdb -U postgres balsam-test", check=True, shell=True)
-    balsam.server.settings.database_url = "postgresql://postgres@localhost:5432/balsam-test"
-    os.environ["balsam_database_url"] = balsam.server.settings.database_url
-
-    models_dir = Path(find_spec("balsam.server.models").origin).parent
-    if models_dir is None:
-        raise RuntimeError
-    subprocess.run("alembic -x db=test upgrade head", cwd=models_dir, check=True, shell=True)
+    env_url = os.environ.get("BALSAM_TEST_DB_URL", "postgresql://postgres@localhost:5432/balsam-test")
+    pg.configure_balsam_server_from_dsn(env_url)
+    try:
+        session = next(models.get_session())
+        session.execute("""TRUNCATE TABLE users CASCADE;""")
+        session.commit()
+        session.close()
+    except Exception:
+        pg.run_alembic_migrations(env_url)
 
 
 @pytest.fixture(scope="function")

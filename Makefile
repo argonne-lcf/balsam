@@ -28,8 +28,8 @@ validate-defaults:
 
 .PHONY: test-api
 test-api:
-	pytest tests/server --cov=balsam --cov-config setup.cfg
-	pytest tests/api --cov=balsam --cov-append --cov-config setup.cfg
+	pytest tests/server -vv --cov=balsam --cov-config setup.cfg
+	pytest tests/api  -vv --cov=balsam --cov-append --cov-config setup.cfg
 
 .PHONY: testcov
 testcov: test-api

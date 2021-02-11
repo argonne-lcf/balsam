@@ -8,7 +8,7 @@ def test_created_app_in_list_view(auth_client):
     app = create_app(auth_client, site["id"])
 
     # Retrieve the app list; ensure the App shows up
-    app_list = auth_client.get("/apps")["results"]
+    app_list = auth_client.get("/apps/")["results"]
     assert len(app_list) == 1
     assert app_list[0] == app
 

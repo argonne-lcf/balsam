@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, Union
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -12,8 +12,7 @@ from balsam.server import settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
 
-def create_access_token(user: schemas.UserOut) -> Tuple[str, datetime]:
-
+def create_access_token(user: schemas.UserOut) -> Tuple[Union[bytes, str], datetime]:
     expiry = datetime.utcnow() + settings.auth.token_ttl
     to_encode = {"sub": user.id, "exp": expiry, "username": user.username}
     encoded_jwt = jwt.encode(to_encode, settings.auth.secret_key, algorithm=settings.auth.algorithm)

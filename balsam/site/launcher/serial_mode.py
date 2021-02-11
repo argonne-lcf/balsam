@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type, Union, cast
 
 import click
-import zmq  # type: ignore
+import zmq
 
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
@@ -61,8 +61,8 @@ class Master:
         self.job_source.start()
         logger.debug("Job source/status updater created")
 
-        self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REP)
+        self.context = zmq.Context()  # type: ignore
+        self.socket = self.context.socket(zmq.REP)  # type: ignore
         self.socket.bind(f"tcp://*:{master_port}")
         logger.debug("Master ZMQ socket bound.")
 
@@ -202,8 +202,8 @@ class Worker:
         num_prefetch_jobs: int,
     ) -> None:
         self.hostname = socket.gethostname()
-        self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REQ)
+        self.context = zmq.Context()  # type: ignore
+        self.socket = self.context.socket(zmq.REQ)  # type: ignore
         self.app_run = app_run
         self.node_manager = node_manager
         self.master_address = f"tcp://{master_host}:{master_port}"

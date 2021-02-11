@@ -25,7 +25,7 @@ jobs:
         run: make mypy
 
   test-linux:
-    name: test py${{ matrix.python-version }} on linux
+    name: test api/server with py${{ matrix.python-version }} on linux
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -33,6 +33,7 @@ jobs:
         image: postgres
         env:
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: balsam-test
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
@@ -45,11 +46,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.8', '3.9']
+        python-version: ['3.9']
     env:
       PYTHON: ${{ matrix.python-version }}
       OS: ubuntu
-      BALSAM_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/balsam
+      BALSAM_TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/balsam-test
+      PYTHONUNBUFFERED: 1
     steps:
       - uses: actions/checkout@v2
       - name: set up python
@@ -61,8 +63,7 @@ jobs:
           pip install -e .[dev,server]
           pip freeze
       - name: test-api
-        run: |
-          make test-api
+        run: make test-api || exit 2
       - run: coverage xml
       - uses: codecov/codecov-action@v1
         with:

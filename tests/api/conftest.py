@@ -3,17 +3,13 @@ import socket
 import subprocess
 import time
 from contextlib import closing
-from importlib.util import find_spec
-from pathlib import Path
 
 import pytest
 
-import balsam.server
 from balsam.client import BasicAuthRequestsClient
 from balsam.server import models
 from balsam.server.models import crud
-
-BALSAM_TEST_DB = "postgresql://postgres@localhost:5432/balsam-test"
+from balsam.util import postgres as pg
 
 
 @pytest.fixture(scope="session")
@@ -26,18 +22,21 @@ def free_port():
 
 @pytest.fixture(scope="session")
 def setup_database():
-    subprocess.run("dropdb -U postgres balsam-test", shell=True)
-    subprocess.run("createdb -U postgres balsam-test", check=True, shell=True)
-
-    models_dir = Path(find_spec("balsam.server.models").origin).parent
-    os.environ["balsam_database_url"] = BALSAM_TEST_DB
-    balsam.server.settings.database_url = BALSAM_TEST_DB
-    subprocess.run("alembic upgrade head", cwd=models_dir, check=True, shell=True)
+    env_url = os.environ.get("BALSAM_TEST_DB_URL", "postgresql://postgres@localhost:5432/balsam-test")
+    pg.configure_balsam_server_from_dsn(env_url)
+    try:
+        session = next(models.get_session())
+        session.execute("""TRUNCATE TABLE users CASCADE;""")
+        session.commit()
+        session.close()
+    except Exception:
+        pg.run_alembic_migrations(env_url)
+    return env_url
 
 
 @pytest.fixture(scope="session")
 def live_server(setup_database, free_port):
-    os.environ["balsam_database_url"] = BALSAM_TEST_DB
+    os.environ["balsam_database_url"] = setup_database
     proc = subprocess.Popen(
         f"uvicorn balsam.server.main:app --port {free_port}",
         shell=True,
