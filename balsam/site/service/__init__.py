@@ -1,4 +1,3 @@
-from .main import update_site_from_config
 from .processing import ProcessingService
 from .queue_maintainer import QueueMaintainerService
 from .scheduler import SchedulerService
@@ -9,5 +8,4 @@ __all__ = [
     "ProcessingService",
     "QueueMaintainerService",
     "TransferService",
-    "update_site_from_config",
 ]

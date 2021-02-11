@@ -5,14 +5,9 @@ import signal
 import socket
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, cast
+from typing import Any
 
-from pydantic import AnyUrl
-
-from balsam.config import Settings, SiteConfig
-
-if TYPE_CHECKING:
-    from balsam._api.models import Site
+from balsam.config import SiteConfig
 
 logger = logging.getLogger("balsam.site.service.main")
 
@@ -41,24 +36,6 @@ class PIDFile:
         self.path.unlink()
 
 
-def update_site_from_config(site: "Site", settings: Settings) -> None:
-    old_dict = site.display_dict()
-    if settings.scheduler:
-        site.allowed_projects = settings.scheduler.allowed_projects
-        site.allowed_queues = settings.scheduler.allowed_queues
-        site.optional_batch_job_params = settings.scheduler.optional_batch_job_params
-    if settings.transfers:
-        site.transfer_locations = cast(Dict[str, AnyUrl], settings.transfers.transfer_locations)
-        site.globus_endpoint_id = settings.transfers.globus_endpoint_id
-
-    new_dict = site.display_dict()
-    diff = {k: (old_dict[k], new_dict[k]) for k in old_dict if old_dict[k] != new_dict[k]}
-    if diff:
-        site.save()
-        diff_str = "\n".join(f"{k}={diff[k][0]} --> {diff[k][1]}" for k in diff)
-        logger.info(f"Updated Site parameters:\n{diff_str}")
-
-
 def main(config: SiteConfig, run_time_sec: int) -> None:
     start_time = time.time()
     config.enable_logging(basename="service")
@@ -66,8 +43,7 @@ def main(config: SiteConfig, run_time_sec: int) -> None:
     h, m = divmod(m, 60)
     logger.info(f"Launching service for {h:02d}h:{m:02d}m:{s:02d}s")
 
-    site = config.client.Site.objects.get(id=config.settings.site_id)
-    update_site_from_config(site, config.settings)
+    config.update_site_from_config()
 
     services = config.build_services()
 

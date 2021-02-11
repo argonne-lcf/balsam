@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 import socket
@@ -11,7 +12,7 @@ from uuid import UUID
 
 import jinja2
 import yaml
-from pydantic import BaseSettings, Field, ValidationError, validator
+from pydantic import AnyUrl, BaseSettings, Field, ValidationError, validator
 
 from balsam.client import NotAuthenticatedError, RESTClient
 from balsam.platform.app_run import AppRun
@@ -23,6 +24,8 @@ from balsam.util import config_file_logging
 
 if TYPE_CHECKING:
     from balsam.site.service.service_base import BalsamService
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidSettings(Exception):
@@ -443,3 +446,21 @@ class SiteConfig:
             **self.settings.logging.dict(),
         )
         return {"filename": log_path, **self.settings.logging.dict()}
+
+    def update_site_from_config(self) -> None:
+        site = self.client.Site.objects.get(id=self.settings.site_id)
+        old_dict = site.display_dict()
+        if self.settings.scheduler:
+            site.allowed_projects = self.settings.scheduler.allowed_projects
+            site.allowed_queues = self.settings.scheduler.allowed_queues
+            site.optional_batch_job_params = self.settings.scheduler.optional_batch_job_params
+        if self.settings.transfers:
+            site.transfer_locations = cast(Dict[str, AnyUrl], self.settings.transfers.transfer_locations)
+            site.globus_endpoint_id = self.settings.transfers.globus_endpoint_id
+
+        new_dict = site.display_dict()
+        diff = {k: (old_dict[k], new_dict[k]) for k in old_dict if old_dict[k] != new_dict[k]}
+        if diff:
+            site.save()
+            diff_str = "\n".join(f"{k}={diff[k][0]} --> {diff[k][1]}" for k in diff)
+            logger.info(f"Updated Site parameters:\n{diff_str}")

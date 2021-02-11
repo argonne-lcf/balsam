@@ -11,7 +11,6 @@ import click
 import psutil  # type: ignore
 
 from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig
-from balsam.site.service import update_site_from_config
 
 from .app import sync_apps
 from .utils import load_site_config
@@ -32,12 +31,22 @@ def start() -> None:
     """Start up the site daemon"""
     cf = load_site_config()
     site_dir = cf.site_path
-    if site_dir.joinpath(PID_FILENAME).is_file():
-        raise click.BadArgumentUsage(
-            f"{PID_FILENAME} already exists in {site_dir}: "
-            "This means the site is already running; to restart it, "
-            "first use `balsam site stop`."
-        )
+    pid_file: Path = site_dir.joinpath(PID_FILENAME)
+
+    if pid_file.is_file():
+        try:
+            service_host, service_pid = pid_file.read_text().split("\n")[:2]
+        except Exception:
+            raise click.BadArgumentUsage(
+                f"{PID_FILENAME} already exists in {site_dir}: "
+                "This means the site is already running; to restart it, "
+                "first use `balsam site stop`."
+            )
+        else:
+            raise click.BadArgumentUsage(
+                f"The site is already running on {service_host} [PID {service_pid}].\n"
+                "To restart it, first use `balsam site stop`."
+            )
     os.environ["BALSAM_SITE_PATH"] = site_dir.as_posix()
     p = subprocess.Popen(
         [sys.executable, "-m", "balsam.site.service.main"],
@@ -45,7 +54,7 @@ def start() -> None:
     )
     time.sleep(0.2)
     if p.poll() is None:
-        click.echo(f"Started Balsam site daemon [pid {p.pid}]")
+        click.echo(f"Started Balsam site daemon [pid {p.pid}] on {socket.gethostname()}")
 
 
 @site.command()
@@ -72,7 +81,7 @@ def stop() -> None:
         )
     if not psutil.pid_exists(service_pid):
         raise click.BadArgumentUsage(
-            f"Could not find process with PID {service_pid}. "
+            f"Could not find process with PID {service_pid} on {service_host}. "
             f"Make sure the Balsam site daemon isn't running and delete {pid_file}"
         )
     try:
@@ -80,7 +89,7 @@ def stop() -> None:
         service_proc.terminate()
     except (ProcessLookupError, psutil.ProcessLookupError):
         raise click.BadArgumentUsage(
-            f"Could not find process with PID {service_pid}. "
+            f"Could not find process with PID {service_pid} on {service_host}. "
             f"Make sure the Balsam site daemon isn't running and delete {pid_file}"
         )
     click.echo(f"Sent SIGTERM to Balsam site daemon [pid {service_pid}]")
@@ -228,9 +237,7 @@ def sync() -> None:
     Sync changes in local settings.yml with Balsam online
     """
     cf = load_site_config()
-    client = cf.client
-    site = client.Site.objects.get(id=cf.settings.site_id)
-    update_site_from_config(site, cf.settings)
+    cf.update_site_from_config()
 
 
 @site.command()
