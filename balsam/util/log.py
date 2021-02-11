@@ -66,7 +66,7 @@ def validate_log_level(level: Union[str, int]) -> int:
 
 def config_root_logger(level: Union[str, int, None] = None) -> Tuple[logging.Logger, logging.Handler]:
     if level is None:
-        level = validate_log_level(os.environ.get("BALSAM_LOG_LEVEL", "DEBUG"))
+        level = validate_log_level(os.environ.get("BALSAM_LOG_LEVEL", "WARNING"))
     logger = logging.getLogger("balsam")
     logger.setLevel(level)
     if logger.hasHandlers():

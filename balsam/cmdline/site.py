@@ -1,21 +1,14 @@
-import os
 import shutil
-import socket
-import subprocess
 import sys
-import time
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import click
-import psutil  # type: ignore
 
 from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig
+from balsam.site.app import sync_apps
 
-from .app import sync_apps
-from .utils import load_site_config
-
-PID_FILENAME = "balsam-service.pid"
+from .utils import PID_FILENAME, check_killable, get_pidfile, kill_site, load_site_config, read_pidfile, start_site
 
 
 @click.group()
@@ -30,83 +23,32 @@ def site() -> None:
 def start() -> None:
     """Start up the site daemon"""
     cf = load_site_config()
-    site_dir = cf.site_path
-    pid_file: Path = site_dir.joinpath(PID_FILENAME)
+    if not get_pidfile(cf).is_file():
+        return start_site(cf.site_path)
 
-    if pid_file.is_file():
-        try:
-            service_host, service_pid = pid_file.read_text().split("\n")[:2]
-        except Exception:
-            raise click.BadArgumentUsage(
-                f"{PID_FILENAME} already exists in {site_dir}: "
-                "This means the site is already running; to restart it, "
-                "first use `balsam site stop`."
-            )
-        else:
-            raise click.BadArgumentUsage(
-                f"The site is already running on {service_host} [PID {service_pid}].\n"
-                "To restart it, first use `balsam site stop`."
-            )
-    os.environ["BALSAM_SITE_PATH"] = site_dir.as_posix()
-    p = subprocess.Popen(
-        [sys.executable, "-m", "balsam.site.service.main"],
-        cwd=site_dir,
-    )
-    time.sleep(0.2)
-    if p.poll() is None:
-        click.echo(f"Started Balsam site daemon [pid {p.pid}] on {socket.gethostname()}")
+    host: Optional[str]
+    pid: Optional[int]
+    try:
+        host, pid = read_pidfile(cf)
+    except Exception:
+        raise click.BadArgumentUsage(
+            f"{PID_FILENAME} already exists in {cf.site_path}: "
+            "This means the site is already running; to restart it, "
+            "first use `balsam site stop`."
+        )
+    else:
+        raise click.BadArgumentUsage(
+            f"The site is already running on {host} [PID {pid}].\nTo restart it, first use `balsam site stop`."
+        )
 
 
 @site.command()
 def stop() -> None:
     """Stop site daemon"""
     cf = load_site_config()
-    site_dir: Path = cf.site_path
-    pid_file: Path = site_dir.joinpath(PID_FILENAME)
-    if not pid_file.is_file():
-        raise click.BadArgumentUsage(f"There is no {PID_FILENAME} in {site_dir}")
-
-    try:
-        service_pid: Union[str, int]
-        service_host, service_pid = pid_file.read_text().split("\n")[:2]
-        service_pid = int(service_pid)
-    except ValueError:
-        raise click.BadArgumentUsage(
-            f"Failed to read {pid_file}: please delete it and manually kill the site daemon process!"
-        )
-    cur_host = socket.gethostname()
-    if cur_host != service_host:
-        raise click.BadArgumentUsage(
-            f"The site daemon is running on {service_host}; cannot stop from current host: {cur_host}"
-        )
-    if not psutil.pid_exists(service_pid):
-        raise click.BadArgumentUsage(
-            f"Could not find process with PID {service_pid} on {service_host}. "
-            f"Make sure the Balsam site daemon isn't running and delete {pid_file}"
-        )
-    try:
-        service_proc = psutil.Process(pid=service_pid)
-        service_proc.terminate()
-    except (ProcessLookupError, psutil.ProcessLookupError):
-        raise click.BadArgumentUsage(
-            f"Could not find process with PID {service_pid} on {service_host}. "
-            f"Make sure the Balsam site daemon isn't running and delete {pid_file}"
-        )
-    click.echo(f"Sent SIGTERM to Balsam site daemon [pid {service_pid}]")
-    click.echo("Waiting for site daemon to shutdown...")
-    with click.progressbar(range(12)) as bar:
-        for i in bar:
-            try:
-                service_proc.wait(timeout=1)
-            except psutil.TimeoutExpired:
-                if i == 11:
-                    raise click.BadArgumentUsage(
-                        f"Site daemon did not shut down gracefully on its own; please kill it manually "
-                        f"and delete {pid_file}"
-                    )
-            else:
-                click.echo("\nSite daemon shutdown OK")
-                break
+    kill_pid = check_killable(cf, raise_exc=True)
+    if kill_pid is not None:
+        kill_site(cf, kill_pid)
 
 
 def load_settings_comments(settings_dirs: Dict[str, Path]) -> Dict[str, str]:
