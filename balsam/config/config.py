@@ -332,7 +332,7 @@ class SiteConfig:
     @classmethod
     def new_site_setup(
         cls, site_path: Union[str, Path], default_site_path: Path, hostname: Optional[str] = None
-    ) -> None:
+    ) -> "SiteConfig":
         """
         Creates a new site directory, registers Site
         with Balsam API, and writes default settings.yml into
@@ -384,6 +384,7 @@ class SiteConfig:
             site.delete()
             shutil.rmtree(site_path)
             raise
+        return cf
 
     @staticmethod
     def resolve_site_path(site_path: Union[None, str, Path] = None) -> Path:

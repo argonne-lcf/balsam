@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type, Union
 import click
 import yaml
 
-from balsam.config import ClientSettings
+from balsam.config import ClientSettings, SiteConfig
 from balsam.site import ApplicationDefinition, app_template
 from balsam.site.app import find_app_classes, load_module
 
@@ -144,16 +144,10 @@ def app_deletion_prompt(client: "RESTClient", app: "App") -> None:
         click.echo("  --> App not deleted. If you meant to rename it, please update the class_path in the API.")
 
 
-@app.command()
-def sync() -> None:
-    """
-    Sync local ApplicationDefinitions with Balsam
-    """
-    cf = load_site_config()
-    client = cf.client
-
-    registered_apps = list(client.App.objects.filter(site_id=cf.settings.site_id))
-    app_classes, mtimes = load_apps(cf.apps_path)
+def sync_apps(site_config: SiteConfig) -> None:
+    client = site_config.client
+    registered_apps = list(client.App.objects.filter(site_id=site_config.settings.site_id))
+    app_classes, mtimes = load_apps(site_config.apps_path)
 
     for module_name, app_class_list in app_classes.items():
         for app_class in app_class_list:
@@ -165,7 +159,7 @@ def sync() -> None:
                 class_path,
                 mtimes[module_name],
                 registered_app,
-                cf.settings.site_id,
+                site_config.settings.site_id,
             )
             if registered_app is not None:
                 registered_apps.remove(registered_app)
@@ -174,6 +168,15 @@ def sync() -> None:
     # They could have been deleted or renamed
     for app in registered_apps:
         app_deletion_prompt(client, app)
+
+
+@app.command()
+def sync() -> None:
+    """
+    Sync local ApplicationDefinitions with Balsam
+    """
+    cf = load_site_config()
+    return sync_apps(cf)
 
 
 @app.command()
