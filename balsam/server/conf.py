@@ -33,15 +33,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres@localhost:5432/balsam"
     auth: AuthSettings = AuthSettings()
     redis_params: Dict[str, Any] = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
-    balsam_log_level: Union[str, int] = logging.WARNING
-    sqlalchemy_log_level: Union[str, int] = logging.WARNING
+    log_level: Union[str, int] = logging.INFO
 
-    @validator("balsam_log_level", always=True)
+    @validator("log_level", always=True)
     def validate_balsam_log_level(cls, v: Union[str, int]) -> int:
-        return validate_log_level(v)
-
-    @validator("sqlalchemy_log_level", always=True)
-    def validate_sqlalchemy_log_level(cls, v: Union[str, int]) -> int:
         return validate_log_level(v)
 
 

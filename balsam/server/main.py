@@ -18,13 +18,11 @@ app = FastAPI(
 
 
 def setup_logging() -> logging.Logger:
-    _, handler = config_root_logger(settings.balsam_log_level)
-    sqa_logger = logging.getLogger("sqlalchemy")
-    sqa_logger.setLevel(settings.sqlalchemy_log_level)
-    logging.getLogger("sqlalchemy.orm").setLevel(settings.sqlalchemy_log_level)
-    sqa_logger.handlers.clear()
-    sqa_logger.addHandler(handler)
-    logging.getLogger("sqlalchemy.engine").propagate = True
+    _, handler = config_root_logger(settings.log_level)
+    sql_logger = logging.getLogger("sqlalchemy.engine")
+    sql_logger.setLevel(settings.log_level)
+    sql_logger.handlers.clear()
+    sql_logger.addHandler(handler)
     return logging.getLogger("balsam.server.main")
 
 
