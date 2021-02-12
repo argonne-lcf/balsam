@@ -79,6 +79,7 @@ class FixedDepthJobSource(Process):
         max_nodes_per_job: Optional[int] = None,
         max_aggregate_nodes: Optional[float] = None,
         scheduler_id: Optional[int] = None,
+        app_ids: Optional[Set[int]] = None,
     ) -> None:
         super().__init__()
         self.queue: "Queue[Job]" = Queue()
@@ -89,6 +90,7 @@ class FixedDepthJobSource(Process):
         self.session_thread: Optional[SessionThread] = None
         self.session: Optional["Session"] = None
         self.filter_tags = {} if filter_tags is None else filter_tags
+        self.app_ids = set() if app_ids is None else app_ids
         self.states = states
         self.serial_only = serial_only
         self.max_wall_time_min = max_wall_time_min
@@ -160,6 +162,7 @@ class FixedDepthJobSource(Process):
             serial_only=self.serial_only,
             filter_tags=self.filter_tags,
             states=self.states,
+            app_ids=self.app_ids,
         )
 
 
@@ -183,10 +186,12 @@ class SynchronousJobSource(object):
         serial_only: bool = False,
         max_wall_time_min: Optional[int] = None,
         scheduler_id: Optional[int] = None,
+        app_ids: Optional[Set[int]] = None,
     ) -> None:
         self.client = client
         self.site_id = site_id
         self.filter_tags = {} if filter_tags is None else filter_tags
+        self.app_ids = set() if app_ids is None else app_ids
         self.states = states
         self.serial_only = serial_only
         self.max_wall_time_min = max_wall_time_min
@@ -225,6 +230,7 @@ class SynchronousJobSource(object):
             serial_only=self.serial_only,
             filter_tags=self.filter_tags,
             states=self.states,
+            app_ids=self.app_ids,
         )
         return jobs
 

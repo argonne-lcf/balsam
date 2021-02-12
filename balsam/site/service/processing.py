@@ -116,19 +116,19 @@ class ProcessingService(object):
         num_workers: int = 5,
     ) -> None:
         self.site_id = site_id
+        app_cache = {
+            app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
+            for app in client.App.objects.filter(site_id=self.site_id)
+        }
         self.job_source = FixedDepthJobSource(
             client=client,
             site_id=site_id,
             prefetch_depth=prefetch_depth,
             filter_tags=filter_tags,
             states={"STAGED_IN", "RUN_DONE", "RUN_ERROR", "RUN_TIMEOUT"},
+            app_ids={app_id for app_id in app_cache if app_id is not None},
         )
         self.status_updater = BulkStatusUpdater(client)
-
-        app_cache = {
-            app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
-            for app in client.App.objects.filter(site_id=self.site_id)
-        }
 
         self.workers = [
             Process(

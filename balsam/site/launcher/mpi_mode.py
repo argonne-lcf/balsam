@@ -226,6 +226,13 @@ def main(
     nodes = [node for node in node_cls.get_job_nodelist() if node.node_id in node_ids_list]
     node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
 
+    App = site_config.client.App
+    app_cache = {
+        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
+        for app in App.objects.filter(site_id=site_config.settings.site_id)
+        if app.id is not None
+    }
+
     scheduler_id = node_cls.get_scheduler_id()
     job_source = SynchronousJobSource(
         client=site_config.client,
@@ -233,15 +240,10 @@ def main(
         filter_tags=filter_tags_dict,
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
+        app_ids={app_id for app_id in app_cache if app_id is not None},
     )
     status_updater = BulkStatusUpdater(site_config.client)
 
-    App = site_config.client.App
-    app_cache = {
-        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
-        for app in App.objects.filter(site_id=site_config.settings.site_id)
-        if app.id is not None
-    }
     launcher = Launcher(
         data_dir=site_config.data_path,
         app_cache=app_cache,

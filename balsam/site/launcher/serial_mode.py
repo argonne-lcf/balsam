@@ -392,6 +392,13 @@ def run_master_launcher(
     num_workers: int,
     filter_tags: Optional[Dict[str, str]],
 ) -> None:
+    App = site_config.client.App
+    app_cache = {
+        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
+        for app in App.objects.filter(site_id=site_config.settings.site_id)
+        if app.id is not None
+    }
+
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node
     scheduler_id = node_cls.get_scheduler_id()
@@ -404,15 +411,9 @@ def run_master_launcher(
         scheduler_id=scheduler_id,
         serial_only=True,
         max_nodes_per_job=1,
+        app_ids={app_id for app_id in app_cache if app_id is not None},
     )
     status_updater = BulkStatusUpdater(site_config.client)
-
-    App = site_config.client.App
-    app_cache = {
-        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
-        for app in App.objects.filter(site_id=site_config.settings.site_id)
-        if app.id is not None
-    }
 
     master = Master(
         job_source=job_source,
