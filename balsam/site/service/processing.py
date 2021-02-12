@@ -6,7 +6,7 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Type, Union
 
 from balsam.schemas import JobState
 from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobSource
@@ -44,12 +44,13 @@ def job_context(workdir: Path, stdout_filename: str) -> Iterator[None]:
 
 
 def transition(app: ApplicationDefinition) -> None:
+    assert app.job.state is not None
     transition_func = {
-        "STAGED_IN": app.preprocess,
-        "RUN_DONE": app.postprocess,
-        "RUN_ERROR": app.handle_error,
-        "RUN_TIMEOUT": app.handle_timeout,
-    }[cast(str, app.job.state)]
+        JobState.staged_in: app.preprocess,
+        JobState.run_done: app.postprocess,
+        JobState.run_error: app.handle_error,
+        JobState.run_timeout: app.handle_timeout,
+    }[app.job.state]
     try:
         msg = f"Running {transition_func.__name__} for Job {app.job.id}"
         logger.debug(msg)
@@ -93,12 +94,13 @@ def run_worker(
                 transition(app)
             job.state_timestamp = datetime.utcnow()
             status_queue.put(
-                dict(
-                    id=job.id,
-                    state=job.state,
-                    state_timestamp=datetime.utcnow(),
-                    state_data=job.state_data if job.state_data else {},
-                )
+                {
+                    **(job._update_model.dict(exclude_unset=True) if job._update_model else {}),
+                    "id": job.id,
+                    "state": job.state,
+                    "state_timestamp": datetime.utcnow(),
+                    "state_data": job.state_data if job.state_data else {},
+                }
             )
             logger.debug(f"Job {job.id} advanced to {job.state}")
     logger.info("Signal: ProcessingWorker exit")

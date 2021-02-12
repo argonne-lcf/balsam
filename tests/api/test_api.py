@@ -190,6 +190,21 @@ class TestJobs:
         assert job.id is not None
         assert job.state == "STAGED_IN"
 
+    def test_set_and_fetch_data(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+
+        job = Job.objects.create("test/run1", app.id)
+        assert job.id is not None
+
+        job.data = {"foo": 1234}
+        job.save()
+        retrieved = Job.objects.get(id=job.id)
+        assert retrieved.data == {"foo": 1234}
+
     def test_order_limit_offset(self, client):
         App = client.App
         Site = client.Site
