@@ -863,6 +863,21 @@ class TestSessions:
         for job in acquired:
             assert job.batch_job_id > 0
 
+    def test_acquire_by_app_ids(self, client):
+        site, app1 = self.create_site_app(client)
+        app2 = client.App.objects.create(site_id=site.id, class_path="app.two")
+        self.create_jobs(client, app1, num_jobs=5)
+        self.create_jobs(client, app2, num_jobs=5)
+        sess = self.create_sess(client, site)
+
+        acquired = sess.acquire_jobs(
+            max_num_jobs=20,
+            app_ids={app2.id},
+        )
+        assert len(acquired) == 5
+        for job in acquired:
+            assert job.app_id == app2.id
+
     def test_acquire_for_preprocessing(self, client):
         site, app = self.create_site_app(client)
         self.create_jobs(client, app, num_jobs=10, state="STAGED_IN")

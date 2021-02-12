@@ -154,9 +154,12 @@ class SessionBase(CreatableBalsamModel):
         serial_only: bool = False,
         filter_tags: Optional[Dict[str, str]] = None,
         states: Set[JobState] = RUNNABLE_STATES,
+        app_ids: Optional[Set[int]] = None,
     ) -> "List[Job]":
         if filter_tags is None:
             filter_tags = {}
+        if app_ids is None:
+            app_ids = set()
         return self.__class__.objects._do_acquire(
             self,
             max_num_jobs=max_num_jobs,
@@ -166,6 +169,7 @@ class SessionBase(CreatableBalsamModel):
             serial_only=serial_only,
             filter_tags=filter_tags,
             states=states,
+            app_ids=app_ids,
         )
 
     def tick(self) -> None:

@@ -29,6 +29,7 @@ class SessionAcquire(BaseModel):
     serial_only: bool = False
     filter_tags: Dict[str, str]
     states: Set[JobState] = RUNNABLE_STATES
+    app_ids: Set[int] = set()
 
 
 class PaginatedSessionsOut(BaseModel):

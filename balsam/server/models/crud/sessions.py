@@ -95,8 +95,13 @@ def acquire(
     qs = qs.options(orm.selectinload(models.Job.parents).load_only(models.Job.id))
     qs = qs.filter(models.App.site_id == session.site_id)  # At site
     qs = qs.filter(models.Job.session_id.is_(None))  # type: ignore # Unlocked
+
+    if spec.app_ids:
+        qs = qs.filter(models.Job.app_id.in_(spec.app_ids))
+
     qs = qs.filter(models.Job.state.in_(spec.states))  # Matching states
-    print("Acquire: filtering for jobs with states:", spec.states)
+    logger.debug(f"Acquire: filtering for jobs with states: {spec.states}")
+
     qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # type: ignore # Matching tags
     if spec.max_wall_time_min:
         qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time

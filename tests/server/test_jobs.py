@@ -235,6 +235,7 @@ def test_acquire_for_launch(auth_client, job_dict, create_session):
 
     # Mark jobs PREPROCESSED and ready to run
     ids = [j["id"] for j in jobs]
+    app_ids = {jobs[0]["app_id"]}
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=ids)
 
     session1, session2 = create_session(), create_session()
@@ -246,6 +247,7 @@ def test_acquire_for_launch(auth_client, job_dict, create_session):
         filter_tags={},
         max_num_jobs=2,
         max_nodes_per_job=32,
+        app_ids=app_ids,
         check=status.HTTP_200_OK,
     )
 
@@ -256,6 +258,7 @@ def test_acquire_for_launch(auth_client, job_dict, create_session):
         filter_tags={},
         max_num_jobs=1000,
         max_nodes_per_job=32,
+        app_ids=app_ids,
         check=status.HTTP_200_OK,
     )
 
@@ -273,6 +276,7 @@ def test_update_to_running_does_not_release_lock(auth_client, job_dict, create_s
 
     # Mark jobs PREPROCESSED
     ids = [j["id"] for j in jobs]
+    app_ids = {jobs[0]["app_id"]}
     auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=ids)
 
     session = create_session()
@@ -283,6 +287,7 @@ def test_update_to_running_does_not_release_lock(auth_client, job_dict, create_s
         filter_tags={},
         max_num_jobs=100,
         max_nodes_per_job=32,
+        app_ids=app_ids,
         check=status.HTTP_200_OK,
     )
 
