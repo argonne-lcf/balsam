@@ -5,6 +5,7 @@ import time
 from contextlib import closing
 
 import pytest
+import requests
 
 from balsam.client import BasicAuthRequestsClient
 from balsam.server import models
@@ -34,6 +35,19 @@ def setup_database():
     return env_url
 
 
+def server_health_check(url, timeout=10, check_interval=0.5):
+    conn_error = None
+    for i in range(int(timeout / check_interval)):
+        try:
+            requests.get(url)
+        except requests.ConnectionError as exc:
+            time.sleep(check_interval)
+            conn_error = str(exc)
+        else:
+            return True
+    raise RuntimeError(conn_error)
+
+
 @pytest.fixture(scope="session")
 def live_server(setup_database, free_port):
     os.environ["balsam_database_url"] = setup_database
@@ -41,8 +55,9 @@ def live_server(setup_database, free_port):
         f"uvicorn balsam.server.main:app --port {free_port}",
         shell=True,
     )
-    time.sleep(1)
-    yield f"http://localhost:{free_port}/"
+    url = f"http://localhost:{free_port}/"
+    server_health_check(url)
+    yield url
     proc.terminate()
     proc.communicate()
 
