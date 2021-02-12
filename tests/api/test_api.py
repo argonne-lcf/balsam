@@ -258,6 +258,7 @@ class TestJobs:
         assert parent.state == "STAGED_IN"
         assert child.state == "AWAITING_PARENTS"
         assert child.parent_ids == {parent.id}
+        assert child.parent_query().count() == 1
 
     def test_last_update_prop_changed_on_update(self, client):
         App = client.App
