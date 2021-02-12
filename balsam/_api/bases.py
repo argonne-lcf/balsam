@@ -1,16 +1,31 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, cast
 
 from balsam import schemas
+from balsam.site import ApplicationDefinition
 
 from .manager import Manager
 from .model import CreatableBalsamModel, Field, NonCreatableBalsamModel
 
 if TYPE_CHECKING:
-    from balsam._api.models import App, BatchJob, EventLog, Job, Session, Site, TransferItem  # noqa: F401
+    from balsam._api.models import (  # noqa: F401
+        App,
+        BatchJob,
+        EventLog,
+        Job,
+        JobManager,
+        JobQuery,
+        Session,
+        Site,
+        TransferItem,
+    )
     from balsam.client import RESTClient
+    from balsam.config import SiteConfig
 
 JobState = schemas.JobState
 RUNNABLE_STATES = schemas.RUNNABLE_STATES
+logger = logging.getLogger(__name__)
 
 
 class SiteBase(CreatableBalsamModel):
@@ -97,6 +112,41 @@ class JobBase(CreatableBalsamModel):
     _create_model_cls = schemas.JobCreate
     _update_model_cls = schemas.JobUpdate
     _read_model_cls = schemas.JobOut
+
+    _app_cache: Dict[int, "App"] = {}
+    _app_def_cache: Dict[int, Type["ApplicationDefinition"]] = {}
+
+    objects: "JobManager"
+    workdir: Field[Path]
+    app_id: Field[int]
+    parent_ids: Field[Set[int]]
+
+    @classmethod
+    def populate_app_cache(cls, site_config: "SiteConfig") -> None:
+        for app in site_config.fetch_apps().values():
+            assert app.id is not None
+            cls._app_def_cache[app.id] = ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
+
+    def _load_api_app(self) -> "App":
+        if self.app_id not in self._app_cache:
+            logger.debug(f"Cache miss: fetching app {self.app_id} from API")
+            app = self.objects._client.App.objects.get(id=self.app_id)
+            self._app_cache[self.app_id] = app
+        return self._app_cache[self.app_id]
+
+    def load_app(self, site_config: "SiteConfig") -> "ApplicationDefinition":
+        if self.app_id not in self._app_def_cache:
+            app = self._load_api_app()
+            logger.debug(f"Cache miss: loading ApplicationDefinition of {app.class_path}")
+            app_def = ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
+            self._app_def_cache[self.app_id] = app_def
+        return self._app_def_cache[self.app_id](cast("Job", self))
+
+    def resolve_workdir(self, site_config: "SiteConfig") -> Path:
+        return site_config.data_path.joinpath(self.workdir)
+
+    def parent_query(self) -> "JobQuery":
+        return self.objects.filter(parent_id=list(self.parent_ids))
 
 
 class JobManagerBase(Manager["Job"]):

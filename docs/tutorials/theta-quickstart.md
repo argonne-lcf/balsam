@@ -101,14 +101,9 @@ $ balsam job create --app test.Hello --workdir test/2 --param name="balsam" --pa
 To create jobs from the Python API:
 
 ```python
-from balsam.config import SiteConfig
+from balsam.api import Job, App, site_config
  
-# This boilerplate can be hidden in the future:
-cf = SiteConfig()
-client = cf.client
-App, Job = client.App, client.Job 
-
-hello_app = App.objects.get(site_id=cf.settings.site_id, class_path="test.Hello")
+hello_app = App.objects.get(site_id=site_config.settings.site_id, class_path="test.Hello")
 for i in range(10):
     job = Job(
         f"test-api/{i}", 
@@ -116,10 +111,7 @@ for i in range(10):
         parameters={"name": "testing!", "sleeptime": "3"},
         node_packing_count=16,
     )
-    job.save() # Don't do this for thousands of jobs!
-
-# For many jobs, you can save yourself all the unnecessary API round trips
-# by building a list of Jobs and passing them to BalsamJob.objects.bulk_create()
+    job.save()
 ```
 
 Your jobs can be viewed from the CLI:

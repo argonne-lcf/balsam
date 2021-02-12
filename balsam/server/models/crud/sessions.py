@@ -1,3 +1,4 @@
+import logging
 import math
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
@@ -9,6 +10,8 @@ from balsam.server import ValidationError, models
 from balsam.server.routers.filters import SessionQuery
 
 from .jobs import set_parent_ids, update_states_by_query
+
+logger = logging.getLogger(__name__)
 
 SESSION_EXPIRE_PERIOD = timedelta(minutes=5)
 SESSION_SWEEP_PERIOD = timedelta(minutes=3)
@@ -51,7 +54,8 @@ def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> Tuple[List[mod
     sess_ids = [sess.id for sess in expired_sessions]
     db.query(models.Session).filter(models.Session.id.in_(sess_ids)).delete(synchronize_session=False)
     db.flush()
-    print("CLEARING STALE SESSIONS:", expired_sessions)
+    if expired_sessions:
+        logger.info(f"Deleting stale sessions: {[s.id for s in expired_sessions]}")
     return expired_jobs, expiry_events
 
 

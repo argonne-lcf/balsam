@@ -48,4 +48,5 @@ __all__ = [
     "TransferSlot",
     "JobMode",
     "BatchJobPartition",
+    "site_config",
 ]

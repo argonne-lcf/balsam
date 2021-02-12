@@ -57,9 +57,9 @@ def validate_parameters(job: models.Job) -> None:
     extraneous_params = job_params.difference(allowed_params)
     missing_params = required_params.difference(job_params)
     if extraneous_params:
-        raise ValidationError(f"extraneous parameters: {extraneous_params}")
+        raise ValidationError(f"Job has the following extraneous parameters: {extraneous_params}")
     if missing_params:
-        raise ValidationError(f"missing parameters: {missing_params}")
+        raise ValidationError(f"Job has the following missing parameters: {missing_params}")
 
 
 def populate_transfers(db_job: models.Job, job_spec: schemas.JobCreate) -> List[models.TransferItem]:

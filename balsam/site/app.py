@@ -116,7 +116,7 @@ def app_deletion_prompt(client: "RESTClient", app: "App") -> None:
 def sync_apps(site_config: "SiteConfig") -> None:
     client = site_config.client
     registered_apps = list(client.App.objects.filter(site_id=site_config.settings.site_id))
-    app_classes, mtimes = load_apps(site_config.apps_path)
+    app_classes, mtimes = load_apps_from_dir(site_config.apps_path)
 
     for module_name, app_class_list in app_classes.items():
         for app_class in app_class_list:
@@ -139,7 +139,7 @@ def sync_apps(site_config: "SiteConfig") -> None:
         app_deletion_prompt(client, app)
 
 
-def load_apps(apps_path: Union[str, Path]) -> Tuple[AppClassDict, ModTimeDict]:
+def load_apps_from_dir(apps_path: Union[str, Path]) -> Tuple[AppClassDict, ModTimeDict]:
     """
     Fetch all ApplicationDefinitions and their local modification times
     Returns two dicts keyed by module name
@@ -278,7 +278,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     @classmethod
     def as_dict(cls) -> Dict[str, Any]:
         return dict(
-            description=cls.__doc__,
+            description=(cls.__doc__ or "").strip(),
             parameters=cls.parameters,
             transfers=cls.transfers,
         )
