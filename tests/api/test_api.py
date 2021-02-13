@@ -205,6 +205,28 @@ class TestJobs:
         retrieved = Job.objects.get(id=job.id)
         assert retrieved.data == {"foo": 1234}
 
+    def test_update_data(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+        job = Job.objects.create("test/run1", app.id, data={"foo": 1234}, num_nodes=1)
+
+        # Correct way to update a mutable field:
+        data = job.data
+        data["bar"] = 456
+        job.data = data
+        job.save()
+        job.refresh_from_db()
+        assert "bar" in job.data
+
+        # Wrong way to update a mutable field:
+        job.data["baz"] = 789
+        job.save()
+        job.refresh_from_db()
+        assert "baz" not in job.data
+
     def test_order_limit_offset(self, client):
         App = client.App
         Site = client.Site
