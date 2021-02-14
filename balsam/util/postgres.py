@@ -122,6 +122,7 @@ def configure_balsam_server(username: str, password: str, host: str, port: int, 
 
 def configure_balsam_server_from_dsn(dsn: str) -> None:
     os.environ["balsam_database_url"] = dsn
+    os.environ["BALSAM_DATABASE_URL"] = dsn
     balsam.server.settings.database_url = dsn
 
 

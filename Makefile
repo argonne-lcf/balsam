@@ -25,14 +25,20 @@ generate-api:
 validate-defaults:
 	python balsam/config/defaults/validate.py
 	
+.PHONY: test-unit
+test-unit:
+	pytest tests/units --cov=balsam --cov-config setup.cfg
 
 .PHONY: test-api
-test-api:
-	pytest tests/server -vv --cov=balsam --cov-config setup.cfg
-	pytest tests/api  -vv --cov=balsam --cov-append --cov-config setup.cfg
+test-api: test-unit
+	pytest tests/server tests/api --cov=balsam --cov-append --cov-config setup.cfg
+
+.PHONY: test-site-integ
+test-site-integ: test-api
+	pytest tests/site_integration --cov=balsam --cov-append --cov-config setup.cfg
 
 .PHONY: testcov
-testcov: test-api
+testcov: test-site-integ
 	@echo "building coverage html"
 	@coverage html
 
