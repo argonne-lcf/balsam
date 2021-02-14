@@ -286,9 +286,9 @@ def test_delete_running_batchjob(auth_client):
     assert "User deleted job" in user_job["status_info"].values()
 
 
-def test_no_shared_batchjobs_in_list_view(create_user_client):
+def test_no_shared_batchjobs_in_list_view(fastapi_user_test_client):
     """client2 cannot see client1's batchjobs"""
-    client1, client2 = create_user_client(), create_user_client()
+    client1, client2 = fastapi_user_test_client(), fastapi_user_test_client()
     site1 = create_site(client1, path="/bar")
     create_site(client2, path="/foo")
 
@@ -307,9 +307,9 @@ def test_no_shared_batchjobs_in_list_view(create_user_client):
     assert client1.get("/batch-jobs")["count"] == 1
 
 
-def test_permission_in_detail_view(create_user_client):
+def test_permission_in_detail_view(fastapi_user_test_client):
     """client2 cannot see client1's batchjobs in detail view"""
-    client1, client2 = create_user_client(), create_user_client()
+    client1, client2 = fastapi_user_test_client(), fastapi_user_test_client()
     site1 = create_site(client1, path="/bar")
     create_site(client2, path="/foo")
     bjob = client1.post(
@@ -327,9 +327,9 @@ def test_permission_in_detail_view(create_user_client):
     client1.get(f"/batch-jobs/{id}", check=status.HTTP_200_OK)
 
 
-def test_bulk_update_cannot_affect_other_users_batchjobs(create_user_client):
+def test_bulk_update_cannot_affect_other_users_batchjobs(fastapi_user_test_client):
     """client2 bulk-update cannot affect client1's batchjobs"""
-    client1, client2 = create_user_client(), create_user_client()
+    client1, client2 = fastapi_user_test_client(), fastapi_user_test_client()
     site1 = create_site(client1, path="/bar")
     create_site(client2, path="/foo")
     bjob = client1.post(

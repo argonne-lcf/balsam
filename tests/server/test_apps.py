@@ -58,16 +58,16 @@ def test_delete_app(auth_client):
     assert len(auth_client.get("/apps")["results"]) == 1
 
 
-def test_no_shared_app(create_user_client):
+def test_no_shared_app(fastapi_user_test_client):
     """client2 cannot see client1's apps by default"""
-    client1, client2 = create_user_client(), create_user_client()
+    client1, client2 = fastapi_user_test_client(), fastapi_user_test_client()
     site = create_site(client1)
     create_app(client1, site_id=site["id"])
     assert len(client1.get("/apps")["results"]) == 1
     assert len(client2.get("/apps")["results"]) == 0
 
 
-def test_cannot_add_app_to_other_user_site(create_user_client):
-    client1, client2 = create_user_client(), create_user_client()
+def test_cannot_add_app_to_other_user_site(fastapi_user_test_client):
+    client1, client2 = fastapi_user_test_client(), fastapi_user_test_client()
     site = create_site(client1)
     create_app(client2, site_id=site["id"], check=status.HTTP_404_NOT_FOUND)

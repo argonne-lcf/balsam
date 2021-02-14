@@ -878,14 +878,14 @@ def test_delete_recursively_deletes_children2(auth_client, linear_dag, db_sessio
     assert db_session.query(models.Job).count() == 1
 
 
-def test_cannot_acquire_with_another_lock_id(auth_client, create_session, job_dict, create_user_client):
+def test_cannot_acquire_with_another_lock_id(auth_client, create_session, job_dict, fastapi_user_test_client):
     """Passing a lock id that belongs to another user results in acquire() error"""
     # self.user (via self.client) has 10 jobs
     session = create_session()
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(3)])
     assert auth_client.get("/jobs")["count"] == 3
 
-    other_client = create_user_client()
+    other_client = fastapi_user_test_client()
     assert other_client.get("/jobs")["count"] == 0
     other_client.post(
         f"/sessions/{session.id}",
