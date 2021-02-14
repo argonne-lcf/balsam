@@ -5,18 +5,25 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from balsam.server import models
+from balsam.server.models.crud import users
 
 from .util import BalsamTestClient
 
 
 @pytest.fixture(scope="function")
+def db_session(setup_database):
+    session = next(models.get_session())
+    yield session
+    session.close()
+
+
+@pytest.fixture(scope="function")
 def fastapi_user_test_client(setup_database, db_session):
-    db_session = next(models.get_session())
     created_users = []
 
     def _create_user_client():
         login_credentials = {"username": f"user{uuid4()}", "password": "test-password"}
-        user = models.crud.users.create_user(db_session, **login_credentials)
+        user = users.create_user(db_session, **login_credentials)
         db_session.commit()
         created_users.append(user)
 

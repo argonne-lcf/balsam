@@ -10,12 +10,13 @@ import requests
 
 from balsam.client import BasicAuthRequestsClient
 from balsam.server import models
-from balsam.server.models import crud
 from balsam.util import postgres as pg
 
 
 @pytest.fixture(scope="session")
 def setup_database():
+    if os.environ.get("BALSAM_TEST_API_URL"):
+        return
     env_url = os.environ.get("BALSAM_TEST_DB_URL", "postgresql://postgres@localhost:5432/balsam-test")
     pg.configure_balsam_server_from_dsn(env_url)
     try:
@@ -40,23 +41,23 @@ def free_port():
 
 @pytest.fixture(scope="session")
 def live_server(setup_database, free_port):
+    default_url = os.environ.get("BALSAM_TEST_API_URL")
+    if default_url:
+        server_health_check(default_url, timeout=2.0, check_interval=0.5)
+        yield default_url
+        return
+
     os.environ["balsam_database_url"] = setup_database
     proc = subprocess.Popen(
         f"uvicorn balsam.server.main:app --port {free_port}",
         shell=True,
     )
     url = f"http://localhost:{free_port}/"
-    server_health_check(url)
+    server_health_check(url, timeout=10.0, check_interval=0.5)
     yield url
     proc.terminate()
     proc.communicate()
-
-
-@pytest.fixture(scope="function")
-def db_session(setup_database):
-    session = next(models.get_session())
-    yield session
-    session.close()
+    return
 
 
 def server_health_check(url, timeout=10, check_interval=0.5):
@@ -72,27 +73,39 @@ def server_health_check(url, timeout=10, check_interval=0.5):
     raise RuntimeError(conn_error)
 
 
+def _make_user_client(url):
+    login_credentials = {"username": f"user{uuid4()}", "password": "test-password"}
+    requests.post(
+        url.rstrip("/") + "/users/register",
+        json=login_credentials,
+    )
+    client = BasicAuthRequestsClient(url, **login_credentials)
+    client.refresh_auth()
+    return client
+
+
 @pytest.fixture(scope="function")
-def create_user_client(db_session, live_server):
-    db_session = next(models.get_session())
-    created_users = []
+def create_user_client(live_server):
+    created_clients = []
 
     def _create_user_client():
-        login_credentials = {"username": f"user{uuid4()}", "password": "test-password"}
-        user = crud.users.create_user(db_session, **login_credentials)
-        db_session.commit()
-        created_users.append(user)
-        client = BasicAuthRequestsClient(live_server, **login_credentials)
-        client.refresh_auth()
+        client = _make_user_client(live_server)
+        created_clients.append(client)
         return client
 
     yield _create_user_client
-    delete_ids = [user.id for user in created_users]
-    db_session.query(models.User).filter(models.User.id.in_(delete_ids)).delete(synchronize_session=False)
-    db_session.commit()
-    db_session.close()
+    for client in created_clients:
+        for site in client.Site.objects.all():
+            site.delete()
 
 
 @pytest.fixture(scope="function")
 def client(create_user_client):
     return create_user_client()
+
+
+@pytest.fixture(scope="module")
+def persistent_client(live_server):
+    client = _make_user_client(live_server)
+    # TODO: save client settings to temp file and set BALSAM_CREDENTIAL_PATH
+    return client
