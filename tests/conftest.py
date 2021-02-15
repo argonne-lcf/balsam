@@ -9,10 +9,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 from uuid import uuid4
 
+import psutil  # type: ignore
 import pytest
 import requests
 
 from balsam.client import BasicAuthRequestsClient
+from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home
 from balsam.server import models
 from balsam.site.app import sync_apps
@@ -217,3 +219,26 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient) -> Iterable[S
 
     persistent_client.Site.objects.get(id=site_config.settings.site_id).delete()
     del os.environ["BALSAM_SITE_PATH"]
+
+
+@pytest.fixture(scope="module")
+def run_service(balsam_site_config: SiteConfig) -> Iterable[SiteConfig]:
+    """
+    Runs Balsam Site service at the Test Site for duration of module.
+    """
+    proc = start_site(balsam_site_config.site_path)
+    yield balsam_site_config
+    parent = psutil.Process(proc.pid)
+    for child in parent.children(recursive=True):
+        child.terminate()
+    parent.terminate()
+
+    for child in parent.children(recursive=True):
+        try:
+            child.wait(timeout=2)
+        except psutil.TimeoutExpired:
+            child.kill()
+    try:
+        parent.wait(timeout=5.0)
+    except psutil.TimeoutExpired:
+        parent.kill()

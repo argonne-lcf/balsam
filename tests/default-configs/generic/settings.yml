@@ -43,7 +43,7 @@ launcher:
 # Scheduler service syncs the Balsam API with local queues
 scheduler:
     scheduler_class: balsam.platform.scheduler.LocalProcessScheduler
-    sync_period: 10 # Scheduler polling / API update interval in seconds
+    sync_period: 2 # Scheduler polling / API update interval in seconds
 
     # Configure the queues to which BatchJobs may be submitted at this Site
     allowed_queues:

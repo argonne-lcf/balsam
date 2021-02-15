@@ -1,3 +1,4 @@
+import socket
 from pathlib import Path
 
 import click
@@ -88,7 +89,8 @@ def sync() -> None:
     if kill_pid is not None:
         click.echo("Restarting Site...")
         kill_site(cf, kill_pid)
-        start_site(cf.site_path)
+        proc = start_site(cf.site_path)
+        click.echo(f"Restarted Balsam site daemon [pid {proc.pid}] on {socket.gethostname()}")
 
 
 @app.command()

@@ -1,4 +1,5 @@
 import shutil
+import socket
 import sys
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -24,7 +25,8 @@ def start() -> None:
     """Start up the site daemon"""
     cf = load_site_config()
     if not get_pidfile(cf).is_file():
-        return start_site(cf.site_path)
+        proc = start_site(cf.site_path)
+        click.echo(f"Started Balsam site daemon [pid {proc.pid}] on {socket.gethostname()}")
 
     host: Optional[str]
     pid: Optional[int]

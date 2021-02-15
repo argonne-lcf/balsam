@@ -63,7 +63,7 @@ def read_pidfile(site_config: SiteConfig) -> Tuple[str, int]:
     return service_host, int(service_pid)
 
 
-def start_site(site_dir: Path) -> None:
+def start_site(site_dir: Path) -> "subprocess.Popen[bytes]":
     os.environ["BALSAM_SITE_PATH"] = site_dir.as_posix()
     p = subprocess.Popen(
         [sys.executable, "-m", "balsam.site.service.main"],
@@ -71,7 +71,8 @@ def start_site(site_dir: Path) -> None:
     )
     time.sleep(0.2)
     if p.poll() is None:
-        click.echo(f"Started Balsam site daemon [pid {p.pid}] on {socket.gethostname()}")
+        return p
+    raise RuntimeError(f"balsam.site.service.main return code {p.poll()}")
 
 
 def check_killable(cf: SiteConfig, raise_exc: bool = False) -> Optional[int]:
