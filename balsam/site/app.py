@@ -182,7 +182,10 @@ class ApplicationDefinitionMeta(type):
         extraneous = cls_params.difference(detected_params)
         if extraneous:
             raise AttributeError(
-                f"App {name} has extraneous `parameters` not referenced " f"in the command template: {extraneous}"
+                f"App {name} has extraneous `parameters` not referenced "
+                f"in the command template: {extraneous}"
+                f"\nSupported parameters: {cls_params}"
+                f"\nDetected parameters in template: {detected_params}"
             )
         for param in detected_params.difference(cls_params):
             cls.parameters[param] = {

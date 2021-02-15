@@ -67,7 +67,7 @@ class RequestsClient(RESTClient):
         attempt = 0
         while attempt < self.retry_count:
             try:
-                logger.debug(f"{http_method}: {absolute_url}")
+                logger.debug(f"{http_method}: {absolute_url} {params if params else ''}")
                 response = self._do_request(absolute_url, http_method, params, json, data)
             except requests.Timeout as exc:
                 logger.warning(f"Timed out request {http_method} {absolute_url}")
