@@ -14,7 +14,7 @@ from balsam.schemas import (
 logger = logging.getLogger(__name__)
 
 try:
-    client = ClientSettings.load_from_home().build_client()
+    client = ClientSettings.load_from_file().build_client()
 except Exception as exc:
     client = None  # type: ignore
     logger.debug(f"balsam.api failed to auto-load Client:\n{exc}")

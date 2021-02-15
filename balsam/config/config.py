@@ -77,10 +77,14 @@ class ClientSettings(BaseSettings):
 
     @staticmethod
     def settings_path() -> Path:
-        return balsam_home().joinpath("client.yml")
+        env_path = os.environ.get("BALSAM_CLIENT_PATH")
+        if env_path:
+            return Path(env_path)
+        else:
+            return balsam_home().joinpath("client.yml")
 
     @classmethod
-    def load_from_home(cls) -> "ClientSettings":
+    def load_from_file(cls) -> "ClientSettings":
         try:
             with open(cls.settings_path()) as fp:
                 data = yaml.safe_load(fp)
@@ -90,7 +94,7 @@ class ClientSettings(BaseSettings):
             )
         return cls(**data)
 
-    def save_to_home(self) -> None:
+    def save_to_file(self) -> None:
         data = self.dict()
         cls = data["client_class"]
         data["client_class"] = get_class_path(cls)
@@ -244,7 +248,7 @@ class SiteConfig:
 
     def __init__(self, site_path: Union[str, Path, None] = None, settings: Optional[Settings] = None) -> None:
         self.site_path: Path = self.resolve_site_path(site_path)
-        self.client = ClientSettings.load_from_home().build_client()
+        self.client = ClientSettings.load_from_file().build_client()
 
         if settings is not None:
             if not isinstance(settings, Settings):
@@ -335,7 +339,11 @@ class SiteConfig:
 
     @classmethod
     def new_site_setup(
-        cls, site_path: Union[str, Path], default_site_path: Path, hostname: Optional[str] = None
+        cls,
+        site_path: Union[str, Path],
+        default_site_path: Path,
+        hostname: Optional[str] = None,
+        client: Optional["RESTClient"] = None,
     ) -> "SiteConfig":
         """
         Creates a new site directory, registers Site
@@ -344,7 +352,8 @@ class SiteConfig:
         """
         defaults_path = default_site_path.joinpath("settings.yml")
         settings_template = cls.load_settings_template(defaults_path)
-        client = ClientSettings.load_from_home().build_client()
+        if client is None:
+            client = ClientSettings.load_from_file().build_client()
         site_path = Path(site_path)
         site_path.mkdir(exist_ok=False, parents=False)
         site_path.joinpath(".balsam-site").touch()

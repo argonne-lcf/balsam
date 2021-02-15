@@ -21,7 +21,7 @@ def login(address: str, username: str) -> None:
         settings = ClientSettings(api_root=address, username=username)
     else:
         try:
-            settings = ClientSettings.load_from_home()
+            settings = ClientSettings.load_from_file()
         except NotAuthenticatedError:
             address = click.prompt("Balsam server address")
             username = click.prompt("Balsam username")
@@ -36,7 +36,7 @@ def login(address: str, username: str) -> None:
         data = settings.dict()
         data.update(update_fields)
         updated_settings = ClientSettings(**data)
-        updated_settings.save_to_home()
+        updated_settings.save_to_file()
 
 
 @click.command()

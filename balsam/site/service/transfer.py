@@ -45,7 +45,7 @@ class TransferService(BalsamService):
         logger.info(f"Initialized TransferService:\n{self.__dict__}")
 
     @staticmethod
-    def build_task_map(transfer_items: Iterable["TransferItem"]) -> defaultdict[str, List["TransferItem"]]:
+    def build_task_map(transfer_items: Iterable["TransferItem"]) -> "defaultdict[str, List[TransferItem]]":
         task_map = defaultdict(list)
         for item in transfer_items:
             task_map[item.task_id].append(item)

@@ -96,6 +96,6 @@ def ls() -> None:
     """
     List my Apps
     """
-    client = ClientSettings.load_from_home().build_client()
+    client = ClientSettings.load_from_file().build_client()
     reprs = [yaml.dump(app.display_dict(), sort_keys=False, indent=4) for app in client.App.objects.all()]
     print(*reprs, sep="\n----\n")

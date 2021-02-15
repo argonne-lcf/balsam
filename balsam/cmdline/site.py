@@ -166,7 +166,7 @@ def ls() -> None:
     """
     List my balsam sites
     """
-    client = ClientSettings.load_from_home().build_client()
+    client = ClientSettings.load_from_file().build_client()
     qs = client.Site.objects.all()
     for site in qs:
         click.echo(str(site))

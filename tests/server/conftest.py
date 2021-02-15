@@ -21,7 +21,7 @@ def db_session(setup_database):
 def fastapi_user_test_client(setup_database, db_session):
     created_users = []
 
-    def _create_user_client():
+    def _client_factory():
         login_credentials = {"username": f"user{uuid4()}", "password": "test-password"}
         user = users.create_user(db_session, **login_credentials)
         db_session.commit()
@@ -35,7 +35,7 @@ def fastapi_user_test_client(setup_database, db_session):
         client.headers.update({"Authorization": f"Bearer {token}"})
         return client
 
-    yield _create_user_client
+    yield _client_factory
     delete_ids = [user.id for user in created_users]
     db_session.query(models.User).filter(models.User.id.in_(delete_ids)).delete(synchronize_session=False)
     db_session.commit()

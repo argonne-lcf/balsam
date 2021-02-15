@@ -1,66 +1,115 @@
 import os
+import shutil
 import socket
 import subprocess
+import tempfile
 import time
 from contextlib import closing
+from pathlib import Path
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 from uuid import uuid4
 
 import pytest
 import requests
 
 from balsam.client import BasicAuthRequestsClient
+from balsam.config import ClientSettings, SiteConfig, balsam_home
 from balsam.server import models
+from balsam.site.app import sync_apps
 from balsam.util import postgres as pg
+
+PLATFORMS: Set[str] = {"alcf_theta", "alcf_thetagpu", "alcf_cooley", "generic"}
+
+
+def _get_platform() -> str:
+    plat = os.environ.get("BALSAM_TEST_PLATFORM", "generic")
+    return plat
+
+
+def _get_test_api_url() -> Optional[str]:
+    return os.environ.get("BALSAM_TEST_API_URL")
+
+
+def _get_test_db_url() -> str:
+    return os.environ.get("BALSAM_TEST_DB_URL", "postgresql://postgres@localhost:5432/balsam-test")
+
+
+def _get_test_dir() -> Optional[str]:
+    return os.environ.get("BALSAM_TEST_DIR")
+
+
+def pytest_runtest_setup(item: Any) -> None:
+    """
+    PyTest calls this hook before each test.
+    To mark a test for running only on Theta, use
+    @pytest.mark.alcf_theta
+    """
+    supported_platforms = PLATFORMS.intersection(mark.name for mark in item.iter_markers())
+    plat = _get_platform()
+    if supported_platforms and plat not in supported_platforms:
+        pytest.skip("cannot run on platform {}".format(plat))
 
 
 @pytest.fixture(scope="session")
-def setup_database():
-    if os.environ.get("BALSAM_TEST_API_URL"):
-        return
-    env_url = os.environ.get("BALSAM_TEST_DB_URL", "postgresql://postgres@localhost:5432/balsam-test")
+def setup_database() -> Optional[str]:
+    """
+    If `BALSAM_TEST_API_URL` is exported do nothing: the database is managed elsewhere.
+    Otherwise, configure the Test DB and wipe it clean.
+    """
+    if _get_test_api_url():
+        return None
+    env_url = _get_test_db_url()
     pg.configure_balsam_server_from_dsn(env_url)
     try:
         session = next(models.get_session())
-        if not session.engine.database.endswith("test"):
+        if not session.engine.database.endswith("test"):  # type: ignore
             raise RuntimeError("Database name used for testing must end with 'test'")
         session.execute("""TRUNCATE TABLE users CASCADE;""")
         session.commit()
         session.close()
-    except Exception:
+    except Exception as exc:
+        print(f"Running migrations because could not flush `Users`:\n{exc}")
         pg.run_alembic_migrations(env_url)
     return env_url
 
 
 @pytest.fixture(scope="session")
-def free_port():
+def free_port() -> str:
+    """Returns a free port for the test server to bind"""
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        return s.getsockname()[1]
+        return str(s.getsockname()[1])
 
 
 @pytest.fixture(scope="session")
-def live_server(setup_database, free_port):
-    default_url = os.environ.get("BALSAM_TEST_API_URL")
+def live_server(setup_database: Optional[str], free_port: str) -> Iterable[str]:
+    """
+    If `BALSAM_TEST_API_URL` is exported, do a quick liveness check and return URL.
+    Otherwise, startup Uvicorn test server and return URL after a liveness check.
+    """
+    default_url = _get_test_api_url()
     if default_url:
-        server_health_check(default_url, timeout=2.0, check_interval=0.5)
+        _server_health_check(default_url, timeout=2.0, check_interval=0.5)
         yield default_url
         return
 
+    assert setup_database is not None
     os.environ["balsam_database_url"] = setup_database
     proc = subprocess.Popen(
         f"uvicorn balsam.server.main:app --port {free_port}",
         shell=True,
     )
     url = f"http://localhost:{free_port}/"
-    server_health_check(url, timeout=10.0, check_interval=0.5)
+    _server_health_check(url, timeout=10.0, check_interval=0.5)
     yield url
     proc.terminate()
     proc.communicate()
     return
 
 
-def server_health_check(url, timeout=10, check_interval=0.5):
+def _server_health_check(url: str, timeout: float = 10.0, check_interval: float = 0.5) -> bool:
+    """Make requests until getting a response"""
     conn_error = None
     for i in range(int(timeout / check_interval)):
         try:
@@ -73,8 +122,9 @@ def server_health_check(url, timeout=10, check_interval=0.5):
     raise RuntimeError(conn_error)
 
 
-def _make_user_client(url):
-    login_credentials = {"username": f"user{uuid4()}", "password": "test-password"}
+def _make_user_client(url: str) -> BasicAuthRequestsClient:
+    """Create a basicauth client to the given url"""
+    login_credentials: Dict[str, Any] = {"username": f"user{uuid4()}", "password": "test-password"}
     requests.post(
         url.rstrip("/") + "/users/register",
         json=login_credentials,
@@ -85,27 +135,85 @@ def _make_user_client(url):
 
 
 @pytest.fixture(scope="function")
-def create_user_client(live_server):
-    created_clients = []
+def client_factory(live_server: str) -> Iterable[Callable[[], BasicAuthRequestsClient]]:
+    """
+    Returns factory for generating multiple clients per Test case.
+    DELETES all Sites at the end of each test case.
+    """
+    created_clients: List[BasicAuthRequestsClient] = []
 
-    def _create_user_client():
+    def _create_client() -> BasicAuthRequestsClient:
         client = _make_user_client(live_server)
         created_clients.append(client)
         return client
 
-    yield _create_user_client
+    yield _create_client
     for client in created_clients:
         for site in client.Site.objects.all():
             site.delete()
 
 
 @pytest.fixture(scope="function")
-def client(create_user_client):
-    return create_user_client()
+def client(client_factory: Callable[[], BasicAuthRequestsClient]) -> BasicAuthRequestsClient:
+    """Single ephemeral client (sites will be cleaned up after test case)"""
+    return client_factory()
 
 
 @pytest.fixture(scope="module")
-def persistent_client(live_server):
+def temp_client_file() -> Iterable[str]:
+    """Temporary file in ~/.balsam/_test for storing test credentials"""
+    cred_dir = balsam_home().joinpath("_test")
+    cred_dir.mkdir(parents=True, exist_ok=False)
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, dir=cred_dir, suffix=".yml") as fp:
+        client_path = Path(fp.name).resolve().as_posix()
+    yield client_path
+    shutil.rmtree(cred_dir)
+
+
+@pytest.fixture(scope="module")
+def persistent_client(live_server: str, temp_client_file: str) -> Iterable[BasicAuthRequestsClient]:
+    """
+    Returns (client, client_settings_path) that persists for a full test module.
+    The client can be used across all tests within a single module.
+    Subprocesses and launchers must have BALSAM_CLIENT_PATH env to find the credentials.
+    Cleans up all Sites at the end of each module.
+    """
     client = _make_user_client(live_server)
-    # TODO: save client settings to temp file and set BALSAM_CREDENTIAL_PATH
-    return client
+    settings = ClientSettings(
+        api_root=client.api_root,
+        username=client.username,
+        client_class="balsam.client.BasicAuthRequestsClient",
+        token=client.token,
+        token_expiry=client.token_expiry,
+    )
+    os.environ["BALSAM_CLIENT_PATH"] = temp_client_file
+    settings.save_to_file()
+    yield client
+
+    for site in client.Site.objects.all():
+        site.delete()
+    del os.environ["BALSAM_CLIENT_PATH"]
+
+
+@pytest.fixture(scope="module")
+def balsam_site_config(persistent_client: BasicAuthRequestsClient) -> Iterable[SiteConfig]:
+    """
+    Create new Balsam Site/Apps for BALSAM_TEST_PLATFORM environ
+    Yields the SiteConfig and cleans up Site at the end of module scope.
+    """
+    plat = _get_platform()
+    tmpdir_top = _get_test_dir()
+    site_config_path = Path(__file__).parent.joinpath("default-configs", plat).resolve()
+    with tempfile.TemporaryDirectory(prefix="balsam-test", dir=tmpdir_top) as tmpdir:
+        site_path = Path(tmpdir).joinpath("testsite")
+        site_config = SiteConfig.new_site_setup(
+            site_path=site_path,
+            default_site_path=site_config_path,
+            client=persistent_client,
+        )
+        os.environ["BALSAM_SITE_PATH"] = str(site_path)
+        sync_apps(site_config)
+        yield site_config
+
+    persistent_client.Site.objects.get(id=site_config.settings.site_id).delete()
+    del os.environ["BALSAM_SITE_PATH"]
