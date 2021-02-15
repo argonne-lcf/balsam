@@ -7,7 +7,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import dateutil.parser
 
-from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
+from .scheduler import (
+    SchedulerBackfillWindow,
+    SchedulerJobLog,
+    SchedulerJobStatus,
+    SchedulerSubmitError,
+    SubprocessSchedulerInterface,
+)
 
 PathLike = Union[Path, str]
 
@@ -167,10 +173,15 @@ class CobaltScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _parse_submit_output(submit_output: str) -> int:
         try:
-            scheduler_id = int(submit_output)
+            return int(submit_output)
         except ValueError:
-            scheduler_id = int(submit_output.split("\n")[2])
-        return scheduler_id
+            for line in submit_output.split("\n"):
+                try:
+                    return int(line)
+                except ValueError:
+                    continue
+            else:
+                raise SchedulerSubmitError(f"Failed to parse Job ID from output:\n{submit_output}")
 
     @staticmethod
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
