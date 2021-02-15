@@ -228,6 +228,9 @@ def _update(job: models.Job, data: Dict[str, Any]) -> Optional[models.LogEvent]:
     state_timestamp = data.pop("state_timestamp", datetime.utcnow())
     state_data = data.pop("state_data", {})
 
+    workdir = data.pop("workdir", None)
+    if workdir:
+        job.workdir = str(workdir)
     for k, v in data.items():
         setattr(job, k, v)
     job.return_code = data.get("return_code", job.return_code)

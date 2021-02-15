@@ -129,7 +129,7 @@ class JobBase(CreatableBalsamModel):
         return data_path.joinpath(self.workdir)
 
     def parent_query(self) -> "JobQuery":
-        return self.objects.filter(parent_id=list(self.parent_ids))
+        return self.objects.filter(id=list(self.parent_ids))
 
 
 class JobManagerBase(Manager["Job"]):
@@ -181,7 +181,9 @@ class SessionManagerBase(Manager["Session"]):
     _client: "RESTClient"
 
     def _do_acquire(self, instance: "SessionBase", **kwargs: Any) -> "List[Job]":
-        from balsam._api.models import Job
+        from balsam._api.models import Job, JobManager
+
+        Job.objects = JobManager(client=self._client)
 
         acquired_raw = self._client.post(self._api_path + f"{instance.id}", **kwargs)
         jobs = [Job._from_api(dat) for dat in acquired_raw]
