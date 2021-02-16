@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.7', '3.9']
+        python-version: ['3.7', '3.8', '3.9']
     env:
       PYTHON: ${{ matrix.python-version }}
       OS: ubuntu
@@ -62,8 +62,8 @@ jobs:
         run: |
           pip install -e .[dev,server]
           pip freeze
-      - name: test-api
-        run: make test-api || exit 2
+      - name: tests
+        run: make testcov
       - run: coverage xml
       - uses: codecov/codecov-action@v1
         with:

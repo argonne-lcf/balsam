@@ -166,6 +166,7 @@ def field_to_dict(field: ModelField, schema: Type[BaseModel]) -> FieldDict:
         annotation = qual_path(field.type_)
 
     assert annotation is not None
+    annotation = annotation.replace("NoneType", "None")
     return {
         "name": field.name,
         "required": field.required,

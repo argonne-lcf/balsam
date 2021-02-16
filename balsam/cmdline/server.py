@@ -4,7 +4,7 @@ import signal
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import click
 import jinja2
@@ -193,32 +193,16 @@ def init(db_path: Union[Path, str]) -> None:
 
 
 @db.command()
-@click.argument("db-path", type=click.Path(exists=True))
-@click.option("--downgrade", default=None)
-def migrate(db_path: Union[Path, str], downgrade: Optional[str]) -> None:
+def migrate() -> None:
     """
     Update DB schema (run after upgrading Balsam version)
     """
     import balsam.server
     from balsam.util import postgres
 
-    db_path = Path(db_path)
-    try:
-        pw_dict = postgres.load_pwfile(db_path)
-    except FileNotFoundError:
-        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
-
-    user = pw_dict["username"]
-    passwd = pw_dict["password"]
-    host = pw_dict["host"]
-    port = pw_dict["port"]
-    database = pw_dict["database"]
-    dsn = f"postgresql://{user}:{passwd}@{host}:{port}/{database}"
-    os.environ["balsam_database_url"] = dsn
-    balsam.server.settings.database_url = dsn
-
-    click.echo("Running alembic migrations")
-    postgres.run_alembic_migrations(dsn, downgrade=downgrade)
+    dsn = balsam.server.settings.database_url
+    click.echo(f"Running alembic migrations for {dsn}")
+    postgres.run_alembic_migrations(dsn, downgrade=None)
     click.echo("Migrations complete!")
 
 
