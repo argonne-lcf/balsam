@@ -54,6 +54,7 @@ def newapp(args):
     app.description = ' '.join(args.description) if args.description else ''
     app.executable = py_app_path(args.executable)
     app.preprocess = py_app_path(args.preprocess)
+    app.envscript = py_app_path(args.envscript)
     app.postprocess = py_app_path(args.postprocess)
     app.save()
     print(app)

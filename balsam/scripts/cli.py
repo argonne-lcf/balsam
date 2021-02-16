@@ -71,6 +71,8 @@ def make_parser():
                             required=True)
     parser_app.add_argument('--preprocess', default='',
                             help='preprocessing script with full path')
+    parser_app.add_argument('--envscript', default='',
+                            help='environment script with full path')
     parser_app.add_argument('--postprocess', default='',
                             help='postprocessing script with full path')
     parser_app.add_argument('--description', nargs='+')
