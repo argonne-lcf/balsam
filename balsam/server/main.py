@@ -5,7 +5,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm.exc import NoResultFound
 
 from balsam.server import settings
-from balsam.util import config_root_logger
 
 from .auth import auth, user_from_token
 from .pubsub import pubsub
@@ -18,11 +17,18 @@ app = FastAPI(
 
 
 def setup_logging() -> logging.Logger:
-    _, handler = config_root_logger(settings.log_level)
+    balsam_logger = logging.getLogger("balsam")
     sql_logger = logging.getLogger("sqlalchemy.engine")
-    sql_logger.setLevel(settings.log_level)
-    sql_logger.handlers.clear()
-    sql_logger.addHandler(handler)
+
+    for logger in balsam_logger, sql_logger:
+        logger.setLevel(settings.log_level)
+        logger.handlers.clear()
+
+    balsam_handler = logging.FileHandler(filename="server-balsam.log")
+    balsam_logger.addHandler(balsam_handler)
+
+    sql_handler = logging.FileHandler(filename="server-sql.log")
+    sql_logger.addHandler(sql_handler)
     return logging.getLogger("balsam.server.main")
 
 

@@ -14,6 +14,7 @@ import pytest
 import requests
 
 from balsam.client import BasicAuthRequestsClient
+from balsam.cmdline.server import start_gunicorn
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home
 from balsam.server import models
@@ -85,7 +86,16 @@ def free_port() -> str:
 
 
 @pytest.fixture(scope="session")
-def live_server(setup_database: Optional[str], free_port: str) -> Iterable[str]:
+def test_log_dir() -> Path:
+    test_log_dir = Path.cwd().joinpath("pytest-logs")
+    if test_log_dir.is_dir():
+        shutil.rmtree(test_log_dir)
+    test_log_dir.mkdir(exist_ok=False)
+    return test_log_dir
+
+
+@pytest.fixture(scope="session")
+def live_server(setup_database: Optional[str], free_port: str, test_log_dir: Path) -> Iterable[str]:
     """
     If `BALSAM_TEST_API_URL` is exported, do a quick liveness check and return URL.
     Otherwise, startup Uvicorn test server and return URL after a liveness check.
@@ -98,15 +108,15 @@ def live_server(setup_database: Optional[str], free_port: str) -> Iterable[str]:
 
     assert setup_database is not None
     os.environ["balsam_database_url"] = setup_database
-    proc = subprocess.Popen(
-        f"uvicorn balsam.server.main:app --port {free_port}",
-        shell=True,
-    )
+    proc = start_gunicorn(Path.cwd(), f"0.0.0.0:{free_port}", "debug", num_workers=1)
     url = f"http://localhost:{free_port}/"
     _server_health_check(url, timeout=10.0, check_interval=0.5)
     yield url
     proc.terminate()
     proc.communicate()
+    shutil.move("gunicorn.out", test_log_dir)
+    shutil.move("server-balsam.log", test_log_dir)
+    shutil.move("server-sql.log", test_log_dir)
     return
 
 
@@ -198,7 +208,7 @@ def persistent_client(live_server: str, temp_client_file: str) -> Iterable[Basic
 
 
 @pytest.fixture(scope="module")
-def balsam_site_config(persistent_client: BasicAuthRequestsClient) -> Iterable[SiteConfig]:
+def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir: Path) -> Iterable[SiteConfig]:
     """
     Create new Balsam Site/Apps for BALSAM_TEST_PLATFORM environ
     Yields the SiteConfig and cleans up Site at the end of module scope.
@@ -216,6 +226,8 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient) -> Iterable[S
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
         sync_apps(site_config)
         yield site_config
+        for logfile in site_path.joinpath("log").glob("*"):
+            shutil.move(logfile, test_log_dir)
 
     persistent_client.Site.objects.get(id=site_config.settings.site_id).delete()
     del os.environ["BALSAM_SITE_PATH"]
@@ -235,10 +247,13 @@ def run_service(balsam_site_config: SiteConfig) -> Iterable[SiteConfig]:
 
     for child in parent.children(recursive=True):
         try:
-            child.wait(timeout=2)
+            child.wait(timeout=10.0)
         except psutil.TimeoutExpired:
             child.kill()
     try:
-        parent.wait(timeout=5.0)
+        parent.wait(timeout=10.0)
     except psutil.TimeoutExpired:
         parent.kill()
+    print("End of run_service fixture: found coverage files:")
+    subprocess.run('find . -name ".coverage*"', shell=True)
+    subprocess.run(f'find {balsam_site_config.site_path.parent} -name ".coverage*"', shell=True)

@@ -30,17 +30,16 @@ test-unit:
 	pytest tests/units --cov=balsam --cov-config setup.cfg
 
 .PHONY: test-api
-test-api: test-unit
-	pytest tests/server tests/api --cov=balsam --cov-append --cov-config setup.cfg
+test-api:
+	pytest tests/server tests/api --cov=balsam --cov-config setup.cfg
 
 .PHONY: test-site-integ
-test-site-integ: test-api
-	pytest tests/site_integration --cov=balsam --cov-append --cov-config setup.cfg
+test-site-integ:
+	pytest tests/site_integration --cov=balsam --cov-config setup.cfg
 
 .PHONY: testcov
-testcov: test-site-integ
-	@echo "building coverage html"
-	@coverage html
+testcov:
+	pytest tests/units tests/server tests/api tests/site_integration --cov=balsam --cov-config setup.cfg --cov-report=html
 
 .PHONY: all
 all: generate-api validate-defaults format lint mypy testcov

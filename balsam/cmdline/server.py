@@ -68,7 +68,8 @@ def up(path: Union[Path, str], bind: str, log_level: str, num_workers: int) -> N
     pg.start_db(db_path)
     dsn = pg.load_dsn(db_path)
     pg.configure_balsam_server_from_dsn(dsn)
-    start_gunicorn(path, bind, log_level, num_workers)
+    p = start_gunicorn(path, bind, log_level, num_workers)
+    click.echo(f"Started gunicorn at {bind} (pid={p.pid})")
 
 
 @server.command()
@@ -100,7 +101,8 @@ def deploy(path: Union[Path, str], bind: str, log_level: str, num_workers: int) 
     write_redis_conf(path.joinpath("redis.conf"))
     click.echo("Starting Redis daemon")
     start_redis(path)
-    start_gunicorn(path, bind, log_level, num_workers)
+    p = start_gunicorn(path, bind, log_level, num_workers)
+    click.echo(f"Started gunicorn at {bind} (pid={p.pid})")
 
 
 def write_redis_conf(conf_path: Path) -> None:
@@ -135,7 +137,14 @@ def start_redis(path: Path, config_filename: str = "redis.conf") -> None:
     click.echo("Started redis daemon")
 
 
-def start_gunicorn(path: Path, bind: str = "0.0.0.0:8000", log_level: str = "debug", num_workers: int = 1) -> None:
+def start_gunicorn(
+    path: Path,
+    bind: str = "0.0.0.0:8000",
+    log_level: str = "debug",
+    num_workers: int = 1,
+    access_logfile: str = "-",
+    error_logfile: str = "-",
+) -> "subprocess.Popen[bytes]":
     args = [
         "gunicorn",
         "-k",
@@ -145,7 +154,9 @@ def start_gunicorn(path: Path, bind: str = "0.0.0.0:8000", log_level: str = "deb
         "--log-level",
         log_level,
         "--access-logfile",
-        "-",
+        f"{access_logfile}",
+        "--error-logfile",
+        f"{error_logfile}",
         "--name",
         f"balsam-server[{path}]",
         "--workers",
@@ -156,7 +167,7 @@ def start_gunicorn(path: Path, bind: str = "0.0.0.0:8000", log_level: str = "deb
     ]
     with open(path.joinpath("gunicorn.out"), "w") as fp:
         p = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT, cwd=path)
-    click.echo(f"Started gunicorn at {bind} (pid={p.pid})")
+    return p
 
 
 @server.group()

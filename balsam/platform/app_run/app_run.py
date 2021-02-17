@@ -26,7 +26,7 @@ except AttributeError:
     logger.debug("No psutil cpu_affinity support")
 
 
-class TimeoutExpired(Exception):
+class TimeoutExpired(subprocess.TimeoutExpired):
     pass
 
 

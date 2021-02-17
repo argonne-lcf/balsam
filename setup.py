@@ -12,9 +12,7 @@ from setuptools.command.install import install
 from setuptools.config import read_configuration
 
 # Do not remove this import: monkey-patches the easy_install ScriptWriter
-import fastentrypoints
-
-print("Using fastentrypoints:", fastentrypoints)
+import fastentrypoints  # noqa: F401
 
 setup_cfg = Path(__file__).parent.joinpath("setup.cfg")
 conf_dict = read_configuration(setup_cfg)

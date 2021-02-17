@@ -1,9 +1,11 @@
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from pydantic import BaseModel, validator
 
 from balsam._api.models import Job
-from balsam.platform.compute_node import ComputeNode
+
+if TYPE_CHECKING:
+    from balsam.platform.compute_node import ComputeNode
 
 
 class InsufficientResources(Exception):
@@ -40,7 +42,7 @@ class NodeSpec(BaseModel):
 
 
 class NodeManager:
-    def __init__(self, node_list: List[ComputeNode], allow_node_packing: bool = True) -> None:
+    def __init__(self, node_list: "List[ComputeNode]", allow_node_packing: bool = True) -> None:
         self.nodes = node_list
         self.job_node_map: Dict[int, List[int]] = {}
         self.allow_node_packing = allow_node_packing
