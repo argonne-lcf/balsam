@@ -114,9 +114,9 @@ def live_server(setup_database: Optional[str], free_port: str, test_log_dir: Pat
     yield url
     proc.terminate()
     proc.communicate()
-    shutil.move("gunicorn.out", test_log_dir)
-    shutil.move("server-balsam.log", test_log_dir)
-    shutil.move("server-sql.log", test_log_dir)
+    for pattern in ("*.out", "*.log"):
+        for fname in Path.cwd().glob(pattern):
+            shutil.move(fname.as_posix(), test_log_dir.as_posix())
     return
 
 

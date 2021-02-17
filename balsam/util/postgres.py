@@ -195,7 +195,7 @@ def init_db_cluster(db_path: Union[Path, str], superuser: str = "postgres") -> T
         shell=True,
         check=True,
     )
-    shutil.move(tmp_pwfile, db_path / "pwfile")
+    shutil.move(tmp_pwfile, db_path.joinpath("pwfile").as_posix())
 
     with open(db_path / "postgresql.conf", "a") as fp:
         fp.write("listen_addresses = '*' # appended from balsam init\n")

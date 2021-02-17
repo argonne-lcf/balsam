@@ -119,7 +119,7 @@ def mv(src: Union[Path, str], dest: Union[Path, str]) -> None:
     if dest.exists():
         raise click.BadParameter(f"{dest} exists")
 
-    shutil.move(src.as_posix(), dest)
+    shutil.move(src.as_posix(), dest.as_posix())
     client = cf.client
 
     site = client.Site.objects.get(id=cf.settings.site_id)
