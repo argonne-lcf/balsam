@@ -3,7 +3,7 @@ from typing import List
 
 import pytest
 
-from balsam._api.models import BatchJob, Job
+from balsam._api.models import BatchJob, EventLog, Job
 from balsam.client import RESTClient
 from balsam.config import SiteConfig
 from balsam.schemas import JobMode
@@ -103,7 +103,10 @@ class TestSingleNodeMPIMode:
         assert all(job.state == "STAGED_IN" for job in jobs)
         poll_until_state(jobs, "JOB_FINISHED", timeout=15)
         for i, job in enumerate(jobs):
-            assert job.state in ["JOB_FINISHED", "RUN_DONE"]
+            assert job.state in [
+                "JOB_FINISHED",
+                "RUN_DONE",
+            ], f"Job state: {job.state}\n{list(EventLog.objects.filter(job_id=job.id))}"
             stdout = job.resolve_workdir(balsam_site_config.data_path).joinpath("job.out").read_text()
             job.state
             assert f"world{i}" in stdout

@@ -58,6 +58,8 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - name: install mpich
+        run: sudo apt-get install -y -q mpich libmpich-dev
       - name: install
         run: |
           pip install -e .[dev,server]

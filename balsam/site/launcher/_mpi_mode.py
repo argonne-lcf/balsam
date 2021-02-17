@@ -145,6 +145,7 @@ class Launcher:
             return {"state": "RUN_DONE", "state_timestamp": datetime.utcnow()}
         else:
             tail = run.tail_output(nlines=self.error_tail_num_lines)
+            logger.info(f"Run error: {tail}")
             return {
                 "state": "RUN_ERROR",
                 "state_timestamp": datetime.utcnow(),
