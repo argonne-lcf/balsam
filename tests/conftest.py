@@ -227,7 +227,7 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
         sync_apps(site_config)
         yield site_config
         for logfile in site_path.joinpath("log").glob("*"):
-            shutil.move(logfile, test_log_dir)
+            shutil.move(logfile.as_posix(), test_log_dir.as_posix())
 
     persistent_client.Site.objects.get(id=site_config.settings.site_id).delete()
     del os.environ["BALSAM_SITE_PATH"]

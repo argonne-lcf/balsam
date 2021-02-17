@@ -80,4 +80,18 @@ class ComputeNode:
         return None
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(id={self.node_id}, hostname={self.hostname})"
+        busy_cpus = len(self.busy_cpus)
+        total_cpus = len(self.cpu_ids)
+        busy_gpus = len(self.busy_gpus)
+        total_gpus = len(self.gpu_ids)
+        cpu_str = f"{busy_cpus}/{total_cpus} CPUs busy"
+        gpu_str = f", {busy_gpus}/{total_gpus} GPUs busy" if total_gpus else ""
+        d = dict(
+            node_id=self.node_id,
+            hostname=self.hostname,
+            occupancy=self.occupancy,
+            num_jobs=len(self.jobs),
+        )
+        args = ", ".join(f"{k}={v}" for k, v in d.items())
+        rep = f"{self.__class__.__name__}({args}, {cpu_str}{gpu_str})"
+        return rep

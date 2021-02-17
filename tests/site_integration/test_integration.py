@@ -54,7 +54,7 @@ def client(run_service: SiteConfig) -> RESTClient:
     return run_service.client
 
 
-def poll_until_state(jobs: List[Job], state: str, timeout=10.0, check_period=1.0) -> bool:
+def poll_until_state(jobs: List[Job], state: str, fail_state="FAILED", timeout=10.0, check_period=1.0) -> bool:
     """Refresh a list of jobs until they reach the specified state"""
     num_checks = int(timeout / check_period)
     for _ in range(num_checks):
@@ -62,6 +62,8 @@ def poll_until_state(jobs: List[Job], state: str, timeout=10.0, check_period=1.0
             job.refresh_from_db()
         if all(job.state == state for job in jobs):
             return True
+        if fail_state and any(job.state == fail_state for job in jobs):
+            return False
         else:
             time.sleep(check_period)
     return False
@@ -85,7 +87,7 @@ class TestSingleNodeMPIMode:
         )
         assert job.state == "STAGED_IN"
         assert job.id is not None
-        poll_until_state([job], "JOB_FINISHED")
+        poll_until_state([job], "JOB_FINISHED", timeout=60.0)
         assert job.state == "JOB_FINISHED"
 
     @pytest.mark.parametrize("num_jobs", [3])
@@ -97,11 +99,11 @@ class TestSingleNodeMPIMode:
                 f"bar/{i}",
                 app.id,
                 parameters={"name": f"world{i}!"},
-                node_packing_count=16,
+                node_packing_count=2,
             )
             jobs.append(job)
         assert all(job.state == "STAGED_IN" for job in jobs)
-        poll_until_state(jobs, "JOB_FINISHED", timeout=15)
+        poll_until_state(jobs, "JOB_FINISHED", timeout=60)
         for i, job in enumerate(jobs):
             assert job.state in [
                 "JOB_FINISHED",
