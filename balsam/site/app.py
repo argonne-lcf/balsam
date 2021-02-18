@@ -1,6 +1,7 @@
 import importlib.util
 import logging
 import os
+import re
 import shlex
 from pathlib import Path
 from types import ModuleType
@@ -157,6 +158,7 @@ def load_apps_from_dir(apps_path: Union[str, Path]) -> Tuple[AppClassDict, ModTi
 
 class ApplicationDefinitionMeta(type):
     _loaded_apps: Dict[Tuple[str, str], Type["ApplicationDefinition"]]
+    _param_pattern = re.compile(r"{{(.*?)}}")
     environment_variables: Dict[str, str]
     command_template: str
     parameters: Dict[str, Any]
@@ -173,19 +175,31 @@ class ApplicationDefinitionMeta(type):
         if "command_template" not in attrs or not isinstance(attrs["command_template"], str):
             raise AttributeError("ApplicationDefiniton must define a `command_template` string.")
 
+        # Validate command template
         cls.command_template = " ".join(cls.command_template.strip().split())
-        ctx = jinja2.Environment().parse(cls.command_template)
+        for param in re.findall(mcls._param_pattern, cls.command_template):
+            if not param.strip().isidentifier():
+                raise AttributeError(
+                    f"Command template parameter '{param.strip()}' is not a valid Python identifier."
+                )
 
+        # Detect parameters via Jinja
+        ctx = jinja2.Environment().parse(cls.command_template)
         detected_params: Set[str] = jinja2.meta.find_undeclared_variables(ctx)  # type: ignore
+
+        # Validate parameters dict
         cls_params = set(cls.parameters.keys())
+        for param in cls_params:
+            if not param.isidentifier():
+                raise AttributeError(f"Dictionary parameter '{param}' is not a valid Python identifier.")
 
         extraneous = cls_params.difference(detected_params)
         if extraneous:
             raise AttributeError(
-                f"App {name} has extraneous `parameters` not referenced "
-                f"in the command template: {extraneous}"
-                f"\nSupported parameters: {cls_params}"
-                f"\nDetected parameters in template: {detected_params}"
+                f"App {name} has extraneous keys "
+                f"in the `parameters` dictionary: {extraneous}"
+                f"\nparameters dict: {cls_params}"
+                f"\nDetected parameters in command_template: {detected_params}"
             )
         for param in detected_params.difference(cls_params):
             cls.parameters[param] = {
