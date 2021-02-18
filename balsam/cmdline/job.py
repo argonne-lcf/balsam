@@ -52,9 +52,9 @@ def validate_set(all_params: Set[str], required_params: Set[str], provided_param
     missing_params = required_params.difference(provided_params)
     extraneous_params = provided_params.difference(all_params)
     if missing_params:
-        raise click.BadParameter(f"Missing required: {missing_params}")
+        raise click.BadParameter(f"Missing required parameters (-p): {missing_params}")
     if extraneous_params:
-        raise click.BadParameter(f"Extraneous values: {extraneous_params}")
+        raise click.BadParameter(f"Extraneous parameters (-p): {extraneous_params}")
 
 
 def validate_parameters(parameters: List[str], app: "App") -> Dict[str, str]:

@@ -41,6 +41,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
         "starting": "queued",
         "running": "running",
         "exiting": "running",
+        "killing": "running",
         "user_hold": "queued",
         "dep_hold": "queued",
         "dep_fail": "submit_failed",
