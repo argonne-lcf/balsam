@@ -27,6 +27,7 @@ def start() -> None:
     if not get_pidfile(cf).is_file():
         proc = start_site(cf.site_path)
         click.echo(f"Started Balsam site daemon [pid {proc.pid}] on {socket.gethostname()}")
+        return None
 
     host: Optional[str]
     pid: Optional[int]
