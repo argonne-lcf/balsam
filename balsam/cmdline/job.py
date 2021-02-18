@@ -98,16 +98,25 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
 
 
 @job.command()
-@click.option("-w", "--workdir", required=True, type=str)
-@click.option("-a", "--app", required=True, type=str, callback=validate_app)
-@click.option("-tag", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
-@click.option("-p", "--param", "parameters", multiple=True, type=str)
-@click.option("-n", "--num-nodes", default=1, type=int)
-@click.option("-rpn", "--ranks-per-node", default=1, type=int)
-@click.option("-tpr", "--threads-per-rank", default=1, type=int)
-@click.option("-tpc", "--threads-per-core", default=1, type=int)
-@click.option("-g", "--gpus-per-rank", default=0, type=float)
-@click.option("-npc", "--node-packing-count", default=1, type=int)
+@click.option("-w", "--workdir", required=True, type=str, help="Job directory (relative to data/)")
+@click.option("-a", "--app", required=True, type=str, callback=validate_app, help="App ID or name (module.ClassName)")
+@click.option(
+    "-tag", "--tag", "tags", multiple=True, type=str, callback=validate_tags, help="Job tags (--tag KEY=VALUE)"
+)
+@click.option(
+    "-p",
+    "--param",
+    "parameters",
+    multiple=True,
+    type=str,
+    help="App command template parameters (--param name=value)",
+)
+@click.option("-n", "--num-nodes", default=1, type=int, help="For MPI apps: how many nodes to use")
+@click.option("-rpn", "--ranks-per-node", default=1, type=int, help="MPI ranks per node")
+@click.option("-tpr", "--threads-per-rank", default=1, type=int, help="Threads per process/rank")
+@click.option("-tpc", "--threads-per-core", default=1, type=int, help="Threads per CPU core")
+@click.option("-g", "--gpus-per-rank", default=0, type=float, help="GPUs per process")
+@click.option("-npc", "--node-packing-count", default=1, type=int, help="Allow this count to run per node")
 @click.option(
     "-lp",
     "--launch-param",
@@ -115,15 +124,11 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
     multiple=True,
     type=str,
     callback=validate_tags,
+    help="Pass-through parameters to MPI launcher",
 )
 @click.option("-t", "--wall-time-min", default=1, type=int)
 @click.option(
-    "-pid",
-    "--parent-id",
-    "parent_ids",
-    multiple=True,
-    type=int,
-    callback=validate_parents,
+    "-pid", "--parent-id", "parent_ids", multiple=True, type=int, callback=validate_parents, help="Job dependencies"
 )
 @click.option(
     "-s",
@@ -132,6 +137,7 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
     multiple=True,
     type=str,
     callback=validate_transfers,
+    help="Transfer slots (-s transfer_slot=location_alias:/path/to/file)",
 )
 @click.pass_context
 def create(
