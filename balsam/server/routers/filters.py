@@ -92,8 +92,8 @@ class EventLogQuery:
 
 @dataclass
 class JobQuery:
-    id: List[int] = Query(None)
-    parent_id: List[int] = Query(None)
+    id: List[int] = Query(None, min_items=1)
+    parent_id: List[int] = Query(None, min_items=1)
     app_id: int = Query(None)
     site_id: int = Query(None)
     batch_job_id: int = Query(None)

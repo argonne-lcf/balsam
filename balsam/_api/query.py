@@ -21,6 +21,7 @@ class Query(Iterable[T]):
         self._count: Optional[int] = None
         self._limit: Optional[int] = None
         self._offset: Optional[int] = None
+        self._empty: bool = False
 
     def __repr__(self) -> str:
         data = list(self[: REPR_OUTPUT_SIZE + 1])
@@ -99,6 +100,7 @@ class Query(Iterable[T]):
         clone._order_field = self._order_field
         clone._limit = self._limit
         clone._offset = self._offset
+        clone._empty = self._empty
         return clone
 
     def _set_limits(self, start: Optional[int], stop: Optional[int]) -> None:
@@ -115,6 +117,9 @@ class Query(Iterable[T]):
 
     def _fetch_cache(self) -> None:
         if self._result_cache is not None:
+            return
+        if self._empty:
+            self._result_cache = []
             return
         instances, count = self._manager._get_list(
             filters=self._filters,
@@ -135,6 +140,8 @@ class Query(Iterable[T]):
         for key, val in kwargs.items():
             if isinstance(val, dict):
                 kwargs[key] = [f"{k}:{v}" for k, v in val.items()]
+            if isinstance(val, (list, tuple)) and not val:
+                clone._empty = True
         clone._filters.update(kwargs)
         return clone
 
@@ -166,6 +173,8 @@ class Query(Iterable[T]):
         return self[0]
 
     def count(self) -> Optional[int]:
+        if self._empty:
+            return 0
         if self._count is None:
             _, _count = self._manager._get_list(filters=self._filters, limit=0, offset=0, ordering=None)
             self._count = _count
@@ -173,7 +182,11 @@ class Query(Iterable[T]):
 
     def _update(self, **kwargs: Any) -> List[T]:
         # TODO: kwargs should expand to a set of allowed update_fields
+        if self._empty:
+            return []
         return self._manager._do_bulk_update_query(patch=kwargs, filters=self._filters)
 
     def delete(self) -> None:
+        if self._empty:
+            return
         return self._manager._do_bulk_delete(filters=self._filters)
