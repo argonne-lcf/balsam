@@ -15,6 +15,9 @@ balsam/*/__pycache__*
 !.github
 !.vscode/
 
+pytest-logs/
+coverage.xml
+
 *_packer.cpython*
 balsam/service/pack/_packer.c
 balsam/argo/migrations/*.py

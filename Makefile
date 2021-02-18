@@ -2,6 +2,12 @@
 isort = isort balsam tests
 black = black --target-version py37 balsam tests
 
+.PHONY: install-dev
+install-dev:
+	python -m pip install --upgrade wheel pip
+	pip install -r requirements/dev.txt
+	pip install -e .
+
 .PHONY: format
 format:
 	$(isort)

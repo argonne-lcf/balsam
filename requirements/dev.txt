@@ -1,0 +1,17 @@
+# Dev tools, installed via "make install-dev"
+
+# Pinned deployment dependencies:
+-r deploy.txt
+
+# No need to pin these:
+mypy>=0.800
+coverage 
+black
+flake8
+pre-commit
+pytest
+pytest-cov
+isort
+sqlalchemy-stubs
+mkdocs-material
+mkdocs

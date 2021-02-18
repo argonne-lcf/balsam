@@ -17,13 +17,17 @@ You will need the following inside the default Site configuration directory:
 - `settings.yml` (Referencing the platform interfaces added above)
 - `job-template.sh`
 
-## Linting
+## Developer Installation
 
-Before commiting any changes to the repository, install the development code into a 
-virtual environment and install the **pre-commit** hooks as follows:
+```bash
+# Use a Python3.7+ environment
+virtualenv -p `which python3.8` env
+source env/bin/activate
 
-```py3
-pip install -e .[dev,server,docs]
+# Install with deployment/development dependencies:
+make install-dev
+
+# Set up pre-commit linting hooks:
 pre-commit install
 ```
 
@@ -31,23 +35,14 @@ On commit, code will be auto-formatted with `isort` and `black` and linted with 
 Linting errors will cause the commit to fail and point to errors.
 
 Contributors may also run the following to re-format, lint, type-check, and test the code:
+
 ```bash
 $ make format
 $ make all
 ```
 
-## Testing
+Please run these steps before making pull requests.
 
-The Balsam API server can be independently tested:
-```bash
-$ pytest --cov=balsam/server balsam/server
-```
-
-To generate an HTML test-coverage report locally:
-```bash
-$ coverage html
-$ open htmlcov/index.html
-```
 
 ## Creating diagrams in markdown
 Refer to [mermaid.js](https://mermaid-js.github.io/mermaid/#/) for examples on graphs, flowcharts, sequence diagrams, class diagrams, state diagrams, etc...

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -16,10 +15,6 @@ import fastentrypoints  # noqa: F401
 
 setup_cfg = Path(__file__).parent.joinpath("setup.cfg")
 conf_dict = read_configuration(setup_cfg)
-install_requires = conf_dict["options"]["install_requires"]
-
-if os.environ.get("READTHEDOCS") == "True":
-    install_requires = [k for k in install_requires if "mpi4py" not in k]
 
 
 class PostDevelopCommand(develop):
@@ -45,6 +40,5 @@ def setup_autocomplete():
 
 
 setup(
-    install_requires=install_requires,
     cmdclass={"develop": PostDevelopCommand, "install": PostInstallCommand},
 )

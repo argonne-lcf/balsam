@@ -1,0 +1,17 @@
+version: 2
+
+updates:
+- package-ecosystem: pip
+  directory: /requirements/
+  schedule:
+    interval: weekly
+
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: monthly
+
+- package-ecosystem: docker
+  directory: /
+  schedule:
+    interval: monthly

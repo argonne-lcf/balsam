@@ -63,7 +63,10 @@ def up(path: Union[Path, str], bind: str, log_level: str, num_workers: int) -> N
     path = Path(path).resolve()
 
     click.echo("Starting Redis daemon")
-    start_redis(path)
+    try:
+        start_redis(path)
+    except RuntimeError:
+        click.echo("Skipping Redis")
     db_path = path.joinpath("balsamdb").as_posix()
     pg.start_db(db_path)
     dsn = pg.load_dsn(db_path)
@@ -100,7 +103,10 @@ def deploy(path: Union[Path, str], bind: str, log_level: str, num_workers: int) 
 
     write_redis_conf(path.joinpath("redis.conf"))
     click.echo("Starting Redis daemon")
-    start_redis(path)
+    try:
+        start_redis(path)
+    except RuntimeError:
+        click.echo("Skipping Redis")
     p = start_gunicorn(path, bind, log_level, num_workers)
     click.echo(f"Started gunicorn at {bind} (pid={p.pid})")
 
