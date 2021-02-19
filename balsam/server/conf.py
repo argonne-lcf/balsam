@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import timedelta
 from importlib import import_module
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
 from pydantic import BaseSettings, validator
@@ -38,12 +39,21 @@ class Settings(BaseSettings):
     auth: AuthSettings = AuthSettings()
     redis_params: Dict[str, Any] = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
     log_level: Union[str, int] = logging.INFO
+    log_dir: Path = Path.cwd()
     num_uvicorn_workers: int = 1
     gunicorn_pid_file: str = "gunicorn.pid"
 
     @validator("log_level", always=True)
     def validate_balsam_log_level(cls, v: Union[str, int]) -> int:
         return validate_log_level(v)
+
+    @validator("log_dir", always=True)
+    def validate_log_dir(cls, v: Path) -> Path:
+        if not v.exists():
+            v.mkdir(parents=True, exist_ok=False)
+        elif not v.is_dir():
+            raise ValueError(f"{v} is not a valid log directory")
+        return v
 
     def gunicorn_env(self) -> List[str]:
         """
@@ -64,9 +74,10 @@ class Settings(BaseSettings):
                 "--log-level",
                 str(self.log_level),
                 "--access-logfile",
-                "-",
+                self.log_dir.joinpath("gunicorn.access").as_posix(),
                 "--error-logfile",
-                "-",
+                self.log_dir.joinpath("gunicorn.out").as_posix(),
+                "--capture-output",
                 "--name",
                 "balsam-server",
                 "--workers",

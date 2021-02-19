@@ -147,7 +147,7 @@ def acquire(
         job.batch_job_id = session.batch_job_id
         job.parent_ids = [parent.id for parent in job.parents]
     db.flush()
-    print("Acquired jobs with states:", [job.state for job in acquired_jobs])
+    logger.debug("Acquired jobs with states:", [job.state for job in acquired_jobs])
     return acquired_jobs, expired_jobs, expiry_events
 
 

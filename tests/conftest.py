@@ -87,6 +87,7 @@ def free_port() -> str:
 
 @pytest.fixture(scope="session")
 def test_log_dir() -> Path:
+    """Log directory (persists as artifact after test session)"""
     test_log_dir = Path.cwd().joinpath("pytest-logs")
     if test_log_dir.is_dir():
         shutil.rmtree(test_log_dir)
@@ -109,24 +110,21 @@ def live_server(setup_database: Optional[str], free_port: str, test_log_dir: Pat
     assert setup_database is not None
 
     settings = balsam.server.Settings(
+        log_dir=test_log_dir,
         database_url=setup_database,
         log_level="DEBUG",
         server_bind=f"0.0.0.0:{free_port}",
         num_uvicorn_workers=1,
     )
 
-    with open("gunicorn.out", "w") as fp:
-        args = settings.gunicorn_env()
-        proc = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT)
+    args = settings.gunicorn_env()
+    proc = subprocess.Popen(args)
 
     url = f"http://localhost:{free_port}/"
     _server_health_check(url, timeout=10.0, check_interval=0.5)
     yield url
     proc.terminate()
     proc.communicate()
-    for pattern in ("*.out", "*.log"):
-        for fname in Path.cwd().glob(pattern):
-            shutil.move(fname.as_posix(), test_log_dir.as_posix())
     return
 
 
@@ -264,6 +262,3 @@ def run_service(balsam_site_config: SiteConfig) -> Iterable[SiteConfig]:
         parent.wait(timeout=10.0)
     except psutil.TimeoutExpired:
         parent.kill()
-    print("End of run_service fixture: found coverage files:")
-    subprocess.run('find . -name ".coverage*"', shell=True)
-    subprocess.run(f'find {balsam_site_config.site_path.parent} -name ".coverage*"', shell=True)

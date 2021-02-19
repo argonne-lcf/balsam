@@ -26,11 +26,11 @@ def setup_logging() -> logging.Logger:
         logger.setLevel(settings.log_level)
         logger.handlers.clear()
 
-    balsam_handler = logging.FileHandler(filename="server-balsam.log")
+    balsam_handler = logging.FileHandler(filename=settings.log_dir / "server-balsam.log")
     balsam_handler.setFormatter(formatter)
     balsam_logger.addHandler(balsam_handler)
 
-    sql_handler = logging.FileHandler(filename="server-sql.log")
+    sql_handler = logging.FileHandler(filename=settings.log_dir / "server-sql.log")
     sql_logger.addHandler(sql_handler)
     return logging.getLogger("balsam.server.main")
 

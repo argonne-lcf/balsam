@@ -67,10 +67,10 @@ def up(path: Union[Path, str]) -> None:
     pg.start_db(db_path)
     dsn = pg.load_dsn(db_path)
     pg.configure_balsam_server_from_dsn(dsn)
-    with open(path.joinpath("gunicorn.out"), "w") as fp:
-        settings = balsam.server.Settings()
-        args = settings.gunicorn_env()
-        p = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT, cwd=path)
+
+    settings = balsam.server.Settings(log_dir=path)
+    args = settings.gunicorn_env()
+    p = subprocess.Popen(args, cwd=path)
     click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")
 
 
@@ -110,10 +110,10 @@ def deploy(path: Union[Path, str]) -> None:
         start_redis(path)
     except RuntimeError:
         click.echo("Skipping Redis")
-    with open(path.joinpath("gunicorn.out"), "w") as fp:
-        settings = balsam.server.Settings()
-        args = settings.gunicorn_env()
-        p = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT, cwd=path)
+
+    settings = balsam.server.Settings(log_dir=path)
+    args = settings.gunicorn_env()
+    p = subprocess.Popen(args, cwd=path)
     click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")
 
 
