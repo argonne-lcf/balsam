@@ -69,6 +69,7 @@ class StatusUpdater(Process):
         state: JobState,
         state_timestamp: Optional[datetime] = None,
         state_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         if state_data is None:
             state_data = {}
@@ -78,6 +79,7 @@ class StatusUpdater(Process):
                 "state": state,
                 "state_timestamp": state_timestamp,
                 "state_data": state_data,
+                **kwargs,
             }
         )
 

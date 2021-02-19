@@ -16,7 +16,11 @@ class Process(multiprocessing.Process):
         try:
             self._run()
         except NotImplementedError:
-            super().run()
+            try:
+                super().run()
+            except Exception:
+                log_uncaught_exceptions(*sys.exc_info())
+                raise
         except Exception:
             log_uncaught_exceptions(*sys.exc_info())
             raise

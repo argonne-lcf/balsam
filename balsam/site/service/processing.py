@@ -13,9 +13,7 @@ from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobS
 from balsam.util import Process
 
 if TYPE_CHECKING:
-    from balsam._api.models import Job
     from balsam.client import RESTClient
-    from balsam.site.util import Queue
 
 logger = logging.getLogger(__name__)
 PathLike = Union[str, Path]
@@ -66,8 +64,8 @@ def transition(app: ApplicationDefinition) -> None:
 
 
 def run_worker(
-    job_source_queue: "Queue[Job]",
-    status_queue: "Queue[Dict[str, Any]]",
+    job_source: "FixedDepthJobSource",
+    status_updater: "BulkStatusUpdater",
     app_cache: Dict[int, Type[ApplicationDefinition]],
     data_path: PathLike,
 ) -> None:
@@ -83,7 +81,7 @@ def run_worker(
 
     while not EXIT_FLAG:
         try:
-            job = job_source_queue.get(timeout=1)
+            job = job_source.get(timeout=1)
         except queue.Empty:
             continue
         else:
@@ -92,16 +90,15 @@ def run_worker(
             workdir = data_path.joinpath(app.job.workdir)
             with job_context(workdir, "balsam.log"):
                 transition(app)
-            job.state_timestamp = datetime.utcnow()
-            status_queue.put(
-                {
-                    **(job._update_model.dict(exclude_unset=True) if job._update_model else {}),
-                    "id": job.id,
-                    "state": job.state,
-                    "state_timestamp": datetime.utcnow(),
-                    "state_data": job.state_data if job.state_data else {},
-                }
-            )
+
+            update_data = job._update_model.dict(exclude_unset=True) if job._update_model else {}
+            update_data["id"] = job.id
+            update_data["state"] = job.state
+            update_data["state_timestamp"] = datetime.utcnow()
+            update_data["state_data"] = job.state_data
+
+            assert job.id is not None and job.state is not None
+            status_updater.put(**update_data)
             logger.debug(f"Job {job.id} advanced to {job.state}")
     logger.info("Signal: ProcessingWorker exit")
 
@@ -136,8 +133,8 @@ class ProcessingService(object):
             Process(
                 target=run_worker,
                 args=(
-                    self.job_source.queue,
-                    self.status_updater.queue,
+                    self.job_source,
+                    self.status_updater,
                     app_cache,
                     data_path,
                 ),

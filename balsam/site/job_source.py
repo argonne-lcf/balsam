@@ -103,13 +103,17 @@ class FixedDepthJobSource(Process):
         fetched = []
         for _ in range(max_num_jobs):
             try:
-                fetched.append(self.queue.get_nowait())
+                job = self.queue.get_nowait()
+                job.objects = self.client.Job.objects
+                fetched.append(job)
             except queue.Empty:
                 break
         return fetched
 
     def get(self, timeout: Optional[float] = None) -> "Job":
-        return self.queue.get(block=True, timeout=timeout)
+        job = self.queue.get(block=True, timeout=timeout)
+        job.objects = self.client.Job.objects
+        return job
 
     def _run(self) -> None:
         EXIT_FLAG = False
