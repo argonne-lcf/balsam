@@ -21,7 +21,7 @@ You will need the following inside the default Site configuration directory:
 
 ```bash
 # Use a Python3.7+ environment
-virtualenv -p `which python3.8` env
+python3.8 -m venv env
 source env/bin/activate
 
 # Install with deployment/development dependencies:

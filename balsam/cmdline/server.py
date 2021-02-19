@@ -14,8 +14,7 @@ import balsam.server
 REDIS_TMPL = Path(balsam.server.__file__).parent.joinpath("redis.conf.tmpl")
 
 # NOTE: lazy-import balsam.util.postgres inside each CLI handler
-# Because psycopg2 is slow to import and would bog down the entire CLI
-# if it were imported here!
+# Because psycopg2 is slow to import
 
 
 @click.group()
@@ -51,10 +50,7 @@ def down(path: Union[str, Path]) -> None:
 
 @server.command()
 @click.option("-p", "--path", required=True, type=click.Path(exists=True, file_okay=False))
-@click.option("-b", "--bind", default="0.0.0.0:8000")
-@click.option("-l", "--log-level", default="debug")
-@click.option("-w", "--num-workers", default=1, type=int)
-def up(path: Union[Path, str], bind: str, log_level: str, num_workers: int) -> None:
+def up(path: Union[Path, str]) -> None:
     """
     Starts up the services comprising the Balsam server (Postgres, Redis, and Gunicorn)
     """
@@ -71,16 +67,23 @@ def up(path: Union[Path, str], bind: str, log_level: str, num_workers: int) -> N
     pg.start_db(db_path)
     dsn = pg.load_dsn(db_path)
     pg.configure_balsam_server_from_dsn(dsn)
-    p = start_gunicorn(path, bind, log_level, num_workers)
-    click.echo(f"Started gunicorn at {bind} (pid={p.pid})")
+    with open(path.joinpath("gunicorn.out"), "w") as fp:
+        settings = balsam.server.Settings()
+        args = settings.gunicorn_env()
+        p = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT, cwd=path)
+    click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")
+
+
+@server.command()
+def exec_gunicorn() -> None:
+    """Exec gunicorn using current environment"""
+    args = balsam.server.Settings().gunicorn_env()
+    os.execlp("gunicorn", *args)
 
 
 @server.command()
 @click.option("-p", "--path", required=True, type=click.Path(exists=False, writable=True))
-@click.option("-b", "--bind", default="0.0.0.0:8000")
-@click.option("-l", "--log-level", default="debug")
-@click.option("-w", "--num-workers", default=1, type=int)
-def deploy(path: Union[Path, str], bind: str, log_level: str, num_workers: int) -> None:
+def deploy(path: Union[Path, str]) -> None:
     """
     Create a new Balsam database and API server instance
     """
@@ -107,8 +110,11 @@ def deploy(path: Union[Path, str], bind: str, log_level: str, num_workers: int) 
         start_redis(path)
     except RuntimeError:
         click.echo("Skipping Redis")
-    p = start_gunicorn(path, bind, log_level, num_workers)
-    click.echo(f"Started gunicorn at {bind} (pid={p.pid})")
+    with open(path.joinpath("gunicorn.out"), "w") as fp:
+        settings = balsam.server.Settings()
+        args = settings.gunicorn_env()
+        p = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT, cwd=path)
+    click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")
 
 
 def write_redis_conf(conf_path: Path) -> None:
@@ -141,200 +147,3 @@ def start_redis(path: Path, config_filename: str = "redis.conf") -> None:
         click.echo(f"Error in starting Redis:\n{proc.stdout}")
         raise RuntimeError
     click.echo("Started redis daemon")
-
-
-def start_gunicorn(
-    path: Path,
-    bind: str = "0.0.0.0:8000",
-    log_level: str = "debug",
-    num_workers: int = 1,
-    access_logfile: str = "-",
-    error_logfile: str = "-",
-) -> "subprocess.Popen[bytes]":
-    args = [
-        "gunicorn",
-        "-k",
-        "uvicorn.workers.UvicornWorker",
-        "--bind",
-        bind,
-        "--log-level",
-        log_level,
-        "--access-logfile",
-        f"{access_logfile}",
-        "--error-logfile",
-        f"{error_logfile}",
-        "--name",
-        f"balsam-server[{path}]",
-        "--workers",
-        str(num_workers),
-        "--pid",
-        path.joinpath("gunicorn.pid").as_posix(),
-        "balsam.server.main:app",
-    ]
-    with open(path.joinpath("gunicorn.out"), "w") as fp:
-        p = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT, cwd=path)
-    return p
-
-
-@server.group()
-def db() -> None:
-    """
-    Setup or manage a local Postgres DB
-
-    All subcommands require either:
-
-        1) db-path as the first positional argument
-
-        2) Environment variable BALSAM_DB_PATH
-    """
-
-
-@db.command()
-@click.argument("db-path", type=click.Path(writable=True))
-def init(db_path: Union[Path, str]) -> None:
-    """
-    Setup & start a new Postgres DB
-
-    Sets up the Balsam database and runs DB migrations
-    The DB connection info is written to server-info.yml
-    """
-    from balsam.util import postgres
-
-    db_path = Path(db_path)
-    if db_path.exists():
-        raise click.BadParameter(f"The path {db_path} already exists")
-
-    pw_dict = postgres.create_new_db(db_path, database="balsam")
-    dsn = postgres.configure_balsam_server(**pw_dict)
-    postgres.run_alembic_migrations(dsn)
-
-
-@db.command()
-def migrate() -> None:
-    """
-    Update DB schema (run after upgrading Balsam version)
-    """
-    import balsam.server
-    from balsam.util import postgres
-
-    dsn = balsam.server.settings.database_url
-    click.echo(f"Running alembic migrations for {dsn}")
-    postgres.run_alembic_migrations(dsn, downgrade=None)
-    click.echo("Migrations complete!")
-
-
-@db.command()
-@click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def start(db_path: Union[Path, str]) -> None:
-    """
-    Start a Postgres DB server locally, if not already running
-    """
-    from balsam.util import DirLock, postgres
-
-    db_path = Path(db_path)
-
-    # Avoid race condition when 2 scripts call balsam db start
-    with DirLock(db_path, "db"):
-        try:
-            pw_dict = postgres.load_pwfile(db_path)
-        except FileNotFoundError:
-            raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
-
-        try:
-            postgres.connections_list(**pw_dict)
-        except postgres.OperationalError:
-            click.echo("Cannot reach DB, will restart...")
-        else:
-            click.echo("DB is already running!")
-            return
-
-        host, port = postgres.identify_hostport()
-        pw_dict.update(host=host, port=port)
-        postgres.write_pwfile(db_path, **pw_dict)
-        postgres.mutate_conf_port(db_path, port)
-        postgres.start_db(db_path)
-
-
-@db.command()
-@click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def stop(db_path: Union[str, Path]) -> None:
-    """
-    Stop a local Postgres DB server process
-    """
-    from balsam.util import DirLock, postgres
-
-    with DirLock(db_path, "db"):
-        postgres.stop_db(db_path)
-
-
-@db.command()
-@click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def connections(db_path: Union[Path, str]) -> None:
-    """
-    List currently open database connections
-    """
-    from balsam.util import postgres
-
-    try:
-        pw_dict = postgres.load_pwfile(db_path)
-    except FileNotFoundError:
-        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
-
-    connections = postgres.connections_list(**pw_dict)
-    for conn in connections:
-        click.echo(conn)
-
-
-@db.command()
-@click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-@click.argument("user")
-def add_user(db_path: Union[Path, str], user: str) -> None:
-    """
-    Add a new authorized user to the DB
-
-    Generates a {user}-server-info.yml for the user
-    """
-    from balsam.util import postgres
-
-    try:
-        pw_dict = postgres.load_pwfile(db_path)
-    except FileNotFoundError:
-        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
-
-    postgres.create_user_and_pwfile(new_user=user, **pw_dict)
-
-
-@db.command()
-@click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-@click.argument("user")
-def drop_user(db_path: Union[str, Path], user: str) -> None:
-    """
-    Remove a user from the DB
-    """
-    from balsam.util import postgres
-
-    try:
-        pw_dict = postgres.load_pwfile(db_path)
-    except FileNotFoundError:
-        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
-
-    postgres.drop_user(deleting_user=user, **pw_dict)
-    click.echo(f"Dropped user {user}")
-
-
-@db.command()
-@click.argument("db-path", envvar="BALSAM_DB_PATH", type=click.Path(exists=True))
-def list_users(db_path: Union[str, Path]) -> None:
-    """
-    List authorized DB users
-    """
-    from balsam.util import postgres
-
-    try:
-        pw_dict = postgres.load_pwfile(db_path)
-    except FileNotFoundError:
-        raise click.BadParameter(f"There is no {postgres.SERVER_INFO_FILENAME} in {db_path}")
-
-    user_list = postgres.list_users(**pw_dict)
-    for user in user_list:
-        click.echo(user)

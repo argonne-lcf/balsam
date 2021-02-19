@@ -17,14 +17,17 @@ app = FastAPI(
 
 
 def setup_logging() -> logging.Logger:
-    balsam_logger = logging.getLogger("balsam")
+    balsam_logger = logging.getLogger("balsam.server")
     sql_logger = logging.getLogger("sqlalchemy.engine")
+    formatter = logging.Formatter("%(levelname)s|%(name)s:%(lineno)s] %(message)s")
 
+    logging.getLogger("balsam").handlers.clear()
     for logger in balsam_logger, sql_logger:
         logger.setLevel(settings.log_level)
         logger.handlers.clear()
 
     balsam_handler = logging.FileHandler(filename="server-balsam.log")
+    balsam_handler.setFormatter(formatter)
     balsam_logger.addHandler(balsam_handler)
 
     sql_handler = logging.FileHandler(filename="server-sql.log")

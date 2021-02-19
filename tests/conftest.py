@@ -13,8 +13,8 @@ import psutil  # type: ignore
 import pytest
 import requests
 
+import balsam.server
 from balsam.client import BasicAuthRequestsClient
-from balsam.cmdline.server import start_gunicorn
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home
 from balsam.server import models
@@ -107,8 +107,18 @@ def live_server(setup_database: Optional[str], free_port: str, test_log_dir: Pat
         return
 
     assert setup_database is not None
-    os.environ["balsam_database_url"] = setup_database
-    proc = start_gunicorn(Path.cwd(), f"0.0.0.0:{free_port}", "debug", num_workers=1)
+
+    settings = balsam.server.Settings(
+        database_url=setup_database,
+        log_level="DEBUG",
+        server_bind=f"0.0.0.0:{free_port}",
+        num_uvicorn_workers=1,
+    )
+
+    with open("gunicorn.out", "w") as fp:
+        args = settings.gunicorn_env()
+        proc = subprocess.Popen(args, stdout=fp, stderr=subprocess.STDOUT)
+
     url = f"http://localhost:{free_port}/"
     _server_health_check(url, timeout=10.0, check_interval=0.5)
     yield url

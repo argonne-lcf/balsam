@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 
-from .conf import settings
+from .conf import Settings
 
 __version__ = "0.1"
 
@@ -10,4 +10,5 @@ class ValidationError(HTTPException):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
-__all__ = ["settings", "ValidationError"]
+settings = Settings()
+__all__ = ["settings", "Settings", "ValidationError"]

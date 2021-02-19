@@ -3,10 +3,9 @@ import logging.handlers
 import os
 import socket
 import sys
-import textwrap
 import time
 from pathlib import Path
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 import multiprocessing_logging  # type: ignore
 
@@ -58,13 +57,15 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
 
 
 def validate_log_level(level: Union[str, int]) -> int:
-    if isinstance(level, str):
-        level = getattr(logging, level, logging.DEBUG)
+    try:
+        level = int(level)
+    except ValueError:
+        level = getattr(logging, str(level), logging.DEBUG)
         return int(level)
     return min(50, max(0, level))
 
 
-def config_root_logger(level: Union[str, int, None] = None) -> Tuple[logging.Logger, logging.Handler]:
+def config_root_logger(level: Union[str, int, None] = None) -> logging.Logger:
     if level is None:
         level = validate_log_level(os.environ.get("BALSAM_LOG_LEVEL", "WARNING"))
     logger = logging.getLogger("balsam")
@@ -76,7 +77,7 @@ def config_root_logger(level: Union[str, int, None] = None) -> Tuple[logging.Log
     formatter = logging.Formatter("%(levelname)s|%(name)s:%(lineno)s] %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    return logger, handler
+    return logger
 
 
 def config_file_logging(
@@ -88,7 +89,7 @@ def config_file_logging(
     flush_period: int,
 ) -> None:
     level = validate_log_level(level)
-    root_logger, _ = config_root_logger(level)
+    root_logger = config_root_logger(level)
 
     file_handler = logging.FileHandler(filename=filename)
     mem_handler = PeriodicMemoryHandler(
@@ -99,12 +100,8 @@ def config_file_logging(
     )
 
     formatter = logging.Formatter(format, datefmt=datefmt)
-    file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
-    mem_handler.setLevel(level)
-    mem_handler.setFormatter(formatter)
-    if root_logger.hasHandlers():
-        root_logger.handlers.clear()
+    root_logger.handlers.clear()
     root_logger.addHandler(mem_handler)
     multiprocessing_logging.install_mp_handler(logger=root_logger)
     root_logger.info(f"Configured logging on {socket.gethostname()}")
@@ -114,28 +111,3 @@ def config_file_logging(
 def log_uncaught_exceptions(exctype: Any, value: Any, tb: Any) -> None:
     root_logger = logging.getLogger("balsam")
     root_logger.error(f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb))
-
-
-def banner(message: str, color: str = "HEADER") -> None:
-    bcolors = {
-        "HEADER": "\033[95m",
-        "OKBLUE": "\033[94m",
-        "OKGREEN": "\033[92m",
-        "WARNING": "\033[93m",
-        "FAIL": "\033[91m",
-        "ENDC": "\033[0m",
-        "BOLD": "\033[1m",
-        "UNDERLINE": "\033[4m",
-    }
-    message = "\n".join(line.strip() for line in message.split("\n"))
-    lines = textwrap.wrap(message, width=80)
-    width = max(len(line) for line in lines) + 4
-    header = "*" * width
-    msg = f" {header}\n"
-    for line in lines:
-        msg += "   " + line + "\n"
-    msg += f" {header}"
-    if sys.stdout.isatty():
-        print(bcolors.get(color), msg, bcolors["ENDC"], sep="")
-    else:
-        print(msg)

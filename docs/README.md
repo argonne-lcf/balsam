@@ -1,26 +1,34 @@
-[![codecov](https://codecov.io/gh/balsam-alcf/balsam/branch/master/graph/badge.svg)](https://codecov.io/gh/balsam-alcf/balsam)
-
-[![Build Status](https://travis-ci.com/balsam-alcf/balsam.svg?branch=develop)](https://travis-ci.com/balsam-alcf/balsam)
-
-# Setting up the repository
+# User installation
 
 ```
 git clone https://github.com/balsam-alcf/balsam.git
 cd balsam
-git checkout fastapi
+git checkout develop
 
-python --version  # Python 3.6+
-python -m venv env # Create env
+# Set up Python3.7+ environment
+python3.8 -m venv env
 source env/bin/activate
 
-# Installs balsam with optional dev, server, and docs dependencies
-# (A typical user would omit the square-brackets when using a hosted Balsam)
-pip install -e .[dev,server,docs]
+# Install with flexible (unpinned) dependencies:
+pip install -e .
+```
 
+# Developer/deployment installation
+```
+git clone https://github.com/balsam-alcf/balsam.git
+cd balsam
+git checkout develop
+
+# Set up Python3.7+ environment
+python3.8 -m venv env
+source env/bin/activate
+
+# Install with pinned deployment and dev dependencies:
+make install-dev
+
+# Set up pre-commit linting hooks:
 pre-commit install
 ```
-Pre-commit installs hooks in the `.git/hooks` directory.
-On commit, code is auto-formatted with `black` and linted with `flake8`.  Linting errors will cause commit to fail.
 
 ## To view the docs in your browser:
 
@@ -43,52 +51,9 @@ This puts the Redis binary in your virtualenv bin
 
 ## Install Postgres
 
-If `which pg_ctl`  does not show a Postgres on your system, get the postgres binaries from https://www.enterprisedb.com/download-postgresql-binaries .
+If `which pg_ctl`  does not show a Postgres on your system, [get the Postgres binaries](https://www.enterprisedb.com/download-postgresql-binaries).
 You only need to unzip and add the postgres bin/ to your PATH.
 
-### Deploying Balsam Server locally
+### Deploying Balsam Server locally (bare-metal)
 
-Use the `balsam server deploy` command line interface to automate Postgres, Redis, and Gunicorn Management.
-
-## Provision the database
-
-```
-initdb -U postgres dev-db
-pg_ctl -D dev-db -l dev-db/postgres.log start
-createdb -U postgres balsam
-createdb -U postgres balsam-test
-
-cd balsam/server/models
-alembic -x db=prod upgrade head
-alembic -x db=test upgrade head
-```
-
-## Start up Redis
-```
-cd balsam/server
-redis-server default-redis.conf --daemonize yes
-```
-
-
-## Testing
-From the top `balsam` directory, test the client API with PyTest:
-Test the DRF backend with PyTest:
-
-```bash
-pytest tests/api
-```
-This will run an extensive set of tests with the test database (balsam-test) as a backend. It will automatically start and stop Gunicorn as needed.
-
-You should see all tests pass successfully.
-
-## Hosting the API yourself
-
-The API server is configurable at balsam/server/conf.py.  The defaults should suffice.  Run the server with Gunicorn:
-
-```
-gunicorn -k uvicorn.workers.UvicornWorker --bind "localhost:8080" --log-level debug balsam.server.main:app
-```
-
-## Interacting with the API Python Client
-
-Run the example at `balsam/examples/client_api.py` or try it out interactively.
+Use the `balsam server deploy` command line interface to automate Postgres, Redis, and Gunicorn Management on bare metal.
