@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+
+  gunicorn:
+    container_name: gunicorn
+    build: .
+    image: masalim2/balsam
+    restart: always
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      BALSAM_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/balsam
+      BALSAM_SERVER_BIND: "0.0.0.0:8000"
+      BALSAM_REDIS_PARAMS: '{"host": "redis", "port": "6379"}'
+      BALSAM_LOG_LEVEL:
+      BALSAM_LOG_DIR:
+      BALSAM_NUM_UVICORN_WORKERS:
+    volumes:
+      - "${BALSAM_LOG_DIR}:/balsam/log"
+      - "./balsam:/balsam/balsam:ro"
+      - "./tests:/balsam/tests:ro"
+
+  postgres:
+    container_name: postgres
+    image: postgres
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: balsam
+    volumes:
+      - "pgdata:/var/lib/postgresql/data"
+
+
+  redis:
+    container_name: redis
+    image: redis
+    restart: always
+    ports:
+      - 6379:6379
+
+volumes:
+  pgdata:

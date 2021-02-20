@@ -117,6 +117,16 @@ def deploy(path: Union[Path, str]) -> None:
     click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")
 
 
+@server.command()
+def migrate() -> None:
+    from balsam.util import postgres as pg
+
+    dsn = balsam.server.Settings().database_url
+    click.echo("Running alembic migrations")
+    pg.run_alembic_migrations(dsn)
+    click.echo("Migrations complete!")
+
+
 def write_redis_conf(conf_path: Path) -> None:
     tmpl = jinja2.Template(REDIS_TMPL.read_text())
     with tempfile.NamedTemporaryFile(prefix="redis-balsam", suffix=".sock") as fp:

@@ -88,7 +88,8 @@ def free_port() -> str:
 @pytest.fixture(scope="session")
 def test_log_dir() -> Path:
     """Log directory (persists as artifact after test session)"""
-    test_log_dir = Path.cwd().joinpath("pytest-logs")
+    base = os.environ.get("BALSAM_LOG_DIR") or Path.cwd()
+    test_log_dir = Path(base).joinpath("pytest-logs")
     if test_log_dir.is_dir():
         shutil.rmtree(test_log_dir)
     test_log_dir.mkdir(exist_ok=False)
