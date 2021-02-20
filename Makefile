@@ -49,3 +49,11 @@ testcov:
 
 .PHONY: all
 all: generate-api validate-defaults format lint mypy testcov
+
+.PHONY: build-container
+build-container:
+	docker-compose build
+
+.PHONY: test-container
+test-container:
+	docker exec -e BALSAM_TEST_API_URL="http://localhost:8000" gunicorn make testcov

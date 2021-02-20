@@ -12,7 +12,10 @@ COPY pyproject.toml .
 COPY fastentrypoints.py .
 COPY entrypoint.sh .
 
-RUN apt-get update && apt-get install -y -q mpich libmpich-dev
+RUN apt-get update && apt-get install -y \
+    -q mpich libmpich-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN make install-dev
 RUN mkdir /balsam/log
 
