@@ -23,14 +23,6 @@ class ScriptTemplate:
             self._template = Template(fp.read())
         logger.debug(f"Loaded job template at {template_path}")
 
-    @classmethod
-    def discover(cls, directory: PathLike) -> Dict[str, "ScriptTemplate"]:
-        paths = Path(directory).glob("**/*.tmpl")
-        templates = {}
-        for p in paths:
-            templates[p.name] = cls(p)
-        return templates
-
     def render(
         self,
         project: str,

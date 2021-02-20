@@ -4,7 +4,7 @@ import signal
 import threading
 import time
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from balsam.schemas import JobState
 from balsam.util import Process
@@ -237,22 +237,3 @@ class SynchronousJobSource(object):
             app_ids=self.app_ids,
         )
         return jobs
-
-
-def get_node_ranges(
-    num_nodes: int, prefetch_factor: int, single_node_prefetch_factor: int
-) -> List[Tuple[int, int, int]]:
-    """
-    Heuristic counts for prefetching jobs of various sizes
-    """
-    result = []
-    num_acquire = prefetch_factor
-    while num_nodes:
-        lower = min(num_nodes, num_nodes // 2 + 1)
-        if num_nodes > 1:
-            result.append((lower, num_nodes, num_acquire))
-        else:
-            result.append((lower, num_nodes, single_node_prefetch_factor))
-        num_acquire *= 2
-        num_nodes = lower - 1
-    return result

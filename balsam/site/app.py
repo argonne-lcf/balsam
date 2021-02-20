@@ -226,9 +226,6 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     def get_arg_str(self) -> str:
         return self._render_command(self.job.parameters)
 
-    def get_arg_list(self) -> List[str]:
-        return shlex.split(self.get_arg_str())
-
     def get_environ_vars(self) -> Dict[str, str]:
         envs = os.environ.copy()
         envs.update(self.environment_variables)
