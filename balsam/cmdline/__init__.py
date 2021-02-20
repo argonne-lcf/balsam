@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from types import ModuleType
 from typing import Any, Optional, cast
 
@@ -51,6 +52,7 @@ def main() -> None:
             raise
         click.echo(e)
         click.echo("    [Export BALSAM_CLI_TRACEBACK=1 to see a full stack trace]")
+        sys.exit(1)
 
 
 LOAD_COMMANDS = [

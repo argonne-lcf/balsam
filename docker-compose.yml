@@ -10,8 +10,10 @@ services:
     ports:
       - 8000:8000
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       BALSAM_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/balsam
       BALSAM_SERVER_BIND: "0.0.0.0:8000"
@@ -36,6 +38,11 @@ services:
       POSTGRES_DB: balsam
     volumes:
       - "pgdata:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
 
 
   redis:
