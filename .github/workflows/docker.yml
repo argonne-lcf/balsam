@@ -1,0 +1,35 @@
+name: Docker Pipeline
+on:
+  push:
+    branches:
+      - develop
+jobs:
+  container-test:
+    name: Build, Test, Publish Docker image
+    runs-on: ubuntu-latest
+    env:
+      BALSAM_LOG_DIR: "./balsam-logs"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build image
+        run: docker-compose build
+      - name: Start service
+        run: docker-compose up
+      - name: Test container
+        run: make test-container
+      - name: Archive test logs
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: test-logs
+          path: balsam-logs/
+      - name: Cleanup service
+        run: docker-compose down
+
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: masalim2/balsam
+          tag_with_ref: true 

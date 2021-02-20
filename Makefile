@@ -56,4 +56,4 @@ build-container:
 
 .PHONY: test-container
 test-container:
-	docker exec -e BALSAM_TEST_API_URL="http://localhost:8000" gunicorn make testcov
+	docker exec -e BALSAM_LOG_DIR="/balsam/log" -e BALSAM_TEST_API_URL="http://localhost:8000" gunicorn make testcov
