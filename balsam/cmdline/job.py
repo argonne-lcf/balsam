@@ -111,12 +111,14 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
     type=str,
     help="App command template parameters (--param name=value)",
 )
-@click.option("-n", "--num-nodes", default=1, type=int, help="For MPI apps: how many nodes to use")
-@click.option("-rpn", "--ranks-per-node", default=1, type=int, help="MPI ranks per node")
-@click.option("-tpr", "--threads-per-rank", default=1, type=int, help="Threads per process/rank")
-@click.option("-tpc", "--threads-per-core", default=1, type=int, help="Threads per CPU core")
-@click.option("-g", "--gpus-per-rank", default=0, type=float, help="GPUs per process")
-@click.option("-npc", "--node-packing-count", default=1, type=int, help="Allow this count to run per node")
+@click.option("-n", "--num-nodes", default=1, type=int, help="Number of compute nodes to run on", show_default=True)
+@click.option("-rpn", "--ranks-per-node", default=1, type=int, help="MPI ranks per node", show_default=True)
+@click.option("-tpr", "--threads-per-rank", default=1, type=int, help="Threads per process/rank", show_default=True)
+@click.option("-tpc", "--threads-per-core", default=1, type=int, help="Threads per CPU core", show_default=True)
+@click.option("-g", "--gpus-per-rank", default=0, type=float, help="GPUs per process/rank", show_default=True)
+@click.option(
+    "-npc", "--node-packing-count", default=1, type=int, help="Max concurrent runs per node", show_default=True
+)
 @click.option(
     "-lp",
     "--launch-param",
@@ -124,11 +126,18 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
     multiple=True,
     type=str,
     callback=validate_tags,
-    help="Pass-through parameters to MPI launcher",
+    help="Pass-through parameters to MPI launcher (-lp name=value)",
 )
 @click.option("-t", "--wall-time-min", default=1, type=int)
 @click.option(
-    "-pid", "--parent-id", "parent_ids", multiple=True, type=int, callback=validate_parents, help="Job dependencies"
+    "-pid",
+    "--parent-id",
+    "parent_ids",
+    multiple=True,
+    type=int,
+    callback=validate_parents,
+    help="Job dependencies given as one or many parent IDs",
+    show_default=True,
 )
 @click.option(
     "-s",
@@ -137,7 +146,7 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
     multiple=True,
     type=str,
     callback=validate_transfers,
-    help="Transfer slots (-s transfer_slot=location_alias:/path/to/file)",
+    help="Transfer slots given as TRANSFER_SLOT=LOCATION_ALIAS:/path/to/file",
 )
 @click.pass_context
 def create(
@@ -158,7 +167,13 @@ def create(
     transfers: Dict[str, JobTransferItem],
 ) -> None:
     """
-    Add a new Balsam Job to run an App at this Site
+    Add a new Balsam Job
+
+    Examples:
+
+    Create a Job in workdir "data/test/1" running app `demo.Hello` with parameter name="world!"
+
+        balsam job create -w test/1 -a demo.Hello -p name="world!"
     """
     client: RESTClient = ctx.obj.client
     if Path(workdir).is_absolute():

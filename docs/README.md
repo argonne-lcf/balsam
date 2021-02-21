@@ -1,5 +1,6 @@
 # User installation
 
+Balsam users should simply add Balsam to their environment with `pip`. 
 ```
 git clone https://github.com/balsam-alcf/balsam.git
 cd balsam
@@ -13,7 +14,11 @@ source env/bin/activate
 pip install -e .
 ```
 
-# Developer/deployment installation
+# Developer/server-side installation
+
+For Balsam development and server deployments, there are some additional
+requirements.  Use `make install-dev` to install Balsam with the necessary dependencies.  Direct server dependencies (e.g. FastAPI) are pinned to help with reproducible deployments.
+
 ```
 git clone https://github.com/balsam-alcf/balsam.git
 cd balsam
@@ -39,21 +44,3 @@ mkdocs serve
 
 Follow the link to the documentation. Docs are markdown files in the `balsam/docs` subdirectory and can be edited 
 on-the-fly.  The changes will auto-refresh in the browser window.
-
-
-## Install Redis
-
-Inside your virtualenv, run the script below to install Redis (or DIY):
-```
-bash redis-install.sh
-```
-This puts the Redis binary in your virtualenv bin
-
-## Install Postgres
-
-If `which pg_ctl`  does not show a Postgres on your system, [get the Postgres binaries](https://www.enterprisedb.com/download-postgresql-binaries).
-You only need to unzip and add the postgres bin/ to your PATH.
-
-### Deploying Balsam Server locally (bare-metal)
-
-Use the `balsam server deploy` command line interface to automate Postgres, Redis, and Gunicorn Management on bare metal.

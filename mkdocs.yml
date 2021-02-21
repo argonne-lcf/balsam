@@ -12,6 +12,7 @@ nav:
       - Service modules: development/service.md
       - Web Client: development/web-client.md
       - Roadmap: development/todo.md
+  - Running a Balsam Server: development/deploy.md
   - Tutorials:
     - ALCF-Theta Quickstart: tutorials/theta-quickstart.md
   - License: LICENSE.md

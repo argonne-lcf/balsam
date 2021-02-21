@@ -92,8 +92,10 @@ class EventLogQuery:
 
 @dataclass
 class JobQuery:
-    id: List[int] = Query(None, min_items=1)
-    parent_id: List[int] = Query(None, min_items=1)
+    id: List[int] = Query(None, min_items=1, description="Only return Jobs with ids in this list.")
+    parent_id: List[int] = Query(
+        None, min_items=1, description="Only return Jobs that are children of Jobs with ids in this list."
+    )
     app_id: int = Query(None)
     site_id: int = Query(None)
     batch_job_id: int = Query(None)

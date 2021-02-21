@@ -67,20 +67,9 @@ relationship between two tables.
 
 ## The REST API
 
-The rest of this page details the model fields and gives a condensed overview of the API.
-Refer to the interactive API documentation for details on URL query parameters and sample
-request and response payloads:
-
-```bash
-cd balsam/server
-./dev/total-reset.sh
-./manage.py runserver
-# Navigate to 127.0.0.1:8000/api/swagger in browser
-```
+Refer to the interactive document located under the `/docs` URL of your Balsam server for detailed information about each endpoint.
 
 ![Swagger UI](../graphs/swagger.png)
-
-
 
 ## User & a note on Auth
 
@@ -103,9 +92,47 @@ Generally, Balsam will need two types of Auth to function:
    `Authorization: Token 4789ac8372...`). This is both how Javascript web clients and automated Balsam Site services can communicate with the API.
 
 
-## Site
+## Summary of Endpoints
 
-### Model Fields
+| HTTP Method | URL             | Description                               | Example usage                                            |
+| ----------- | --------------- | ----------------------------------------- | -------------------------------------------------------- |
+| GET         | /sites/     | Retrieve the current user's list of sites | A user checks their Balsam site statuses on dashboard    |
+| POST        | /sites/     | Create a new Site                         | `balsam init` creates a Site and stores new `id` locally |
+| PUT         | /sites/{id} | Update Site information                   | Service daemon syncs `backfill_windows` periodically     |
+| DELETE      | /sites/{id} | Delete Site                               | User deletes their Site with `balsam rm site`            |
+| ----------- | ---------------  | -------------------- | ------------------- |
+| GET         | /apps/     | Retrieve the current user's list of Apps | `balsam ls apps` shows Apps across sites                                                   |
+| POST        | /apps/     | Create a new `App`                       | `balsam app sync` creates new `Apps` from local `ApplicationDefinitions`                   |
+| PUT         | /apps/{id} | Update `App` information                 | `balsam app sync` updates existing `Apps` with changes from local `ApplicationDefinitions` |
+| DELETE      | /apps/{id} | Delete `App`                             | User deletes an `App`; all related `Jobs` are deleted                                      |
+| ----------- | ---------------  | -------------------- | ------------------- |
+| GET         | /jobs/     | Get paginated Job lists, filtered by site, state, tags, BatchJob, or App | `balsam ls`                                                          |
+| POST        | /jobs/     | Bulk-create `Jobs`                                                       | Create 1k jobs with single API call                                  |
+| PUT         | /jobs/{id} | Update `Job` information                                                 | Tweak a single job in web UI                                         |
+| DELETE      | /jobs/{id} | Delete `Job`                                                             | Delete a single job in web UI                                        |
+| PUT         | /jobs/     | Bulk-update Jobs: apply same update to all jobs matching query           | Restart all jobs at Site X with tag workflow="foo"                   |
+| PATCH       | /jobs/     | Bulk-update Jobs: apply list of patches job-wise                         | Balsam StatusUpdater component sends a list of status updates to API |
+| ----------- | ---------------  | -------------------- | ------------------- |
+| GET         | /batch-jobs/     | Get BatchJobs                        | Web client lists recent BatchJobs               |
+| POST        | /batch-jobs/     | Create BatchJob                      | Web client or AutoScaler submits a new BatchJob |
+| PUT         | /batch-jobs/{id} | Alter BatchJob by ID                 | Web client alters job runtime while queued      |
+| DELETE      | /batch-jobs/{id} | Delete BatchJob by ID                | User deletes job before it was ever submitted   |
+| PATCH       | /batch-jobs/     | Bulk Update batch jobs by patch list | Service syncs BatchJob states                   |
+| ----------- | ---------------  | -------------------- | ------------------- |
+| GET         | /sessions              | Get Sessions List                  | BatchJob Web view shows "Last Heartbeat" for each running |
+| POST        | /sessions              | Create new `Session`               | Launcher `JobSource` initialized                          |
+| **POST**    | /sessions/{id}/acquire | **Acquire** Jobs for launcher      | `JobSource` acquires new jobs to run                      |
+| PUT         | /sessions/{id}         | Tick `Session` heartbeat           | `JobSource` ticks Session periodically                    |
+| DELETE      | /sessions/{id}         | Destroy `Session` and release Jobs | Final `JobSource` `release()` call                        |
+| ----------- | ---------------  | -------------------- | ------------------- |
+| GET         | /transfers/     | List `TransferItems`                       | Transfer module gets list of pending Transfers              |
+| PUT         | /transfers/{id} | Update `TransferItem`  State               | Transfer module updates status                              |
+| PATCH       | /transfers/     | Bulk update `TransferItems` via patch list | Transfer module bulk-updates statuses of finished transfers |
+| ----------- | ---------------  | -------------------- | ------------------- |
+| GET         | /events | Fetch EventLogs | Web client filters by Job `tags` and last 24 hours to get a quick view at throughput/utilization for a particular job type |
+
+
+## Site
 
 | Field Name                  | Description                                                                                                 |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -124,25 +151,7 @@ Generally, Balsam will need two types of Auth to function:
 | `allowed_queues`            | JSONField used in BatchJob forms/validation: `{name: {max_nodes, max_walltime, max_queued}}`                |
 | `transfer_locations`        | JSONField used in Job stage-in/stage-out validation: `{alias: {protocol, netloc}}`                          |
 
-### API
-
-##### Representation
-The `owner` field is excluded from the serialized representation.  Created sites
-implicitly belong to the authenticated user, and a user can only view or update
-sites that belong to them.
-
-##### URLs
-
-| HTTP Method | URL             | Description                               | Example usage                                            |
-| ----------- | --------------- | ----------------------------------------- | -------------------------------------------------------- |
-| GET         | /api/sites/     | Retrieve the current user's list of sites | A user checks their Balsam site statuses on dashboard    |
-| POST        | /api/sites/     | Create a new Site                         | `balsam init` creates a Site and stores new `id` locally |
-| PUT         | /api/sites/{id} | Update Site information                   | Service daemon syncs `backfill_windows` periodically     |
-| DELETE      | /api/sites/{id} | Delete Site                               | User deletes their Site with `balsam rm site`            |
-
 ## App
-
-### Model Fields
 | Field Name    | Description                                                                                                                             |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `id `         | Unique App ID                                                                                                                           |
@@ -171,21 +180,7 @@ validation of Job input parameters takes place in the site-local `ApplicationDef
 module. Even if a malicious user altered the `parameters` field in the API, they would not
 be able to successfully run a Job with injected parameters.
 
-### API
-##### Representation
-A user only sees Apps linked to Sites which belong to them.
-
-##### URLs
-| HTTP Method | URL            | Description                              | Example usage                                                                              |
-| ----------- | -------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
-| GET         | /api/apps/     | Retrieve the current user's list of Apps | `balsam ls apps` shows Apps across sites                                                   |
-| POST        | /api/apps/     | Create a new `App`                       | `balsam app sync` creates new `Apps` from local `ApplicationDefinitions`                   |
-| PUT         | /api/apps/{id} | Update `App` information                 | `balsam app sync` updates existing `Apps` with changes from local `ApplicationDefinitions` |
-| DELETE      | /api/apps/{id} | Delete `App`                             | User deletes an `App`; all related `Jobs` are deleted                                      |
-
 ## Job
-
-### Model Fields
 | Field Name           | Description                                                                      |
 | -------------------- | -------------------------------------------------------------------------------- |
 | `id `                | Unique Job ID                                                                    |
@@ -214,8 +209,6 @@ Let workdir uniqueness be the user's problem.  If they put 2
 jobs with same workdir, assume it's intentional.  We can
 ensure that "stdout" of each job goes into a file named by
 Job ID, so multiple runs do not collide.
-
-### State flow
 
 ```mermaid
 stateDiagram-v2
@@ -254,8 +247,7 @@ stateDiagram-v2
     postprocessed --> staged_out: Transfer data out
     staged_out --> finished: Job Finished
 ```
-### API
-##### Representation
+
 A user can only access Jobs they own. The related App, BatchJob, and parents
 are included by ID in the serialized representation. The `session` is excluded
 since it is only used internally.   Reverse relationships (one-to-many) with
@@ -282,21 +274,11 @@ The API fetches the related `App.transfers`  and `Site.transfer_locations` to va
    - The `location_alias` must match one of the keys in `Site.transfer_locations`,
      which determines the `protocol` and `remote_netloc`
    - Finally, the remote path is determined by the `path` key in each `Job` transfer item
-##### URLs
 
 
-| HTTP Method | URL            | Description                                                              | Example usage                                                        |
-| ----------- | -------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| GET         | /api/jobs/     | Get paginated Job lists, filtered by site, state, tags, BatchJob, or App | `balsam ls`                                                          |
-| POST        | /api/jobs/     | Bulk-create `Jobs`                                                       | Create 1k jobs with single API call                                  |
-| PUT         | /api/jobs/{id} | Update `Job` information                                                 | Tweak a single job in web UI                                         |
-| DELETE      | /api/jobs/{id} | Delete `Job`                                                             | Delete a single job in web UI                                        |
-| PUT         | /api/jobs/     | Bulk-update Jobs: apply same update to all jobs matching query           | Restart all jobs at Site X with tag workflow="foo"                   |
-| PATCH       | /api/jobs/     | Bulk-update Jobs: apply list of patches job-wise                         | Balsam StatusUpdater component sends a list of status updates to API |
 
 ## BatchJob
 
-### Model Fields
 | Field Name        | Description                                                                                    |
 | ----------------- | ---------------------------------------------------------------------------------------------- |
 | `id `             | Unique ID. Not to be confused with Scheduler ID, which is not necessarily unique across Sites! |
@@ -313,8 +295,6 @@ The API fetches the related `App.transfers`  and `Site.transfer_locations` to va
 | `status_info`     | JSON: Error or custom data received from scheduler                                             |
 | `start_time`      | DateTime when BatchJob started running                                                         |
 | `end_time`        | DateTime when BatchJob ended                                                                   |
-
-### State flow
 
 Every workload manager is different and there are numerous job states
 intentionally **not** considered in the `BatchJob` model, including `starting`,
@@ -335,35 +315,14 @@ stateDiagram-v2
     pending_deletion --> finished
 ```
 
-### API
-##### Representation
-A user can only see `BatchJobs` belonging to their `Sites`. All fields included in representation.
-`Site` represented by `site_id` primary key.
-
-##### URLs
-
-
-| HTTP Method | URL                  | Description                          | Example usage                                   |
-| ----------- | -------------------- | ------------------------------------ | ----------------------------------------------- |
-| GET         | /api/batch-jobs/     | Get BatchJobs                        | Web client lists recent BatchJobs               |
-| POST        | /api/batch-jobs/     | Create BatchJob                      | Web client or AutoScaler submits a new BatchJob |
-| PUT         | /api/batch-jobs/{id} | Alter BatchJob by ID                 | Web client alters job runtime while queued      |
-| DELETE      | /api/batch-jobs/{id} | Delete BatchJob by ID                | User deletes job before it was ever submitted   |
-| PATCH       | /api/batch-jobs/     | Bulk Update batch jobs by patch list | Service syncs BatchJob states                   |
-
 ## Session
 
-### Model Fields
 | Field Name   | Description                                                         |
 | ------------ | ------------------------------------------------------------------- |
 | `id `        | Unique ID                                                           |
 | `heartbeat ` | DateTime of last session tick API call                              |
 | `batch_job`  | Non-nullable ForeignKey to `BatchJob` this Session is running under |
 
-### API
-##### Representation
-A user can only see `Sessions` associated with their `BatchJobs`. The `id` and `batch_job_id`
-are represented by their primary keys.
 
 * `Session` creation only requires providing `batch_job_id`. 
 * `Session` tick has empty payload
@@ -389,20 +348,8 @@ The nested `NodeResource` representation is provided as a dict with the structur
 }
 ```
 
-##### URLs
-
-
-| HTTP Method | URL                        | Description                        | Example usage                                             |
-| ----------- | -------------------------- | ---------------------------------- | --------------------------------------------------------- |
-| GET         | /api/sessions              | Get Sessions List                  | BatchJob Web view shows "Last Heartbeat" for each running |
-| POST        | /api/sessions              | Create new `Session`               | Launcher `JobSource` initialized                          |
-| **POST**    | /api/sessions/{id}/acquire | **Acquire** Jobs for launcher      | `JobSource` acquires new jobs to run                      |
-| PUT         | /api/sessions/{id}         | Tick `Session` heartbeat           | `JobSource` ticks Session periodically                    |
-| DELETE      | /api/sessions/{id}         | Destroy `Session` and release Jobs | Final `JobSource` `release()` call                        |
-
 ## TransferItem
 
-### Model Fields
 | Field Name         | Description                                                                                                                                                                                     |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id `              | Unique TransferItem ID                                                                                                                                                                          |
@@ -415,9 +362,6 @@ The nested `NodeResource` representation is provided as a dict with the structur
 | `state`            | `pending` -> `active` -> `done` or `error`                                                                                                                                                      |
 | `task_id`          | Unique identifier of the Transfer task (e.g. Globus Task UUID)                                                                                                                                  |
 | `transfer_info`    | JSONField for Error messages, average bandwidth, transfer time, etc...                                                                                                                          |
-
-### API
-##### Representation
 There is no create (`POST`) method on the `/transfers` endpoint, because `TransferItem` creation is directly linked with `Job` creation. The related Transfers are nested in the `Job` representation when `POSTING` new jobs. The following fields are **fixed** at creation time:
 
    - `id`
@@ -432,18 +376,8 @@ For `list` (GET), the representation includes all fields. `job_id` represents th
 
 For `update` (PUT and PATCH), *only* `state`, `task_id`, and `transfer_info` may be modified. The update of a state to `done` triggers a check of the related `Job`'s transfers to determine whether the job can be advanced to `STAGED_IN`.
 
-##### URLs
-
-
-| HTTP Method | URL                 | Description                                | Example usage                                               |
-| ----------- | ------------------- | ------------------------------------------ | ----------------------------------------------------------- |
-| GET         | /api/transfers/     | List `TransferItems`                       | Transfer module gets list of pending Transfers              |
-| PUT         | /api/transfers/{id} | Update `TransferItem`  State               | Transfer module updates status                              |
-| PATCH       | /api/transfers/     | Bulk update `TransferItems` via patch list | Transfer module bulk-updates statuses of finished transfers |
 
 ## LogEvent
-
-### Model Fields
 | Field Name    | Description                                                   |
 | ------------- | ------------------------------------------------------------- |
 | `id `         | Unique ID                                                     |
@@ -456,15 +390,5 @@ For `update` (PUT and PATCH), *only* `state`, `task_id`, and `transfer_info` may
 For transitions to or from `RUNNING`, the `data` includes `nodes` as a fractional
 number of occupied nodes. This enables clients to generate throughput and utilization views without having to fetch entire related Jobs.
 
-### API
-##### Representation
 
 This is a read only-API with all fields included.  The related Job is represented by primary key `job_id` field.
-
-##### URLs
-This is a read-only API with a single endpoint for querying history.
-
-
-| HTTP Method | URL         | Description     | Example usage                                                                                                              |
-| ----------- | ----------- | --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| GET         | /api/events | Fetch EventLogs | Web client filters by Job `tags` and last 24 hours to get a quick view at throughput/utilization for a particular job type |
