@@ -20,6 +20,7 @@ def list(
     user: schemas.UserOut = Depends(auth),
     q: SessionQuery = Depends(SessionQuery),
 ) -> Dict[str, Any]:
+    """List Job processing Sessions running under the user's Sites."""
     count, sessions = crud.sessions.fetch(db, owner=user, filterset=q)
     return {"count": count, "results": sessions}
 
@@ -28,6 +29,7 @@ def list(
 def create(
     session: schemas.SessionCreate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> schemas.SessionOut:
+    """Create a new Session for acquiring Jobs to process."""
     created_session, expired_jobs, expiry_events = crud.sessions.create(db, owner=user, session=session)
     result = schemas.SessionOut.from_orm(created_session)
 
@@ -48,6 +50,7 @@ def acquire(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> List[Job]:
+    """Acquire Jobs using the given session_id."""
     acquired_jobs, expired_jobs, expiry_events = crud.sessions.acquire(
         db, owner=user, session_id=session_id, spec=spec
     )
@@ -61,6 +64,7 @@ def acquire(
 
 @router.put("/{session_id}")
 def tick(session_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+    """Send a heartbeat to extend the given Session by id."""
     ts, expired_jobs, events = crud.sessions.tick(db, owner=user, session_id=session_id)
     result = {"id": session_id, "heartbeat": ts}
     pubsub.publish(user.id, "update", "session", result)
@@ -73,6 +77,7 @@ def tick(session_id: int, db: orm.Session = Depends(get_session), user: schemas.
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(session_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+    """Delete a Session, freeing associated Jobs."""
     crud.sessions.delete(db, owner=user, session_id=session_id)
     db.commit()
     pubsub.publish(user.id, "delete", "session", {"id": session_id})

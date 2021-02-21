@@ -22,6 +22,7 @@ def list(
     paginator: Paginator[BatchJob] = Depends(Paginator),
     q: BatchJobQuery = Depends(BatchJobQuery),
 ) -> Dict[str, Any]:
+    """List the BatchJobs submitted at the user's Balsam Sites."""
     count, batch_jobs = crud.batch_jobs.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": batch_jobs}
 
@@ -30,6 +31,7 @@ def list(
 def read(
     batch_job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> BatchJob:
+    """Get a BatchJob by id."""
     count, batch_jobs = crud.batch_jobs.fetch(db, owner=user, batch_job_id=batch_job_id)
     return batch_jobs[0]
 
@@ -38,6 +40,7 @@ def read(
 def create(
     batch_job: schemas.BatchJobCreate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> schemas.BatchJobOut:
+    """Submit a new BatchJob to a Balsam Site's queue."""
     new_batch_job = crud.batch_jobs.create(db, owner=user, batch_job=batch_job)
     result = schemas.BatchJobOut.from_orm(new_batch_job)
     db.commit()
@@ -52,6 +55,7 @@ def update(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> schemas.BatchJobOut:
+    """Update a BatchJob by id."""
     updated_batch_job = crud.batch_jobs.update(db, owner=user, batch_job_id=batch_job_id, batch_job=batch_job)
     result = schemas.BatchJobOut.from_orm(updated_batch_job)
     db.commit()
@@ -65,6 +69,7 @@ def bulk_update(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> List[schemas.BatchJobOut]:
+    """Update a list of BatchJobs."""
     updated_batch_jobs = crud.batch_jobs.bulk_update(db, owner=user, batch_jobs=batch_jobs)
     result = [schemas.BatchJobOut.from_orm(j) for j in updated_batch_jobs]
     db.commit()
@@ -74,6 +79,7 @@ def bulk_update(
 
 @router.delete("/{batch_job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(batch_job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+    """Delete a BatchJob by id."""
     crud.batch_jobs.delete(db, owner=user, batch_job_id=batch_job_id)
     db.commit()
     pubsub.publish(user.id, "delete", "batch_job", {"id": batch_job_id})

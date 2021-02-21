@@ -112,6 +112,9 @@ app.include_router(
 
 @app.websocket("/subscribe-user")
 async def subscribe_user(websocket: WebSocket) -> None:
+    """
+    Subscribe to a stream of all Job events for the authenticated user.
+    """
     # Accept and receive token
     await websocket.accept()
     token = await websocket.receive_text()
@@ -182,6 +185,7 @@ ws_html = """
 
 @app.get("/user-events")
 def get_user_events() -> HTMLResponse:
+    """Test page to connect to Websocket and recieve a stream of User events"""
     return HTMLResponse(ws_html)
 
 

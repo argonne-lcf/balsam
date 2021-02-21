@@ -23,6 +23,7 @@ def list(
     paginator: Paginator[models.App] = Depends(Paginator),
     q: AppQuery = Depends(AppQuery),
 ) -> Dict[str, Any]:
+    """List Apps registered by the user's Balsam Sites."""
     count, apps = crud.apps.fetch(
         db,
         owner=user,
@@ -37,6 +38,7 @@ def read(
     app_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> "orm.Query[models.App]":
     _, app = crud.apps.fetch(db, owner=user, app_id=app_id)
+    """Get the specified App."""
     return app
 
 
@@ -45,7 +47,7 @@ def create(
     app: schemas.AppCreate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> schemas.AppOut:
     """
-    Register a new Balsam App
+    Register a new Balsam App.
     """
     new_app = crud.apps.create(db, owner=user, app=app)
     result = schemas.AppOut.from_orm(new_app)
@@ -58,6 +60,7 @@ def create(
 def update(
     app_id: int, app: schemas.AppUpdate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> models.App:
+    """Update an App."""
     data = json.loads(app.json(exclude_unset=True))
     updated_app = crud.apps.update(db, owner=user, app_id=app_id, update_data=data)
     data["id"] = app_id
@@ -68,6 +71,7 @@ def update(
 
 @router.delete("/{app_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(app_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+    """Delete an App and all associated Jobs are deleted."""
     crud.apps.delete(db, owner=user, app_id=app_id)
     db.commit()
     pubsub.publish(user.id, "delete", "app", {"id": app_id})

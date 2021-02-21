@@ -21,5 +21,6 @@ def list(
     paginator: Paginator[LogEvent] = Depends(Paginator),
     q: EventLogQuery = Depends(EventLogQuery),
 ) -> Dict[str, Any]:
+    """List events associated with the user's Jobs."""
     count, events = crud.events.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": events}

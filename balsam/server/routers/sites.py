@@ -23,6 +23,7 @@ def list(
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[Site] = Depends(Paginator),
 ) -> Dict[str, Any]:
+    """List Sites belonging to the user."""
     count, sites = crud.sites.fetch(
         db,
         owner=user,
@@ -34,6 +35,7 @@ def list(
 
 @router.get("/{site_id}", response_model=schemas.SiteOut)
 def read(site_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> Site:
+    """Fetch a Sites by id."""
     _, site = crud.sites.fetch(db, owner=user, site_id=site_id)
     assert isinstance(site, Site)
     return site
@@ -45,6 +47,7 @@ def create(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> schemas.SiteOut:
+    """Create a new Balsam Site."""
     new_site = crud.sites.create(db, owner=user, site=site)
     result = schemas.SiteOut.from_orm(new_site)
     db.commit()
@@ -59,6 +62,7 @@ def update(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> Site:
+    """Update a Balsam Site by id."""
     data = site.dict(exclude_unset=True)
     data["last_refresh"] = datetime.utcnow()
     updated_site = crud.sites.update(db, owner=user, site_id=site_id, update_data=data)
@@ -70,6 +74,7 @@ def update(
 
 @router.delete("/{site_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(site_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+    """Delete a Balsam Site by id. All associated Apps, Jobs, and BatchJobs are destroyed."""
     crud.sites.delete(db, owner=user, site_id=site_id)
     db.commit()
     pubsub.publish(user.id, "delete", "site", {"id": site_id})

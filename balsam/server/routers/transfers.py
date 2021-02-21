@@ -22,6 +22,7 @@ def list(
     paginator: Paginator[TransferItem] = Depends(Paginator),
     q: TransferItemQuery = Depends(TransferItemQuery),
 ) -> Dict[str, Any]:
+    """List data transfers associated with the user's Jobs."""
     count, transfers = crud.transfers.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": transfers}
 
@@ -30,6 +31,7 @@ def list(
 def read(
     transfer_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> TransferItem:
+    """Fetch a data transfer item by id."""
     count, transfers = crud.transfers.fetch(db, owner=user, transfer_id=transfer_id)
     assert isinstance(transfers, List)
     item: TransferItem = transfers[0]
@@ -43,6 +45,7 @@ def update(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> schemas.TransferItemOut:
+    """Update a transfer item by id."""
     updated_transfer, updated_job, log_event = crud.transfers.update(
         db, owner=user, transfer_id=transfer_id, data=data
     )
@@ -61,6 +64,7 @@ def bulk_update(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> List[schemas.TransferItemOut]:
+    """Update a list of transfer items."""
     updated_transfers, updated_jobs, log_events = crud.transfers.bulk_update(db, owner=user, update_list=transfers)
     result_transfers = [schemas.TransferItemOut.from_orm(t) for t in updated_transfers]
     result_jobs = [schemas.JobOut.from_orm(j) for j in updated_jobs]

@@ -23,12 +23,14 @@ def list(
     paginator: Paginator[Job] = Depends(Paginator),
     q: JobQuery = Depends(JobQuery),
 ) -> Dict[str, Any]:
+    """List the user's Jobs."""
     count, jobs = crud.jobs.fetch(db, owner=user, paginator=paginator, filterset=q)
     return {"count": count, "results": jobs}
 
 
 @router.get("/{job_id}", response_model=schemas.JobOut)
 def read(job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> Job:
+    """Get a Job by id."""
     count, jobs = crud.jobs.fetch(db, owner=user, job_id=job_id)
     return jobs[0]
 
@@ -37,6 +39,7 @@ def read(job_id: int, db: orm.Session = Depends(get_session), user: schemas.User
 def bulk_create(
     jobs: List[schemas.JobCreate], db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> List[schemas.JobOut]:
+    """Create a list of Jobs."""
     new_jobs, new_events, new_transfers = crud.jobs.bulk_create(db, owner=user, job_specs=jobs)
 
     result_jobs = [schemas.JobOut.from_orm(job) for job in new_jobs]
@@ -56,6 +59,7 @@ def bulk_update(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
 ) -> List[schemas.JobOut]:
+    """Update a list of Jobs"""
     now = datetime.utcnow()
     patch_dicts = {job.id: {**job.dict(exclude_unset=True, exclude={"id"}), "last_update": now} for job in jobs}
     if len(jobs) > len(patch_dicts):
@@ -78,6 +82,7 @@ def query_update(
     user: schemas.UserOut = Depends(auth),
     q: JobQuery = Depends(JobQuery),
 ) -> List[schemas.JobOut]:
+    """Apply the same update to all Jobs selected by the query."""
     data = update_fields.dict(exclude_unset=True)
     data["last_update"] = datetime.utcnow()
     updated_jobs, new_events = crud.jobs.update_query(db, owner=user, update_data=data, filterset=q)
@@ -95,6 +100,7 @@ def query_update(
 def update(
     job_id: int, job: schemas.JobUpdate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> schemas.JobOut:
+    """Update a Job by id."""
     data = job.dict(exclude_unset=True)
     data["last_update"] = datetime.utcnow()
     patch = {job_id: data}
@@ -111,6 +117,7 @@ def update(
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+    """Delete a Job by id."""
     crud.jobs.delete_query(db, owner=user, job_id=job_id)
     db.commit()
     pubsub.publish(user.id, "bulk-delete", "job", {"ids": [job_id]})
@@ -120,6 +127,7 @@ def delete(job_id: int, db: orm.Session = Depends(get_session), user: schemas.Us
 def query_delete(
     db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth), q: JobQuery = Depends(JobQuery)
 ) -> None:
+    """Delete all jobs selected by the query."""
     deleted_ids = crud.jobs.delete_query(db, owner=user, filterset=q)
     db.commit()
     pubsub.publish(user.id, "bulk-delete", "job", {"ids": deleted_ids})
