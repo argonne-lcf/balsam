@@ -48,6 +48,14 @@ class {{model_name}}({{model_base}}):
         {% endfor %}
         **kwargs: Any,
     ) -> None:
+        '''
+        Construct a new {{model_name}} object.  You must eventually call the save() method or
+        pass a {{model_name}} list into {{model_name}}.objects.bulk_create().
+
+        {% for line in model_create_help %}
+        {{line}}
+        {% endfor %}
+        '''
         _kwargs = {k: v for k,v in locals().items() if k not in ["self", "__class__"] and v is not None}
         _kwargs.update(kwargs)
         return super().__init__(**_kwargs)
@@ -64,6 +72,15 @@ class {{query_name}}(Query[{{model_name}}]):
         {{line}},
         {% endfor %}
     ) -> {{model_name}}:
+        '''
+        Retrieve exactly one {{model_name}}. Raises {{model_name}}.DoesNotExist
+        if no items were found, or {{model_name}}.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        {% for line in model_filter_help %}
+        {{line}}
+        {% endfor %}
+        '''
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
@@ -73,6 +90,15 @@ class {{query_name}}(Query[{{model_name}}]):
         {{line}},
         {% endfor %}
     ) -> "{{query_name}}":
+        '''
+        Retrieve exactly one {{model_name}}. Raises {{model_name}}.DoesNotExist
+        if no items were found, or {{model_name}}.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        {% for line in model_filter_help %}
+        {{line}}
+        {% endfor %}
+        '''
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
     {% endif %}
@@ -84,12 +110,22 @@ class {{query_name}}(Query[{{model_name}}]):
         {{line}},
         {% endfor %}
     ) -> List[{{model_name}}]:
+        '''
+        Updates all items selected by this query with the given values.
+
+        {% for line in model_update_help %}
+        {{line}}
+        {% endfor %}
+        '''
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
     {% endif %}
 
     {% if order_by_type %}
     def order_by(self, field: Optional[{{order_by_type}}]) -> "{{query_name}}":
+        '''
+        Order the returned items by this field.
+        '''
         return self._order_by(field)
     {% endif %}
 
@@ -109,11 +145,21 @@ class {{manager_name}}({{manager_base}}):
         {{line}},
         {% endfor %}
     ) -> {{model_name}}:
+        '''
+        Create a new {{model_name}} object and save it to the API in one step.
+
+        {% for line in model_create_help %}
+        {{line}}
+        {% endfor %}
+        '''
         kwargs = {k: v for k,v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
     {% endif %}
 
     def all(self) -> "{{query_name}}":
+        '''
+        Returns a Query for all {{model_name}} items.
+        '''
         return self._query_class(manager=self)
 
     {% if model_filter_kwargs %}
@@ -123,6 +169,15 @@ class {{manager_name}}({{manager_base}}):
         {{line}},
         {% endfor %}
     ) -> {{model_name}}:
+        '''
+        Retrieve exactly one {{model_name}}. Raises {{model_name}}.DoesNotExist
+        if no items were found, or {{model_name}}.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        {% for line in model_filter_help %}
+        {{line}}
+        {% endfor %}
+        '''
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return {{query_name}}(manager=self).get(**kwargs)
 
@@ -132,6 +187,13 @@ class {{manager_name}}({{manager_base}}):
         {{line}},
         {% endfor %}
     ) -> "{{query_name}}":
+        '''
+        Returns a {{model_name}} Query returning items matching the filter criteria.
+
+        {% for line in model_filter_help %}
+        {{line}}
+        {% endfor %}
+        '''
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return {{query_name}}(manager=self).filter(**kwargs)
     {% endif %}
@@ -170,6 +232,7 @@ def field_to_dict(field: ModelField, schema: Type[BaseModel]) -> FieldDict:
     return {
         "name": field.name,
         "required": field.required,
+        "description": getattr(field.field_info, "description", ""),
         "annotation": annotation,
         "schema_default": field.default,  # default attribute on the Pydantic ModelField
         "default_create": default_create,  # default value for __init__ kwargs
@@ -254,6 +317,22 @@ def qual_path(obj: type) -> str:
     return f"{mod}.{name}"
 
 
+def make_help_text(fields: FieldDict) -> List[str]:
+    result: List[str] = []
+    if not fields:
+        return result
+    maxwidth = max(len(f) for f in fields.keys()) + 1
+    for field_name, field in fields.items():
+        if field_name == "ordering":
+            continue
+        try:
+            descr = field["description"]
+        except Exception:
+            descr = field.default.description
+        result.append(f"{(field_name+':').ljust(maxwidth)} {descr}")
+    return result
+
+
 def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: type) -> Dict[str, Any]:
     base_name = model_base.__name__
     name = base_name[: base_name.find("Base")]
@@ -266,6 +345,10 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: 
     update_kwargs = update_signature(update_fields) if update_fields else None
     filter_kwargs = filter_signature(filterset)
     order_by_type = order_by_typename(filterset)
+
+    model_create_help = make_help_text(create_fields)
+    model_update_help = make_help_text(update_fields)
+    model_filter_help = make_help_text(filterset.__dataclass_fields__)  # type: ignore
     fields = {**create_fields, **update_fields, **read_fields}
     for field in fields:
         # A read-only field can be None if the model is creatable (e.g. not created yet, id is None)
@@ -299,6 +382,9 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: 
         model_update_kwargs=update_kwargs,
         model_filter_kwargs=filter_kwargs,
         order_by_type=order_by_type,
+        model_create_help=model_create_help,
+        model_filter_help=model_filter_help,
+        model_update_help=model_update_help,
     )
 
 

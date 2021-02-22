@@ -1,18 +1,25 @@
-# Data Model and REST API
+# Understanding Balsam
+
+Balsam is made up of:
+
+   - A centrally-managed, multi-tenant web application for securely curating HPC applications,  authoring workflows, and managing high-throughput job campaigns across one or many computing facilities.
+   - Distributed, user-run **Balsam Sites** that sync with the central API to orchestrate and carry out the workflows defined by users on a given HPC platform.
+
+
+In order to understand how Balsam is organized, one should first consider the
+server side entities. This graph shows the database schema of the Balsam
+application. Each node is a table in the database, represented by one of the
+model classes in the ORM. Each arrow represents a ForeignKey (or
+[many-to-one](https://docs.djangoproject.com/en/3.0/topics/db/examples/many_to_one/)) relationship between two tables.
+
 
 ![Database Schema](../graphs/db.png)
 
-This graph shows the database schema of the Balsam
-application. Each node is a table in the database, represented by one
-of the model classes in the ORM.
-Each arrow represents a ForeignKey 
-(or [many-to-one](https://docs.djangoproject.com/en/3.0/topics/db/examples/many_to_one/))
-relationship between two tables.
 
-## High-level view of Balsam entities
+## The Database Schema
 
   1. A `User` represents a Balsam user account.  **All items in the database
-     are linked to a single owner**, which is reflected in the connectivity of
+     are linked to a single owner (tenant)**, which is reflected in the connectivity of
      the graph. For example, to get all the jobs belonging to `current_user`,
      join the tables via `Job.objects.filter(app__site__user=current_user)`
 
@@ -30,7 +37,7 @@ relationship between two tables.
      `ApplicationDefinitions` determines the applications which may run at the
      Site.  An `App` instance in the data model is merely a reference to an
      `ApplicationDefinition` class, uniquely identified by the Site ID and
-     class path. 
+     class path.
 
   4. A `Job` represents a single run of an `App` at a particular `Site`.  The
      `Job` contains both application-specific data (like command line
@@ -67,7 +74,7 @@ relationship between two tables.
 
 ## The REST API
 
-Refer to the interactive document located under the `/docs` URL of your Balsam server for detailed information about each endpoint.
+Refer to the interactive document located under the `/docs` URL of your Balsam server for detailed information about each endpoint. For instance, launch a local server with `docker-compose up` and visit [localhost:8000/docs](http://localhost:8000/docs).
 
 ![Swagger UI](../graphs/swagger.png)
 

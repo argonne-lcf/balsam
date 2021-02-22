@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev f43ce3b]
+# [git rev dd562b4]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -50,6 +50,21 @@ class Site(balsam._api.bases.SiteBase):
         transfer_locations: Optional[typing.Dict[str, pydantic.networks.AnyUrl]] = None,
         **kwargs: Any,
     ) -> None:
+        """
+        Construct a new Site object.  You must eventually call the save() method or
+        pass a Site list into Site.objects.bulk_create().
+
+        hostname:                  The Site network location, for human reference only
+        path:                      Absolute filesystem path of the Site
+        globus_endpoint_id:        Associated Globus endpoint ID
+        num_nodes:                 Number of nodes available at the Site
+        backfill_windows:          Idle backfill currently available at the Site
+        queued_jobs:               Queued scheduler jobs at the Site
+        optional_batch_job_params: Optional pass-through parameters accepted by the Site batchjob template
+        allowed_projects:          Allowed projects/allocations for batchjob submission
+        allowed_queues:            Allowed queues and associated queueing policies
+        transfer_locations:        Trusted transfer location aliases and associated protocol/URLs
+        """
         _kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         _kwargs.update(kwargs)
         return super().__init__(**_kwargs)
@@ -62,6 +77,15 @@ class SiteQuery(Query[Site]):
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
     ) -> Site:
+        """
+        Retrieve exactly one Site. Raises Site.DoesNotExist
+        if no items were found, or Site.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        hostname: Only return Sites with hostnames containing this string.
+        path:     Only return Sites with paths containing this string.
+        id:       Only return Sites having an id in this list.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
@@ -71,6 +95,15 @@ class SiteQuery(Query[Site]):
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
     ) -> "SiteQuery":
+        """
+        Retrieve exactly one Site. Raises Site.DoesNotExist
+        if no items were found, or Site.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        hostname: Only return Sites with hostnames containing this string.
+        path:     Only return Sites with paths containing this string.
+        id:       Only return Sites having an id in this list.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
@@ -87,6 +120,20 @@ class SiteQuery(Query[Site]):
         allowed_queues: Optional[typing.Dict[str, balsam.schemas.site.AllowedQueue]] = None,
         transfer_locations: Optional[typing.Dict[str, pydantic.networks.AnyUrl]] = None,
     ) -> List[Site]:
+        """
+        Updates all items selected by this query with the given values.
+
+        hostname:                  The Site network location, for human reference only
+        path:                      Absolute filesystem path of the Site
+        globus_endpoint_id:        Associated Globus endpoint ID
+        num_nodes:                 Number of nodes available at the Site
+        backfill_windows:          Idle backfill currently available at the Site
+        queued_jobs:               Queued scheduler jobs at the Site
+        optional_batch_job_params: Optional pass-through parameters accepted by the Site batchjob template
+        allowed_projects:          Allowed projects/allocations for batchjob submission
+        allowed_queues:            Allowed queues and associated queueing policies
+        transfer_locations:        Trusted transfer location aliases and associated protocol/URLs
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
@@ -113,10 +160,27 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         allowed_queues: Optional[typing.Dict[str, balsam.schemas.site.AllowedQueue]] = None,
         transfer_locations: Optional[typing.Dict[str, pydantic.networks.AnyUrl]] = None,
     ) -> Site:
+        """
+        Create a new Site object and save it to the API in one step.
+
+        hostname:                  The Site network location, for human reference only
+        path:                      Absolute filesystem path of the Site
+        globus_endpoint_id:        Associated Globus endpoint ID
+        num_nodes:                 Number of nodes available at the Site
+        backfill_windows:          Idle backfill currently available at the Site
+        queued_jobs:               Queued scheduler jobs at the Site
+        optional_batch_job_params: Optional pass-through parameters accepted by the Site batchjob template
+        allowed_projects:          Allowed projects/allocations for batchjob submission
+        allowed_queues:            Allowed queues and associated queueing policies
+        transfer_locations:        Trusted transfer location aliases and associated protocol/URLs
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
 
     def all(self) -> "SiteQuery":
+        """
+        Returns a Query for all Site items.
+        """
         return self._query_class(manager=self)
 
     def get(
@@ -125,6 +189,15 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
     ) -> Site:
+        """
+        Retrieve exactly one Site. Raises Site.DoesNotExist
+        if no items were found, or Site.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        hostname: Only return Sites with hostnames containing this string.
+        path:     Only return Sites with paths containing this string.
+        id:       Only return Sites having an id in this list.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return SiteQuery(manager=self).get(**kwargs)
 
@@ -134,6 +207,13 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
     ) -> "SiteQuery":
+        """
+        Returns a Site Query returning items matching the filter criteria.
+
+        hostname: Only return Sites with hostnames containing this string.
+        path:     Only return Sites with paths containing this string.
+        id:       Only return Sites having an id in this list.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return SiteQuery(manager=self).filter(**kwargs)
 
@@ -162,6 +242,17 @@ class App(balsam._api.bases.AppBase):
         last_modified: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
+        """
+        Construct a new App object.  You must eventually call the save() method or
+        pass a App list into App.objects.bulk_create().
+
+        site_id:       Site id at which this App is registered
+        description:   The App class docstring
+        class_path:    Python class path (module.ClassName) of this App
+        parameters:    Allowed parameters in the App command
+        transfers:     Allowed transfer slots in the App
+        last_modified: Local timestamp since App module file last changed
+        """
         _kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         _kwargs.update(kwargs)
         return super().__init__(**_kwargs)
@@ -174,6 +265,15 @@ class AppQuery(Query[App]):
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
     ) -> App:
+        """
+        Retrieve exactly one App. Raises App.DoesNotExist
+        if no items were found, or App.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        site_id:    Only return Apps associated with the Site IDs in this list.
+        id:         Only return Apps with IDs in this list.
+        class_path: Only return Apps matching this dotted class path (module.ClassName)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
@@ -183,6 +283,15 @@ class AppQuery(Query[App]):
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
     ) -> "AppQuery":
+        """
+        Retrieve exactly one App. Raises App.DoesNotExist
+        if no items were found, or App.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        site_id:    Only return Apps associated with the Site IDs in this list.
+        id:         Only return Apps with IDs in this list.
+        class_path: Only return Apps matching this dotted class path (module.ClassName)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
@@ -195,6 +304,16 @@ class AppQuery(Query[App]):
         transfers: Optional[typing.Dict[str, balsam.schemas.apps.TransferSlot]] = None,
         last_modified: Optional[float] = None,
     ) -> List[App]:
+        """
+        Updates all items selected by this query with the given values.
+
+        site_id:       Site id at which this App is registered
+        description:   The App class docstring
+        class_path:    Python class path (module.ClassName) of this App
+        parameters:    Allowed parameters in the App command
+        transfers:     Allowed transfer slots in the App
+        last_modified: Local timestamp since App module file last changed
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
@@ -217,10 +336,23 @@ class AppManager(balsam._api.bases.AppManagerBase):
         transfers: Optional[typing.Dict[str, balsam.schemas.apps.TransferSlot]] = None,
         last_modified: Optional[float] = None,
     ) -> App:
+        """
+        Create a new App object and save it to the API in one step.
+
+        site_id:       Site id at which this App is registered
+        description:   The App class docstring
+        class_path:    Python class path (module.ClassName) of this App
+        parameters:    Allowed parameters in the App command
+        transfers:     Allowed transfer slots in the App
+        last_modified: Local timestamp since App module file last changed
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
 
     def all(self) -> "AppQuery":
+        """
+        Returns a Query for all App items.
+        """
         return self._query_class(manager=self)
 
     def get(
@@ -229,6 +361,15 @@ class AppManager(balsam._api.bases.AppManagerBase):
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
     ) -> App:
+        """
+        Retrieve exactly one App. Raises App.DoesNotExist
+        if no items were found, or App.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        site_id:    Only return Apps associated with the Site IDs in this list.
+        id:         Only return Apps with IDs in this list.
+        class_path: Only return Apps matching this dotted class path (module.ClassName)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return AppQuery(manager=self).get(**kwargs)
 
@@ -238,6 +379,13 @@ class AppManager(balsam._api.bases.AppManagerBase):
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
     ) -> "AppQuery":
+        """
+        Returns a App Query returning items matching the filter criteria.
+
+        site_id:    Only return Apps associated with the Site IDs in this list.
+        id:         Only return Apps with IDs in this list.
+        class_path: Only return Apps matching this dotted class path (module.ClassName)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return AppQuery(manager=self).filter(**kwargs)
 
@@ -291,6 +439,27 @@ class Job(balsam._api.bases.JobBase):
         transfers: Optional[typing.Dict[str, balsam.schemas.job.JobTransferItem]] = None,
         **kwargs: Any,
     ) -> None:
+        """
+        Construct a new Job object.  You must eventually call the save() method or
+        pass a Job list into Job.objects.bulk_create().
+
+        workdir:            Job path relative to site data/ folder.
+        tags:               Custom key:value string tags.
+        parameters:         App parameter name:value pairs.
+        data:               Arbitrary JSON-able data dictionary.
+        return_code:        Return code from last execution of this Job.
+        num_nodes:          Number of compute nodes needed.
+        ranks_per_node:     Number of MPI processes per node.
+        threads_per_rank:   Logical threads per process.
+        threads_per_core:   Logical threads per CPU core.
+        launch_params:      Optional pass-through parameters to MPI application launcher.
+        gpus_per_rank:      Number of GPUs per process.
+        node_packing_count: Maximum number of concurrent runs per node.
+        wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
+        app_id:             App ID
+        parent_ids:         Set of parent Job IDs (dependencies).
+        transfers:          TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
+        """
         _kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         _kwargs.update(kwargs)
         return super().__init__(**_kwargs)
@@ -312,6 +481,24 @@ class JobQuery(Query[Job]):
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> Job:
+        """
+        Retrieve exactly one Job. Raises Job.DoesNotExist
+        if no items were found, or Job.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id:                 Only return Jobs with ids in this list.
+        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
+        app_id:             Only return Jobs associated with this App id.
+        site_id:            Only return Jobs associated with this Site id.
+        batch_job_id:       Only return Jobs associated with this BatchJob id.
+        last_update_before: Only return Jobs that were updated before this time (UTC).
+        last_update_after:  Only return Jobs that were updated after this time (UTC).
+        workdir__contains:  Only return jobs with workdirs containing this string.
+        state__ne:          Only return jobs with states not equal to this state.
+        state:              Only return jobs in this set of states.
+        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
@@ -330,6 +517,24 @@ class JobQuery(Query[Job]):
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> "JobQuery":
+        """
+        Retrieve exactly one Job. Raises Job.DoesNotExist
+        if no items were found, or Job.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id:                 Only return Jobs with ids in this list.
+        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
+        app_id:             Only return Jobs associated with this App id.
+        site_id:            Only return Jobs associated with this Site id.
+        batch_job_id:       Only return Jobs associated with this BatchJob id.
+        last_update_before: Only return Jobs that were updated before this time (UTC).
+        last_update_after:  Only return Jobs that were updated after this time (UTC).
+        workdir__contains:  Only return jobs with workdirs containing this string.
+        state__ne:          Only return jobs with states not equal to this state.
+        state:              Only return jobs in this set of states.
+        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
@@ -353,10 +558,34 @@ class JobQuery(Query[Job]):
         state_timestamp: Optional[datetime.datetime] = None,
         state_data: Optional[typing.Dict[str, typing.Any]] = None,
     ) -> List[Job]:
+        """
+        Updates all items selected by this query with the given values.
+
+        workdir:            Job path relative to the site data/ folder
+        tags:               Custom key:value string tags.
+        parameters:         App parameter name:value pairs.
+        data:               Arbitrary JSON-able data dictionary.
+        return_code:        Return code from last execution of this Job.
+        num_nodes:          Number of compute nodes needed.
+        ranks_per_node:     Number of MPI processes per node.
+        threads_per_rank:   Logical threads per process.
+        threads_per_core:   Logical threads per CPU core.
+        launch_params:      Optional pass-through parameters to MPI application launcher.
+        gpus_per_rank:      Number of GPUs per process.
+        node_packing_count: Maximum number of concurrent runs per node.
+        wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
+        batch_job_id:       ID of most recent BatchJob in which this Job ran
+        state:              Job state
+        state_timestamp:    Time (UTC) at which Job state change occured
+        state_data:         Arbitrary associated state change data for logging
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
     def order_by(self, field: Optional[balsam.schemas.job.JobOrdering]) -> "JobQuery":
+        """
+        Order the returned items by this field.
+        """
         return self._order_by(field)
 
 
@@ -388,10 +617,33 @@ class JobManager(balsam._api.bases.JobManagerBase):
         parent_ids: typing.Set[int] = set(),
         transfers: Optional[typing.Dict[str, balsam.schemas.job.JobTransferItem]] = None,
     ) -> Job:
+        """
+        Create a new Job object and save it to the API in one step.
+
+        workdir:            Job path relative to site data/ folder.
+        tags:               Custom key:value string tags.
+        parameters:         App parameter name:value pairs.
+        data:               Arbitrary JSON-able data dictionary.
+        return_code:        Return code from last execution of this Job.
+        num_nodes:          Number of compute nodes needed.
+        ranks_per_node:     Number of MPI processes per node.
+        threads_per_rank:   Logical threads per process.
+        threads_per_core:   Logical threads per CPU core.
+        launch_params:      Optional pass-through parameters to MPI application launcher.
+        gpus_per_rank:      Number of GPUs per process.
+        node_packing_count: Maximum number of concurrent runs per node.
+        wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
+        app_id:             App ID
+        parent_ids:         Set of parent Job IDs (dependencies).
+        transfers:          TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
 
     def all(self) -> "JobQuery":
+        """
+        Returns a Query for all Job items.
+        """
         return self._query_class(manager=self)
 
     def get(
@@ -409,6 +661,24 @@ class JobManager(balsam._api.bases.JobManagerBase):
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> Job:
+        """
+        Retrieve exactly one Job. Raises Job.DoesNotExist
+        if no items were found, or Job.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id:                 Only return Jobs with ids in this list.
+        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
+        app_id:             Only return Jobs associated with this App id.
+        site_id:            Only return Jobs associated with this Site id.
+        batch_job_id:       Only return Jobs associated with this BatchJob id.
+        last_update_before: Only return Jobs that were updated before this time (UTC).
+        last_update_after:  Only return Jobs that were updated after this time (UTC).
+        workdir__contains:  Only return jobs with workdirs containing this string.
+        state__ne:          Only return jobs with states not equal to this state.
+        state:              Only return jobs in this set of states.
+        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return JobQuery(manager=self).get(**kwargs)
 
@@ -427,6 +697,22 @@ class JobManager(balsam._api.bases.JobManagerBase):
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
     ) -> "JobQuery":
+        """
+        Returns a Job Query returning items matching the filter criteria.
+
+        id:                 Only return Jobs with ids in this list.
+        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
+        app_id:             Only return Jobs associated with this App id.
+        site_id:            Only return Jobs associated with this Site id.
+        batch_job_id:       Only return Jobs associated with this BatchJob id.
+        last_update_before: Only return Jobs that were updated before this time (UTC).
+        last_update_after:  Only return Jobs that were updated after this time (UTC).
+        workdir__contains:  Only return jobs with workdirs containing this string.
+        state__ne:          Only return jobs with states not equal to this state.
+        state:              Only return jobs in this set of states.
+        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return JobQuery(manager=self).filter(**kwargs)
 
@@ -466,6 +752,20 @@ class BatchJob(balsam._api.bases.BatchJobBase):
         partitions: Optional[typing.Optional[typing.List[balsam.schemas.batchjob.BatchJobPartition]]] = None,
         **kwargs: Any,
     ) -> None:
+        """
+        Construct a new BatchJob object.  You must eventually call the save() method or
+        pass a BatchJob list into BatchJob.objects.bulk_create().
+
+        num_nodes:       Requested number of nodes for this allocation
+        wall_time_min:   Requested wall clock time for this allocation
+        job_mode:        Balsam launcher execution mode (if single partition)
+        optional_params: Optional pass-through parameters submitted with the batchjob script
+        filter_tags:     Only run Jobs containing these tags
+        partitions:      Optionally, subdivide an allocation into multiple partitions.
+        site_id:         The Site id where this batchjob is submitted
+        project:         The project/allocation to charge for this batchjob
+        queue:           Which queue the batchjob is submitted on
+        """
         _kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         _kwargs.update(kwargs)
         return super().__init__(**_kwargs)
@@ -484,6 +784,21 @@ class BatchJobQuery(Query[BatchJob]):
         end_time_after: Optional[datetime.datetime] = None,
         filter_tags: Union[typing.List[str], str, None] = None,
     ) -> BatchJob:
+        """
+        Retrieve exactly one BatchJob. Raises BatchJob.DoesNotExist
+        if no items were found, or BatchJob.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        site_id:           Only return batchjobs for Sites in this id list.
+        state:             Only return batchjobs having one of these States in this list.
+        scheduler_id:      Return the batchjob with this local scheduler id.
+        queue:             Only return batchjobs submitted to this queue.
+        start_time_before: Only return batchjobs that started before this time (UTC).
+        start_time_after:  Only return batchjobs that started after this time (UTC).
+        end_time_before:   Only return batchjobs that finished before this time (UTC).
+        end_time_after:    Only return batchjobs that finished after this time (UTC).
+        filter_tags:       Only return batchjobs processing these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
@@ -499,6 +814,21 @@ class BatchJobQuery(Query[BatchJob]):
         end_time_after: Optional[datetime.datetime] = None,
         filter_tags: Union[typing.List[str], str, None] = None,
     ) -> "BatchJobQuery":
+        """
+        Retrieve exactly one BatchJob. Raises BatchJob.DoesNotExist
+        if no items were found, or BatchJob.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        site_id:           Only return batchjobs for Sites in this id list.
+        state:             Only return batchjobs having one of these States in this list.
+        scheduler_id:      Return the batchjob with this local scheduler id.
+        queue:             Only return batchjobs submitted to this queue.
+        start_time_before: Only return batchjobs that started before this time (UTC).
+        start_time_after:  Only return batchjobs that started after this time (UTC).
+        end_time_before:   Only return batchjobs that finished before this time (UTC).
+        end_time_after:    Only return batchjobs that finished after this time (UTC).
+        filter_tags:       Only return batchjobs processing these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
@@ -510,10 +840,22 @@ class BatchJobQuery(Query[BatchJob]):
         start_time: Optional[datetime.datetime] = None,
         end_time: Optional[datetime.datetime] = None,
     ) -> List[BatchJob]:
+        """
+        Updates all items selected by this query with the given values.
+
+        scheduler_id: The local HPC scheduler's ID for this batchjob
+        state:        Status of this batchjob in the local HPC scheduler
+        status_info:  Arbitrary status info
+        start_time:   BatchJob execution start time
+        end_time:     BatchJob execution end time
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
     def order_by(self, field: Optional[balsam.schemas.batchjob.BatchJobOrdering]) -> "BatchJobQuery":
+        """
+        Order the returned items by this field.
+        """
         return self._order_by(field)
 
 
@@ -538,10 +880,26 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
         filter_tags: Optional[typing.Dict[str, str]] = None,
         partitions: Optional[typing.Optional[typing.List[balsam.schemas.batchjob.BatchJobPartition]]] = None,
     ) -> BatchJob:
+        """
+        Create a new BatchJob object and save it to the API in one step.
+
+        num_nodes:       Requested number of nodes for this allocation
+        wall_time_min:   Requested wall clock time for this allocation
+        job_mode:        Balsam launcher execution mode (if single partition)
+        optional_params: Optional pass-through parameters submitted with the batchjob script
+        filter_tags:     Only run Jobs containing these tags
+        partitions:      Optionally, subdivide an allocation into multiple partitions.
+        site_id:         The Site id where this batchjob is submitted
+        project:         The project/allocation to charge for this batchjob
+        queue:           Which queue the batchjob is submitted on
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
 
     def all(self) -> "BatchJobQuery":
+        """
+        Returns a Query for all BatchJob items.
+        """
         return self._query_class(manager=self)
 
     def get(
@@ -556,6 +914,21 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
         end_time_after: Optional[datetime.datetime] = None,
         filter_tags: Union[typing.List[str], str, None] = None,
     ) -> BatchJob:
+        """
+        Retrieve exactly one BatchJob. Raises BatchJob.DoesNotExist
+        if no items were found, or BatchJob.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        site_id:           Only return batchjobs for Sites in this id list.
+        state:             Only return batchjobs having one of these States in this list.
+        scheduler_id:      Return the batchjob with this local scheduler id.
+        queue:             Only return batchjobs submitted to this queue.
+        start_time_before: Only return batchjobs that started before this time (UTC).
+        start_time_after:  Only return batchjobs that started after this time (UTC).
+        end_time_before:   Only return batchjobs that finished before this time (UTC).
+        end_time_after:    Only return batchjobs that finished after this time (UTC).
+        filter_tags:       Only return batchjobs processing these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return BatchJobQuery(manager=self).get(**kwargs)
 
@@ -571,6 +944,19 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
         end_time_after: Optional[datetime.datetime] = None,
         filter_tags: Union[typing.List[str], str, None] = None,
     ) -> "BatchJobQuery":
+        """
+        Returns a BatchJob Query returning items matching the filter criteria.
+
+        site_id:           Only return batchjobs for Sites in this id list.
+        state:             Only return batchjobs having one of these States in this list.
+        scheduler_id:      Return the batchjob with this local scheduler id.
+        queue:             Only return batchjobs submitted to this queue.
+        start_time_before: Only return batchjobs that started before this time (UTC).
+        start_time_after:  Only return batchjobs that started after this time (UTC).
+        end_time_before:   Only return batchjobs that finished before this time (UTC).
+        end_time_after:    Only return batchjobs that finished after this time (UTC).
+        filter_tags:       Only return batchjobs processing these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return BatchJobQuery(manager=self).filter(**kwargs)
 
@@ -592,6 +978,13 @@ class Session(balsam._api.bases.SessionBase):
         batch_job_id: Optional[int] = None,
         **kwargs: Any,
     ) -> None:
+        """
+        Construct a new Session object.  You must eventually call the save() method or
+        pass a Session list into Session.objects.bulk_create().
+
+        site_id:      Site id of the running Session
+        batch_job_id: Associated batchjob id
+        """
         _kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         _kwargs.update(kwargs)
         return super().__init__(**_kwargs)
@@ -615,10 +1008,19 @@ class SessionManager(balsam._api.bases.SessionManagerBase):
         site_id: int,
         batch_job_id: Optional[int] = None,
     ) -> Session:
+        """
+        Create a new Session object and save it to the API in one step.
+
+        site_id:      Site id of the running Session
+        batch_job_id: Associated batchjob id
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
 
     def all(self) -> "SessionQuery":
+        """
+        Returns a Query for all Session items.
+        """
         return self._query_class(manager=self)
 
 
@@ -653,6 +1055,19 @@ class TransferItemQuery(Query[TransferItem]):
         job_state: Optional[str] = None,
         tags: Union[typing.List[str], str, None] = None,
     ) -> TransferItem:
+        """
+        Retrieve exactly one TransferItem. Raises TransferItem.DoesNotExist
+        if no items were found, or TransferItem.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id:        Only return transfer items with IDs in this list.
+        site_id:   Only return transfer items associated with this Site id.
+        job_id:    Only return transfer items associated with this Job id list.
+        state:     Only return transfer items in this set of states.
+        direction: Only return items in this transfer direction.
+        job_state: Only return transfer items for Jobs having this state.
+        tags:      Only return transfer items for Jobs having these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
@@ -668,6 +1083,19 @@ class TransferItemQuery(Query[TransferItem]):
         job_state: Optional[str] = None,
         tags: Union[typing.List[str], str, None] = None,
     ) -> "TransferItemQuery":
+        """
+        Retrieve exactly one TransferItem. Raises TransferItem.DoesNotExist
+        if no items were found, or TransferItem.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id:        Only return transfer items with IDs in this list.
+        site_id:   Only return transfer items associated with this Site id.
+        job_id:    Only return transfer items associated with this Job id list.
+        state:     Only return transfer items in this set of states.
+        direction: Only return items in this transfer direction.
+        job_state: Only return transfer items for Jobs having this state.
+        tags:      Only return transfer items for Jobs having these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
@@ -677,6 +1105,13 @@ class TransferItemQuery(Query[TransferItem]):
         task_id: Optional[str] = None,
         transfer_info: Optional[typing.Dict[str, typing.Any]] = None,
     ) -> List[TransferItem]:
+        """
+        Updates all items selected by this query with the given values.
+
+        state:         Status of this transfer item
+        task_id:       Transfer Task ID used to lookup transfer item status
+        transfer_info: Arbitrary transfer state info
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
 
@@ -691,6 +1126,9 @@ class TransferItemManager(balsam._api.bases.TransferItemManagerBase):
     _paginated_list_response = True
 
     def all(self) -> "TransferItemQuery":
+        """
+        Returns a Query for all TransferItem items.
+        """
         return self._query_class(manager=self)
 
     def get(
@@ -705,6 +1143,19 @@ class TransferItemManager(balsam._api.bases.TransferItemManagerBase):
         job_state: Optional[str] = None,
         tags: Union[typing.List[str], str, None] = None,
     ) -> TransferItem:
+        """
+        Retrieve exactly one TransferItem. Raises TransferItem.DoesNotExist
+        if no items were found, or TransferItem.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id:        Only return transfer items with IDs in this list.
+        site_id:   Only return transfer items associated with this Site id.
+        job_id:    Only return transfer items associated with this Job id list.
+        state:     Only return transfer items in this set of states.
+        direction: Only return items in this transfer direction.
+        job_state: Only return transfer items for Jobs having this state.
+        tags:      Only return transfer items for Jobs having these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return TransferItemQuery(manager=self).get(**kwargs)
 
@@ -720,6 +1171,17 @@ class TransferItemManager(balsam._api.bases.TransferItemManagerBase):
         job_state: Optional[str] = None,
         tags: Union[typing.List[str], str, None] = None,
     ) -> "TransferItemQuery":
+        """
+        Returns a TransferItem Query returning items matching the filter criteria.
+
+        id:        Only return transfer items with IDs in this list.
+        site_id:   Only return transfer items associated with this Site id.
+        job_id:    Only return transfer items associated with this Job id list.
+        state:     Only return transfer items in this set of states.
+        direction: Only return items in this transfer direction.
+        job_state: Only return transfer items for Jobs having this state.
+        tags:      Only return transfer items for Jobs having these tags (list of KEY:VALUE strings).
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return TransferItemQuery(manager=self).filter(**kwargs)
 
@@ -751,6 +1213,21 @@ class EventLogQuery(Query[EventLog]):
         from_state: Optional[str] = None,
         to_state: Optional[str] = None,
     ) -> EventLog:
+        """
+        Retrieve exactly one EventLog. Raises EventLog.DoesNotExist
+        if no items were found, or EventLog.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        job_id:           Only return Events associated with Job IDs in this list.
+        batch_job_id:     Only return Events associated this BatchJob id.
+        scheduler_id:     Only return Events associated with this HPC scheduler job ID.
+        tags:             Only return Events for Jobs containing these tags (list of KEY:VALUE strings)
+        data:             Only return Events containing this data (list of KEY:VALUE strings)
+        timestamp_before: Only return Events before this time (UTC).
+        timestamp_after:  Only return Events that occured after this time (UTC).
+        from_state:       Only return Events transitioning from this Job state.
+        to_state:         Only return Events transitioning to this Job state.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
 
@@ -766,10 +1243,28 @@ class EventLogQuery(Query[EventLog]):
         from_state: Optional[str] = None,
         to_state: Optional[str] = None,
     ) -> "EventLogQuery":
+        """
+        Retrieve exactly one EventLog. Raises EventLog.DoesNotExist
+        if no items were found, or EventLog.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        job_id:           Only return Events associated with Job IDs in this list.
+        batch_job_id:     Only return Events associated this BatchJob id.
+        scheduler_id:     Only return Events associated with this HPC scheduler job ID.
+        tags:             Only return Events for Jobs containing these tags (list of KEY:VALUE strings)
+        data:             Only return Events containing this data (list of KEY:VALUE strings)
+        timestamp_before: Only return Events before this time (UTC).
+        timestamp_after:  Only return Events that occured after this time (UTC).
+        from_state:       Only return Events transitioning from this Job state.
+        to_state:         Only return Events transitioning to this Job state.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
 
     def order_by(self, field: Optional[balsam.schemas.logevent.EventOrdering]) -> "EventLogQuery":
+        """
+        Order the returned items by this field.
+        """
         return self._order_by(field)
 
 
@@ -783,6 +1278,9 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
     _paginated_list_response = True
 
     def all(self) -> "EventLogQuery":
+        """
+        Returns a Query for all EventLog items.
+        """
         return self._query_class(manager=self)
 
     def get(
@@ -797,6 +1295,21 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
         from_state: Optional[str] = None,
         to_state: Optional[str] = None,
     ) -> EventLog:
+        """
+        Retrieve exactly one EventLog. Raises EventLog.DoesNotExist
+        if no items were found, or EventLog.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        job_id:           Only return Events associated with Job IDs in this list.
+        batch_job_id:     Only return Events associated this BatchJob id.
+        scheduler_id:     Only return Events associated with this HPC scheduler job ID.
+        tags:             Only return Events for Jobs containing these tags (list of KEY:VALUE strings)
+        data:             Only return Events containing this data (list of KEY:VALUE strings)
+        timestamp_before: Only return Events before this time (UTC).
+        timestamp_after:  Only return Events that occured after this time (UTC).
+        from_state:       Only return Events transitioning from this Job state.
+        to_state:         Only return Events transitioning to this Job state.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return EventLogQuery(manager=self).get(**kwargs)
 
@@ -812,5 +1325,18 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
         from_state: Optional[str] = None,
         to_state: Optional[str] = None,
     ) -> "EventLogQuery":
+        """
+        Returns a EventLog Query returning items matching the filter criteria.
+
+        job_id:           Only return Events associated with Job IDs in this list.
+        batch_job_id:     Only return Events associated this BatchJob id.
+        scheduler_id:     Only return Events associated with this HPC scheduler job ID.
+        tags:             Only return Events for Jobs containing these tags (list of KEY:VALUE strings)
+        data:             Only return Events containing this data (list of KEY:VALUE strings)
+        timestamp_before: Only return Events before this time (UTC).
+        timestamp_after:  Only return Events that occured after this time (UTC).
+        from_state:       Only return Events transitioning from this Job state.
+        to_state:         Only return Events transitioning to this Job state.
+        """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return EventLogQuery(manager=self).filter(**kwargs)

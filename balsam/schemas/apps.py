@@ -41,9 +41,11 @@ class TransferSlot(BaseModel):
 
 
 class AppBase(BaseModel):
-    site_id: int = Field(..., example=3)
-    description: str = Field("", example="NWChem7 geometry optimizer")
-    class_path: str = Field(..., example="nwchem7.GeomOpt")
+    site_id: int = Field(..., example=3, description="Site id at which this App is registered")
+    description: str = Field("", example="NWChem7 geometry optimizer", description="The App class docstring")
+    class_path: str = Field(
+        ..., example="nwchem7.GeomOpt", description="Python class path (module.ClassName) of this App"
+    )
     parameters: Dict[str, AppParameter] = Field(
         {},
         example={
@@ -53,6 +55,7 @@ class AppBase(BaseModel):
                 "help": "Path to input deck",
             }
         },
+        description="Allowed parameters in the App command",
     )
     transfers: Dict[str, TransferSlot] = Field(
         {},
@@ -65,8 +68,9 @@ class AppBase(BaseModel):
                 "recursive": "False",
             }
         },
+        description="Allowed transfer slots in the App",
     )
-    last_modified: Optional[float] = Field(None)
+    last_modified: Optional[float] = Field(None, description="Local timestamp since App module file last changed")
 
     @validator("class_path")
     def is_class_path(cls, v: str) -> str:
@@ -80,8 +84,10 @@ class AppCreate(AppBase):
 
 
 class AppUpdate(AppBase):
-    site_id: int = Field(None, example=3)
-    class_path: str = Field(None, example="nwchem7.GeomOpt")
+    site_id: int = Field(None, example=3, description="Site id at which this App is registered")
+    class_path: str = Field(
+        None, example="nwchem7.GeomOpt", description="Python class path (module.ClassName) of this App"
+    )
 
 
 class AppOut(AppBase):

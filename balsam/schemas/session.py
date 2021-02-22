@@ -7,15 +7,15 @@ from .job import RUNNABLE_STATES, JobState
 
 
 class SessionCreate(BaseModel):
-    site_id: int = Field(...)
-    batch_job_id: Optional[int] = Field(None)
+    site_id: int = Field(..., description="Site id of the running Session")
+    batch_job_id: Optional[int] = Field(None, description="Associated batchjob id")
 
 
 class SessionOut(BaseModel):
-    id: int = Field(...)
-    site_id: int = Field(...)
-    batch_job_id: Optional[int] = Field(None)
-    heartbeat: datetime = Field(...)
+    id: int = Field(..., description="Session id")
+    site_id: int = Field(..., description="Site id of the running Session")
+    batch_job_id: Optional[int] = Field(None, description="Associated batchjob id")
+    heartbeat: datetime = Field(..., description="Last heartbeat received from Session")
 
     class Config:
         orm_mode = True

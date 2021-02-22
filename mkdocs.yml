@@ -2,7 +2,7 @@ site_name: Balsam
 nav:
   - Home: README.md
   - Development:
-      - Data Model: development/data-model.md
+      - Understanding Balsam: development/data-model.md
       - Project Layout: development/layout.md
       - Contribution Guide: development/contributing.md
       - Site Configuration: development/site-config.md

@@ -52,11 +52,17 @@ class BatchJobPartition(BaseModel):
 
 
 class BatchJobBase(BaseModel):
-    num_nodes: int = Field(..., example=128)
-    wall_time_min: int = Field(..., example=60)
-    job_mode: JobMode = Field(..., example="mpi")
-    optional_params: Dict[str, str] = Field({}, example={"require_ssds": "1"})
-    filter_tags: Dict[str, str] = Field({}, example={"system": "H2O", "calc_type": "energy"})
+    num_nodes: int = Field(..., example=128, description="Requested number of nodes for this allocation")
+    wall_time_min: int = Field(..., example=60, description="Requested wall clock time for this allocation")
+    job_mode: JobMode = Field(..., example="mpi", description="Balsam launcher execution mode (if single partition)")
+    optional_params: Dict[str, str] = Field(
+        {},
+        example={"require_ssds": "1"},
+        description="Optional pass-through parameters submitted with the batchjob script",
+    )
+    filter_tags: Dict[str, str] = Field(
+        {}, example={"system": "H2O", "calc_type": "energy"}, description="Only run Jobs containing these tags"
+    )
     partitions: Optional[List[BatchJobPartition]] = Field(
         None,
         example=[
@@ -67,6 +73,7 @@ class BatchJobBase(BaseModel):
                 "filter_tags": {"sim_type": "worker"},
             },
         ],
+        description="Optionally, subdivide an allocation into multiple partitions.",
     )
 
     class Config:
@@ -74,17 +81,21 @@ class BatchJobBase(BaseModel):
 
 
 class BatchJobCreate(BatchJobBase):
-    site_id: int = Field(..., example=4)
-    project: str = Field(..., example="datascience")
-    queue: str = Field(..., example="default")
+    site_id: int = Field(..., example=4, description="The Site id where this batchjob is submitted")
+    project: str = Field(..., example="datascience", description="The project/allocation to charge for this batchjob")
+    queue: str = Field(..., example="default", description="Which queue the batchjob is submitted on")
 
 
 class BatchJobUpdate(BaseModel):
-    scheduler_id: int = Field(None, example=14192)
-    state: BatchJobState = Field(None, example="queued")
-    status_info: Dict[str, str] = Field(None, example={"error": "User is not a member of project X"})
-    start_time: Optional[datetime] = Field(None)
-    end_time: Optional[datetime] = Field(None)
+    scheduler_id: int = Field(None, example=14192, description="The local HPC scheduler's ID for this batchjob")
+    state: BatchJobState = Field(
+        None, example="queued", description="Status of this batchjob in the local HPC scheduler"
+    )
+    status_info: Dict[str, str] = Field(
+        None, example={"error": "User is not a member of project X"}, description="Arbitrary status info"
+    )
+    start_time: Optional[datetime] = Field(None, description="BatchJob execution start time")
+    end_time: Optional[datetime] = Field(None, description="BatchJob execution end time")
 
 
 class BatchJobBulkUpdate(BatchJobUpdate):

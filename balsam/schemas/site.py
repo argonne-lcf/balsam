@@ -18,16 +18,16 @@ class TransferProtocol(str, Enum):
 
 
 class BackfillWindow(BaseModel):
-    queue: str = Field(..., example="default")
-    num_nodes: int = Field(..., example=130)
-    wall_time_min: int = Field(..., example=40)
+    queue: str = Field(..., example="default", description="Queue name to which Jobs may be submitted")
+    num_nodes: int = Field(..., example=130, description="Number of idle nodes")
+    wall_time_min: int = Field(..., example=40, description="Duration in minutes that nodes will remain idle")
 
 
 class QueuedJob(BaseModel):
-    queue: str = Field(..., example="default")
-    num_nodes: int = Field(..., example=128)
-    wall_time_min: int = Field(..., example=60)
-    state: QueuedJobState = Field(..., example=QueuedJobState.queued)
+    queue: str = Field(..., example="default", description="Name of queue")
+    num_nodes: int = Field(..., example=128, description="Number of nodes allocated")
+    wall_time_min: int = Field(..., example=60, description="Length of node allocation")
+    state: QueuedJobState = Field(..., example=QueuedJobState.queued, description="Status of the allocation")
 
 
 class AllowedQueue(BaseModel):
@@ -37,14 +37,26 @@ class AllowedQueue(BaseModel):
 
 
 class SiteBase(BaseModel):
-    hostname: str = Field(..., example="thetalogin3.alcf.anl.gov")
-    path: Path = Field(..., example="/projects/datascience/user/mySite")
-    globus_endpoint_id: Optional[UUID] = Field(None)
-    num_nodes: int = Field(0, example=4096)
-    backfill_windows: List[BackfillWindow] = Field([])
-    queued_jobs: List[QueuedJob] = Field([])
-    optional_batch_job_params: Dict[str, str] = Field({}, example={"enable_ssh": 1})
-    allowed_projects: List[str] = Field([], example=["datascience", "materials-adsp"])
+    hostname: str = Field(
+        ..., example="thetalogin3.alcf.anl.gov", description="The Site network location, for human reference only"
+    )
+    path: Path = Field(
+        ..., example="/projects/datascience/user/mySite", description="Absolute filesystem path of the Site"
+    )
+    globus_endpoint_id: Optional[UUID] = Field(None, description="Associated Globus endpoint ID")
+    num_nodes: int = Field(0, example=4096, description="Number of nodes available at the Site")
+    backfill_windows: List[BackfillWindow] = Field([], description="Idle backfill currently available at the Site")
+    queued_jobs: List[QueuedJob] = Field([], description="Queued scheduler jobs at the Site")
+    optional_batch_job_params: Dict[str, str] = Field(
+        {},
+        example={"enable_ssh": 1},
+        description="Optional pass-through parameters accepted by the Site batchjob template",
+    )
+    allowed_projects: List[str] = Field(
+        [],
+        example=["datascience", "materials-adsp"],
+        description="Allowed projects/allocations for batchjob submission",
+    )
     allowed_queues: Dict[str, AllowedQueue] = Field(
         {},
         example={
@@ -54,6 +66,7 @@ class SiteBase(BaseModel):
                 "max_queued_jobs": 1,
             }
         },
+        description="Allowed queues and associated queueing policies",
     )
     transfer_locations: Dict[str, AnyUrl] = Field(
         {},
@@ -61,6 +74,7 @@ class SiteBase(BaseModel):
             "APS-DTN": "globus://ddb59aef-6d04-11e5-ba46-22000b92c6ec",
             "MyCluster": "rsync://user@hostname.mycluster",
         },
+        description="Trusted transfer location aliases and associated protocol/URLs",
     )
 
     @validator("path")
@@ -75,8 +89,8 @@ class SiteCreate(SiteBase):
 
 
 class SiteUpdate(SiteBase):
-    hostname: Optional[str] = Field(None, example="thetalogin3.alcf.anl.gov")  # type: ignore
-    path: Optional[Path] = Field(None, example="/projects/datascience/user/mySite")  # type: ignore
+    hostname: Optional[str] = Field(None, example="thetalogin3.alcf.anl.gov", description="The Site network location, for human reference only")  # type: ignore
+    path: Optional[Path] = Field(None, example="/projects/datascience/user/mySite", description="Absolute filesystem path of the Site")  # type: ignore
 
 
 class SiteOut(SiteBase):

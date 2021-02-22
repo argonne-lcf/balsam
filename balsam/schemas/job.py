@@ -54,20 +54,30 @@ RUNNABLE_STATES = {JobState.preprocessed, JobState.restart_ready}
 
 
 class JobBase(BaseModel):
-    workdir: Path = Field(..., example="test_jobs/test1")
-    tags: Dict[str, str] = Field({}, example={"system": "H2O"})
-    parameters: Dict[str, str] = Field({}, example={"input_file": "input.dat"})
-    data: Dict[str, Any] = Field({}, example={"energy": -0.5})
-    return_code: Optional[int] = Field(None, example=0)
+    workdir: Path = Field(..., example="test_jobs/test1", description="Job path relative to site data/ folder.")
+    tags: Dict[str, str] = Field({}, example={"system": "H2O"}, description="Custom key:value string tags.")
+    parameters: Dict[str, str] = Field(
+        {}, example={"input_file": "input.dat"}, description="App parameter name:value pairs."
+    )
+    data: Dict[str, Any] = Field({}, example={"energy": -0.5}, description="Arbitrary JSON-able data dictionary.")
+    return_code: Optional[int] = Field(None, example=0, description="Return code from last execution of this Job.")
 
-    num_nodes: int = Field(1, example=1)
-    ranks_per_node: int = Field(1, example=1)
-    threads_per_rank: int = Field(1, example=1)
-    threads_per_core: int = Field(1, example=1)
-    launch_params: Dict[str, str] = Field({}, example={"cpu_affinity": "depth"})
-    gpus_per_rank: float = Field(0, example=0.5)
-    node_packing_count: int = Field(1, example=12)
-    wall_time_min: int = Field(0, example=30)
+    num_nodes: int = Field(1, example=1, description="Number of compute nodes needed.")
+    ranks_per_node: int = Field(1, example=1, description="Number of MPI processes per node.")
+    threads_per_rank: int = Field(1, example=1, description="Logical threads per process.")
+    threads_per_core: int = Field(1, example=1, description="Logical threads per CPU core.")
+    launch_params: Dict[str, str] = Field(
+        {},
+        example={"cpu_affinity": "depth"},
+        description="Optional pass-through parameters to MPI application launcher.",
+    )
+    gpus_per_rank: float = Field(0, example=0.5, description="Number of GPUs per process.")
+    node_packing_count: int = Field(1, example=12, description="Maximum number of concurrent runs per node.")
+    wall_time_min: int = Field(
+        0,
+        example=30,
+        description="Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.",
+    )
 
     @validator("workdir")
     def path_is_relative(cls, v: Path) -> Path:
@@ -77,8 +87,8 @@ class JobBase(BaseModel):
 
 
 class JobCreate(JobBase):
-    app_id: int = Field(..., example=3)
-    parent_ids: Set[int] = Field(set(), example={2, 3})
+    app_id: int = Field(..., example=3, description="App ID")
+    parent_ids: Set[int] = Field(set(), example={2, 3}, description="Set of parent Job IDs (dependencies).")
     transfers: Dict[str, JobTransferItem] = Field(
         {},
         example={
@@ -87,19 +97,20 @@ class JobCreate(JobBase):
                 "path": "/path/to/input.dat",
             }
         },
+        description="TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.",
     )
 
 
 class JobUpdate(JobBase):
-    workdir: Path = Field(None, example="test_jobs/test1")
-    batch_job_id: int = Field(None, example=4)
-    state: JobState = Field(None, example="RESET")
-    state_timestamp: datetime = Field(None)
-    state_data: Dict[str, Any] = Field({})
+    workdir: Path = Field(None, example="test_jobs/test1", description="Job path relative to the site data/ folder")
+    batch_job_id: int = Field(None, example=4, description="ID of most recent BatchJob in which this Job ran")
+    state: JobState = Field(None, example="JOB_FINISHED", description="Job state")
+    state_timestamp: datetime = Field(None, description="Time (UTC) at which Job state change occured")
+    state_data: Dict[str, Any] = Field({}, description="Arbitrary associated state change data for logging")
 
 
 class JobBulkUpdate(JobUpdate):
-    id: int = Field(..., example=123)
+    id: int = Field(..., example=123, description="Job id")
 
 
 class JobOut(JobBase):
