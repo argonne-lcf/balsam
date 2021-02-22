@@ -1,10 +1,10 @@
-import setproctitle
 from datetime import datetime
 import time
 import logging
 import logging.handlers
 import os
 import sys
+import setproctitle
 
 try:
     import django
@@ -13,7 +13,7 @@ try:
 except ImportError:
     print("Warning: Django is not installed")
 
-from balsam.__version__ import __version__  # noqa
+__version__ = "0.4.0"
 
 
 class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
