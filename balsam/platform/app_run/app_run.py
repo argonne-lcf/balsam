@@ -188,7 +188,9 @@ class SubprocessAppRun(AppRun):
         try:
             retcode = self._process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            raise TimeoutExpired
+            cmdline = self._build_preamble() + self._build_cmdline()
+            assert timeout is not None
+            raise TimeoutExpired(cmd=cmdline, timeout=timeout)
         else:
             self._outfile.close()
             return retcode

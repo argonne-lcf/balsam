@@ -43,12 +43,17 @@ class AppQuery:
 
 @dataclass
 class SessionQuery:
+    id: List[int] = Query(None, description="Only return Sessions having an id in this list.")
+
     def apply_filters(self, qs: "orm.Query[Session]") -> "orm.Query[Session]":
+        if self.id:
+            qs = qs.filter(Session.id.in_(self.id))
         return qs
 
 
 @dataclass
 class EventLogQuery:
+    id: List[int] = Query(None, description="Only return EventLogs having an id in this list.")
     job_id: List[int] = Query(None, description="Only return Events associated with Job IDs in this list.")
     batch_job_id: int = Query(None, description="Only return Events associated this BatchJob id.")
     scheduler_id: int = Query(None, description="Only return Events associated with this HPC scheduler job ID.")
@@ -63,6 +68,8 @@ class EventLogQuery:
     ordering: schemas.EventOrdering = Query("-timestamp", description="Order events by this field.")
 
     def apply_filters(self, qs: "orm.Query[LogEvent]") -> "orm.Query[LogEvent]":
+        if self.id:
+            qs = qs.filter(LogEvent.id.in_(self.id))
         if self.job_id:
             qs = qs.filter(Job.id.in_(self.job_id))
         if self.batch_job_id or self.scheduler_id:
@@ -184,6 +191,7 @@ class TransferItemQuery:
 
 @dataclass
 class BatchJobQuery:
+    id: List[int] = Query(None, description="Only return BatchJobs having an id in this list.")
     site_id: List[int] = Query(None, description="Only return batchjobs for Sites in this id list.")
     state: List[str] = Query(None, description="Only return batchjobs having one of these States in this list.")
     scheduler_id: int = Query(None, description="Return the batchjob with this local scheduler id.")
@@ -200,6 +208,8 @@ class BatchJobQuery:
     )
 
     def apply_filters(self, qs: "orm.Query[BatchJob]") -> "orm.Query[BatchJob]":
+        if self.id:
+            qs = qs.filter(BatchJob.id.in_(self.id))
         if self.site_id:
             qs = qs.filter(BatchJob.site_id.in_(self.site_id))
         if self.state:

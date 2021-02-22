@@ -1,5 +1,6 @@
 import time
-from typing import List
+from pathlib import Path
+from typing import Any, List
 
 import pytest
 
@@ -7,6 +8,8 @@ from balsam._api.models import BatchJob, EventLog, Job
 from balsam.client import RESTClient
 from balsam.config import SiteConfig
 from balsam.schemas import JobMode
+
+from ..test_platform import get_launcher_startup_timeout
 
 
 def _liveness_check(batch_job: BatchJob, timeout: float = 10.0, check_period: float = 1.0) -> bool:
@@ -25,28 +28,39 @@ def _liveness_check(batch_job: BatchJob, timeout: float = 10.0, check_period: fl
     raise RuntimeError(f"Launcher did not start in {timeout} seconds.")
 
 
-@pytest.fixture(scope="class")
-def single_node_mpi_batch_job(run_service: SiteConfig) -> BatchJob:
+@pytest.fixture(scope="class", params=[JobMode.mpi, JobMode.serial])
+def launcher_job(run_service: SiteConfig, request: Any) -> BatchJob:
     """
-    Submit 1 node MPI-mode launcher and block until live
+    Submit 1 node launcher and block until live.
     Launcher can be reused within a class.
+    All dependent tests repeats for MPI mode and Serial mode.
     """
     BatchJob = run_service.client.BatchJob
+    assert run_service.settings.scheduler is not None
+    project = run_service.settings.scheduler.allowed_projects[0]
+    queue = next(iter(run_service.settings.scheduler.allowed_queues))
+
+    job_mode: JobMode = request.param
     batch_job = BatchJob.objects.create(
         num_nodes=1,
         wall_time_min=5,
-        job_mode=JobMode.mpi,
+        job_mode=job_mode,
         site_id=run_service.settings.site_id,
-        project="local",
-        queue="local",
+        project=project,
+        queue=queue,
     )
-    _liveness_check(batch_job, timeout=10.0, check_period=1.0)
+    _liveness_check(batch_job, timeout=get_launcher_startup_timeout(), check_period=1.0)
     return batch_job
 
 
 @pytest.fixture(scope="function")
-def single_node_mpi_alive(single_node_mpi_batch_job: BatchJob) -> bool:
-    return _liveness_check(single_node_mpi_batch_job, timeout=1.0, check_period=1.0)
+def live_launcher(launcher_job: BatchJob) -> bool:
+    """
+    Blocks until the launcher started.
+    The launcher persists for the scope a class, but a quick liveness check is
+    repeated before each test function.
+    """
+    return _liveness_check(launcher_job, timeout=1.0, check_period=1.0)
 
 
 @pytest.fixture(scope="class")
@@ -54,7 +68,9 @@ def client(run_service: SiteConfig) -> RESTClient:
     return run_service.client
 
 
-def poll_until_state(jobs: List[Job], state: str, fail_state="FAILED", timeout=10.0, check_period=1.0) -> bool:
+def poll_until_state(
+    jobs: List[Job], state: str, fail_state: str = "FAILED", timeout: float = 10.0, check_period: float = 1.0
+) -> bool:
     """Refresh a list of jobs until they reach the specified state"""
     num_checks = int(timeout / check_period)
     for _ in range(num_checks):
@@ -70,33 +86,28 @@ def poll_until_state(jobs: List[Job], state: str, fail_state="FAILED", timeout=1
 
 
 def test_blank(run_service: SiteConfig) -> None:
+    """
+    Ephemeral test site is properly configured
+    """
     cf = run_service
     print("RUNNING A BALSAM TEST SITE\n", cf.settings)
     print("site path:", cf.site_path)
     assert 1
 
 
-@pytest.mark.usefixtures("single_node_mpi_alive")
+@pytest.mark.usefixtures("live_launcher")
 class TestSingleNodeMPIMode:
-    def test_one_job(self, client: RESTClient) -> None:
-        app = client.App.objects.first()
-        job = client.Job.objects.create(
-            "foo/1",
-            app.id,
-            parameters={"name": "world!"},
-        )
-        assert job.state == "STAGED_IN"
-        assert job.id is not None
-        poll_until_state([job], "JOB_FINISHED", timeout=60.0)
-        assert job.state == "JOB_FINISHED"
-
     @pytest.mark.parametrize("num_jobs", [3])
     def test_multi_job(self, balsam_site_config: SiteConfig, num_jobs: int, client: RESTClient) -> None:
-        app = client.App.objects.first()
+        """
+        3 hello world jobs run to completion
+        """
+        app = client.App.objects.get(class_path="hello.Hello")
+        assert app.id is not None
         jobs: List[Job] = []
         for i in range(num_jobs):
             job = client.Job.objects.create(
-                f"bar/{i}",
+                Path(f"bar/{i}"),
                 app.id,
                 parameters={"name": f"world{i}!"},
                 node_packing_count=2,
@@ -110,7 +121,6 @@ class TestSingleNodeMPIMode:
                 "RUN_DONE",
             ], f"Job state: {job.state}\n{list(EventLog.objects.filter(job_id=job.id))}"
             stdout = job.resolve_workdir(balsam_site_config.data_path).joinpath("job.out").read_text()
-            job.state
             assert f"world{i}" in stdout
 
 

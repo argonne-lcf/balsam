@@ -165,7 +165,7 @@ def launcher(
         for proc in launcher_procs:
             try:
                 proc.wait(timeout=1)
-            except subprocess.TimeoutExpired:
+            except (subprocess.TimeoutExpired):
                 pass
             else:
                 done_procs.append(proc)

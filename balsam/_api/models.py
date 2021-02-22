@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev dd562b4]
+# [git rev 0cbc9ae]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -774,6 +774,7 @@ class BatchJob(balsam._api.bases.BatchJobBase):
 class BatchJobQuery(Query[BatchJob]):
     def get(
         self,
+        id: Union[typing.List[int], int, None] = None,
         site_id: Union[typing.List[int], int, None] = None,
         state: Union[typing.List[str], str, None] = None,
         scheduler_id: Optional[int] = None,
@@ -789,6 +790,7 @@ class BatchJobQuery(Query[BatchJob]):
         if no items were found, or BatchJob.MultipleObjectsReturned if
         more than one item matched the query.
 
+        id:                Only return BatchJobs having an id in this list.
         site_id:           Only return batchjobs for Sites in this id list.
         state:             Only return batchjobs having one of these States in this list.
         scheduler_id:      Return the batchjob with this local scheduler id.
@@ -804,6 +806,7 @@ class BatchJobQuery(Query[BatchJob]):
 
     def filter(
         self,
+        id: Union[typing.List[int], int, None] = None,
         site_id: Union[typing.List[int], int, None] = None,
         state: Union[typing.List[str], str, None] = None,
         scheduler_id: Optional[int] = None,
@@ -819,6 +822,7 @@ class BatchJobQuery(Query[BatchJob]):
         if no items were found, or BatchJob.MultipleObjectsReturned if
         more than one item matched the query.
 
+        id:                Only return BatchJobs having an id in this list.
         site_id:           Only return batchjobs for Sites in this id list.
         state:             Only return batchjobs having one of these States in this list.
         scheduler_id:      Return the batchjob with this local scheduler id.
@@ -904,6 +908,7 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
 
     def get(
         self,
+        id: Union[typing.List[int], int, None] = None,
         site_id: Union[typing.List[int], int, None] = None,
         state: Union[typing.List[str], str, None] = None,
         scheduler_id: Optional[int] = None,
@@ -919,6 +924,7 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
         if no items were found, or BatchJob.MultipleObjectsReturned if
         more than one item matched the query.
 
+        id:                Only return BatchJobs having an id in this list.
         site_id:           Only return batchjobs for Sites in this id list.
         state:             Only return batchjobs having one of these States in this list.
         scheduler_id:      Return the batchjob with this local scheduler id.
@@ -934,6 +940,7 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
 
     def filter(
         self,
+        id: Union[typing.List[int], int, None] = None,
         site_id: Union[typing.List[int], int, None] = None,
         state: Union[typing.List[str], str, None] = None,
         scheduler_id: Optional[int] = None,
@@ -947,6 +954,7 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
         """
         Returns a BatchJob Query returning items matching the filter criteria.
 
+        id:                Only return BatchJobs having an id in this list.
         site_id:           Only return batchjobs for Sites in this id list.
         state:             Only return batchjobs having one of these States in this list.
         scheduler_id:      Return the batchjob with this local scheduler id.
@@ -991,7 +999,33 @@ class Session(balsam._api.bases.SessionBase):
 
 
 class SessionQuery(Query[Session]):
-    pass
+    def get(
+        self,
+        id: Union[typing.List[int], int, None] = None,
+    ) -> Session:
+        """
+        Retrieve exactly one Session. Raises Session.DoesNotExist
+        if no items were found, or Session.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id: Only return Sessions having an id in this list.
+        """
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        return self._get(**kwargs)
+
+    def filter(
+        self,
+        id: Union[typing.List[int], int, None] = None,
+    ) -> "SessionQuery":
+        """
+        Retrieve exactly one Session. Raises Session.DoesNotExist
+        if no items were found, or Session.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id: Only return Sessions having an id in this list.
+        """
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        return self._filter(**kwargs)
 
 
 class SessionManager(balsam._api.bases.SessionManagerBase):
@@ -1022,6 +1056,32 @@ class SessionManager(balsam._api.bases.SessionManagerBase):
         Returns a Query for all Session items.
         """
         return self._query_class(manager=self)
+
+    def get(
+        self,
+        id: Union[typing.List[int], int, None] = None,
+    ) -> Session:
+        """
+        Retrieve exactly one Session. Raises Session.DoesNotExist
+        if no items were found, or Session.MultipleObjectsReturned if
+        more than one item matched the query.
+
+        id: Only return Sessions having an id in this list.
+        """
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        return SessionQuery(manager=self).get(**kwargs)
+
+    def filter(
+        self,
+        id: Union[typing.List[int], int, None] = None,
+    ) -> "SessionQuery":
+        """
+        Returns a Session Query returning items matching the filter criteria.
+
+        id: Only return Sessions having an id in this list.
+        """
+        kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
+        return SessionQuery(manager=self).filter(**kwargs)
 
 
 class TransferItem(balsam._api.bases.TransferItemBase):
@@ -1203,6 +1263,7 @@ class EventLog(balsam._api.bases.EventLogBase):
 class EventLogQuery(Query[EventLog]):
     def get(
         self,
+        id: Union[typing.List[int], int, None] = None,
         job_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         scheduler_id: Optional[int] = None,
@@ -1218,6 +1279,7 @@ class EventLogQuery(Query[EventLog]):
         if no items were found, or EventLog.MultipleObjectsReturned if
         more than one item matched the query.
 
+        id:               Only return EventLogs having an id in this list.
         job_id:           Only return Events associated with Job IDs in this list.
         batch_job_id:     Only return Events associated this BatchJob id.
         scheduler_id:     Only return Events associated with this HPC scheduler job ID.
@@ -1233,6 +1295,7 @@ class EventLogQuery(Query[EventLog]):
 
     def filter(
         self,
+        id: Union[typing.List[int], int, None] = None,
         job_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         scheduler_id: Optional[int] = None,
@@ -1248,6 +1311,7 @@ class EventLogQuery(Query[EventLog]):
         if no items were found, or EventLog.MultipleObjectsReturned if
         more than one item matched the query.
 
+        id:               Only return EventLogs having an id in this list.
         job_id:           Only return Events associated with Job IDs in this list.
         batch_job_id:     Only return Events associated this BatchJob id.
         scheduler_id:     Only return Events associated with this HPC scheduler job ID.
@@ -1285,6 +1349,7 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
 
     def get(
         self,
+        id: Union[typing.List[int], int, None] = None,
         job_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         scheduler_id: Optional[int] = None,
@@ -1300,6 +1365,7 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
         if no items were found, or EventLog.MultipleObjectsReturned if
         more than one item matched the query.
 
+        id:               Only return EventLogs having an id in this list.
         job_id:           Only return Events associated with Job IDs in this list.
         batch_job_id:     Only return Events associated this BatchJob id.
         scheduler_id:     Only return Events associated with this HPC scheduler job ID.
@@ -1315,6 +1381,7 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
 
     def filter(
         self,
+        id: Union[typing.List[int], int, None] = None,
         job_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         scheduler_id: Optional[int] = None,
@@ -1328,6 +1395,7 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
         """
         Returns a EventLog Query returning items matching the filter criteria.
 
+        id:               Only return EventLogs having an id in this list.
         job_id:           Only return Events associated with Job IDs in this list.
         batch_job_id:     Only return Events associated this BatchJob id.
         scheduler_id:     Only return Events associated with this HPC scheduler job ID.

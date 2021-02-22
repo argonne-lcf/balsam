@@ -6,7 +6,7 @@ import tempfile
 import time
 from contextlib import closing
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 import psutil  # type: ignore
@@ -21,24 +21,7 @@ from balsam.server import models
 from balsam.site.app import sync_apps
 from balsam.util import postgres as pg
 
-PLATFORMS: Set[str] = {"alcf_theta", "alcf_thetagpu", "alcf_cooley", "generic"}
-
-
-def _get_platform() -> str:
-    plat = os.environ.get("BALSAM_TEST_PLATFORM", "generic")
-    return plat
-
-
-def _get_test_api_url() -> Optional[str]:
-    return os.environ.get("BALSAM_TEST_API_URL")
-
-
-def _get_test_db_url() -> str:
-    return os.environ.get("BALSAM_TEST_DB_URL", "postgresql://postgres@localhost:5432/balsam-test")
-
-
-def _get_test_dir() -> Optional[str]:
-    return os.environ.get("BALSAM_TEST_DIR")
+from .test_platform import PLATFORMS, get_platform, get_test_api_url, get_test_db_url, get_test_dir, get_test_log_dir
 
 
 def pytest_runtest_setup(item: Any) -> None:
@@ -48,7 +31,7 @@ def pytest_runtest_setup(item: Any) -> None:
     @pytest.mark.alcf_theta
     """
     supported_platforms = PLATFORMS.intersection(mark.name for mark in item.iter_markers())
-    plat = _get_platform()
+    plat = get_platform()
     if supported_platforms and plat not in supported_platforms:
         pytest.skip("cannot run on platform {}".format(plat))
 
@@ -59,9 +42,9 @@ def setup_database() -> Optional[str]:
     If `BALSAM_TEST_API_URL` is exported do nothing: the database is managed elsewhere.
     Otherwise, configure the Test DB and wipe it clean.
     """
-    if _get_test_api_url():
+    if get_test_api_url():
         return None
-    env_url = _get_test_db_url()
+    env_url = get_test_db_url()
     pg.configure_balsam_server_from_dsn(env_url)
     try:
         session = next(models.get_session())
@@ -87,9 +70,13 @@ def free_port() -> str:
 
 @pytest.fixture(scope="session")
 def test_log_dir() -> Path:
-    """Log directory (persists as artifact after test session)"""
-    base = os.environ.get("BALSAM_LOG_DIR") or Path.cwd()
-    test_log_dir = Path(base).joinpath("pytest-logs")
+    """
+    Log directory (persists as artifact after test session)
+    Used by Live server (gunicorn).
+    At the end of a Site integration test, the Site logs are copied
+    into this directory as well.
+    """
+    test_log_dir = get_test_log_dir()
     if test_log_dir.is_dir():
         shutil.rmtree(test_log_dir)
     test_log_dir.mkdir(exist_ok=False)
@@ -102,7 +89,7 @@ def live_server(setup_database: Optional[str], free_port: str, test_log_dir: Pat
     If `BALSAM_TEST_API_URL` is exported, do a quick liveness check and return URL.
     Otherwise, startup Uvicorn test server and return URL after a liveness check.
     """
-    default_url = _get_test_api_url()
+    default_url = get_test_api_url()
     if default_url:
         _server_health_check(default_url, timeout=2.0, check_interval=0.5)
         yield default_url
@@ -222,10 +209,10 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
     Create new Balsam Site/Apps for BALSAM_TEST_PLATFORM environ
     Yields the SiteConfig and cleans up Site at the end of module scope.
     """
-    plat = _get_platform()
-    tmpdir_top = _get_test_dir()
+    plat = get_platform()
+    tmpdir_top = get_test_dir()
     site_config_path = Path(__file__).parent.joinpath("default-configs", plat).resolve()
-    with tempfile.TemporaryDirectory(prefix="balsam-test", dir=tmpdir_top) as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="balsam-test-site", dir=tmpdir_top) as tmpdir:
         site_path = Path(tmpdir).joinpath("testsite")
         site_config = SiteConfig.new_site_setup(
             site_path=site_path,
@@ -235,8 +222,10 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
         sync_apps(site_config)
         yield site_config
-        for logfile in site_path.joinpath("log").glob("*"):
-            shutil.move(logfile.as_posix(), test_log_dir.as_posix())
+        shutil.copytree(
+            site_path.as_posix(),
+            test_log_dir.joinpath("testsite").as_posix(),
+        )
 
     persistent_client.Site.objects.get(id=site_config.settings.site_id).delete()
     del os.environ["BALSAM_SITE_PATH"]
