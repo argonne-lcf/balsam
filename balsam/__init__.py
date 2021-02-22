@@ -1,3 +1,4 @@
+import setproctitle
 from datetime import datetime
 import time
 import logging
@@ -42,6 +43,9 @@ _logger = logging.getLogger()
 _logger.setLevel(logging.DEBUG)
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
+
+# import and use this module early in program lifetime to avoid issues with module init
+setproctitle.getproctitle()
 
 
 def config_logging(basename, filename=None, buffer_capacity=None):

@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import time
 import tempfile
+from setproctitle import setproctitle
 
 from django import db
 from django.db.models.functions import Cast, Substr
@@ -163,6 +164,7 @@ def main(thread_idx, num_threads, wf_name):
     random.seed(multiprocessing.current_process().pid)
     time.sleep(random.random())
     manager.start_tick()
+    setproctitle(multiprocessing.current_process().name)
 
     try:
         _main(thread_idx, num_threads)
