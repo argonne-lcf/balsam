@@ -245,7 +245,10 @@ def run_service(balsam_site_config: SiteConfig) -> Iterable[SiteConfig]:
     for child in processes:
         child.terminate()
 
-    (gone, alive) = psutil.wait_procs(processes, timeout=10.0)
+    (gone, alive) = psutil.wait_procs(processes, timeout=15.0)
     for child in alive:
-        print(f"WARNING! Force-killing process {child.name()} {child.cmdline()}")
-        child.kill()
+        try:
+            print(f"WARNING! Force-killing process {child.pid}")
+            child.kill()
+        except psutil.ProcessLookupError:
+            pass
