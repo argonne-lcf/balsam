@@ -54,8 +54,9 @@ class MyQueue(Queue):
         super().put(*args, **kwargs)
 
     def get(self, *args, **kwargs):
+        result = super().get(*args, **kwargs)
         self.size.increment(-1)
-        return super().get(*args, **kwargs)
+        return result
 
     def qsize(self):
         """ Reliable implementation of multiprocessing.Queue.qsize() """

@@ -36,6 +36,7 @@ from balsam.launcher.util import get_tail, remaining_time_minutes
 from balsam.core.models import BalsamJob, safe_select, PROCESSABLE_STATES
 from django.conf import settings
 
+# TODO(KGF): this is not available on Windows
 multiprocessing.set_start_method("fork", force=True)
 
 Queue = multiprocessing.Queue
