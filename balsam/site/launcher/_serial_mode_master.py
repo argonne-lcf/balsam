@@ -41,6 +41,7 @@ class Master:
         self.idle_time: Optional[float] = None
         self.active_ids: Set[int] = set()
         self.num_workers = num_workers
+        self.master_port = master_port
 
         next(self.remaining_timer)
 
@@ -48,11 +49,6 @@ class Master:
         self.status_updater.start()
         self.job_source.start()
         logger.debug("Job source/status updater created")
-
-        self.context = zmq.Context()  # type: ignore
-        self.socket = self.context.socket(zmq.REP)  # type: ignore
-        self.socket.bind(f"tcp://*:{master_port}")
-        logger.debug("Master ZMQ socket bound.")
 
     def job_to_dict(self, job: "Job") -> Dict[str, Any]:
         app_cls = self.app_cache[job.app_id]
@@ -129,6 +125,12 @@ class Master:
     def run(self) -> None:
         logger.debug("In master run")
         try:
+            self.context = zmq.Context()  # type: ignore
+            self.context.setsockopt(zmq.LINGER, 0)  # type: ignore
+            self.socket = self.context.socket(zmq.REP)  # type: ignore
+            self.socket.bind(f"tcp://*:{self.master_port}")
+            logger.debug("Master ZMQ socket bound.")
+
             for remaining_minutes in self.remaining_timer:
                 logger.debug(f"{remaining_minutes} minutes remaining")
                 self.handle_request()
@@ -140,6 +142,9 @@ class Master:
             raise
         finally:
             self.shutdown()
+            self.socket.setsockopt(zmq.LINGER, 0)
+            self.socket.close(linger=0)
+            self.context.term()  # type: ignore
             logger.info("shutdown done: ensemble master exit gracefully")
 
     def shutdown(self) -> None:

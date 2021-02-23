@@ -11,7 +11,6 @@ import zmq
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
 from balsam.site.launcher.node_manager import InsufficientResources, NodeManager, NodeSpec
-from balsam.site.launcher.util import countdown_timer_min
 from balsam.util import SigHandler
 
 if TYPE_CHECKING:
@@ -35,17 +34,17 @@ class Worker:
         delay_sec: int,
         error_tail_num_lines: int,
         num_prefetch_jobs: int,
+        master_subproc: "Optional[subprocess.Popen[bytes]]",
     ) -> None:
         self.sig_handler = SigHandler()
         self.hostname = socket.gethostname()
-        self.context = zmq.Context()  # type: ignore
-        self.socket = self.context.socket(zmq.REQ)  # type: ignore
         self.app_run = app_run
         self.node_manager = node_manager
         self.master_address = f"tcp://{master_host}:{master_port}"
-        self.delayer = countdown_timer_min(4320, delay_sec=delay_sec)
+        self.delay_sec = delay_sec
         self.error_tail_num_lines = error_tail_num_lines
         self.num_prefetch_jobs = num_prefetch_jobs
+        self.master_subproc = master_subproc
 
         self.app_runs: Dict[int, "AppRun"] = {}
         self.start_times: Dict[int, float] = {}
@@ -149,7 +148,9 @@ class Worker:
         ids = list(self.app_runs.keys())
         for id in ids:
             self.cleanup_proc(id, timeout=self.CHECK_PERIOD)
-        sys.exit(0)
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close(linger=0)
+        self.context.term()  # type: ignore
 
     def start_jobs(self) -> List[int]:
         started_ids = []
@@ -174,45 +175,52 @@ class Worker:
         self.runnable_cache = {k: v for k, v in self.runnable_cache.items() if k not in started_ids}
         return started_ids
 
+    def cycle(self) -> bool:
+        """Run a cycle of Job dispatch. Returns True if worker should continue; False if time to exit."""
+        done_ids, errors = self.poll_processes()
+        started_ids = self.start_jobs()
+        request_num_jobs = max(0, self.num_prefetch_jobs - len(self.runnable_cache))
+
+        msg = {
+            "source": self.hostname,
+            "started": started_ids,
+            "done": done_ids,
+            "error": errors,
+            "request_num_jobs": request_num_jobs,
+        }
+        self.socket.send_json(msg)
+        logger.debug("Worker awaiting response...")
+        response_msg = self.socket.recv_json()
+        logger.debug("Worker response received")
+
+        if response_msg.get("exit"):
+            logger.info(f"Worker {self.hostname} received exit message: break")
+            return False
+
+        if response_msg.get("new_jobs"):
+            self.runnable_cache.update({job["id"]: job for job in response_msg["new_jobs"]})
+
+        logger.debug(
+            f"{self.hostname} fraction available: {self.node_manager.aggregate_free_nodes()} "
+            f"[{len(self.runnable_cache)} additional prefetched "
+            f"jobs in cache]"
+        )
+        return True
+
     def run(self) -> None:
+        self.context = zmq.Context()  # type: ignore
+        self.context.setsockopt(zmq.LINGER, 0)  # type: ignore
+        self.socket = self.context.socket(zmq.REQ)  # type: ignore
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected to {self.master_address}")
-        while True:
-            done_ids, errors = self.poll_processes()
-            started_ids = self.start_jobs()
-            request_num_jobs = max(0, self.num_prefetch_jobs - len(self.runnable_cache))
 
-            msg = {
-                "source": self.hostname,
-                "started": started_ids,
-                "done": done_ids,
-                "error": errors,
-                "request_num_jobs": request_num_jobs,
-            }
-            self.socket.send_json(msg)
-            logger.debug("Worker awaiting response...")
-            response_msg = self.socket.recv_json()
-            logger.debug("Worker response received")
-
-            if response_msg.get("exit"):
-                logger.info(f"Worker {self.hostname} received exit message: break")
-                break
-
-            if response_msg.get("new_jobs"):
-                self.runnable_cache.update({job["id"]: job for job in response_msg["new_jobs"]})
-
-            logger.debug(
-                f"{self.hostname} fraction available: {self.node_manager.aggregate_free_nodes()} "
-                f"[{len(self.runnable_cache)} additional prefetched "
-                f"jobs in cache]"
-            )
-
-            if self.sig_handler.is_set():
-                logger.info(f"Worker {self.hostname} Signal break")
-                break
-            next(self.delayer)
-
-        self.exit()
+        # Run the Worker loop until master sends "exit" message. Does not quit on SIGTERM.
+        while self.cycle():
+            # If SIGTERM has been received, pass onto master and keep waiting for "exit"
+            time.sleep(self.delay_sec)
+            if self.sig_handler.is_set() and self.master_subproc is not None:
+                self.master_subproc.terminate()
+                logger.info("Signal: forwarded SIGTERM to master subprocess.")
 
 
 def launch_master_subprocess() -> "subprocess.Popen[bytes]":
@@ -247,20 +255,21 @@ def worker_main(
         delay_sec=launch_settings.delay_sec,
         error_tail_num_lines=launch_settings.error_tail_num_lines,
         num_prefetch_jobs=launch_settings.serial_mode_prefetch_per_rank,
+        master_subproc=master_proc,
     )
 
     try:
         logger.debug("Launching worker")
+        # Worker does not quit on SIGTERM; wait until master has sent "exit"
         worker.run()
     except:  # noqa
         raise
     finally:
+        worker.exit()
         if master_proc is not None:
-            logger.debug("Sending SIGTERM to master process")
-            master_proc.terminate()
             try:
-                master_proc.wait(timeout=10)
-                logger.debug("master process shutdown OK")
+                master_proc.wait(timeout=5)
+                logger.info("master process shutdown OK")
             except subprocess.TimeoutExpired:
-                logger.debug("Killing master process")
+                logger.warning("Force-killing master process")
                 master_proc.kill()

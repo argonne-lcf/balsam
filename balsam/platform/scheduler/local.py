@@ -95,6 +95,7 @@ class LocalProcessScheduler(SchedulerInterface):
 
         (gone, alive) = psutil.wait_procs(processes, timeout=10.0)
         for child in alive:
+            logger.warning(f"Force-killing unresponsive PID {child.pid}: {child.name()} {child.cmdline()}")
             child.kill()
         return str(scheduler_id)
 
