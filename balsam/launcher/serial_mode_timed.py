@@ -81,7 +81,7 @@ class SectionTimer:
             result += f'{sec:24} {min_t:8.3f} {max_t:8.3f} {avg_t:8.3f} {percent_t:5.1f}%\n'
         SectionTimer._sections = {}
         SectionTimer.total_elapsed = 0.0
-        logger.info("\n"+result)
+        logger.debug("\n"+result)
 
 class StatusUpdater(multiprocessing.Process):
     def __init__(self):
