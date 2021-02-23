@@ -144,7 +144,9 @@ def acquire(
 
     for job in acquired_jobs:
         job.session_id = session.id
-        job.batch_job_id = session.batch_job_id
+        # Do not overwrite job.batch_job_id with a Session that has no batch_job_id:
+        if session.batch_job_id is not None:
+            job.batch_job_id = session.batch_job_id
         job.parent_ids = [parent.id for parent in job.parents]
     db.flush()
     logger.debug("Acquired jobs with states:", [job.state for job in acquired_jobs])

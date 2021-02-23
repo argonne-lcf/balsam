@@ -1,6 +1,5 @@
 import json
 import logging
-import signal
 import time
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +13,7 @@ from balsam.schemas import JobState
 from balsam.site import ApplicationDefinition, BulkStatusUpdater, SynchronousJobSource
 from balsam.site.launcher.node_manager import NodeManager
 from balsam.site.launcher.util import countdown_timer_min
+from balsam.util import SigHandler
 
 logger = logging.getLogger("balsam.site.launcher.mpi_mode")
 
@@ -46,7 +46,6 @@ class Launcher:
         self.job_source = job_source
         self.status_updater = status_updater
         self.timer = countdown_timer_min(max(1, wall_time_min - 2), delay_sec)
-        self.exit_flag = False
 
         self.status_updater.start()
         self.job_source.start()
@@ -54,17 +53,13 @@ class Launcher:
         self.idle_time: Optional[float] = None
         self.max_concurrent_runs = max_concurrent_runs
 
-        def signal_handler(signum: int, stack: Any) -> None:
-            self.exit_flag = True
-
-        signal.signal(signal.SIGTERM, signal_handler)
-        signal.signal(signal.SIGINT, signal_handler)
+        self.sig_handler = SigHandler()
 
     def time_step(self) -> None:
         try:
             min_left = next(self.timer)
         except StopIteration:
-            self.exit_flag = True
+            self.sig_handler.set()
             return
 
         m, s = map(int, divmod(min_left * 60, 60))
@@ -75,7 +70,7 @@ class Launcher:
             if self.idle_time is None:
                 self.idle_time = time.time()
             elif time.time() - self.idle_time > self.idle_ttl_sec:
-                self.exit_flag = True
+                self.sig_handler.set()
                 logger.info(f"Exceeded {self.idle_ttl_sec} sec TTL: shutting down because nothing to do")
         else:
             self.idle_time = None
@@ -184,7 +179,7 @@ class Launcher:
 
     def run(self) -> None:
         try:
-            while not self.exit_flag:
+            while not self.sig_handler.is_set():
                 self.time_step()
                 self.launch_runs()
                 self.update_states()

@@ -1,22 +1,15 @@
 import logging
 import multiprocessing
 import os
-import signal
 import socket
 import time
 from pathlib import Path
 from typing import Any
 
 from balsam.config import SiteConfig
+from balsam.util import SigHandler
 
 logger = logging.getLogger("balsam.site.service.main")
-
-EXIT_FLAG = False
-
-
-def handler(signum: int, stack: Any) -> None:
-    global EXIT_FLAG
-    EXIT_FLAG = True
 
 
 class PIDFile:
@@ -38,6 +31,7 @@ class PIDFile:
 
 def main(config: SiteConfig, run_time_sec: int) -> None:
     start_time = time.time()
+    sig_handler = SigHandler()
     config.enable_logging(basename="service")
     m, s = divmod(run_time_sec, 60)
     h, m = divmod(m, 60)
@@ -47,16 +41,22 @@ def main(config: SiteConfig, run_time_sec: int) -> None:
 
     services = config.build_services()
 
-    signal.signal(signal.SIGINT, handler)
-    signal.signal(signal.SIGTERM, handler)
-
     for service in services:
         logger.info(f"Starting service: {service.__class__.__name__}")
         service.start()
 
-    while not EXIT_FLAG and (time.time() - start_time) < run_time_sec:
-        logger.debug("Service sleeping 2...")
-        time.sleep(2)
+    while not sig_handler.wait_until_exit(timeout=60):
+        elapsed = time.time() - start_time
+        if elapsed > run_time_sec:
+            logger.info("Exceeded max service runtime")
+            break
+        remaining = int(run_time_sec - elapsed)
+        m, s = divmod(remaining, 60)
+        if (m, s) >= (60, 0):
+            h, m = divmod(m, 60)
+            logger.info(f"{h:02d}h:{m:02d}m remaining")
+        else:
+            logger.info(f"{m:02d}m:{s:02d}s remaining")
 
     logger.info("Terminating services...")
     for service in services:
@@ -72,7 +72,12 @@ def main(config: SiteConfig, run_time_sec: int) -> None:
 if __name__ == "__main__":
     multiprocessing.set_start_method("fork", force=True)
     config = SiteConfig()
-    run_time_sec = int(config.client.expires_in.total_seconds() - 60)
+    run_time_sec = int(config.client.expires_in.total_seconds() - 120)
+    if run_time_sec < 10:
+        raise RuntimeError(
+            f"Client authorization will expire in {run_time_sec+120} seconds. Please refresh auth with `balsam login`."
+        )
+
     with PIDFile(config.site_path):
         main(config, run_time_sec)
     logger.info(f"Balsam service [pid {os.getpid()}] goodbye: exited PIDFile context manager.")

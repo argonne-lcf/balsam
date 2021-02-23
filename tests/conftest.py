@@ -239,16 +239,12 @@ def run_service(balsam_site_config: SiteConfig) -> Iterable[SiteConfig]:
     proc = start_site(balsam_site_config.site_path)
     yield balsam_site_config
     parent = psutil.Process(proc.pid)
-    for child in parent.children(recursive=True):
-        child.terminate()
-    parent.terminate()
+    processes = parent.children(recursive=True)
+    processes.append(parent)
 
-    for child in parent.children(recursive=True):
-        try:
-            child.wait(timeout=10.0)
-        except psutil.TimeoutExpired:
-            child.kill()
-    try:
-        parent.wait(timeout=10.0)
-    except psutil.TimeoutExpired:
-        parent.kill()
+    for child in processes:
+        child.terminate()
+
+    (gone, alive) = psutil.wait_procs(processes, timeout=10.0)
+    for child in alive:
+        child.kill()

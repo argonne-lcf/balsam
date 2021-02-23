@@ -1,4 +1,5 @@
 import getpass
+import logging
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -7,6 +8,7 @@ import psutil  # type: ignore
 
 from .scheduler import SchedulerBackfillWindow, SchedulerInterface, SchedulerJobLog, SchedulerJobStatus
 
+logger = logging.getLogger(__name__)
 PathLike = Union[str, Path]
 
 
@@ -78,8 +80,22 @@ class LocalProcessScheduler(SchedulerInterface):
         """
         Deletes the batch job matching `scheduler_id`
         """
-        if psutil.pid_exists(scheduler_id):
-            psutil.Process(scheduler_id).terminate()
+        logger.info(f"Delete Job {scheduler_id}")
+        if not psutil.pid_exists(scheduler_id):
+            logger.info(f"Delete Job could not find local PID {scheduler_id}")
+            return str(scheduler_id)
+
+        parent = psutil.Process(scheduler_id)
+        processes = parent.children(recursive=True)
+        processes.append(parent)
+
+        for child in processes:
+            logger.debug(f"SIGTERM process {child.pid}")
+            child.terminate()
+
+        (gone, alive) = psutil.wait_procs(processes, timeout=10.0)
+        for child in alive:
+            child.kill()
         return str(scheduler_id)
 
     @classmethod

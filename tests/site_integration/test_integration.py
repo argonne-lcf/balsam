@@ -1,6 +1,7 @@
 import time
+from datetime import datetime
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Iterable, List
 
 import pytest
 
@@ -8,6 +9,7 @@ from balsam._api.models import BatchJob, EventLog, Job
 from balsam.client import RESTClient
 from balsam.config import SiteConfig
 from balsam.schemas import JobMode
+from balsam.schemas.batchjob import BatchJobState
 
 from ..test_platform import get_launcher_startup_timeout
 
@@ -29,7 +31,7 @@ def _liveness_check(batch_job: BatchJob, timeout: float = 10.0, check_period: fl
 
 
 @pytest.fixture(scope="class", params=[JobMode.mpi, JobMode.serial])
-def launcher_job(run_service: SiteConfig, request: Any) -> BatchJob:
+def launcher_job(run_service: SiteConfig, request: Any) -> Iterable[BatchJob]:
     """
     Submit 1 node launcher and block until live.
     Launcher can be reused within a class.
@@ -49,8 +51,20 @@ def launcher_job(run_service: SiteConfig, request: Any) -> BatchJob:
         project=project,
         queue=queue,
     )
+    print("Created BatchJob id:", batch_job.id)
     _liveness_check(batch_job, timeout=get_launcher_startup_timeout(), check_period=1.0)
-    return batch_job
+    print("BatchJob started:", batch_job.id, datetime.now())
+    yield batch_job
+    batch_job.state = BatchJobState.pending_deletion
+    batch_job.save()
+    print("Killing BatchJob id:", batch_job.id)
+    for _ in range(15):
+        time.sleep(1)
+        batch_job.refresh_from_db()
+        if batch_job.state == "finished":
+            print("BatchJob id FINISHED at", batch_job.id)
+            return
+    raise RuntimeError("Launcher did not end within 10 seconds.")
 
 
 @pytest.fixture(scope="function")
@@ -116,6 +130,7 @@ class TestSingleNodeMPIMode:
         assert all(job.state == "STAGED_IN" for job in jobs)
         poll_until_state(jobs, "JOB_FINISHED", timeout=60)
         for i, job in enumerate(jobs):
+            print("Job:", job)
             assert job.state in [
                 "JOB_FINISHED",
                 "RUN_DONE",

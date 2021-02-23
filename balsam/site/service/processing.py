@@ -1,16 +1,15 @@
 import logging
 import os
 import queue
-import signal
 import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Type, Union
+from typing import TYPE_CHECKING, Dict, Iterator, Optional, Type, Union
 
 from balsam.schemas import JobState
 from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobSource
-from balsam.util import Process
+from balsam.util import Process, SigHandler
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient
@@ -69,17 +68,10 @@ def run_worker(
     app_cache: Dict[int, Type[ApplicationDefinition]],
     data_path: PathLike,
 ) -> None:
-    EXIT_FLAG = False
-
-    def sig_handler(signum: int, stack: Any) -> None:
-        nonlocal EXIT_FLAG
-        EXIT_FLAG = True
-
-    signal.signal(signal.SIGINT, sig_handler)
-    signal.signal(signal.SIGTERM, sig_handler)
+    sig_handler = SigHandler()
     data_path = Path(data_path).resolve()
 
-    while not EXIT_FLAG:
+    while not sig_handler.is_set():
         try:
             job = job_source.get(timeout=1)
         except queue.Empty:

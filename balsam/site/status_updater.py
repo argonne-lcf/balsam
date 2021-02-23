@@ -1,12 +1,11 @@
 import logging
 import queue
-import signal
 from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from balsam.schemas import JobState
-from balsam.util import Process
+from balsam.util import Process, SigHandler
 
 from .util import Queue
 
@@ -24,16 +23,9 @@ class StatusUpdater(Process):
 
     def _run(self) -> None:
         self.client.close_session()
-        EXIT_FLAG = False
+        sig_handler = SigHandler()
 
-        def handler(signum: Any, stack: Any) -> Any:
-            nonlocal EXIT_FLAG
-            EXIT_FLAG = True
-
-        signal.signal(signal.SIGINT, handler)
-        signal.signal(signal.SIGTERM, handler)
-
-        while not EXIT_FLAG:
+        while not sig_handler.is_set():
             try:
                 item = self.queue.get(block=True, timeout=1)
             except queue.Empty:

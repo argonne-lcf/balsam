@@ -1,9 +1,7 @@
 import logging
-import signal
-from threading import Event
 from typing import TYPE_CHECKING, Any
 
-from balsam.util import Process
+from balsam.util import Process, SigHandler
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient
@@ -16,18 +14,14 @@ class BalsamService(Process):
         super().__init__(*args, **kwargs)
         self.client = client
         self._service_period = service_period
-        self._exit_event = Event()
-
-    def sig_handler(self, signum: Any, stack: Any) -> None:
-        self._exit_event.set()
 
     def _run(self, *args: Any, **kwargs: Any) -> None:
-        signal.signal(signal.SIGINT, self.sig_handler)
-        signal.signal(signal.SIGTERM, self.sig_handler)
+        self.sig_handler = SigHandler()
         self.client.close_session()
-        while not self._exit_event.wait(timeout=self._service_period):
+
+        while not self.sig_handler.wait_until_exit(timeout=self._service_period):
             self.run_cycle()
-        logger.info(f"EXIT_FLAG: {self.__class__.__name__} Process cleaning up")
+        logger.info(f"Signal: {self.__class__.__name__} Process cleaning up")
         self.cleanup()
         logger.info(f"{self.__class__.__name__} Process exit")
 

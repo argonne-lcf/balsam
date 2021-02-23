@@ -1,13 +1,12 @@
 import logging
 import queue
-import signal
 import threading
 import time
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from balsam.schemas import JobState
-from balsam.util import Process
+from balsam.util import Process, SigHandler
 
 from .util import Queue
 
@@ -116,15 +115,8 @@ class FixedDepthJobSource(Process):
         return job
 
     def _run(self) -> None:
-        EXIT_FLAG = False
+        sig_handler = SigHandler()
         self.client.close_session()
-
-        def handler(signum: int, stack: Any) -> None:
-            nonlocal EXIT_FLAG
-            EXIT_FLAG = True
-
-        signal.signal(signal.SIGINT, handler)
-        signal.signal(signal.SIGTERM, handler)
 
         if self.session_thread is None:
             self.session_thread = SessionThread(
@@ -134,8 +126,7 @@ class FixedDepthJobSource(Process):
 
         assert self.session is not None
 
-        while not EXIT_FLAG:
-            time.sleep(1)
+        while not sig_handler.wait_until_exit(timeout=1):
             qsize = self.queue.qsize()
             fetch_count = max(0, self.prefetch_depth - qsize)
             logger.debug(f"JobSource queue depth is currently {qsize}. Fetching {fetch_count} more")
@@ -143,6 +134,11 @@ class FixedDepthJobSource(Process):
                 params = self._get_acquire_parameters(fetch_count)
                 jobs = self.session.acquire_jobs(**params)
                 if jobs:
+                    logger.debug(
+                        f"Acquired from session {self.session.id} (batch_job_id {self.session.batch_job_id})"
+                    )
+                    for job in jobs:
+                        logger.debug(f"Acquired id {job.id}: batch_job_id {job.batch_job_id}")
                     logger.info(f"JobSource acquired {len(jobs)} jobs:")
                 for job in jobs:
                     self.queue.put_nowait(job)
@@ -236,4 +232,8 @@ class SynchronousJobSource(object):
             states=self.states,
             app_ids=self.app_ids,
         )
+        if jobs:
+            logger.debug(f"Acquired from session {self.session.id} (batch_job_id {self.session.batch_job_id})")
+            for job in jobs:
+                logger.debug(f"Acquired id {job.id}: batch_job_id {job.batch_job_id}")
         return jobs

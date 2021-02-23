@@ -9,6 +9,8 @@ from typing import Any, Union
 
 import multiprocessing_logging  # type: ignore
 
+from .sighandler import SigHandler
+
 
 class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
     """
@@ -103,6 +105,9 @@ def config_file_logging(
     file_handler.setFormatter(formatter)
     root_logger.handlers.clear()
     root_logger.addHandler(mem_handler)
+
+    # Trap SIGTERM, SIGINT to avoid broken pipes:
+    SigHandler()
     multiprocessing_logging.install_mp_handler(logger=root_logger)
     root_logger.info(f"Configured logging on {socket.gethostname()}")
     sys.excepthook = log_uncaught_exceptions

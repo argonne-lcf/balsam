@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import shlex
-import signal
 import subprocess
 import sys
 from datetime import datetime
@@ -18,17 +17,12 @@ from balsam.platform.app_run import AppRun
 from balsam.platform.compute_node import ComputeNode
 from balsam.schemas import BatchJobPartition
 from balsam.site.launcher import NodeSpec
+from balsam.util import SigHandler
 
-EXIT_FLAG = False
 MPI_MODE_PATH = find_spec("balsam.site.launcher.mpi_mode").origin  # type: ignore
 SERIAL_MODE_PATH = find_spec("balsam.site.launcher.serial_mode").origin  # type: ignore
 PART_INDEX = 0
 logger = logging.getLogger("balsam.cmdline.launcher")
-
-
-def handle_term(signum: int, stack: Any) -> None:
-    global EXIT_FLAG
-    EXIT_FLAG = True
 
 
 def get_run_basename(base: str) -> str:
@@ -122,7 +116,6 @@ def launcher(
     partitions: List[BatchJobPartition],
     wall_time_min: int,
 ) -> None:
-    global EXIT_FLAG
     site_config = load_site_config()
     node_cls = site_config.settings.launcher.compute_node
     nodes = node_cls.get_job_nodelist()
@@ -139,8 +132,7 @@ def launcher(
         part["nodes"] = nodes[start:end]
         idx += num_nodes
 
-    signal.signal(signal.SIGINT, handle_term)
-    signal.signal(signal.SIGTERM, handle_term)
+    sig_handler = SigHandler()
 
     launcher_procs = []
     for part in partition_dicts:
@@ -160,7 +152,7 @@ def launcher(
             )
         launcher_procs.append(proc)
 
-    while launcher_procs and not EXIT_FLAG:
+    while launcher_procs and not sig_handler.is_set():
         done_procs = []
         for proc in launcher_procs:
             try:

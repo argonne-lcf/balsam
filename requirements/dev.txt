@@ -11,6 +11,7 @@ flake8
 pre-commit
 pytest
 pytest-cov
+pytest-mock
 isort
 sqlalchemy-stubs
 mkdocs-material
