@@ -1,6 +1,7 @@
 from django.conf import settings
 from balsam.service.schedulers import JobEnv
 from balsam.launcher import mpi_commands
+import socket
 import logging
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class WorkerGroup:
             ) from e
 
         self.setup()
-        
+
         mpirun_class_name = settings.MPI_RUN_TEMPLATE
         try:
             mpirun_class = getattr(mpi_commands, mpirun_class_name)
@@ -64,8 +65,8 @@ class WorkerGroup:
         # Apply limit and offset
         if limit is not None:
             if offset is None:
-                self.workers = self.workers[:limit] 
-            else: 
+                self.workers = self.workers[:limit]
+            else:
                 self.workers = self.workers[offset:offset+limit]
         elif offset is not None:
                 self.workers = self.workers[offset:]
@@ -155,5 +156,5 @@ class WorkerGroup:
         self.setup_COOLEY()
 
     def setup_DEFAULT(self):
-        w = Worker(1, host_type='DEFAULT', num_nodes=1)
+        w = Worker(socket.gethostname(), host_type='DEFAULT', num_nodes=1)
         self.workers.append(w)
