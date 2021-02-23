@@ -4,7 +4,8 @@ import os
 import sys
 import logging
 import random
-from subprocess import Popen, STDOUT, TimeoutExpired
+import subprocess
+
 import multiprocessing
 import queue
 import shlex
@@ -24,7 +25,7 @@ except AttributeError:
         def cpu_affinity(self, list): pass
     _p = MockPsutilProcess()
     print("No psutil CPU Affinity support: will not bind processes to cores.")
-    
+
 
 
 from django.db import transaction, connections
@@ -96,7 +97,7 @@ class StatusUpdater(multiprocessing.Process):
             updates = [first_item]
             waited = False
             while True:
-                try: 
+                try:
                     updates.append(self.queue.get(block=False))
                 except queue.Empty:
                     if waited:
@@ -110,16 +111,16 @@ class StatusUpdater(multiprocessing.Process):
 
         self._on_exit()
         logger.info(f"StatusUpdater thread finished.")
-    
+
     def set_exit(self):
         self.queue.put('exit')
-    
+
     def perform_updates(self, updates):
         raise NotImplementedError
 
     def _on_exit(self):
         pass
-    
+
 class BalsamDBStatusUpdater(StatusUpdater):
     def perform_updates(self, update_msgs):
         start_pks = []
@@ -286,7 +287,7 @@ class Master:
         self.status_updater.start()
         self.job_source.start()
         logger.debug("source/status updater created")
-        
+
         logger.debug("Master ZMQ binding...")
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
@@ -434,7 +435,7 @@ class Worker:
             p.terminate()
             logger.debug(f"worker {self.hostname} sent TERM to {self.cuteids[pk]}...waiting on shutdown")
             try: p.wait(timeout=timeout)
-            except TimeoutExpired: p.kill()
+            except subprocess.TimeoutExpired: p.kill()
 
     def _launch_proc(self, pk):
         with SectionTimer(f'{self.hostname}_prep_job'):
@@ -466,7 +467,7 @@ class Worker:
             self.job_specs[pk]['used_affinity'] = open_affinity[0:required_num_cores]
 
             out_name = f'{name}.out'
-        
+
         with SectionTimer(f'{self.hostname}_log_WORKER_START'):
             logger.debug(f"{self.log_prefix(pk)} WORKER_START")
         with SectionTimer(f'{self.hostname}_log_Popen'):
@@ -481,8 +482,8 @@ class Worker:
             # Set this job's affinity:
             with SectionTimer(f'{self.hostname}_Popen'):
                 _p.cpu_affinity(self.job_specs[pk]['used_affinity'])
-                proc = Popen(args, stdout=outfile, stderr=STDOUT,
-                              cwd=workdir, env=envs, shell=shell,)
+                proc = subprocess.Popen(args, stdout=outfile, stderr=subprocess.STDOUT,
+                                        cwd=workdir, env=envs, shell=shell,)
                 # And, reset to all:
                 _p.cpu_affinity([])
         except Exception as e:
@@ -607,13 +608,20 @@ class Worker:
                 time.sleep(1)
 
         self.exit()
-    
+
+
+def launch_master_subprocess() -> "subprocess.Popen[bytes]":
+    args = [sys.executable] + sys.argv + ["--run-master"]
+    return subprocess.Popen(args)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--master-address', required=True)
     parser.add_argument('--log-filename', required=True)
     parser.add_argument('--num-workers', type=int, required=True)
     parser.add_argument('--wf-name')
+    parser.add_argument('--run-master', action='store_true')
     parser.add_argument('--time-limit-min', type=float, default=72.*60)
     parser.add_argument('--gpus-per-node', type=int, default=0)
     parser.add_argument('--db-prefetch-count', type=int, default=0)
@@ -627,25 +635,29 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
-    if hostname == args.master_host:
-        log_fname = args.log_filename + ".master"
-    else:
-        log_fname = args.log_filename + "." + hostname
-    config_logging(
-        'serial-launcher',
-        filename=log_fname,
-        buffer_capacity=128,
-    )
 
-    if hostname == args.master_host:
+    def handle_term(signum, stack): master.EXIT_FLAG = True
+    signal.signal(signal.SIGINT, handle_term)
+    signal.signal(signal.SIGTERM, handle_term)
+
+    if args.run_master:
+        log_fname = args.log_filename + ".master"
+        config_logging(
+            'serial-launcher',
+            filename=log_fname,
+            buffer_capacity=128,
+        )
         master = Master(args)
-        def handle_term(signum, stack): master.EXIT_FLAG = True
-        signal.signal(signal.SIGINT, handle_term)
-        signal.signal(signal.SIGTERM, handle_term)
         master.main()
     else:
+        log_fname = args.log_filename + "." + hostname
+        config_logging(
+            'serial-launcher',
+            filename=log_fname,
+            buffer_capacity=128,
+        )
+        if hostname == args.master_host:
+            logger.debug(f"Worker starting Master on {args.master_address}")
+            master_proc = launch_master_subprocess()
         worker = Worker(args, hostname=hostname)
-        def handle_term(signum, stack): worker.EXIT_FLAG = True
-        signal.signal(signal.SIGINT, handle_term)
-        signal.signal(signal.SIGTERM, handle_term)
         worker.main()
