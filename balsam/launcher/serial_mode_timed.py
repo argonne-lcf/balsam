@@ -36,6 +36,8 @@ from balsam.launcher.util import get_tail, remaining_time_minutes
 from balsam.core.models import BalsamJob, safe_select, PROCESSABLE_STATES
 from django.conf import settings
 
+multiprocessing.set_start_method("fork", force=True)
+
 Queue = multiprocessing.Queue
 try:
     Queue().qsize()
