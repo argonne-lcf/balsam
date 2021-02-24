@@ -275,12 +275,13 @@ class Master:
         self.DELAY_PERIOD = 0.2
         self.idle_time = 0.0
         self.EXIT_FLAG = False
+        self.num_workers = args.num_workers
 
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
 
         if args.db_prefetch_count == 0:
-            prefetch = args.num_workers * 96
+            prefetch = self.num_workers * 96
         else:
             prefetch = args.db_prefetch_count
 
@@ -331,6 +332,9 @@ class Master:
                 break
 
         self.shutdown()
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close(linger=0)
+        self.context.term()  # type: ignore
         logger.info(f"shutdown done: ensemble master exit gracefully")
 
     def shutdown(self):
@@ -346,6 +350,11 @@ class Master:
         self.job_source.set_exit()
         self.job_source.join()
         logger.info(f"JobSource has joined.")
+        logger.info("Master sending exit message to all Workers")
+        for _ in range(self.num_workers):
+            self.socket.recv_json()
+            self.socket.send_json({"exit": True})
+        logger.info("All workers have received exit message. Quitting.")
 
 
 class FailedToStartProcess:
@@ -363,12 +372,13 @@ class Worker:
     RETRY_CODES = [-11, 1, 255, 12345]
     MAX_RETRY = 3
 
-    def __init__(self, args, hostname):
+    def __init__(self, args, hostname, master_subproc=None):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
         self.master_address = f"tcp://{args.master_address}"
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         self.hostname = hostname
+        self.master_subproc=master_subproc
         next(self.remaining_timer)
         self.EXIT_FLAG = False
 
@@ -596,6 +606,9 @@ class Worker:
                         job['pk']: job
                         for job in response_msg["new_jobs"]
                     })
+                if response_msg.get('exit'):
+                    logger.info(f"Worker {self.hostname} received exit message: break")
+                    self.exit()
 
             with SectionTimer(f'{self.hostname}_log_occ'):
                 logger.debug(
@@ -605,8 +618,10 @@ class Worker:
                 )
 
             if self.EXIT_FLAG:
-                logger.info(f"Worker {self.hostname} EXIT_FLAG break")
-                break
+                if self.master_subproc is not None:
+                    logger.info("Signal: forwarding SIGTERM to master subprocess.")
+                    self.master_subproc.terminate()
+                    logger.info("Signal: forwarded SIGTERM to master subprocess.")
             with SectionTimer(f'{self.hostname}_sleep1'):
                 time.sleep(1)
 
@@ -639,10 +654,6 @@ if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
 
-    def handle_term(signum, stack): master.EXIT_FLAG = True
-    signal.signal(signal.SIGINT, handle_term)
-    signal.signal(signal.SIGTERM, handle_term)
-
     if args.run_master:
         log_fname = args.log_filename + ".master"
         config_logging(
@@ -651,6 +662,11 @@ if __name__ == "__main__":
             buffer_capacity=128,
         )
         master = Master(args)
+        # TODO(KGF): factor out signal handling to SigHandler class
+        # (util/sighandler.py) like in B2 1fc1824c
+        def handle_term(signum, stack): master.EXIT_FLAG = True
+        signal.signal(signal.SIGINT, handle_term)
+        signal.signal(signal.SIGTERM, handle_term)
         master.main()
     else:
         log_fname = args.log_filename + "." + hostname
@@ -662,5 +678,8 @@ if __name__ == "__main__":
         if hostname == args.master_host:
             logger.debug(f"Worker starting Master on {args.master_address}")
             master_proc = launch_master_subprocess()
-        worker = Worker(args, hostname=hostname)
+        worker = Worker(args, hostname=hostname, master_subproc=master_proc)
+        def handle_term(signum, stack): worker.EXIT_FLAG = True
+        signal.signal(signal.SIGINT, handle_term)
+        signal.signal(signal.SIGTERM, handle_term)
         worker.main()
