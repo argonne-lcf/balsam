@@ -291,7 +291,11 @@ def submitlaunch(args):
     setup()
     from balsam.service import service
     from balsam.core import models
+    Job = models.BalsamJob
     from django.db import connection, transaction
+
+    if not Job.objects.filter(workflow=args.wf_filter).exists():
+        raise RuntimeError(f"No job with wf_filter={args.wf_filter} registered in local DB")
 
     # Exclusive Lock on core_queuedlaunch
     with transaction.atomic():
