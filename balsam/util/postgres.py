@@ -157,7 +157,7 @@ def version_check() -> bool:
         check=True,
     )
     stdout = p.stdout.strip()
-    pattern = re.compile(r"(\d+\.)?(\d+\.)?(\*|\d+)$")
+    pattern = re.compile(r"(\d+\.)?(\d+\.)?(\*|\d+)")
     search_result = pattern.search(stdout)
     if not search_result:
         raise RuntimeError(f"Could not parse Postgres version from `pg_ctl --version`: {stdout}")
