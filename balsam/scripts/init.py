@@ -27,7 +27,7 @@ def check_postgres():
         check=True
     )
     stdout = p.stdout.strip()
-    pattern = re.compile(r'(\d+\.)?(\d+\.)?(\*|\d+)$')
+    pattern = re.compile(r'(\d+\.)?(\d+\.)?(\*|\d+)')
     match = pattern.search(stdout).group()
     major, minor, *rest = match.split('.')
     if rest and int(rest[0])>0:
