@@ -852,6 +852,7 @@ class ApplicationDefinition(models.Model):
     name = models.TextField(
         'Application Name',
         help_text='The name of an application that can be run locally.',
+        unique = True,
         default='')
     description = models.TextField(
         'Application Description',
