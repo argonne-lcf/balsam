@@ -29,7 +29,7 @@ launcher:
     max_concurrent_mpiruns: 990 # Maximum number of runs in a single MPI-mode launcher
     
     # Launcher platform interfaces:
-    compute_node: balsam.platform.compute_node.CoriKnlNode
+    compute_node: balsam.platform.compute_node.CoriKNLNode
     mpi_app_launcher: balsam.platform.app_run.SlurmRun
     local_app_launcher: balsam.platform.app_run.LocalAppRun
     mpirun_allows_node_packing: true # mpi_app_launcher supports multiple concurrent runs per node
@@ -110,4 +110,3 @@ queue_maintainer: null
 #     num_queued_jobs: 5
 #     num_nodes: 128
 #     wall_time_min: 60
-
