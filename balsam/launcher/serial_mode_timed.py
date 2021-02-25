@@ -319,10 +319,11 @@ class Master:
                 logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
     def main(self):
-        logger.debug("In master main")
+        logger.debug(f"In master main(), MAX_IDLE_TIME={self.MAX_IDLE_TIME} seconds")
         for remaining_minutes in self.remaining_timer:
             with SectionTimer("master_log_time"):
                 logger.debug(f"{remaining_minutes} minutes remaining")
+                logger.debug(f"{self.idle_time} seconds of idle time")
             self.handle_request()
             if self.EXIT_FLAG:
                 logger.info("EXIT_FLAG on; master breaking main loop")

@@ -99,6 +99,8 @@ def newjob(args):
 
     print(job)
     if not args.yes:
+        num_wf_jobs = Job.objects.filter(workflow=job.workflow).count()
+        print(f"[INFO]: The workflow \"{job.workflow}\" currently has {num_wf_jobs} jobs in the database")
         if not cmd_confirmation('Confirm adding job to DB'):
             print("Add job aborted")
             return
