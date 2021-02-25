@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Optional, Union
 
 from .compute_node import ComputeNode
 
@@ -39,6 +39,13 @@ class CoriHaswellNode(ComputeNode):
                 node_ids.append(lo)
 
         return [cls(node_id, f"nid{node_id:05d}") for node_id in node_ids]
+
+    @staticmethod
+    def get_scheduler_id() -> Optional[int]:
+        id = os.environ.get("SLURM_JOB_ID")
+        if id is not None:
+            return int(id)
+        return None
 
 
 if __name__ == "__main__":
