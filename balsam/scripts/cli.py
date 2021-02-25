@@ -205,11 +205,12 @@ def make_parser():
     # --
     parser_rm = subparsers.add_parser('rm', help="remove jobs or applications from the database")
     parser_rm.set_defaults(func=rm)
-    parser_rm.add_argument('objects', choices=['jobs', 'apps'], help="permanently delete jobs or apps from DB")
+    parser_rm.add_argument('objects', choices=['jobs', 'apps', 'job', 'app'], help="permanently delete jobs or apps from DB")
     parser_rm.add_argument('--force', action='store_true', help="force delete")
+    parser_rm.add_argument('--wf-filter', type=str, default=None, help="Filter jobs matching a workflow")
     group = parser_rm.add_mutually_exclusive_group(required=True)
-    group.add_argument('--name', help="match any substring of job name")
-    group.add_argument('--id', help="match any substring of job id")
+    group.add_argument('--name', type=str, default=None, help="match any substring of job name")
+    group.add_argument('--id', type=str, default=None, help="match any substring of job id")
     group.add_argument('--all', action='store_true', help="delete all objects in the DB")
     # --------------------------------------------------------------------------------------------------
 
