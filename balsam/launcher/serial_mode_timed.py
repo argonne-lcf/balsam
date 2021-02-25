@@ -277,6 +277,7 @@ class Master:
         self.EXIT_FLAG = False
         self.num_workers = args.num_workers
         self.active_ids = set()
+        self.is_persistent = args.persistent
 
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
@@ -343,12 +344,15 @@ class Master:
             self.idle_time = None
 
     def main(self):
-        logger.debug(f"In master main(), MAX_IDLE_TIME={self.MAX_IDLE_TIME} seconds")
+        logger.debug("In master main()")
+        if not self.is_persistent:
+            logger.debug(f"MAX_IDLE_TIME={self.MAX_IDLE_TIME} seconds")
         for remaining_minutes in self.remaining_timer:
             with SectionTimer("master_log_time"):
                 logger.debug(f"{remaining_minutes} minutes remaining")
             self.handle_request()
-            self.idle_check()
+            if not self.is_persistent:
+                self.idle_check()
             if self.EXIT_FLAG:
                 logger.info("EXIT_FLAG on; master breaking main loop")
                 break
