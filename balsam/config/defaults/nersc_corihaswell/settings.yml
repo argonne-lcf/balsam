@@ -91,7 +91,9 @@ transfers:
     # The site will only transfer data to/from remote locations given here
     # Given as a set of {site_alias}: {protocol}//{address} pairs
     transfer_locations:
-        theta_dtn: globus://9d6d99eb-6d04-11e5-ba46-22000b92c6ec
+        olcf_dtn: globus://ef1a9560-7ca1-11e5-992c-22000b96db58
+        cori_dtn: globus://9d6d99eb-6d04-11e5-ba46-22000b92c6ec
+        theta_dtn: globus://08925f04-569f-11e7-bef8-22000b9a448b
 
     globus_endpoint_id: 9d6d99eb-6d04-11e5-ba46-22000b92c6ec # The local Globus endpoint ID
     max_concurrent_transfers: 5 # How many TransferTasks can run at a time

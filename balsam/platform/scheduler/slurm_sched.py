@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 from pathlib import Path
@@ -38,6 +39,20 @@ def parse_time_minutes(t_str: str) -> Optional[int]:
         return mins
 
 
+# parse "2021-02-20T13:11:53" to minutes
+def parse_queued_time(t_str: str) -> Optional[int]:
+    mins = 0
+    try:
+        submit_time = datetime.datetime.strptime(t_str, "%Y-%m-%dT%H:%M:%S")
+        timediff = datetime.datetime.now() - submit_time
+        mins = timediff.total_seconds() / 60.0
+    except Exception:
+        logger.exception(f"exception while processing {t_str}")
+        return None
+    else:
+        return mins
+
+
 class SlurmScheduler(SubprocessSchedulerInterface):
     status_exe = "squeue"
     submit_exe = "sbatch"
@@ -49,19 +64,19 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     # maps scheduler states to Balsam states
     job_states = {
         "PENDING": "queued",
-        "CONFIGURING": "starting",
+        "CONFIGURING": "running",
         "RUNNING": "running",
-        "COMPLETING": "exiting",
-        "RESV_DEL_HOLD": "user_hold",
-        "ADMIN_HOLD": "admin_hold",
+        "COMPLETING": "running",
+        "RESV_DEL_HOLD": "queued",
+        "ADMIN_HOLD": "queued",
         "FINISHED": "finished",
         "FAILED": "failed",
-        "CANCELLED": "cancelled",
+        "CANCELLED": "finished",
         "DEADLINE": "finished",
         "PREEMPTED": "finished",
         "REQUEUED": "queued",
-        "SIGNALING": "exiting",
-        "STAGE_OUT": "exiting",
+        "SIGNALING": "running",
+        "STAGE_OUT": "running",
         "TIMEOUT": "failed",
     }
 
@@ -79,6 +94,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         "wall_time_min": "timelimit",
         "project": "account",
         "time_remaining_min": "timeleft",
+        "queued_time_min": "submittime",
     }
 
     # when reading these fields from the scheduler apply
@@ -93,6 +109,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             "wall_time_min": parse_time_minutes,
             "project": lambda project: str(project),
             "time_remaining_min": parse_time_minutes,
+            "queued_time_min": parse_queued_time,
         }
         return status_field_map.get(balsam_field, None)
 
@@ -245,7 +262,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
             try:
                 job_stat = SlurmScheduler._parse_status_line(line)
             except (ValueError, TypeError):
-                logger.debug(f"Cannot parse job status: {line}")
+                logger.exception(f"Cannot parse job status: {line}")
                 continue
             else:
                 status_dict[job_stat.scheduler_id] = job_stat
@@ -257,8 +274,9 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         actual = len(fields)
         expected = len(SlurmScheduler._status_fields)
         if actual != expected:
+            logger.warning(f"Line has {actual} columns: expected {expected}:\n{fields}")
             raise ValueError(f"Line has {actual} columns: expected {expected}:\n{fields}")
-
+        logger.debug(f"parsing fields: {fields}")
         status = {}
         for name, value in zip(SlurmScheduler._status_fields, fields):
             func = SlurmScheduler._status_field_map(name)
