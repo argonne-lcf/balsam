@@ -3,7 +3,7 @@
 #SBATCH --time={{ wall_time_min }}
 #SBATCH --qos={{ queue }}
 #SBATCH --account={{ project }}
-#SBATCH --constraint=knl
+#SBATCH --constraint=haswell
 
 
 export PMI_NO_FORK=1
