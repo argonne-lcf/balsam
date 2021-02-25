@@ -552,6 +552,9 @@ class Worker:
         pks = list(self.processes.keys())
         for pk in pks:
             self._cleanup_proc(pk, timeout=self.CHECK_PERIOD)
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close(linger=0)
+        self.context.term()  # type: ignore
         sys.exit(0)
 
     def start_jobs(self):
