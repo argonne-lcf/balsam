@@ -273,9 +273,10 @@ class Master:
     def __init__(self, args):
         self.MAX_IDLE_TIME = 120.0
         self.DELAY_PERIOD = 0.2
-        self.idle_time = 0.0
+        self.idle_time = None
         self.EXIT_FLAG = False
         self.num_workers = args.num_workers
+        self.active_ids = set()
 
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
@@ -305,6 +306,15 @@ class Master:
             self.status_updater.queue.put_nowait(msg)
 
         with SectionTimer("master_log_request"):
+            finished_ids = set()
+            for id in msg["done"]:
+                finished_ids.add(id)
+            for (id, retcode, tail) in msg["error"]:
+                finished_ids.add(id)
+            for id in msg["started"]:
+                self.active_ids.add(id)
+            self.active_ids -= finished_ids
+
             src = msg["source"]
             max_jobs = msg['request_num_jobs']
             logger.debug(f"Worker {src} requested {max_jobs} jobs")
@@ -318,20 +328,30 @@ class Master:
             with SectionTimer("master_log_new_jobs"):
                 logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
+    def idle_check(self):
+        if not self.active_ids:
+            # self.idle_time marks the start of contiguous time without jobs for workers
+            if self.idle_time is None:
+                self.idle_time = time.time()
+            # logger.debug(f"idle time started at {self.idle_time} seconds")
+            # logger.debug(f"current time is {time.time()} seconds")
+            # logger.debug(f"{time.time() - self.idle_time} seconds since start of idle time")
+            if time.time() - self.idle_time > self.MAX_IDLE_TIME:
+                logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
+                self.EXIT_FLAG = True
+        else:
+            self.idle_time = None
+
     def main(self):
         logger.debug(f"In master main(), MAX_IDLE_TIME={self.MAX_IDLE_TIME} seconds")
         for remaining_minutes in self.remaining_timer:
             with SectionTimer("master_log_time"):
                 logger.debug(f"{remaining_minutes} minutes remaining")
-                logger.debug(f"{self.idle_time} seconds of idle time")
             self.handle_request()
+            self.idle_check()
             if self.EXIT_FLAG:
                 logger.info("EXIT_FLAG on; master breaking main loop")
                 break
-            if self.idle_time > self.MAX_IDLE_TIME:
-                logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
-                break
-
         self.shutdown()
         self.socket.setsockopt(zmq.LINGER, 0)
         self.socket.close(linger=0)
