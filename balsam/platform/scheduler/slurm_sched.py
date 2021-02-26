@@ -50,7 +50,7 @@ def parse_queued_time(t_str: str) -> Optional[int]:
         logger.exception(f"exception while processing {t_str}")
         return None
     else:
-        return mins
+        return int(mins)
 
 
 class SlurmScheduler(SubprocessSchedulerInterface):
