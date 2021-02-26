@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 import time
 from json import JSONDecodeError
 from pprint import pformat
@@ -30,6 +31,7 @@ class RequestsClient(RESTClient):
         self._pid = os.getpid()
         self._authenticated = False
         self.token: Optional[str] = None
+        self._attempt: int = 0
 
     @property
     def session(self) -> requests.Session:
@@ -52,6 +54,13 @@ class RequestsClient(RESTClient):
         self._session = None
         return None
 
+    def backoff(self, reason: Exception) -> None:
+        if self._attempt > self.retry_count:
+            raise TimeoutError(f"Exceeded max retries: {reason}")
+        sleep_time = 2 ** self._attempt + random.random()
+        time.sleep(sleep_time)
+        self._attempt += 1
+
     def request(
         self,
         url: str,
@@ -64,22 +73,17 @@ class RequestsClient(RESTClient):
         if not self._authenticated and not authenticating:
             raise NotAuthenticatedError("Cannot perform unauthenticated request. Please login with `balsam login`")
         absolute_url = self.api_root.rstrip("/") + "/" + url.lstrip("/")
-        attempt = 0
-        while attempt < self.retry_count:
+        self._attempt = 0
+        while True:
             try:
                 logger.debug(f"{http_method}: {absolute_url} {params if params else ''}")
                 response = self._do_request(absolute_url, http_method, params, json, data)
             except requests.Timeout as exc:
-                logger.warning(f"Timed out request {http_method} {absolute_url}")
-                attempt += 1
-                if attempt == self.retry_count:
-                    raise requests.Timeout(f"Timed-out {attempt} times.") from exc
+                logger.warning(f"Attempt Retry of Timed-out request {http_method} {absolute_url}")
+                self.backoff(exc)
             except requests.ConnectionError as exc:
-                logger.warning(f"Retrying connection: {exc}")
-                time.sleep(1)
-                attempt += 1
-                if attempt == self.retry_count:
-                    raise
+                logger.warning(f"Attempt retry of connection: {exc}")
+                self.backoff(exc)
             else:
                 try:
                     return response.json()  # type: ignore
@@ -87,7 +91,6 @@ class RequestsClient(RESTClient):
                     if http_method != "DELETE":
                         raise
                     return None
-        return None
 
     def _do_request(
         self,
