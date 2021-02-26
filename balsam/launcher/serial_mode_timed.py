@@ -401,10 +401,8 @@ class Worker:
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
         self.master_address = f"tcp://{args.master_address}"
-        self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         self.hostname = hostname
         self.master_subproc=master_subproc
-        next(self.remaining_timer)
         self.EXIT_FLAG = False
 
         self.gpus_per_node = args.gpus_per_node
@@ -606,7 +604,7 @@ class Worker:
         connections.close_all()
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected!")
-        for remaining_minutes in self.remaining_timer:
+        while True:
             done_pks, errors, active = self.poll_processes()
             started_pks = self.start_jobs()
             request_num_jobs = max(
