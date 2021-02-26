@@ -41,7 +41,7 @@ def parse_time_minutes(t_str: str) -> Optional[int]:
 
 # parse "2021-02-20T13:11:53" to minutes
 def parse_queued_time(t_str: str) -> Optional[int]:
-    mins = 0
+    mins = 0.0
     try:
         submit_time = datetime.datetime.strptime(t_str, "%Y-%m-%dT%H:%M:%S")
         timediff = datetime.datetime.now() - submit_time
