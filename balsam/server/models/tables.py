@@ -62,7 +62,7 @@ class Site(Base):
 
     id = Column(Integer, primary_key=True)
     hostname = Column(String(100))
-    path = Column(String(100))
+    path = Column(String(512))
     last_refresh = Column(DateTime)
     creation_date = Column(DateTime, default=datetime.utcnow)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)

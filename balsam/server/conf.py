@@ -21,12 +21,16 @@ class OAuthProviderSettings(BaseSettings):
         env_file = ".env"
         extra = "forbid"
 
-    request_uri: str
-    token_uri: str
+    # Environment must export BALSAM_OAUTH_CLIENT_ID, etc...
     client_id: str
-    scope: str = " "
     client_secret: str
-    redirect_path: str
+    redirect_path: str = "http://generic-01.mcp.alcf.anl.gov:8000/auth/ALCF/callback"
+    request_uri: str = "https://oauth2-dev.alcf.anl.gov/o/authorize/"
+    token_uri: str = "https://oauth2-dev.alcf.anl.gov/o/token/"
+    user_info_uri: str = "https://oauth2-dev.alcf.anl.gov/user/"
+    scope: str = "read introspect"
+    device_code_lifetime: timedelta = timedelta(seconds=300)
+    device_poll_interval: timedelta = timedelta(seconds=3)
 
 
 class AuthSettings(BaseSettings):

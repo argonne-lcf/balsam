@@ -22,16 +22,37 @@ def upgrade():
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("username", sa.String(length=100), nullable=True),
+        sa.Column("username", sa.String(length=100), nullable=False),
         sa.Column("hashed_password", sa.String(length=128), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("username"),
     )
     op.create_table(
+        "device_code_attempts",
+        sa.Column("client_id", postgresql.UUID(as_uuid=True)),
+        sa.Column("expiration", sa.DateTime(), nullable=False),
+        sa.Column("device_code", sa.String(length=256), nullable=False),
+        sa.Column("user_code", sa.String(length=16), nullable=False),
+        sa.Column("scope", sa.String(length=128)),
+        sa.Column("user_denied", sa.Boolean()),
+        sa.Column("user_id", sa.Integer(), nullable=True),
+        sa.PrimaryKeyConstraint("client_id"),
+        sa.UniqueConstraint("user_code"),
+        sa.UniqueConstraint("device_code"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+    )
+    op.create_table(
+        "auth_states",
+        sa.Column("id", sa.Integer()),
+        sa.Column("state", sa.String(length=512), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("state"),
+    )
+    op.create_table(
         "sites",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("hostname", sa.String(length=100), nullable=True),
-        sa.Column("path", sa.String(length=100), nullable=True),
+        sa.Column("path", sa.String(length=512), nullable=True),
         sa.Column("last_refresh", sa.DateTime(), nullable=True),
         sa.Column("creation_date", sa.DateTime(), nullable=True),
         sa.Column("owner_id", sa.Integer(), nullable=True),

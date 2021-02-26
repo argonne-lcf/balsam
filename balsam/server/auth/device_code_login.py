@@ -1,6 +1,7 @@
+import logging
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict
 from uuid import UUID
 
@@ -8,21 +9,22 @@ from fastapi import Depends, Form, HTTPException, Request
 from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserOut
+from balsam.server import settings
 from balsam.server.auth import auth_router
 from balsam.server.models import get_session
 from balsam.server.models.crud import users
 
 from .token import create_access_token
 
+logger = logging.getLogger(__name__)
+
 VERIFICATION_PATH = "/device"
-DEVICE_CODE_LIFETIME = timedelta(seconds=300)
-CLIENT_POLL_INTERVAL = timedelta(seconds=3)
 GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
 
 def generate_device_code() -> str:
     """
-    Returns a high-entropy device code
+    Returns a high-entropy device code (never typed or copy-pasted)
     """
     return secrets.token_urlsafe(nbytes=256)
 
@@ -30,6 +32,7 @@ def generate_device_code() -> str:
 def generate_user_code() -> str:
     """
     Returns an easy-to-type code like "WDJB-MJHT" with 20^8 entropy.
+    Following the guidelines for user codes suggested here:
     https://tools.ietf.org/html/rfc8628#section-6.1
     """
     consonants = list(set(string.ascii_uppercase) - set("AEIOUY"))
@@ -49,12 +52,14 @@ def authorization_request(
     The device client initiates the authorization flow
     https://tools.ietf.org/html/rfc8628
     """
+    conf = settings.auth.oauth_provider
+    assert conf is not None
     device_code = generate_device_code()
     user_code = generate_user_code()
     verification_uri = f"{request.url.scheme}://{request.url.netloc}" + VERIFICATION_PATH
     verification_uri_complete = verification_uri + f"?user_code={user_code}"
-    expires_in = DEVICE_CODE_LIFETIME.total_seconds()
-    interval = CLIENT_POLL_INTERVAL.total_seconds()
+    expires_in = conf.device_code_lifetime.total_seconds()
+    interval = conf.device_poll_interval.total_seconds()
 
     response = {
         "device_code": device_code,
@@ -64,7 +69,7 @@ def authorization_request(
         "expires_in": expires_in,
         "interval": interval,
     }
-    expiration_date = datetime.utcnow() + DEVICE_CODE_LIFETIME
+    expiration_date = datetime.utcnow() + conf.device_code_lifetime
     users.create_device_code_attempt(
         db=db,
         client_id=client_id,

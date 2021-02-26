@@ -15,6 +15,10 @@ from balsam.server.models.crud import users
 
 
 def generate_state(user_code: Optional[str] = None) -> str:
+    """
+    Produce new random state to store in DB. If Device Code flow, we have a
+    user_code and the state is associated with a user_code.
+    """
     secret = secrets.token_urlsafe()
     if user_code is None:
         return f"BROWSER-FLOW {secret}"
@@ -22,26 +26,46 @@ def generate_state(user_code: Optional[str] = None) -> str:
 
 
 def state_to_usercode(state: str) -> Optional[str]:
+    """
+    Extract user_code from DB state.  Returns None
+    if this is not part of a Device Code flow.
+    """
     if state.startswith("DEVICE-FLOW"):
         return state.split(" ")[1]
     return None
 
 
 def alcf_username_from_token(token: str) -> str:
-    # TODO: Get user data from an ALCF endpoint
-    return "TEST-USER"
+    """
+    Trade ALCF-OAuth access token for user info.
+    Returns the username for Balsam to get a unique identity.
+    """
+    conf = settings.auth.oauth_provider
+    assert conf is not None
+    resp = requests.post(
+        conf.user_info_uri,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    print("user info response:", resp.status_code)
+    dat = resp.json()
+    print(dat)
+    return str(dat["username"])
 
 
 def redirect_to_oauth_provider(request: Request, state: str) -> RedirectResponse:
+    """
+    Direct the user agent to the OAuth provider to authorize.
+    Used by both pure-Authorization code and hybrid Device Code flows.
+    """
     conf = settings.auth.oauth_provider
     assert conf is not None, "Using OAuth without configuration"
     callback_uri = f"{request.url.scheme}://{request.url.netloc}" + conf.redirect_path
     params = urlencode(
         dict(
-            client_id=conf.client_id,
-            scope=conf.scope,
             response_type="code",
+            client_id=conf.client_id,
             redirect_uri=callback_uri,
+            scope=conf.scope,
             state=state,
         )
     )
@@ -51,7 +75,7 @@ def redirect_to_oauth_provider(request: Request, state: str) -> RedirectResponse
 @auth_router.get("/ALCF/login/device")
 def start_login_device(request: Request, user_code: str, db: Session = Depends(get_session)) -> RedirectResponse:
     """
-    User provides user code to proceed with "device code flow" (from CLI login client)
+    User provides user code to proceed with "device code flow" (started by a CLI login client)
     Balsam hands off to ALCF OAuth for authenticating user via "authorization code flow"
     """
     try:
@@ -84,6 +108,8 @@ def callback(
 ) -> Dict[str, Any]:
     """
     https://tools.ietf.org/html/rfc6749#section-4.1.2.1
+    Callback from OAuth provider.  This is used by both pure-Authorization code
+    and hybrid Device code flows.
     """
     # If user_code is not None, we're on the second half of a device-code login flow
     user_code = state_to_usercode(state)
@@ -97,30 +123,35 @@ def callback(
             print("Error description:", error_description)
         return {"error": error, "error_description": error_description}
 
+    # Ensure the "state" is in our DB to mitigate CSRF
     try:
         users.verify_auth_state(db, state)
     except exc.NoResultFound:
         raise HTTPException(status_code=400, detail="invalid_state")
 
+    # Use `code` to request an access token from the OAuth provider
     conf = settings.auth.oauth_provider
     assert conf is not None, "Using OAuth without configuration"
     callback_uri = f"{request.url.scheme}://{request.url.netloc}" + conf.redirect_path
     token_params = dict(
-        grant_type="authorization_code",
+        client_id=conf.client_id,
+        client_secret=conf.client_secret,
         code=code,
         redirect_uri=callback_uri,
-        client_id=conf.client_id,
+        grant_type="authorization_code",
     )
     token_response = requests.post(
         conf.token_uri,
-        headers={"Authorization": f"Basic {conf.client_secret}"},
-        params=token_params,
+        data=token_params,
+        headers={"Cache-Control": "no-cache"},
     )
     print("Received token_response:", token_response.status_code)
     token_data = token_response.json()
     print(token_data)
+    access_token = str(token_data["access_token"])
 
-    username = alcf_username_from_token(token_data)
+    # Use access token to get ALCF username
+    username = alcf_username_from_token(access_token)
     try:
         from_db = users.get_user_by_username(db, username)
         user = UserOut(id=from_db.id, username=from_db.username)
@@ -129,6 +160,8 @@ def callback(
         user = users.create_user(db, username, password=None)
         print("Created new username", username)
 
+    # If this is coupled to a Device Code login flow, authorize the device code
+    # attempt
     if user_code:
         users.authorize_device_code_attempt(db, user_code, user)
         print("Authorized device code attempt for user code:", user_code)
