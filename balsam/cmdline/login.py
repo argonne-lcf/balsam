@@ -53,5 +53,5 @@ def register(address: str, username: str) -> None:
     if password != conf_password:
         raise click.BadParameter("Passwords must match")
 
-    resp = client.post("users/register", username=username, password=password, authenticating=True)
+    resp = client.post("auth/register/password", username=username, password=password, authenticating=True)
     click.echo(f"Registration success! {resp}")
