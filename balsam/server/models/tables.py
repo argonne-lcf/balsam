@@ -34,7 +34,26 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String(100), unique=True)
-    hashed_password = Column(String(128))
+    hashed_password = Column(String(128), nullable=True, default=None)
+
+
+class DeviceCodeAttempt(Base):
+    __tablename__ = "device_code_attempts"
+
+    client_id = Column(pg.UUID(as_uuid=True), primary_key=True)
+    expiration = Column(DateTime, nullable=False, default=datetime.utcnow)
+    device_code = Column(String(256))
+    user_code = Column(String(16), unique=True)
+    scope = Column(String(128))
+    user_denied = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, default=None)
+    user = orm.relationship(User)
+
+
+class AuthorizationState(Base):
+    __tablename__ = "auth_states"
+    id = Column(Integer, primary_key=True)
+    state = Column(String(512), unique=True)
 
 
 class Site(Base):

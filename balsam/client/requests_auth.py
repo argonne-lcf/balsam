@@ -52,7 +52,7 @@ class BasicAuthRequestsClient(RequestsClient):
         if self.password is None:
             raise ValueError("Cannot refresh_auth: self.password is None. Please provide a password")
         # Login with HTTPBasic Auth to get a token:
-        url = "users/login"
+        url = "auth/login/password"
         cred = {"username": self.username, "password": self.password}
         resp = None
         for _ in range(3):

@@ -134,7 +134,7 @@ def _make_user_client(url: str) -> BasicAuthRequestsClient:
     """Create a basicauth client to the given url"""
     login_credentials: Dict[str, Any] = {"username": f"user{uuid4()}", "password": "test-password"}
     requests.post(
-        url.rstrip("/") + "/users/register",
+        url.rstrip("/") + "/auth/register/password",
         json=login_credentials,
     )
     client = BasicAuthRequestsClient(url, **login_credentials)

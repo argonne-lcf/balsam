@@ -4,7 +4,7 @@ import os
 from datetime import timedelta
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from pydantic import BaseSettings, validator
 
@@ -14,13 +14,35 @@ from balsam.util import validate_log_level
 logger = logging.getLogger(__name__)
 
 
+class OAuthProviderSettings(BaseSettings):
+    class Config:
+        env_prefix = "balsam_oauth_"
+        case_sensitive = False
+        env_file = ".env"
+        extra = "forbid"
+
+    request_uri: str
+    token_uri: str
+    client_id: str
+    scope: str = " "
+    client_secret: str
+    redirect_path: str
+
+
 class AuthSettings(BaseSettings):
+    class Config:
+        env_prefix = "balsam_auth_"
+        case_sensitive = False
+        env_file = ".env"
+        extra = "forbid"
+
     secret_key = (
         "3f4abcaa16a006de8a7ef520a4c77c7d51b3ddb235c1ee2b99187f0f049eaa76"  # WARNING: Use real secret in production
     )
     algorithm = "HS256"
     token_ttl: timedelta = timedelta(hours=48)
     auth_method: str = "balsam.server.auth.user_from_token"
+    oauth_provider: Optional[OAuthProviderSettings]
 
     def get_auth_method(self) -> Callable[..., schemas.UserOut]:
         module, func = self.auth_method.rsplit(".", 1)

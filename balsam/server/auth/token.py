@@ -9,7 +9,7 @@ from jwt import PyJWTError
 from balsam import schemas
 from balsam.server import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login/password")
 
 
 def create_access_token(user: schemas.UserOut) -> Tuple[Union[bytes, str], datetime]:
