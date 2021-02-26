@@ -1,4 +1,4 @@
-# Default setup for Theta KNL cluster @ ALCF
+# Default setup for Cori KNL cluster @ NERSC
 
 site_id: {{ site_id }}  # Do not change
 
@@ -29,10 +29,10 @@ launcher:
     max_concurrent_mpiruns: 990 # Maximum number of runs in a single MPI-mode launcher
     
     # Launcher platform interfaces:
-    compute_node: balsam.platform.compute_node.ThetaKNLNode
-    mpi_app_launcher: balsam.platform.app_run.ThetaAprun
+    compute_node: balsam.platform.compute_node.CoriKNLNode
+    mpi_app_launcher: balsam.platform.app_run.SlurmRun
     local_app_launcher: balsam.platform.app_run.LocalAppRun
-    mpirun_allows_node_packing: false # mpi_app_launcher supports multiple concurrent runs per node
+    mpirun_allows_node_packing: true # mpi_app_launcher supports multiple concurrent runs per node
     serial_mode_prefetch_per_rank: 64 # How many jobs to prefetch from API in serial mode
 
     # Pass-through parameters to mpirun when starting the serial mode launcher:
@@ -49,33 +49,33 @@ launcher:
 
 # Scheduler service syncs the Balsam API with local queues
 scheduler:
-    scheduler_class: balsam.platform.scheduler.CobaltScheduler
+    scheduler_class: balsam.platform.scheduler.SlurmScheduler
     sync_period: 10 # Scheduler polling / API update interval in seconds
 
     # Configure the queues to which BatchJobs may be submitted at this Site
     allowed_queues:
-        debug-cache-quad:
-            max_nodes: 8
-            max_queued_jobs: 1
-            max_walltime: 60
-        debug-flat-quad:
-            max_nodes: 8
-            max_queued_jobs: 1
-            max_walltime: 60
-        default:
-            max_nodes: 4010
-            max_queued_jobs: 20
-            max_walltime: 1440
+        regular:
+            max_nodes: 9489
+            max_queued_jobs: 5000
+            max_walltime: 2880
+        debug:
+            max_nodes: 512
+            max_queued_jobs: 5
+            max_walltime: 30
+        premium:
+            max_nodes: 9489
+            max_queued_jobs: 5
+            max_walltime: 2880
+
 
     # Projects to which BatchJobs may be submitted:
     allowed_projects:
-    - datascience
+    - m3676
 
     # Supported "pass-through" parameters to the BatchJob template
     # Provided as key:value pairs, where key is the parameter name
     # and value is the *default* value of the parameter
-    optional_batch_job_params:
-        singularity_prime_cache: 'no'
+    optional_batch_job_params: {}
 
     # The path to the job template currently in use at this Site
     job_template_path: job-template.sh
@@ -95,7 +95,7 @@ transfers:
         cori_dtn: globus://9d6d99eb-6d04-11e5-ba46-22000b92c6ec
         theta_dtn: globus://08925f04-569f-11e7-bef8-22000b9a448b
 
-    globus_endpoint_id: 08925f04-569f-11e7-bef8-22000b9a448b # The local Globus endpoint ID
+    globus_endpoint_id: 9d6d99eb-6d04-11e5-ba46-22000b92c6ec # The local Globus endpoint ID
     max_concurrent_transfers: 5 # How many TransferTasks can run at a time
     transfer_batch_size: 100 # Maximum number of items per TransferTask
     num_items_query_limit: 2000 # Maximum number of transfer items to fetch from API at a time
@@ -112,4 +112,3 @@ queue_maintainer: null
 #     num_queued_jobs: 5
 #     num_nodes: 128
 #     wall_time_min: 60
-
