@@ -467,8 +467,8 @@ class BalsamJob(models.Model):
         help_text="Space-delimited filename patterns that will be searched in the parents'"
         "working directories. Every matching file will be made available in this"
         "job's working directory (symlinks for local Balsam jobs, file transfer for"
-        "remote Balsam jobs). Default: all files from parent jobs are made available.",
-        default='*')
+        "remote Balsam jobs). Default: no files from parent jobs are made available.",
+        default='')
     stage_in_url = models.TextField(
         'External stage in files or folders',
         help_text="A list of URLs for external data to be staged in prior to job processing."
@@ -852,6 +852,7 @@ class ApplicationDefinition(models.Model):
     name = models.TextField(
         'Application Name',
         help_text='The name of an application that can be run locally.',
+        unique = True,
         default='')
     description = models.TextField(
         'Application Description',

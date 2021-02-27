@@ -54,6 +54,7 @@ def newapp(args):
     app.description = ' '.join(args.description) if args.description else ''
     app.executable = py_app_path(args.executable)
     app.preprocess = py_app_path(args.preprocess)
+    app.envscript = py_app_path(args.envscript)
     app.postprocess = py_app_path(args.postprocess)
     app.save()
     print(app)
@@ -98,6 +99,8 @@ def newjob(args):
 
     print(job)
     if not args.yes:
+        num_wf_jobs = Job.objects.filter(workflow=job.workflow).count()
+        print(f"[INFO]: The workflow \"{job.workflow}\" currently has {num_wf_jobs} jobs in the database")
         if not cmd_confirmation('Confirm adding job to DB'):
             print("Add job aborted")
             return
@@ -205,6 +208,7 @@ def rm(args):
     objid = args.id
     deleteall = args.all
     force = args.force
+    wf_filter = args.wf_filter
 
     # Are we removing jobs or apps?
     if objects_name.startswith('job'): cls = Job
@@ -215,13 +219,23 @@ def rm(args):
     if deleteall:
         deletion_objs = objects.all()
         message = f"ALL {objects_name}"
-    elif name:
-        deletion_objs = objects.filter(name__icontains=name)
+    elif name is not None:
+        # preferable to "elif name:", since "balsam rm jobs --name=" (empty string)
+        # can be a valid choice to match all job names. "is not None" distinguishes if
+        # flag is present
+        if wf_filter is not None:
+            if objects_name.startswith('app'):
+                raise RuntimeError("--wf-filter flag incompatible with balsam rm app")
+            else:
+                # use strict name checking for workflow, otherwise very dangerous
+                deletion_objs = objects.filter(name__icontains=name, workflow=wf_filter)
+        else:
+            deletion_objs = objects.filter(name__icontains=name)
         message = f"{len(deletion_objs)} {objects_name} matching name {name}"
         if not deletion_objs.exists():
-            print("No {objects_name} matching query")
+            print(f"No {objects_name} matching query")
             return
-    elif objid:
+    elif objid is not None:
         deletion_objs = objects.filter(pk__icontains=objid)
         if deletion_objs.count() > 1:
             raise RuntimeError(f"Multiple {objects_name} match ID")
@@ -290,7 +304,11 @@ def submitlaunch(args):
     setup()
     from balsam.service import service
     from balsam.core import models
+    Job = models.BalsamJob
     from django.db import connection, transaction
+
+    if not Job.objects.filter(workflow=args.wf_filter).exists():
+        raise RuntimeError(f"No job with wf_filter={args.wf_filter} registered in local DB")
 
     # Exclusive Lock on core_queuedlaunch
     with transaction.atomic():

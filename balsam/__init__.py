@@ -4,6 +4,7 @@ import logging
 import logging.handlers
 import os
 import sys
+import setproctitle
 
 try:
     import django
@@ -12,7 +13,7 @@ try:
 except ImportError:
     print("Warning: Django is not installed")
 
-from balsam.__version__ import __version__  # noqa
+__version__ = "0.4.0"
 
 
 class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
@@ -42,6 +43,9 @@ _logger = logging.getLogger()
 _logger.setLevel(logging.DEBUG)
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
+
+# import and use this module early in program lifetime to avoid issues with module init
+setproctitle.getproctitle()
 
 
 def config_logging(basename, filename=None, buffer_capacity=None):

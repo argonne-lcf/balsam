@@ -4,7 +4,8 @@ import os
 import sys
 import logging
 import random
-from subprocess import Popen, STDOUT, TimeoutExpired
+import subprocess
+
 import multiprocessing
 import queue
 import shlex
@@ -24,7 +25,7 @@ except AttributeError:
         def cpu_affinity(self, list): pass
     _p = MockPsutilProcess()
     print("No psutil CPU Affinity support: will not bind processes to cores.")
-    
+
 
 
 from django.db import transaction, connections
@@ -34,6 +35,9 @@ setup()
 from balsam.launcher.util import get_tail, remaining_time_minutes
 from balsam.core.models import BalsamJob, safe_select, PROCESSABLE_STATES
 from django.conf import settings
+
+# TODO(KGF): this is not available on Windows
+multiprocessing.set_start_method("fork", force=True)
 
 Queue = multiprocessing.Queue
 try:
@@ -80,7 +84,7 @@ class SectionTimer:
             result += f'{sec:24} {min_t:8.3f} {max_t:8.3f} {avg_t:8.3f} {percent_t:5.1f}%\n'
         SectionTimer._sections = {}
         SectionTimer.total_elapsed = 0.0
-        logger.info("\n"+result)
+        logger.debug("\n"+result)
 
 class StatusUpdater(multiprocessing.Process):
     def __init__(self):
@@ -96,7 +100,7 @@ class StatusUpdater(multiprocessing.Process):
             updates = [first_item]
             waited = False
             while True:
-                try: 
+                try:
                     updates.append(self.queue.get(block=False))
                 except queue.Empty:
                     if waited:
@@ -110,16 +114,16 @@ class StatusUpdater(multiprocessing.Process):
 
         self._on_exit()
         logger.info(f"StatusUpdater thread finished.")
-    
+
     def set_exit(self):
         self.queue.put('exit')
-    
+
     def perform_updates(self, updates):
         raise NotImplementedError
 
     def _on_exit(self):
         pass
-    
+
 class BalsamDBStatusUpdater(StatusUpdater):
     def perform_updates(self, update_msgs):
         start_pks = []
@@ -269,14 +273,17 @@ class Master:
     def __init__(self, args):
         self.MAX_IDLE_TIME = 120.0
         self.DELAY_PERIOD = 0.2
-        self.idle_time = 0.0
+        self.idle_time = None
         self.EXIT_FLAG = False
+        self.num_workers = args.num_workers
+        self.active_ids = set()
+        self.is_persistent = args.persistent
 
         self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         next(self.remaining_timer)
 
         if args.db_prefetch_count == 0:
-            prefetch = args.num_workers * 96
+            prefetch = self.num_workers * 96
         else:
             prefetch = args.db_prefetch_count
 
@@ -286,7 +293,7 @@ class Master:
         self.status_updater.start()
         self.job_source.start()
         logger.debug("source/status updater created")
-        
+
         logger.debug("Master ZMQ binding...")
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
@@ -300,6 +307,15 @@ class Master:
             self.status_updater.queue.put_nowait(msg)
 
         with SectionTimer("master_log_request"):
+            finished_ids = set()
+            for id in msg["done"]:
+                finished_ids.add(id)
+            for (id, retcode, tail) in msg["error"]:
+                finished_ids.add(id)
+            for id in msg["started"]:
+                self.active_ids.add(id)
+            self.active_ids -= finished_ids
+
             src = msg["source"]
             max_jobs = msg['request_num_jobs']
             logger.debug(f"Worker {src} requested {max_jobs} jobs")
@@ -313,20 +329,37 @@ class Master:
             with SectionTimer("master_log_new_jobs"):
                 logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
+    def idle_check(self):
+        if not self.active_ids:
+            # self.idle_time marks the start of contiguous time without jobs for workers
+            if self.idle_time is None:
+                self.idle_time = time.time()
+            # logger.debug(f"idle time started at {self.idle_time} seconds")
+            # logger.debug(f"current time is {time.time()} seconds")
+            # logger.debug(f"{time.time() - self.idle_time} seconds since start of idle time")
+            if time.time() - self.idle_time > self.MAX_IDLE_TIME:
+                logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
+                self.EXIT_FLAG = True
+        else:
+            self.idle_time = None
+
     def main(self):
-        logger.debug("In master main")
+        logger.debug("In master main()")
+        if not self.is_persistent:
+            logger.debug(f"MAX_IDLE_TIME={self.MAX_IDLE_TIME} seconds")
         for remaining_minutes in self.remaining_timer:
             with SectionTimer("master_log_time"):
                 logger.debug(f"{remaining_minutes} minutes remaining")
             self.handle_request()
+            if not self.is_persistent:
+                self.idle_check()
             if self.EXIT_FLAG:
                 logger.info("EXIT_FLAG on; master breaking main loop")
                 break
-            if self.idle_time > self.MAX_IDLE_TIME:
-                logger.info(f"Nothing to do for {self.MAX_IDLE_TIME} seconds: quitting")
-                break
-
         self.shutdown()
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close(linger=0)
+        self.context.term()  # type: ignore
         logger.info(f"shutdown done: ensemble master exit gracefully")
 
     def shutdown(self):
@@ -342,6 +375,11 @@ class Master:
         self.job_source.set_exit()
         self.job_source.join()
         logger.info(f"JobSource has joined.")
+        logger.info("Master sending exit message to all Workers")
+        for _ in range(self.num_workers):
+            self.socket.recv_json()
+            self.socket.send_json({"exit": True})
+        logger.info("All workers have received exit message. Quitting.")
 
 
 class FailedToStartProcess:
@@ -359,13 +397,12 @@ class Worker:
     RETRY_CODES = [-11, 1, 255, 12345]
     MAX_RETRY = 3
 
-    def __init__(self, args, hostname):
+    def __init__(self, args, hostname, master_subproc=None):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
         self.master_address = f"tcp://{args.master_address}"
-        self.remaining_timer = remaining_time_minutes(args.time_limit_min)
         self.hostname = hostname
-        next(self.remaining_timer)
+        self.master_subproc=master_subproc
         self.EXIT_FLAG = False
 
         self.gpus_per_node = args.gpus_per_node
@@ -434,7 +471,7 @@ class Worker:
             p.terminate()
             logger.debug(f"worker {self.hostname} sent TERM to {self.cuteids[pk]}...waiting on shutdown")
             try: p.wait(timeout=timeout)
-            except TimeoutExpired: p.kill()
+            except subprocess.TimeoutExpired: p.kill()
 
     def _launch_proc(self, pk):
         with SectionTimer(f'{self.hostname}_prep_job'):
@@ -466,7 +503,7 @@ class Worker:
             self.job_specs[pk]['used_affinity'] = open_affinity[0:required_num_cores]
 
             out_name = f'{name}.out'
-        
+
         with SectionTimer(f'{self.hostname}_log_WORKER_START'):
             logger.debug(f"{self.log_prefix(pk)} WORKER_START")
         with SectionTimer(f'{self.hostname}_log_Popen'):
@@ -481,8 +518,8 @@ class Worker:
             # Set this job's affinity:
             with SectionTimer(f'{self.hostname}_Popen'):
                 _p.cpu_affinity(self.job_specs[pk]['used_affinity'])
-                proc = Popen(args, stdout=outfile, stderr=STDOUT,
-                              cwd=workdir, env=envs, shell=shell,)
+                proc = subprocess.Popen(args, stdout=outfile, stderr=subprocess.STDOUT,
+                                        cwd=workdir, env=envs, shell=shell,)
                 # And, reset to all:
                 _p.cpu_affinity([])
         except Exception as e:
@@ -537,6 +574,9 @@ class Worker:
         pks = list(self.processes.keys())
         for pk in pks:
             self._cleanup_proc(pk, timeout=self.CHECK_PERIOD)
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close(linger=0)
+        self.context.term()  # type: ignore
         sys.exit(0)
 
     def start_jobs(self):
@@ -564,7 +604,7 @@ class Worker:
         connections.close_all()
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected!")
-        for remaining_minutes in self.remaining_timer:
+        while True:
             done_pks, errors, active = self.poll_processes()
             started_pks = self.start_jobs()
             request_num_jobs = max(
@@ -592,6 +632,9 @@ class Worker:
                         job['pk']: job
                         for job in response_msg["new_jobs"]
                     })
+                if response_msg.get('exit'):
+                    logger.info(f"Worker {self.hostname} received exit message: break")
+                    self.exit()
 
             with SectionTimer(f'{self.hostname}_log_occ'):
                 logger.debug(
@@ -601,19 +644,28 @@ class Worker:
                 )
 
             if self.EXIT_FLAG:
-                logger.info(f"Worker {self.hostname} EXIT_FLAG break")
-                break
+                if self.master_subproc is not None:
+                    logger.info("Signal: forwarding SIGTERM to master subprocess.")
+                    self.master_subproc.terminate()
+                    logger.info("Signal: forwarded SIGTERM to master subprocess.")
             with SectionTimer(f'{self.hostname}_sleep1'):
                 time.sleep(1)
 
         self.exit()
-    
+
+
+def launch_master_subprocess() -> "subprocess.Popen[bytes]":
+    args = [sys.executable] + sys.argv + ["--run-master"]
+    return subprocess.Popen(args)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--master-address', required=True)
     parser.add_argument('--log-filename', required=True)
     parser.add_argument('--num-workers', type=int, required=True)
     parser.add_argument('--wf-name')
+    parser.add_argument('--run-master', action='store_true')
     parser.add_argument('--time-limit-min', type=float, default=72.*60)
     parser.add_argument('--gpus-per-node', type=int, default=0)
     parser.add_argument('--db-prefetch-count', type=int, default=0)
@@ -627,24 +679,32 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
-    if hostname == args.master_host:
-        log_fname = args.log_filename + ".master"
-    else:
-        log_fname = args.log_filename + "." + hostname
-    config_logging(
-        'serial-launcher',
-        filename=log_fname,
-        buffer_capacity=128,
-    )
 
-    if hostname == args.master_host:
+    if args.run_master:
+        log_fname = args.log_filename + ".master"
+        config_logging(
+            'serial-launcher',
+            filename=log_fname,
+            buffer_capacity=128,
+        )
         master = Master(args)
+        # TODO(KGF): factor out signal handling to SigHandler class
+        # (util/sighandler.py) like in B2 1fc1824c
         def handle_term(signum, stack): master.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)
         signal.signal(signal.SIGTERM, handle_term)
         master.main()
     else:
-        worker = Worker(args, hostname=hostname)
+        log_fname = args.log_filename + "." + hostname
+        config_logging(
+            'serial-launcher',
+            filename=log_fname,
+            buffer_capacity=128,
+        )
+        if hostname == args.master_host:
+            logger.debug(f"Worker starting Master on {args.master_address}")
+            master_proc = launch_master_subprocess()
+        worker = Worker(args, hostname=hostname, master_subproc=master_proc)
         def handle_term(signum, stack): worker.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)
         signal.signal(signal.SIGTERM, handle_term)

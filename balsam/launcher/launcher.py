@@ -381,7 +381,7 @@ class SerialLauncher:
         timer = remaining_time_minutes(time_limit_minutes)
         minutes_left = max(0.1, next(timer) - 1)
         self.worker_group = worker.WorkerGroup(limit=limit_nodes, offset=offset_nodes)
-        num_workers = len(self.worker_group) - 1
+        num_workers = len(self.worker_group)
 
         hostnames = sorted([w.hostname for w in self.worker_group])
         master_host = hostnames[0]
@@ -403,7 +403,7 @@ class SerialLauncher:
         if self.gpus_per_node:
             self.app_cmd += f" --gpus-per-node={self.gpus_per_node}"
         if self.is_persistent:
-            self.app_cmd += f" --persistent"
+            self.app_cmd += " --persistent"
 
     def run(self):
         global EXIT_FLAG

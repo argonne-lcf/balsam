@@ -33,11 +33,18 @@ Our script can bootstrap the `ApplicationDefinition` if it doesn't already exist
 import os
 
 # Bootstrap app if it's not already in the DB
-ApplicationDefinition.objects.get_or_create(
+app, was_created = ApplicationDefinition.objects.get_or_create(
     name = 'square',
-    executable = os.path.abspath(__file__),
 )
+
+if was_created:
+	app.executable = os.path.abspath(__file__)
+	app.save()
 ```
+The location of this script may resolve to different filepaths depending on where the
+script is run on HPC systems, e.g. on a compute node vs. a login node. Each application
+must have a unique name in the Balsam database; therefore, we only define the `executable`
+attribute the first time the script is run and the app is created.
 
 Since the script creating the app is itself serving as the app `executable`,
 we set the fully qualified path as `os.path.abspath(__file__)`. 
