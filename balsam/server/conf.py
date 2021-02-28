@@ -46,11 +46,18 @@ class AuthSettings(BaseSettings):
     algorithm = "HS256"
     token_ttl: timedelta = timedelta(hours=48)
     auth_method: str = "balsam.server.auth.user_from_token"
-    oauth_provider: Optional[OAuthProviderSettings]
+    oauth_provider: Optional[OAuthProviderSettings] = None
 
     def get_auth_method(self) -> Callable[..., schemas.UserOut]:
         module, func = self.auth_method.rsplit(".", 1)
         return getattr(import_module(module), func)  # type: ignore
+
+    @validator("oauth_provider", always=True)
+    def get_oauth_config(cls, v: Optional[OAuthProviderSettings]) -> Optional[OAuthProviderSettings]:
+        if v is None and os.environ.get("BALSAM_OAUTH_CLIENT_ID"):
+            return OAuthProviderSettings()
+        return v
+            
 
 
 class Settings(BaseSettings):

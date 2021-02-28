@@ -42,7 +42,7 @@ class DeviceCodeAttempt(Base):
 
     client_id = Column(pg.UUID(as_uuid=True), primary_key=True)
     expiration = Column(DateTime, nullable=False, default=datetime.utcnow)
-    device_code = Column(String(256))
+    device_code = Column(String(1024))
     user_code = Column(String(16), unique=True)
     scope = Column(String(128))
     user_denied = Column(Boolean, default=False)

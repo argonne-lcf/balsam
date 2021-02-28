@@ -31,7 +31,7 @@ def upgrade():
         "device_code_attempts",
         sa.Column("client_id", postgresql.UUID(as_uuid=True)),
         sa.Column("expiration", sa.DateTime(), nullable=False),
-        sa.Column("device_code", sa.String(length=256), nullable=False),
+        sa.Column("device_code", sa.String(length=1024), nullable=False),
         sa.Column("user_code", sa.String(length=16), nullable=False),
         sa.Column("scope", sa.String(length=128)),
         sa.Column("user_denied", sa.Boolean()),
