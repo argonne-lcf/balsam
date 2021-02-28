@@ -18,7 +18,7 @@ from .token import create_access_token
 
 logger = logging.getLogger(__name__)
 
-VERIFICATION_PATH = "/device"
+VERIFICATION_PATH = "/ALCF/login/device"
 GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
 
@@ -52,6 +52,7 @@ def authorization_request(
     The device client initiates the authorization flow
     https://tools.ietf.org/html/rfc8628
     """
+    logger.debug(f"Creating device code for device client login attempt {client_id}")
     conf = settings.auth.oauth_provider
     assert conf is not None
     device_code = generate_device_code()
@@ -78,12 +79,13 @@ def authorization_request(
         user_code=user_code,
         scope=scope,
     )
+    logger.debug(f"Device login flow with user-code {user_code} will expire at {expiration_date}")
     users.cleanup_device_code_attempts(db)
 
     return response
 
 
-@auth_router.post("/device_authorization")
+@auth_router.post("/token/device")
 def access_token_request(
     db: Session = Depends(get_session),
     grant_type: str = Form(...),
@@ -98,6 +100,7 @@ def access_token_request(
         raise HTTPException(status_code=400, detail="unsupported_grant_type")
 
     try:
+        logger.debug(f"Look up device_code attempt for device client {client_id}")
         device_code_attempt = users.get_device_code_attempt_by_client(db, client_id, device_code)
     except exc.NoResultFound:
         # Can't find that device code
@@ -114,9 +117,11 @@ def access_token_request(
     if device_code_attempt.user_id is None:
         # We haven't associated this device code with an ALCF user yet.
         # Client should wait a few seconds and try again.
+        logger.debug(f"authorization pending for device code attempt {client_id}")
         raise HTTPException(status_code=400, detail="authorization_pending")
 
     user = UserOut(id=device_code_attempt.user.id, username=device_code_attempt.user.username)
+    logger.debug(f"device code authorization success! associating {client_id} with username {user.username}")
     token, expiry = create_access_token(user)
     users.delete_device_code_attempt(db, device_code)
     return {"access_token": token, "token_type": "bearer", "expiration": expiry}

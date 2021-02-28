@@ -1,3 +1,4 @@
+import logging
 import secrets
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
@@ -12,6 +13,8 @@ from balsam.server import settings
 from balsam.server.auth import auth_router
 from balsam.server.models import get_session
 from balsam.server.models.crud import users
+
+logger = logging.getLogger(__name__)
 
 
 def generate_state(user_code: Optional[str] = None) -> str:
@@ -46,9 +49,9 @@ def alcf_username_from_token(token: str) -> str:
         conf.user_info_uri,
         headers={"Authorization": f"Bearer {token}"},
     )
-    print("user info response:", resp.status_code)
+    logger.debug(f"user info response: {resp.status_code}")
     dat = resp.json()
-    print(dat)
+    logger.debug(f"user info response json: {dat}")
     return str(dat["username"])
 
 
@@ -118,9 +121,9 @@ def callback(
         users.deny_device_code_attempt(db, user_code)
 
     if error:
-        print("OAuth error response:", error)
+        logger.warning(f"OAuth error response: {error}")
         if error_description:
-            print("Error description:", error_description)
+            logger.warning(f"OAuth error description: {error_description}")
         return {"error": error, "error_description": error_description}
 
     # Ensure the "state" is in our DB to mitigate CSRF
@@ -145,9 +148,9 @@ def callback(
         data=token_params,
         headers={"Cache-Control": "no-cache"},
     )
-    print("Received token_response:", token_response.status_code)
+    logger.debug(f"Received token response: {token_response.status_code}")
     token_data = token_response.json()
-    print(token_data)
+    logger.debug(f"token response json: {token_data}")
     access_token = str(token_data["access_token"])
 
     # Use access token to get ALCF username
@@ -155,14 +158,16 @@ def callback(
     try:
         from_db = users.get_user_by_username(db, username)
         user = UserOut(id=from_db.id, username=from_db.username)
-        print("Looked up existing username", username)
+        logger.info(f"Looked up existing username: {username}")
     except exc.NoResultFound:
         user = users.create_user(db, username, password=None)
-        print("Created new username", username)
+        logger.info(f"Created new Balsam username: {username}")
 
     # If this is coupled to a Device Code login flow, authorize the device code
     # attempt
     if user_code:
+        logger.info(f"Authorizing device code attempt for user code: {user_code}")
         users.authorize_device_code_attempt(db, user_code, user)
-        print("Authorized device code attempt for user code:", user_code)
+    else:
+        logger.debug("No user code; this is an ordinary authorization code callback.")
     return {"username": username}

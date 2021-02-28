@@ -14,7 +14,7 @@ import pytest
 import requests
 
 import balsam.server
-from balsam.client import BasicAuthRequestsClient
+from balsam.client import BasicAuthRequestsClient, urls
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home
 from balsam.server import models
@@ -134,7 +134,7 @@ def _make_user_client(url: str) -> BasicAuthRequestsClient:
     """Create a basicauth client to the given url"""
     login_credentials: Dict[str, Any] = {"username": f"user{uuid4()}", "password": "test-password"}
     requests.post(
-        url.rstrip("/") + "/auth/register/password",
+        url.rstrip("/") + "/" + urls.PASSWORD_REGISTER,
         json=login_credentials,
     )
     client = BasicAuthRequestsClient(url, **login_credentials)

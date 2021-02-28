@@ -1,12 +1,11 @@
 import logging
-import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 import click
 import dateutil.parser
-from requests.exceptions import ConnectionError
 
+from . import urls
 from .requests_client import RequestsClient
 from .rest_base_client import AuthError
 
@@ -52,17 +51,8 @@ class BasicAuthRequestsClient(RequestsClient):
         if self.password is None:
             raise ValueError("Cannot refresh_auth: self.password is None. Please provide a password")
         # Login with HTTPBasic Auth to get a token:
-        url = "auth/login/password"
         cred = {"username": self.username, "password": self.password}
-        resp = None
-        for _ in range(3):
-            try:
-                resp = self.request(url, "POST", data=cred, authenticating=True)
-            except ConnectionError as e:
-                logger.warning(f"ConnectionError: {e}")
-                time.sleep(1)
-            else:
-                break
+        resp = self.request(urls.PASSWORD_LOGIN, "POST", data=cred, authenticating=True)
         assert isinstance(resp, dict)
         if resp is not None and "access_token" in resp:
             self.token = resp["access_token"]

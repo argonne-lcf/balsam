@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, cast
 from uuid import UUID
@@ -8,6 +9,8 @@ from sqlalchemy.sql import exists
 from balsam.schemas import UserOut
 from balsam.server.auth.password_login import get_hash
 from balsam.server.models.tables import AuthorizationState, DeviceCodeAttempt, User
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_by_username(db: Session, username: str) -> User:
@@ -56,6 +59,7 @@ def cleanup_device_code_attempts(db: Session) -> None:
     cleanup_before = datetime.utcnow() - timedelta(minutes=30)
     qs = db.query(DeviceCodeAttempt)
     to_clean = qs.filter((DeviceCodeAttempt.expiration <= cleanup_before) | DeviceCodeAttempt.user_denied)
+    logger.debug(f"Deleting {to_clean.count()} expired/denied device-code attempts")
     to_clean.delete(synchronize_session=False)
     db.flush()
 

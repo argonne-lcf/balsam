@@ -1,11 +1,13 @@
+import itertools
 import logging
 import logging.handlers
 import os
 import socket
 import sys
+import threading
 import time
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, TextIO, Union
 
 import multiprocessing_logging  # type: ignore
 
@@ -116,3 +118,47 @@ def config_file_logging(
 def log_uncaught_exceptions(exctype: Any, value: Any, tb: Any) -> None:
     root_logger = logging.getLogger("balsam")
     root_logger.error(f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb))
+
+
+class Spinner(object):
+    """
+    https://github.com/click-contrib/click-spinner
+    """
+
+    spinner_cycle = itertools.cycle(["-", "/", "|", "\\"])
+
+    def __init__(self, msg: str, stream: TextIO = sys.stdout) -> None:
+        self.msg = msg
+        self.stream = stream
+        self.stop_running: Optional[threading.Event] = None
+        self.spin_thread: Optional[threading.Thread] = None
+
+    def start(self) -> None:
+        self.stream.write(self.msg + "  ")
+        if self.stream.isatty():
+            self.stop_running = threading.Event()
+            self.spin_thread = threading.Thread(target=self.init_spin)
+            self.spin_thread.start()
+
+    def stop(self) -> None:
+        assert self.stop_running is not None
+        if self.spin_thread:
+            self.stop_running.set()
+            self.spin_thread.join()
+
+    def init_spin(self) -> None:
+        assert self.stop_running is not None
+        while not self.stop_running.is_set():
+            self.stream.write(next(self.spinner_cycle))
+            self.stream.flush()
+            self.stop_running.wait(0.25)
+            self.stream.write("\b")
+            self.stream.flush()
+
+    def __enter__(self) -> "Spinner":
+        self.start()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.stop()
+        return None

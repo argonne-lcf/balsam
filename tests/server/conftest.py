@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from balsam.client import urls
 from balsam.server import models
 from balsam.server.models.crud import users
 
@@ -30,7 +31,7 @@ def fastapi_user_test_client(setup_database, db_session):
         from balsam.server.main import app
 
         client = BalsamTestClient(TestClient(app))
-        data = client.post_form("/auth/login/password", check=status.HTTP_200_OK, **login_credentials)
+        data = client.post_form(urls.PASSWORD_LOGIN, check=status.HTTP_200_OK, **login_credentials)
         token = data["access_token"]
         client.headers.update({"Authorization": f"Bearer {token}"})
         return client
