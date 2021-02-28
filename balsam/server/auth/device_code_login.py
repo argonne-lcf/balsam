@@ -18,7 +18,7 @@ from .token import create_access_token
 
 logger = logging.getLogger(__name__)
 
-VERIFICATION_PATH = "/ALCF/login/device"
+VERIFICATION_PATH = "/auth/ALCF/login/device"
 GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
 

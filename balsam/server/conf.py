@@ -24,7 +24,7 @@ class OAuthProviderSettings(BaseSettings):
     # Environment must export BALSAM_OAUTH_CLIENT_ID, etc...
     client_id: str
     client_secret: str
-    redirect_path: str = "http://generic-01.mcp.alcf.anl.gov:8000/auth/ALCF/callback"
+    redirect_path: str = "/auth/ALCF/callback"
     request_uri: str = "https://oauth2-dev.alcf.anl.gov/o/authorize/"
     token_uri: str = "https://oauth2-dev.alcf.anl.gov/o/token/"
     user_info_uri: str = "https://oauth2-dev.alcf.anl.gov/user/"
