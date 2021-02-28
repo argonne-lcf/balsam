@@ -57,7 +57,6 @@ class AuthSettings(BaseSettings):
         if v is None and os.environ.get("BALSAM_OAUTH_CLIENT_ID"):
             return OAuthProviderSettings()
         return v
-            
 
 
 class Settings(BaseSettings):

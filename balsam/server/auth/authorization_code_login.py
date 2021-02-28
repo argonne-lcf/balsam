@@ -87,6 +87,7 @@ def start_login_device(request: Request, user_code: str, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="invalid_client")
     state = generate_state(user_code=device_code_attempt.user_code)
     users.add_auth_state(db, state)
+    db.commit()
     return redirect_to_oauth_provider(request, state)
 
 
@@ -97,6 +98,7 @@ def start_login(request: Request, db: Session = Depends(get_session)) -> Redirec
     """
     state = generate_state(user_code=None)
     users.add_auth_state(db, state)
+    db.commit()
     return redirect_to_oauth_provider(request, state)
 
 
@@ -119,6 +121,7 @@ def callback(
 
     if error == "access_denied" and user_code is not None:
         users.deny_device_code_attempt(db, user_code)
+        db.commit()
 
     if error:
         logger.warning(f"OAuth error response: {error}")
@@ -143,6 +146,7 @@ def callback(
         redirect_uri=callback_uri,
         grant_type="authorization_code",
     )
+    logger.debug(f"Requesting token from {conf.token_uri}: {token_params}")
     token_response = requests.post(
         conf.token_uri,
         data=token_params,
@@ -161,6 +165,7 @@ def callback(
         logger.info(f"Looked up existing username: {username}")
     except exc.NoResultFound:
         user = users.create_user(db, username, password=None)
+        db.commit()
         logger.info(f"Created new Balsam username: {username}")
 
     # If this is coupled to a Device Code login flow, authorize the device code
@@ -168,6 +173,7 @@ def callback(
     if user_code:
         logger.info(f"Authorizing device code attempt for user code: {user_code}")
         users.authorize_device_code_attempt(db, user_code, user)
+        db.commit()
     else:
         logger.debug("No user code; this is an ordinary authorization code callback.")
     return {"username": username}

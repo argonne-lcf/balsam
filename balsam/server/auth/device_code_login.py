@@ -81,6 +81,7 @@ def authorization_request(
     )
     logger.debug(f"Device login flow with user-code {user_code} will expire at {expiration_date}")
     users.cleanup_device_code_attempts(db)
+    db.commit()
 
     return response
 
@@ -124,4 +125,5 @@ def access_token_request(
     logger.debug(f"device code authorization success! associating {client_id} with username {user.username}")
     token, expiry = create_access_token(user)
     users.delete_device_code_attempt(db, device_code)
+    db.commit()
     return {"access_token": token, "token_type": "bearer", "expiration": expiry}
