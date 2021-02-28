@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import exists
 
 from balsam.schemas import UserOut
-from balsam.server.auth.password_login import get_hash
+from balsam.server.auth.password_utils import get_hash
 from balsam.server.models.tables import AuthorizationState, DeviceCodeAttempt, User
 
 logger = logging.getLogger(__name__)

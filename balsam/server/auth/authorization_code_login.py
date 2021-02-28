@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserOut
 from balsam.server import settings
-from balsam.server.auth import auth_router
+from balsam.server.auth.router import auth_router
 from balsam.server.models import get_session
 from balsam.server.models.crud import users
 

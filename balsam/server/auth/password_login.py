@@ -3,26 +3,17 @@ from typing import Any, Dict
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from passlib.context import CryptContext  # type: ignore
 from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserCreate, UserOut
-from balsam.server.auth import auth_router
+from balsam.server.auth.router import auth_router
 from balsam.server.models import get_session
 from balsam.server.models.crud import users
 
+from .password_utils import verify_password
 from .token import create_access_token, user_from_token
 
 logger = logging.getLogger(__name__)
-ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    return bool(ctx.verify(plain, hashed))
-
-
-def get_hash(password: str) -> str:
-    return str(ctx.hash(password))
 
 
 def authenticate_user_password(db: Session, username: str, password: str) -> UserOut:
