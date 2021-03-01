@@ -19,6 +19,8 @@ class Worker:
 
     @property
     def hostname(self):
+        if self.host_type == 'COOLEY':
+            return self.id.split('.')[0]
         if self.host_type != 'THETA':
             return self.id
         return f'nid{self.id:05d}'

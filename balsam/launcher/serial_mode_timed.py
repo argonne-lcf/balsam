@@ -704,6 +704,8 @@ if __name__ == "__main__":
         if hostname == args.master_host:
             logger.debug(f"Worker starting Master on {args.master_address}")
             master_proc = launch_master_subprocess()
+        else:
+            master_proc = None
         worker = Worker(args, hostname=hostname, master_subproc=master_proc)
         def handle_term(signum, stack): worker.EXIT_FLAG = True
         signal.signal(signal.SIGINT, handle_term)
