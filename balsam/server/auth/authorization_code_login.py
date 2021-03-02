@@ -45,11 +45,11 @@ def alcf_username_from_token(token: str) -> str:
     """
     conf = settings.auth.oauth_provider
     assert conf is not None
-    resp = requests.post(
+    resp = requests.get(
         conf.user_info_uri,
         headers={"Authorization": f"Bearer {token}"},
     )
-    logger.debug(f"user info response: {resp.status_code}")
+    logger.debug(f"user info response: {resp.status_code}\n{resp.text}")
     dat = resp.json()
     logger.debug(f"user info response json: {dat}")
     return str(dat["username"])

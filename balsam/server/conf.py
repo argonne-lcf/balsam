@@ -27,8 +27,8 @@ class OAuthProviderSettings(BaseSettings):
     redirect_path: str = "/auth/ALCF/callback"
     request_uri: str = "https://oauth2-dev.alcf.anl.gov/o/authorize/"
     token_uri: str = "https://oauth2-dev.alcf.anl.gov/o/token/"
-    user_info_uri: str = "https://oauth2-dev.alcf.anl.gov/user/"
-    scope: str = "read introspect"
+    user_info_uri: str = "https://oauth2-dev.alcf.anl.gov/api/v1/user/"
+    scope: str = "read"
     device_code_lifetime: timedelta = timedelta(seconds=300)
     device_poll_interval: timedelta = timedelta(seconds=3)
 
