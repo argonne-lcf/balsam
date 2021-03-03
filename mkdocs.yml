@@ -5,6 +5,7 @@ nav:
       - Understanding Balsam: development/data-model.md
       - Project Layout: development/layout.md
       - Contribution Guide: development/contributing.md
+      - Integration Testing: development/testing.md
       - Site Configuration: development/site-config.md
       - The Python REST Client: development/client.md
       - Defining Applications: development/appdef.md
