@@ -50,7 +50,8 @@ def down(path: Union[str, Path]) -> None:
 
 @server.command()
 @click.option("-p", "--path", required=True, type=click.Path(exists=True, file_okay=False))
-def up(path: Union[Path, str]) -> None:
+@click.option("--log/--no-log", is_flag=True, default=False)
+def up(path: Union[Path, str], log: bool) -> None:
     """
     Starts up the services comprising the Balsam server (Postgres, Redis, and Gunicorn)
     """
@@ -68,7 +69,7 @@ def up(path: Union[Path, str]) -> None:
     dsn = pg.load_dsn(db_path)
     pg.configure_balsam_server_from_dsn(dsn)
 
-    settings = balsam.server.Settings(log_dir=path)
+    settings = balsam.server.Settings(log_dir=path if log else None)
     args = settings.gunicorn_env()
     p = subprocess.Popen(args, cwd=path)
     click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")

@@ -71,7 +71,8 @@ class Settings(BaseSettings):
     auth: AuthSettings = AuthSettings()
     redis_params: Dict[str, Any] = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
     log_level: Union[str, int] = logging.INFO
-    log_dir: Path = Path.cwd()
+    log_dir: Optional[Path]
+    log_sql: bool = True
     num_uvicorn_workers: int = 1
     gunicorn_pid_file: str = "gunicorn.pid"
 
@@ -80,7 +81,9 @@ class Settings(BaseSettings):
         return validate_log_level(v)
 
     @validator("log_dir", always=True)
-    def validate_log_dir(cls, v: Path) -> Path:
+    def validate_log_dir(cls, v: Optional[Path]) -> Optional[Path]:
+        if v is None:
+            return None
         if not v.exists():
             v.mkdir(parents=True, exist_ok=False)
         elif not v.is_dir():
@@ -93,7 +96,8 @@ class Settings(BaseSettings):
         """
         for k, v in json.loads(self.json()).items():
             envvar = (self.Config.env_prefix + k).upper()
-            os.environ[envvar] = json.dumps(v) if not isinstance(v, str) else v
+            if v is not None:
+                os.environ[envvar] = json.dumps(v) if not isinstance(v, str) else v
 
         # Settings from environ consistent with self
         assert Settings() == self
@@ -106,9 +110,9 @@ class Settings(BaseSettings):
                 "--log-level",
                 str(self.log_level),
                 "--access-logfile",
-                self.log_dir.joinpath("gunicorn.access").as_posix(),
+                self.log_dir.joinpath("gunicorn.access").as_posix() if self.log_dir else "/dev/null",
                 "--error-logfile",
-                self.log_dir.joinpath("gunicorn.out").as_posix(),
+                self.log_dir.joinpath("gunicorn.out").as_posix() if self.log_dir else "/dev/null",
                 "--capture-output",
                 "--name",
                 "balsam-server",
