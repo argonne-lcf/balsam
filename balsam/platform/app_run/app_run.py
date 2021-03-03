@@ -128,7 +128,7 @@ class SubprocessAppRun(AppRun):
                 self._preamble_cache[self._preamble] = Path(fp.name).resolve()
         return f"source {self._preamble_cache[self._preamble]} && "
 
-    def _get_envs(self) -> Dict[str, str]:
+    def _set_envs(self) -> None:
         envs = os.environ.copy()
         envs.update(self._envs)
         # Check the assigned GPU ID list from the first compute node:
@@ -136,7 +136,7 @@ class SubprocessAppRun(AppRun):
         if gpu_ids:
             envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
             envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
-        return envs
+        self._envs = envs
 
     def _open_outfile(self) -> IO[bytes]:
         return open(self._outfile_path, "wb")
@@ -148,10 +148,10 @@ class SubprocessAppRun(AppRun):
         pass
 
     def start(self) -> None:
+        self._set_envs()
         cmdline = self._build_preamble() + self._build_cmdline()
         logger.info(f"{self.__class__.__name__} Popen: {cmdline}")
         self._outfile = self._open_outfile()
-        envs = self._get_envs()
         self._pre_popen()
 
         try:
@@ -162,7 +162,7 @@ class SubprocessAppRun(AppRun):
                 stdout=self._outfile,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
-                env=envs,
+                env=self._envs,
                 cwd=self._cwd,
             )
         except Exception as e:
