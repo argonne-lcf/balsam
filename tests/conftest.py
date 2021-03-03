@@ -250,5 +250,5 @@ def run_service(balsam_site_config: SiteConfig) -> Iterable[SiteConfig]:
         try:
             print(f"WARNING! Force-killing process {child.pid}")
             child.kill()
-        except psutil.ProcessLookupError:
+        except (psutil.ProcessLookupError, psutil.NoSuchProcess):
             pass
