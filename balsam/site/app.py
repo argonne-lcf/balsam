@@ -163,6 +163,7 @@ class ApplicationDefinitionMeta(type):
     command_template: str
     parameters: Dict[str, Any]
     transfers: Dict[str, Any]
+    _default_params: Dict[str, str]
 
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "ApplicationDefinitionMeta":
         super_new = super().__new__
@@ -171,16 +172,16 @@ class ApplicationDefinitionMeta(type):
             return cls
 
         if "parameters" not in attrs:
-            raise AttributeError("Must set `parameters` dict on the ApplicationDefinition class.")
+            raise AttributeError(f"Must set `parameters` dict on the {name} ApplicationDefinition class.")
         if "command_template" not in attrs or not isinstance(attrs["command_template"], str):
-            raise AttributeError("ApplicationDefiniton must define a `command_template` string.")
+            raise AttributeError(f"ApplicationDefiniton {name} must define a `command_template` string.")
 
         # Validate command template
         cls.command_template = " ".join(cls.command_template.strip().split())
         for param in re.findall(mcls._param_pattern, cls.command_template):
             if not param.strip().isidentifier():
                 raise AttributeError(
-                    f"Command template parameter '{param.strip()}' is not a valid Python identifier."
+                    f"ApplicationDefinition {name} parameter '{param.strip()}' is not a valid Python identifier."
                 )
 
         # Detect parameters via Jinja
@@ -188,11 +189,19 @@ class ApplicationDefinitionMeta(type):
         detected_params: Set[str] = jinja2.meta.find_undeclared_variables(ctx)  # type: ignore
 
         # Validate parameters dict
-        cls_params = set(cls.parameters.keys())
-        for param in cls_params:
-            if not param.isidentifier():
-                raise AttributeError(f"Dictionary parameter '{param}' is not a valid Python identifier.")
+        for param_name, param in cls.parameters.items():
+            if not param_name.isidentifier():
+                raise AttributeError(f"{name} dictionary parameter '{param_name}' is not a valid Python identifier.")
+            if "required" not in param:
+                raise AttributeError(
+                    f"Application Definition {name} parameter {param_name} must set 'required' key as True/False"
+                )
+            if not param["required"] and param.get("default") is None:
+                raise AttributeError(
+                    f"ApplicationDefinition {name} optional parameter {param_name} must set a 'default' str value"
+                )
 
+        cls_params = set(cls.parameters.keys())
         extraneous = cls_params.difference(detected_params)
         if extraneous:
             raise AttributeError(
@@ -207,6 +216,7 @@ class ApplicationDefinitionMeta(type):
                 "default": None,
                 "help": "",
             }
+        cls._default_params = {k: v["default"] for k, v in cls.parameters.items() if not v["required"]}
         return cls
 
 
@@ -219,12 +229,13 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     command_template: str = ""
     parameters: Dict[str, Any] = {}
     transfers: Dict[str, Any] = {}
+    _default_params: Dict[str, str]
 
     def __init__(self, job: "Job") -> None:
         self.job = job
 
     def get_arg_str(self) -> str:
-        return self._render_command(self.job.parameters)
+        return self._render_command({**self._default_params, **self.job.parameters})
 
     def get_environ_vars(self) -> Dict[str, str]:
         envs = os.environ.copy()
@@ -245,7 +256,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         """
         diff = set(self.parameters.keys()).difference(arg_dict.keys())
         if diff:
-            raise ValueError(f"Missing required args: {diff}")
+            raise ValueError(f"Missing required args: {diff} (only got: {arg_dict})")
 
         sanitized_args = {key: shlex.quote(str(arg_dict[key])) for key in self.parameters}
         return jinja2.Template(self.command_template).render(sanitized_args)
