@@ -143,8 +143,10 @@ def bulk_create(
         )
 
     created_jobs, created_transfers, created_events = [], [], []
+    now = datetime.utcnow()
     for job_spec in job_specs:
         db_job = models.Job(**jsonable_encoder(job_spec.dict(exclude={"parent_ids", "transfers"})))
+        db_job.last_update = now  # Try to avoid N+1 queries for fetching server-default value
         db.add(db_job)
         db_job.app = apps[job_spec.app_id]
         validate_parameters(db_job)
