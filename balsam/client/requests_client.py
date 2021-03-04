@@ -87,7 +87,7 @@ class RequestsClient(RESTClient):
             else:
                 try:
                     return response.json()  # type: ignore
-                except JSONDecodeError:
+                except (ValueError, JSONDecodeError):
                     if http_method != "DELETE":
                         raise
                     return None

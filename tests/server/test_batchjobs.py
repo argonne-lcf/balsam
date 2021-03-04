@@ -286,6 +286,25 @@ def test_delete_running_batchjob(auth_client):
     assert "User deleted job" in user_job["status_info"].values()
 
 
+def test_delete_api_endpoint(auth_client):
+    site = create_site(auth_client, hostname="theta")
+    bjob = auth_client.post(
+        "/batch-jobs/",
+        site_id=site["id"],
+        project="datascience",
+        queue="default",
+        num_nodes=7,
+        wall_time_min=30,
+        job_mode="mpi",
+    )
+    all = auth_client.get("/batch-jobs/")
+    assert all["count"] == 1
+    resp = auth_client.delete(f"/batch-jobs/{bjob['id']}")
+    print("delete response is", resp)
+    all = auth_client.get("/batch-jobs/")
+    assert all["count"] == 0
+
+
 def test_no_shared_batchjobs_in_list_view(fastapi_user_test_client):
     """client2 cannot see client1's batchjobs"""
     client1, client2 = fastapi_user_test_client(), fastapi_user_test_client()
