@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AutoscaleService(BalsamService):
+class ElasticQueueService(BalsamService):
     def __init__(
         self,
         client: "RESTClient",
@@ -25,12 +25,15 @@ class AutoscaleService(BalsamService):
         job_mode: str = "mpi",
         filter_tags: Optional[Dict[str, str]] = None,
         min_wall_time_min: int = 35,
+        wall_time_pad_min: int = 5,
         min_num_nodes: int = 20,
         max_num_nodes: int = 127,
         max_queue_wait_time_min: int = 10,
         max_queued_jobs: int = 20,
     ) -> None:
         super().__init__(client=client, service_period=service_period)
+        if wall_time_pad_min >= min_wall_time_min:
+            raise ValueError("Pad walltime must be less than minimum batch job walltime.")
         self.site_id = site_id
         self.scheduler = scheduler_class()
         self.project = submit_project
@@ -39,43 +42,53 @@ class AutoscaleService(BalsamService):
         self.filter_tags = filter_tags
         self.max_queue_wait_time_min = max_queue_wait_time_min
         self.min_wall_time_min = min_wall_time_min
+        self.wall_time_pad_min = wall_time_pad_min
         self.min_num_nodes = min_num_nodes
         self.max_num_nodes = max_num_nodes
         self.max_queued_jobs = max_queued_jobs
         self.username = getpass.getuser()
 
-    def _get_largest_backfill_window(self) -> Optional[SchedulerBackfillWindow]:
+    def _get_largest_backfill_window(self, min_num_nodes: int) -> Optional[SchedulerBackfillWindow]:
         windows_by_queue: Dict[str, List[SchedulerBackfillWindow]] = self.scheduler.get_backfill_windows()
         windows = windows_by_queue.get(self.submit_queue, [])
-        windows = [w for w in windows if w.wall_time_min > self.min_wall_time_min]
+        windows = [w for w in windows if w.wall_time_min >= self.min_wall_time_min and w.num_nodes >= min_num_nodes]
         windows = sorted(windows, key=lambda w: w.wall_time_min * w.num_nodes, reverse=True)
         return windows[0] if windows else None
 
     def get_next_submission(self, scheduler_jobs: Iterable[SchedulerJobStatus]) -> Optional[Dict[str, Any]]:
         Job = self.client.Job
-        queued_jobs = [j for j in scheduler_jobs if j.state in ("queued", "pending_submission")]
-        running_jobs = [j for j in scheduler_jobs if j.state == "running"]
-        num_reserved_nodes = sum(j.num_nodes for j in queued_jobs) + sum(j.num_nodes for j in running_jobs)
-        logger.info(
-            f"{len(queued_jobs)} queued; {len(running_jobs)} running; {num_reserved_nodes} nodes reserved in total"
+        queued_batchjobs = [j for j in scheduler_jobs if j.state in ("queued", "pending_submission")]
+        running_batchjobs = [j for j in scheduler_jobs if j.state == "running"]
+        num_reserved_nodes = sum(j.num_nodes for j in queued_batchjobs) + sum(j.num_nodes for j in running_batchjobs)
+        logger.debug(
+            f"There are {len(queued_batchjobs)} queued, {len(running_batchjobs)} running BatchJobs "
+            f"totalling {num_reserved_nodes} nodes."
         )
 
-        # Assumption: all jobs num_nodes=1, node_packing_count=1
-        num_running = Job.objects.filter(site_id=self.site_id, state=JobState.running).count()
-        assert num_running is not None
-        idle_node_count = num_reserved_nodes - num_running
-        runnable = Job.objects.filter(site_id=self.site_id, state=RUNNABLE_STATES)
-        required_num_nodes = runnable.count()
-        assert required_num_nodes is not None
+        running_jobs = Job.objects.filter(site_id=self.site_id, state=JobState.running)
+        runnable_jobs = Job.objects.filter(site_id=self.site_id, state=RUNNABLE_STATES)
+        running_num_nodes = sum(job.num_nodes / job.node_packing_count for job in running_jobs)
+        runnable_num_nodes = sum(job.num_nodes / job.node_packing_count for job in runnable_jobs)
+        logger.debug(
+            f"{running_num_nodes} nodes are currently occupied; runnable node footprint is {runnable_num_nodes}"
+        )
 
-        window = self._get_largest_backfill_window()
+        # The number of nodes currently or soon to be allocated, minus the footprint of currently running jobs
+        idle_node_count = num_reserved_nodes - running_num_nodes
 
-        if len(queued_jobs) + len(running_jobs) > self.max_queued_jobs:
+        window = self._get_largest_backfill_window(min_num_nodes=min(job.num_nodes for job in runnable_jobs))
+        logger.debug(f"Largest backfill window: {window}")
+
+        if len(queued_batchjobs) + len(running_batchjobs) > self.max_queued_jobs:
             logger.info(f"At {self.max_queued_jobs} max queued jobs; will not submit")
             return None
 
-        if window and required_num_nodes > idle_node_count:
-            request_num_nodes = max(self.min_num_nodes, required_num_nodes - idle_node_count)
+        if not window:
+            logger.info("No eligible backfill windows; will not submit")
+            return None
+
+        if runnable_num_nodes > idle_node_count:
+            request_num_nodes = max(self.min_num_nodes, runnable_num_nodes - idle_node_count)
             request_num_nodes = min(
                 request_num_nodes,
                 window.num_nodes,
@@ -87,8 +100,9 @@ class AutoscaleService(BalsamService):
                 "job_mode": self.job_mode,
                 "filter_tags": self.filter_tags,
                 "num_nodes": request_num_nodes,
-                "wall_time_min": window.wall_time_min,
+                "wall_time_min": window.wall_time_min - self.wall_time_pad_min,
             }
+        logger.info("Idle node count exceeds runnable footprint; no need to submit.")
         return None
 
     def run_cycle(self) -> None:
@@ -109,4 +123,4 @@ class AutoscaleService(BalsamService):
             logger.info(f"Deleted queued BatchJob {job.scheduler_id}: exceed max queue wait time")
 
     def cleanup(self) -> None:
-        logger.info("Exiting Autoscaler service")
+        logger.info("Exiting ElasticQueue service")
