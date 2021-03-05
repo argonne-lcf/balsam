@@ -117,8 +117,8 @@ class ClientSettings(BaseSettings):
 
 class LoggingConfig(BaseSettings):
     level: str = "DEBUG"
-    format: str = "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
-    datefmt: str = "%d-%b-%Y %H:%M:%S"
+    format: str = "%(asctime)s.%(msecs)03d | %(process)d | %(levelname)s | %(name)s:%(lineno)s] %(message)s"
+    datefmt: str = "%Y-%m-%d %H:%M:%S"
     buffer_num_records: int = 1024
     flush_period: int = 30
 
