@@ -856,10 +856,10 @@ def test_can_traverse_dag(auth_client, linear_dag):
     A, B, C = linear_dag
 
     child_of_A = auth_client.get("/jobs", parent_id=A["id"])
-    assert child_of_A["results"][0] == B
+    assert child_of_A["results"][0]["id"] == B["id"]
 
     child_of_B = auth_client.get("/jobs", parent_id=B["id"])
-    assert child_of_B["results"][0] == C
+    assert child_of_B["results"][0]["id"] == C["id"]
 
 
 def test_delete_recursively_deletes_children(auth_client, linear_dag, db_session):
