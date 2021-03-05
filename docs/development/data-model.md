@@ -121,7 +121,7 @@ Generally, Balsam will need two types of Auth to function:
 | PATCH       | /jobs/     | Bulk-update Jobs: apply list of patches job-wise                         | Balsam StatusUpdater component sends a list of status updates to API |
 | ----------- | ---------------  | -------------------- | ------------------- |
 | GET         | /batch-jobs/     | Get BatchJobs                        | Web client lists recent BatchJobs               |
-| POST        | /batch-jobs/     | Create BatchJob                      | Web client or AutoScaler submits a new BatchJob |
+| POST        | /batch-jobs/     | Create BatchJob                      | Web client or ElasticQueue submits a new BatchJob |
 | PUT         | /batch-jobs/{id} | Alter BatchJob by ID                 | Web client alters job runtime while queued      |
 | DELETE      | /batch-jobs/{id} | Delete BatchJob by ID                | User deletes job before it was ever submitted   |
 | PATCH       | /batch-jobs/     | Bulk Update batch jobs by patch list | Service syncs BatchJob states                   |

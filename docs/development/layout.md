@@ -124,7 +124,7 @@ This `BalsamService` component syncs with `BatchJobs` in the Balsam API and uses
 For example, a user performing the `balsam submit-launch` command causes a new `BatchJob` to be created in the API.
 The `SchedulerService` then detects this new `BatchJob`, generates an appropriate script from the `ScriptTemplate`, and submits it to the local Slurm scheduler.
 
-### `AutoscaleService`
+### `ElasticQueueService`
 
 This `BalsamService` monitors the backlog of `Jobs` and locally available compute resources, and it automatically submits new `BatchJobs` to the API to adapt to realtime workloads. This is a form of automated job submission, which works together with the `SchedulerService` to fully automate resource allocation and execution.
 

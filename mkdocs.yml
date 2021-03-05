@@ -9,8 +9,6 @@ nav:
       - Site Configuration: development/site-config.md
       - The Python REST Client: development/client.md
       - Defining Applications: development/appdef.md
-      - JobSource and StatusUpdater: development/jobsource.md
-      - Service modules: development/service.md
       - Web Client: development/web-client.md
       - Roadmap: development/todo.md
   - Running a Balsam Server: development/deploy.md
