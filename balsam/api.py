@@ -1,5 +1,7 @@
 import logging
 
+from balsam._api import models
+from balsam._api.models import App, BatchJob, EventLog, Job, Session, Site, TransferItem
 from balsam.config import ClientSettings, SiteConfig
 from balsam.schemas import (
     AppParameter,
@@ -19,14 +21,13 @@ except Exception as exc:
     client = None  # type: ignore
     logger.debug(f"balsam.api failed to auto-load Client:\n{exc}")
 else:
-    Site = client.Site
-    App = client.App
-    BatchJob = client.BatchJob
-    Job = client.Job
-    Session = client.Session
-    TransferItem = client.TransferItem
-    EventLog = client.EventLog
-
+    Site.objects = models.SiteManager(client)
+    App.objects = models.AppManager(client)
+    BatchJob.objects = models.BatchJobManager(client)
+    Job.objects = models.JobManager(client)
+    TransferItem.objects = models.TransferItemManager(client)
+    Session.objects = models.SessionManager(client)
+    EventLog.objects = models.EventLogManager(client)
 try:
     site_config = SiteConfig()
 except Exception as exc:
