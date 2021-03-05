@@ -40,6 +40,7 @@ class Master:
         self.idle_ttl_sec = idle_ttl_sec
         self.idle_time: Optional[float] = None
         self.active_ids: Set[int] = set()
+        self.occupancies: Dict[int, float] = {}
         self.num_workers = num_workers
         self.master_port = master_port
 
@@ -58,12 +59,15 @@ class Master:
         preamble = app.shell_preamble()
         app_command = app.get_arg_str()
         environ_vars = app.get_environ_vars()
+        occ = 1.0 / job.node_packing_count
+        assert job.id is not None
+        self.occupancies[job.id] = occ
         return dict(
             id=job.id,
             cwd=workdir,
             cmdline=app_command,
             preamble=preamble,
-            node_occupancy=1.0 / job.node_packing_count,
+            node_occupancy=occ,
             envs=environ_vars,
             threads_per_rank=job.threads_per_rank,
             threads_per_core=job.threads_per_core,
@@ -97,6 +101,7 @@ class Master:
                 id,
                 JobState.running,
                 state_timestamp=now,
+                state_data={"num_nodes": self.occupancies.pop(id, 1.0)},
             )
             self.active_ids.add(id)
 

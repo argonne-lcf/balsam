@@ -67,8 +67,8 @@ class ElasticQueueService(BalsamService):
 
         running_jobs = Job.objects.filter(site_id=self.site_id, state=JobState.running)
         runnable_jobs = Job.objects.filter(site_id=self.site_id, state=RUNNABLE_STATES)
-        running_num_nodes = sum(job.num_nodes / job.node_packing_count for job in running_jobs)
-        runnable_num_nodes = sum(job.num_nodes / job.node_packing_count for job in runnable_jobs)
+        running_num_nodes = sum(float(job.num_nodes) / job.node_packing_count for job in running_jobs)
+        runnable_num_nodes = sum(float(job.num_nodes) / job.node_packing_count for job in runnable_jobs)
         logger.debug(
             f"{running_num_nodes} nodes are currently occupied; runnable node footprint is {runnable_num_nodes}"
         )

@@ -129,6 +129,7 @@ class Launcher:
                 cast(int, job.id),  # acquired jobs will not have None id
                 state=JobState.running,
                 state_timestamp=datetime.utcnow(),
+                state_data={"num_nodes": float(job.num_nodes) / job.node_packing_count},
             )
             self.active_runs[cast(int, job.id)] = run
 
