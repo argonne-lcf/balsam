@@ -7,7 +7,7 @@ class Hello(ApplicationDefinition):
     """
 
     environment_variables = {}
-    command_template = "echo hello world"
+    command_template = "echo hello {{ name }}"
     parameters = {}
     transfers = {}
 

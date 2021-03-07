@@ -100,7 +100,7 @@ class TransferService(BalsamService):
 
     def get_workdirs_by_id(self, batch: List["TransferItem"]) -> Dict[int, Path]:
         """Build map of job workdirs, ensuring existence"""
-        job_ids = [item.job_id for item in batch]
+        job_ids = list(set(item.job_id for item in batch))
         jobs = {job.id: job for job in self.client.Job.objects.filter(id=job_ids)}
         if len(jobs) < len(job_ids):
             raise RuntimeError(f"Could not find all Jobs for TransferItems")

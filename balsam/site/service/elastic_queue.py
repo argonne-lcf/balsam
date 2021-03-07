@@ -102,7 +102,7 @@ class ElasticQueueService(BalsamService):
                 "num_nodes": request_num_nodes,
                 "wall_time_min": window.wall_time_min - self.wall_time_pad_min,
             }
-        logger.info("Idle node count exceeds runnable footprint; no need to submit.")
+        logger.info("Idle node count meets or exceeds runnable footprint; no need to submit.")
         return None
 
     def run_cycle(self) -> None:
