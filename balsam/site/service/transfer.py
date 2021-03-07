@@ -1,12 +1,10 @@
-# flake8: noqa
 import logging
 from collections import defaultdict
 from itertools import islice
 from math import ceil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, cast
 from urllib.parse import urlparse
-from uuid import UUID
 
 from balsam.platform.transfer import TaskInfo, TransferInterface, TransferSubmitError
 from balsam.schemas import TransferItemState
@@ -14,11 +12,26 @@ from balsam.schemas import TransferItemState
 from .service_base import BalsamService
 
 if TYPE_CHECKING:
-    from balsam._api.models import Job, TransferItem, TransferItemQuery
+    from balsam._api.models import TransferItem, TransferItemQuery
     from balsam.client import RESTClient
 
 logger = logging.getLogger(__name__)
-GetPathsFunc = Callable[["TransferItem"], Tuple[Path, Path]]
+
+
+def resolve_stage_in_paths(item: "TransferItem", workdir: Path) -> Tuple[Path, Path, bool]:
+    src = item.remote_path
+    dest = workdir.joinpath(item.local_path)
+    if dest == workdir and not item.recursive:
+        dest = dest.joinpath(src.name)
+    if dest.parent != workdir:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+    return src, dest, item.recursive
+
+
+def resolve_stage_out_paths(item: "TransferItem", workdir: Path) -> Tuple[Path, Path, bool]:
+    src = workdir.joinpath(item.local_path)
+    dest = item.remote_path
+    return src, dest, item.recursive
 
 
 class TransferService(BalsamService):
@@ -103,7 +116,7 @@ class TransferService(BalsamService):
         job_ids = list(set(item.job_id for item in batch))
         jobs = {job.id: job for job in self.client.Job.objects.filter(id=job_ids)}
         if len(jobs) < len(job_ids):
-            raise RuntimeError(f"Could not find all Jobs for TransferItems")
+            raise RuntimeError("Could not find all Jobs for TransferItems")
         workdirs = {}
         for job_id, job in jobs.items():
             workdir = Path(self.data_path).joinpath(job.workdir).resolve()
@@ -129,13 +142,8 @@ class TransferService(BalsamService):
             return self.error_items(batch, str(exc))
 
         workdirs = self.get_workdirs_by_id(batch)
-        get_paths: GetPathsFunc
-        if direction == "in":
-            get_paths = lambda item: (item.remote_path, workdirs[item.job_id].joinpath(item.local_path))
-        else:
-            get_paths = lambda item: (workdirs[item.job_id].joinpath(item.local_path), item.remote_path)
-
-        transfer_paths = [(*get_paths(item), item.recursive) for item in batch]
+        path_resolver = resolve_stage_in_paths if direction == "in" else resolve_stage_out_paths
+        transfer_paths = [path_resolver(item, workdirs[item.job_id]) for item in batch]
 
         try:
             task_id = transfer_interface.submit_task(remote_loc, direction, transfer_paths)

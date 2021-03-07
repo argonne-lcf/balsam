@@ -30,7 +30,7 @@ def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch: Sequence[SrcDestR
         dest_endpoint,
         label="",
         sync_level="size",
-        verify_checksum=True,
+        verify_checksum=False,
         preserve_timestamp=False,
         encrypt_data=True,
         submission_id=None,
