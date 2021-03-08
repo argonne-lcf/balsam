@@ -25,11 +25,13 @@ class ElasticQueueService(BalsamService):
         job_mode: str = "mpi",
         filter_tags: Optional[Dict[str, str]] = None,
         min_wall_time_min: int = 35,
+        max_wall_time_min: int = 360,
         wall_time_pad_min: int = 5,
         min_num_nodes: int = 20,
         max_num_nodes: int = 127,
         max_queue_wait_time_min: int = 10,
         max_queued_jobs: int = 20,
+        use_backfill: bool = True,
     ) -> None:
         super().__init__(client=client, service_period=service_period)
         if wall_time_pad_min >= min_wall_time_min:
@@ -42,13 +44,17 @@ class ElasticQueueService(BalsamService):
         self.filter_tags = filter_tags
         self.max_queue_wait_time_min = max_queue_wait_time_min
         self.min_wall_time_min = min_wall_time_min
+        self.max_wall_time_min = max_wall_time_min
         self.wall_time_pad_min = wall_time_pad_min
         self.min_num_nodes = min_num_nodes
         self.max_num_nodes = max_num_nodes
         self.max_queued_jobs = max_queued_jobs
+        self.use_backfill = use_backfill
         self.username = getpass.getuser()
 
-    def _get_largest_backfill_window(self, min_num_nodes: int) -> Optional[SchedulerBackfillWindow]:
+    def _get_submission_window(self, min_num_nodes: int) -> Optional[SchedulerBackfillWindow]:
+        if not self.use_backfill:
+            return SchedulerBackfillWindow(num_nodes=self.max_num_nodes, wall_time_min=self.max_wall_time_min)
         windows_by_queue: Dict[str, List[SchedulerBackfillWindow]] = self.scheduler.get_backfill_windows()
         windows = windows_by_queue.get(self.submit_queue, [])
         windows = [w for w in windows if w.wall_time_min >= self.min_wall_time_min and w.num_nodes >= min_num_nodes]
@@ -76,7 +82,7 @@ class ElasticQueueService(BalsamService):
         # The number of nodes currently or soon to be allocated, minus the footprint of currently running jobs
         idle_node_count = num_reserved_nodes - running_num_nodes
 
-        window = self._get_largest_backfill_window(min_num_nodes=min(job.num_nodes for job in runnable_jobs))
+        window = self._get_submission_window(min_num_nodes=min(job.num_nodes for job in runnable_jobs))
         logger.debug(f"Largest backfill window: {window}")
 
         if len(queued_batchjobs) + len(running_batchjobs) > self.max_queued_jobs:
