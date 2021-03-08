@@ -163,6 +163,7 @@ class ApplicationDefinitionMeta(type):
     command_template: str
     parameters: Dict[str, Any]
     transfers: Dict[str, Any]
+    cleanup_files: List[str]
     _default_params: Dict[str, str]
 
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "ApplicationDefinitionMeta":
@@ -229,6 +230,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     command_template: str = ""
     parameters: Dict[str, Any] = {}
     transfers: Dict[str, Any] = {}
+    cleanup_files: List[str] = []
     _default_params: Dict[str, str]
 
     def __init__(self, job: "Job") -> None:

@@ -50,6 +50,7 @@ def setup_database() -> Optional[str]:
         session = next(models.get_session())
         if not session.engine.database.endswith("test"):  # type: ignore
             raise RuntimeError("Database name used for testing must end with 'test'")
+        pg.run_alembic_migrations(env_url)
         session.execute("""TRUNCATE TABLE users CASCADE;""")
         session.commit()
         session.close()

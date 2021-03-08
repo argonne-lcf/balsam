@@ -107,6 +107,7 @@ class JobUpdate(JobBase):
     state: JobState = Field(None, example="JOB_FINISHED", description="Job state")
     state_timestamp: datetime = Field(None, description="Time (UTC) at which Job state change occured")
     state_data: Dict[str, Any] = Field({}, description="Arbitrary associated state change data for logging")
+    pending_file_cleanup: bool = Field(None, description="Whether job remains to have workdir cleaned.")
 
 
 class JobBulkUpdate(JobUpdate):
@@ -120,6 +121,7 @@ class JobOut(JobBase):
     batch_job_id: int = Field(None, example=4)
     last_update: datetime = Field(...)
     state: JobState = Field(..., example="JOB_FINISHED")
+    pending_file_cleanup: bool = Field(..., description="Whether job remains to have workdir cleaned.")
 
     class Config:
         orm_mode = True

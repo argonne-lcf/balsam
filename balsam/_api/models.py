@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev d9ac1fa]
+# [git rev d5cd726]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -416,6 +416,7 @@ class Job(balsam._api.bases.JobBase):
     state = Field[Optional[balsam.schemas.job.JobState]]()
     state_timestamp = Field[Optional[datetime.datetime]]()
     state_data = Field[Optional[typing.Dict[str, typing.Any]]]()
+    pending_file_cleanup = Field[Optional[bool]]()
     id = Field[Optional[int]]()
     last_update = Field[Optional[datetime.datetime]]()
 
@@ -480,24 +481,26 @@ class JobQuery(Query[Job]):
         state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
+        pending_file_cleanup: Optional[bool] = None,
     ) -> Job:
         """
         Retrieve exactly one Job. Raises Job.DoesNotExist
         if no items were found, or Job.MultipleObjectsReturned if
         more than one item matched the query.
 
-        id:                 Only return Jobs with ids in this list.
-        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
-        app_id:             Only return Jobs associated with this App id.
-        site_id:            Only return Jobs associated with this Site id.
-        batch_job_id:       Only return Jobs associated with this BatchJob id.
-        last_update_before: Only return Jobs that were updated before this time (UTC).
-        last_update_after:  Only return Jobs that were updated after this time (UTC).
-        workdir__contains:  Only return jobs with workdirs containing this string.
-        state__ne:          Only return jobs with states not equal to this state.
-        state:              Only return jobs in this set of states.
-        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
-        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        id:                   Only return Jobs with ids in this list.
+        parent_id:            Only return Jobs that are children of Jobs with ids in this list.
+        app_id:               Only return Jobs associated with this App id.
+        site_id:              Only return Jobs associated with this Site id.
+        batch_job_id:         Only return Jobs associated with this BatchJob id.
+        last_update_before:   Only return Jobs that were updated before this time (UTC).
+        last_update_after:    Only return Jobs that were updated after this time (UTC).
+        workdir__contains:    Only return jobs with workdirs containing this string.
+        state__ne:            Only return jobs with states not equal to this state.
+        state:                Only return jobs in this set of states.
+        tags:                 Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:           Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        pending_file_cleanup: Only return jobs which have not yet had workdir cleaned.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
@@ -516,24 +519,26 @@ class JobQuery(Query[Job]):
         state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
+        pending_file_cleanup: Optional[bool] = None,
     ) -> "JobQuery":
         """
         Retrieve exactly one Job. Raises Job.DoesNotExist
         if no items were found, or Job.MultipleObjectsReturned if
         more than one item matched the query.
 
-        id:                 Only return Jobs with ids in this list.
-        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
-        app_id:             Only return Jobs associated with this App id.
-        site_id:            Only return Jobs associated with this Site id.
-        batch_job_id:       Only return Jobs associated with this BatchJob id.
-        last_update_before: Only return Jobs that were updated before this time (UTC).
-        last_update_after:  Only return Jobs that were updated after this time (UTC).
-        workdir__contains:  Only return jobs with workdirs containing this string.
-        state__ne:          Only return jobs with states not equal to this state.
-        state:              Only return jobs in this set of states.
-        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
-        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        id:                   Only return Jobs with ids in this list.
+        parent_id:            Only return Jobs that are children of Jobs with ids in this list.
+        app_id:               Only return Jobs associated with this App id.
+        site_id:              Only return Jobs associated with this Site id.
+        batch_job_id:         Only return Jobs associated with this BatchJob id.
+        last_update_before:   Only return Jobs that were updated before this time (UTC).
+        last_update_after:    Only return Jobs that were updated after this time (UTC).
+        workdir__contains:    Only return jobs with workdirs containing this string.
+        state__ne:            Only return jobs with states not equal to this state.
+        state:                Only return jobs in this set of states.
+        tags:                 Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:           Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        pending_file_cleanup: Only return jobs which have not yet had workdir cleaned.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
@@ -557,27 +562,29 @@ class JobQuery(Query[Job]):
         state: Optional[balsam.schemas.job.JobState] = None,
         state_timestamp: Optional[datetime.datetime] = None,
         state_data: Optional[typing.Dict[str, typing.Any]] = None,
+        pending_file_cleanup: Optional[bool] = None,
     ) -> List[Job]:
         """
         Updates all items selected by this query with the given values.
 
-        workdir:            Job path relative to the site data/ folder
-        tags:               Custom key:value string tags.
-        parameters:         App parameter name:value pairs.
-        data:               Arbitrary JSON-able data dictionary.
-        return_code:        Return code from last execution of this Job.
-        num_nodes:          Number of compute nodes needed.
-        ranks_per_node:     Number of MPI processes per node.
-        threads_per_rank:   Logical threads per process.
-        threads_per_core:   Logical threads per CPU core.
-        launch_params:      Optional pass-through parameters to MPI application launcher.
-        gpus_per_rank:      Number of GPUs per process.
-        node_packing_count: Maximum number of concurrent runs per node.
-        wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
-        batch_job_id:       ID of most recent BatchJob in which this Job ran
-        state:              Job state
-        state_timestamp:    Time (UTC) at which Job state change occured
-        state_data:         Arbitrary associated state change data for logging
+        workdir:              Job path relative to the site data/ folder
+        tags:                 Custom key:value string tags.
+        parameters:           App parameter name:value pairs.
+        data:                 Arbitrary JSON-able data dictionary.
+        return_code:          Return code from last execution of this Job.
+        num_nodes:            Number of compute nodes needed.
+        ranks_per_node:       Number of MPI processes per node.
+        threads_per_rank:     Logical threads per process.
+        threads_per_core:     Logical threads per CPU core.
+        launch_params:        Optional pass-through parameters to MPI application launcher.
+        gpus_per_rank:        Number of GPUs per process.
+        node_packing_count:   Maximum number of concurrent runs per node.
+        wall_time_min:        Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
+        batch_job_id:         ID of most recent BatchJob in which this Job ran
+        state:                Job state
+        state_timestamp:      Time (UTC) at which Job state change occured
+        state_data:           Arbitrary associated state change data for logging
+        pending_file_cleanup: Whether job remains to have workdir cleaned.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._update(**kwargs)
@@ -660,24 +667,26 @@ class JobManager(balsam._api.bases.JobManagerBase):
         state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
+        pending_file_cleanup: Optional[bool] = None,
     ) -> Job:
         """
         Retrieve exactly one Job. Raises Job.DoesNotExist
         if no items were found, or Job.MultipleObjectsReturned if
         more than one item matched the query.
 
-        id:                 Only return Jobs with ids in this list.
-        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
-        app_id:             Only return Jobs associated with this App id.
-        site_id:            Only return Jobs associated with this Site id.
-        batch_job_id:       Only return Jobs associated with this BatchJob id.
-        last_update_before: Only return Jobs that were updated before this time (UTC).
-        last_update_after:  Only return Jobs that were updated after this time (UTC).
-        workdir__contains:  Only return jobs with workdirs containing this string.
-        state__ne:          Only return jobs with states not equal to this state.
-        state:              Only return jobs in this set of states.
-        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
-        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        id:                   Only return Jobs with ids in this list.
+        parent_id:            Only return Jobs that are children of Jobs with ids in this list.
+        app_id:               Only return Jobs associated with this App id.
+        site_id:              Only return Jobs associated with this Site id.
+        batch_job_id:         Only return Jobs associated with this BatchJob id.
+        last_update_before:   Only return Jobs that were updated before this time (UTC).
+        last_update_after:    Only return Jobs that were updated after this time (UTC).
+        workdir__contains:    Only return jobs with workdirs containing this string.
+        state__ne:            Only return jobs with states not equal to this state.
+        state:                Only return jobs in this set of states.
+        tags:                 Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:           Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        pending_file_cleanup: Only return jobs which have not yet had workdir cleaned.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return JobQuery(manager=self).get(**kwargs)
@@ -696,22 +705,24 @@ class JobManager(balsam._api.bases.JobManagerBase):
         state: Union[typing.Set[balsam.schemas.job.JobState], balsam.schemas.job.JobState, None] = None,
         tags: Union[typing.List[str], str, None] = None,
         parameters: Union[typing.List[str], str, None] = None,
+        pending_file_cleanup: Optional[bool] = None,
     ) -> "JobQuery":
         """
         Returns a Job Query returning items matching the filter criteria.
 
-        id:                 Only return Jobs with ids in this list.
-        parent_id:          Only return Jobs that are children of Jobs with ids in this list.
-        app_id:             Only return Jobs associated with this App id.
-        site_id:            Only return Jobs associated with this Site id.
-        batch_job_id:       Only return Jobs associated with this BatchJob id.
-        last_update_before: Only return Jobs that were updated before this time (UTC).
-        last_update_after:  Only return Jobs that were updated after this time (UTC).
-        workdir__contains:  Only return jobs with workdirs containing this string.
-        state__ne:          Only return jobs with states not equal to this state.
-        state:              Only return jobs in this set of states.
-        tags:               Only return jobs containing these tags (list of KEY:VALUE strings)
-        parameters:         Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        id:                   Only return Jobs with ids in this list.
+        parent_id:            Only return Jobs that are children of Jobs with ids in this list.
+        app_id:               Only return Jobs associated with this App id.
+        site_id:              Only return Jobs associated with this Site id.
+        batch_job_id:         Only return Jobs associated with this BatchJob id.
+        last_update_before:   Only return Jobs that were updated before this time (UTC).
+        last_update_after:    Only return Jobs that were updated after this time (UTC).
+        workdir__contains:    Only return jobs with workdirs containing this string.
+        state__ne:            Only return jobs with states not equal to this state.
+        state:                Only return jobs in this set of states.
+        tags:                 Only return jobs containing these tags (list of KEY:VALUE strings)
+        parameters:           Only return jobs having these App command parameters (list of KEY:VALUE strings)
+        pending_file_cleanup: Only return jobs which have not yet had workdir cleaned.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return JobQuery(manager=self).filter(**kwargs)

@@ -126,6 +126,7 @@ def upgrade():
         sa.Column("last_update", sa.DateTime(timezone=True), nullable=True),
         sa.Column("data", sa.JSON(), nullable=True),
         sa.Column("return_code", sa.Integer(), nullable=True),
+        sa.Column("pending_file_cleanup", sa.Boolean(), nullable=False),
         sa.Column("num_nodes", sa.Integer(), nullable=True),
         sa.Column("ranks_per_node", sa.Integer(), nullable=True),
         sa.Column("threads_per_rank", sa.Integer(), nullable=True),

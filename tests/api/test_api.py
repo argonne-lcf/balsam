@@ -466,6 +466,26 @@ class TestJobs:
         assert Job.objects.filter(state__ne="STAGED_IN").count() == 1
         assert Job.objects.filter(state__ne="PREPROCESSED").count() == 3
 
+    def test_filter_by_pending_cleanup(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        app = App.objects.create(site_id=site.id, class_path="app.one")
+
+        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
+        jobs = Job.objects.bulk_create(jobs)
+
+        pending_cleanup = Job.objects.filter(state="STAGED_IN", pending_file_cleanup=True)
+        assert pending_cleanup.count() == 4
+
+        for job in jobs:
+            job.pending_file_cleanup = False
+        Job.objects.bulk_update(jobs)
+
+        pending_cleanup = Job.objects.filter(state="STAGED_IN", pending_file_cleanup=True)
+        assert pending_cleanup.count() == 0
+
 
 class TestTransfers:
     def create_app_with_transfers(self, client):

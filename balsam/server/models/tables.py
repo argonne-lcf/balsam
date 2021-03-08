@@ -162,6 +162,7 @@ class Job(Base):
     last_update = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     data = Column(JSON)
     return_code = Column(Integer)
+    pending_file_cleanup = Column(Boolean, default=True)
 
     parents = orm.relationship(
         "Job",

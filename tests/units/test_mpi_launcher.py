@@ -28,7 +28,15 @@ def launcher(mocker, tmp_path):
 
     app_cache = {1: HelloWorld}
     mock_job_source.get_jobs.return_value = [
-        Job(_api_data=True, id=i, workdir=f"test/{i}", app_id=1, state="PREPROCESSED", last_update=datetime.utcnow())
+        Job(
+            _api_data=True,
+            id=i,
+            workdir=f"test/{i}",
+            app_id=1,
+            state="PREPROCESSED",
+            last_update=datetime.utcnow(),
+            pending_file_cleanup=True,
+        )
         for i in range(10)
     ]
 

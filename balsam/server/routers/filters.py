@@ -119,9 +119,10 @@ class JobQuery:
     parameters: List[str] = Query(
         None, description="Only return jobs having these App command parameters (list of KEY:VALUE strings)"
     )
+    pending_file_cleanup: bool = Query(None, description="Only return jobs which have not yet had workdir cleaned.")
     ordering: schemas.JobOrdering = Query(None, description="Order Jobs by this field.")
 
-    def apply_filters(self, qs: "orm.Query[Job]") -> "orm.Query[Job]":
+    def apply_filters(self, qs: "orm.Query[Job]") -> "orm.Query[Job]":  # noqa: C901
         if self.id:
             qs = qs.filter(Job.id.in_(self.id))
         if self.parent_id:
@@ -149,6 +150,8 @@ class JobQuery:
         if self.parameters:
             params_dict: Dict[str, str] = dict(p.split(":", 1) for p in self.parameters if ":" in p)  # type: ignore
             qs = qs.filter(Job.parameters.contains(params_dict))  # type: ignore
+        if self.pending_file_cleanup:
+            qs = qs.filter(Job.pending_file_cleanup)
         if self.ordering:
             desc = self.ordering.startswith("-")
             order_col = getattr(Job, self.ordering.lstrip("-"))
