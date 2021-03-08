@@ -5,7 +5,7 @@ from typing import Optional, Set
 PLATFORMS: Set[str] = {"alcf_theta", "alcf_thetagpu", "alcf_cooley", "generic"}
 
 LAUNCHER_STARTUP_TIMEOUT_SECONDS = {
-    "generic": 10.0,
+    "generic": 30.0,
     "alcf_theta": 4 * 60.0 * 60,
     "alcf_thetagpu": 4 * 60.0 * 60,
     "alcf_cooley": 4 * 60.0 * 60,
