@@ -92,7 +92,7 @@ class ElasticQueueService(BalsamService):
         window = self._get_submission_window(
             backfill_windows, min_num_nodes=min(job.num_nodes for job in runnable_jobs)
         )
-        logger.debug(f"Largest backfill window: {window}")
+        logger.debug(f"Largest node window: {window}")
 
         if not window:
             logger.info("No eligible backfill windows; will not submit")
