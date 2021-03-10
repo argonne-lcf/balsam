@@ -67,34 +67,39 @@ class ElasticQueueService(BalsamService):
         queued_batchjobs = [j for j in scheduler_jobs if j.state in ("queued", "pending_submission")]
         running_batchjobs = [j for j in scheduler_jobs if j.state == "running"]
         num_reserved_nodes = sum(j.num_nodes for j in queued_batchjobs) + sum(j.num_nodes for j in running_batchjobs)
+
         logger.debug(
             f"There are {len(queued_batchjobs)} queued, {len(running_batchjobs)} running BatchJobs "
             f"totalling {num_reserved_nodes} nodes."
         )
+        if len(queued_batchjobs) + len(running_batchjobs) > self.max_queued_jobs:
+            logger.info(f"At {self.max_queued_jobs} max queued jobs; will not submit")
+            return None
+
         tags = [f"{k}:{v}" for k, v in self.filter_tags.items()] if self.filter_tags else []
         running_jobs = Job.objects.filter(site_id=self.site_id, state=JobState.running, tags=tags)
         runnable_jobs = Job.objects.filter(site_id=self.site_id, state=RUNNABLE_STATES, tags=tags)
         running_num_nodes = sum(float(job.num_nodes) / job.node_packing_count for job in running_jobs)
         runnable_num_nodes = sum(float(job.num_nodes) / job.node_packing_count for job in runnable_jobs)
+
         logger.debug(
             f"{running_num_nodes} nodes are currently occupied; runnable node footprint is {runnable_num_nodes}"
         )
-
-        # The number of nodes currently or soon to be allocated, minus the footprint of currently running jobs
-        idle_node_count = num_reserved_nodes - running_num_nodes
+        if not runnable_jobs:
+            logger.info("No Jobs in runnable states; will not submit")
+            return None
 
         window = self._get_submission_window(
             backfill_windows, min_num_nodes=min(job.num_nodes for job in runnable_jobs)
         )
         logger.debug(f"Largest backfill window: {window}")
 
-        if len(queued_batchjobs) + len(running_batchjobs) > self.max_queued_jobs:
-            logger.info(f"At {self.max_queued_jobs} max queued jobs; will not submit")
-            return None
-
         if not window:
             logger.info("No eligible backfill windows; will not submit")
             return None
+
+        # The number of nodes currently or soon to be allocated, minus the footprint of currently running jobs
+        idle_node_count = num_reserved_nodes - running_num_nodes
 
         if runnable_num_nodes > idle_node_count:
             request_num_nodes = max(self.min_num_nodes, runnable_num_nodes - idle_node_count)
