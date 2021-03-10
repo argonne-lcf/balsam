@@ -246,7 +246,7 @@ def worker_main(
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node
     nodes = [node for node in node_cls.get_job_nodelist() if node.hostname == hostname]
-    node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
+    node_manager = NodeManager(nodes, allow_node_packing=True)
     worker = Worker(
         app_run=launch_settings.local_app_launcher,
         node_manager=node_manager,
