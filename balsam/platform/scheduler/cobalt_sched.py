@@ -218,7 +218,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _parse_backfill_output(stdout: str) -> Dict[str, List[SchedulerBackfillWindow]]:
-        raw_lines = stdout.split("\n")
+        raw_lines = stdout.strip().split("\n")
         nodelist = []
         node_lines = raw_lines[2:]
         for line in node_lines:
