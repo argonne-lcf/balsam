@@ -96,7 +96,7 @@ class JobFactory:
 
 
 @click.command()
-@click.option("-c", "--config-file", required=True, type=click.File)
+@click.option("-c", "--config-file", required=True, type=click.File("r"))
 def main(config_file: TextIO) -> None:
     config = ExperimentConfig(**yaml.safe_load(config_file))
     logger.debug(f"Loaded experiment config: {yaml.dump(config.dict(), sort_keys=False, indent=2)}")
