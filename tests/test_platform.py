@@ -11,6 +11,13 @@ LAUNCHER_STARTUP_TIMEOUT_SECONDS = {
     "alcf_cooley": 4 * 60.0 * 60,
 }
 
+LAUNCHER_SHUTDOWN_TIMEOUT_SECONDS = {
+    "generic": 20.0,
+    "alcf_theta": 120.0,
+    "alcf_thetagpu": 120.0,
+    "alcf_cooley": 120.0,
+}
+
 
 def get_platform() -> str:
     """
@@ -57,3 +64,7 @@ def get_test_log_dir() -> Path:
 
 def get_launcher_startup_timeout() -> float:
     return LAUNCHER_STARTUP_TIMEOUT_SECONDS[get_platform()]
+
+
+def get_launcher_shutdown_timeout() -> float:
+    return LAUNCHER_SHUTDOWN_TIMEOUT_SECONDS[get_platform()]

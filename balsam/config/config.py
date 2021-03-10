@@ -152,6 +152,26 @@ class QueueMaintainerSettings(BaseSettings):
     wall_time_min: int = 1
 
 
+class ElasticQueueSettings(BaseSettings):
+    service_period: int = 60
+    submit_project: str = "datascience"
+    submit_queue: str = "balsam"
+    job_mode: str = "mpi"
+    min_wall_time_min: int = 35
+    max_wall_time_min: int = 360
+    wall_time_pad_min: int = 5
+    min_num_nodes: int = 20
+    max_num_nodes: int = 127
+    max_queue_wait_time_min: int = 10
+    max_queued_jobs: int = 20
+    use_backfill: bool = True
+
+
+class FileCleanerSettings(BaseSettings):
+    cleanup_batch_size: int = 180
+    service_period: int = 30
+
+
 class ProcessingSettings(BaseSettings):
     num_workers: int = 5
     prefetch_depth: int = 1000
@@ -210,7 +230,9 @@ class Settings(BaseSettings):
     scheduler: Optional[SchedulerSettings] = SchedulerSettings()
     processing: Optional[ProcessingSettings] = ProcessingSettings()
     transfers: Optional[TransferSettings] = TransferSettings()
+    file_cleaner: Optional[FileCleanerSettings] = FileCleanerSettings()
     queue_maintainer: Optional[QueueMaintainerSettings] = QueueMaintainerSettings()
+    elastic_queue: Optional[ElasticQueueSettings] = ElasticQueueSettings()
 
     def save(self, path: Union[str, Path]) -> None:
         with open(path, "w") as fp:
@@ -269,7 +291,14 @@ class SiteConfig:
             raise InvalidSettings(f"{yaml_settings} is invalid:\n{exc}")
 
     def build_services(self) -> "List[BalsamService]":
-        from balsam.site.service import ProcessingService, QueueMaintainerService, SchedulerService, TransferService
+        from balsam.site.service import (
+            ElasticQueueService,
+            FileCleanerService,
+            ProcessingService,
+            QueueMaintainerService,
+            SchedulerService,
+            TransferService,
+        )
 
         services: List[BalsamService] = []
 
@@ -291,6 +320,15 @@ class SiteConfig:
                 **dict(self.settings.queue_maintainer),  # does not convert sub-models to dicts
             )
             services.append(queue_maintainer)
+
+        if self.settings.elastic_queue:
+            elastic_queue = ElasticQueueService(
+                client=self.client,
+                site_id=self.settings.site_id,
+                filter_tags=self.settings.filter_tags,
+                **dict(self.settings.elastic_queue),
+            )
+            services.append(elastic_queue)
 
         if self.settings.processing:
             processing_service = ProcessingService(
@@ -317,6 +355,17 @@ class SiteConfig:
                 **dict(transfer_settings),
             )
             services.append(transfer_service)
+
+        if self.settings.file_cleaner:
+            cleaner_service = FileCleanerService(
+                client=self.client,
+                site_id=self.settings.site_id,
+                apps_path=self.apps_path,
+                data_path=self.data_path,
+                **dict(self.settings.file_cleaner),
+            )
+            services.append(cleaner_service)
+
         return services
 
     @staticmethod

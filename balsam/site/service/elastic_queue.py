@@ -1,14 +1,14 @@
 import getpass
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
-from balsam.schemas import RUNNABLE_STATES, JobState, SchedulerBackfillWindow, SchedulerJobStatus
+from balsam.schemas import RUNNABLE_STATES, BatchJobState, JobState, SchedulerBackfillWindow
 
 from .service_base import BalsamService
 
 if TYPE_CHECKING:
+    from balsam._api.models import BatchJob  # noqa: F401
     from balsam.client import RESTClient
-    from balsam.platform.scheduler import SchedulerInterface  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,6 @@ class ElasticQueueService(BalsamService):
         self,
         client: "RESTClient",
         site_id: int,
-        scheduler_class: Type["SchedulerInterface"],
         service_period: int = 60,
         submit_project: str = "datascience",
         submit_queue: str = "balsam",
@@ -37,7 +36,6 @@ class ElasticQueueService(BalsamService):
         if wall_time_pad_min >= min_wall_time_min:
             raise ValueError("Pad walltime must be less than minimum batch job walltime.")
         self.site_id = site_id
-        self.scheduler = scheduler_class()
         self.project = submit_project
         self.submit_queue = submit_queue
         self.job_mode = job_mode
@@ -52,16 +50,19 @@ class ElasticQueueService(BalsamService):
         self.use_backfill = use_backfill
         self.username = getpass.getuser()
 
-    def _get_submission_window(self, min_num_nodes: int) -> Optional[SchedulerBackfillWindow]:
+    def _get_submission_window(
+        self, windows_by_queue: Dict[str, List[SchedulerBackfillWindow]], min_num_nodes: int
+    ) -> Optional[SchedulerBackfillWindow]:
         if not self.use_backfill:
             return SchedulerBackfillWindow(num_nodes=self.max_num_nodes, wall_time_min=self.max_wall_time_min)
-        windows_by_queue: Dict[str, List[SchedulerBackfillWindow]] = self.scheduler.get_backfill_windows()
         windows = windows_by_queue.get(self.submit_queue, [])
         windows = [w for w in windows if w.wall_time_min >= self.min_wall_time_min and w.num_nodes >= min_num_nodes]
         windows = sorted(windows, key=lambda w: w.wall_time_min * w.num_nodes, reverse=True)
         return windows[0] if windows else None
 
-    def get_next_submission(self, scheduler_jobs: Iterable[SchedulerJobStatus]) -> Optional[Dict[str, Any]]:
+    def get_next_submission(
+        self, scheduler_jobs: Iterable["BatchJob"], backfill_windows: Dict[str, List[SchedulerBackfillWindow]]
+    ) -> Optional[Dict[str, Any]]:
         Job = self.client.Job
         queued_batchjobs = [j for j in scheduler_jobs if j.state in ("queued", "pending_submission")]
         running_batchjobs = [j for j in scheduler_jobs if j.state == "running"]
@@ -70,9 +71,9 @@ class ElasticQueueService(BalsamService):
             f"There are {len(queued_batchjobs)} queued, {len(running_batchjobs)} running BatchJobs "
             f"totalling {num_reserved_nodes} nodes."
         )
-
-        running_jobs = Job.objects.filter(site_id=self.site_id, state=JobState.running)
-        runnable_jobs = Job.objects.filter(site_id=self.site_id, state=RUNNABLE_STATES)
+        tags = [f"{k}:{v}" for k, v in self.filter_tags.items()] if self.filter_tags else []
+        running_jobs = Job.objects.filter(site_id=self.site_id, state=JobState.running, tags=tags)
+        runnable_jobs = Job.objects.filter(site_id=self.site_id, state=RUNNABLE_STATES, tags=tags)
         running_num_nodes = sum(float(job.num_nodes) / job.node_packing_count for job in running_jobs)
         runnable_num_nodes = sum(float(job.num_nodes) / job.node_packing_count for job in runnable_jobs)
         logger.debug(
@@ -82,7 +83,9 @@ class ElasticQueueService(BalsamService):
         # The number of nodes currently or soon to be allocated, minus the footprint of currently running jobs
         idle_node_count = num_reserved_nodes - running_num_nodes
 
-        window = self._get_submission_window(min_num_nodes=min(job.num_nodes for job in runnable_jobs))
+        window = self._get_submission_window(
+            backfill_windows, min_num_nodes=min(job.num_nodes for job in runnable_jobs)
+        )
         logger.debug(f"Largest backfill window: {window}")
 
         if len(queued_batchjobs) + len(running_batchjobs) > self.max_queued_jobs:
@@ -101,6 +104,7 @@ class ElasticQueueService(BalsamService):
                 self.max_num_nodes,
             )
             return {
+                "site_id": self.site_id,
                 "project": self.project,
                 "queue": self.submit_queue,
                 "job_mode": self.job_mode,
@@ -112,21 +116,39 @@ class ElasticQueueService(BalsamService):
         return None
 
     def run_cycle(self) -> None:
-        scheduler_jobs = self.scheduler.get_statuses(user=self.username, queue=self.submit_queue)
-        sub = self.get_next_submission(scheduler_jobs.values())
+        BatchJob = self.client.BatchJob  # noqa: F811
+        site = self.client.Site.objects.get(id=self.site_id)
+        tags = [f"{k}:{v}" for k, v in self.filter_tags.items()] if self.filter_tags else []
+        backfill_windows = site.backfill_windows
+        scheduler_jobs = list(
+            BatchJob.objects.filter(site_id=self.site_id, filter_tags=tags, queue=self.submit_queue)
+        )
+
+        sub = self.get_next_submission(scheduler_jobs, backfill_windows)
         if sub:
-            new_job = self.client.BatchJob(**sub)
+            new_job = BatchJob(**sub)
             new_job.save()
             logger.info(f"Submitted new BatchJob: {new_job}")
 
         cancel_jobs = [
             job
-            for job in scheduler_jobs.values()
-            if job.state == "queued" and job.queued_time_min > self.max_queue_wait_time_min
+            for job in scheduler_jobs
+            if job.state == "queued"
+            and job.scheduler_id in site.queued_jobs
+            and site.queued_jobs[job.scheduler_id].queued_time_min > self.max_queue_wait_time_min
         ]
         for job in cancel_jobs:
-            self.scheduler.delete_job(job.scheduler_id)
-            logger.info(f"Deleted queued BatchJob {job.scheduler_id}: exceed max queue wait time")
+            try:
+                batch_job = BatchJob.objects.get(scheduler_id=job.scheduler_id, site_id=self.site_id)
+            except BatchJob.DoesNotExist:
+                logger.warning(
+                    f"Trying to delete BatchJob with scheduler id {job.scheduler_id}, but it does not exist in the API."
+                )
+            else:
+                if batch_job.state != BatchJobState.pending_deletion:
+                    batch_job.state = BatchJobState.pending_deletion
+                    batch_job.save()
+                    logger.info(f"Marked queued BatchJob {job.scheduler_id} for deletion: exceed max queue wait time")
 
     def cleanup(self) -> None:
         logger.info("Exiting ElasticQueue service")

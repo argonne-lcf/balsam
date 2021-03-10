@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Type
 
-from balsam.platform.scheduler import SchedulerSubmitError
+from balsam.platform.scheduler import SchedulerDeleteError, SchedulerSubmitError
 from balsam.schemas import AllowedQueue, BatchJobState, SchedulerJobStatus
 from balsam.site import ScriptTemplate
 
@@ -132,7 +132,10 @@ class SchedulerService(BalsamService):
                     )
             elif job.state == "pending_deletion" and job.scheduler_id in scheduler_jobs:
                 logger.info(f"Performing queue-deletion of batch job {job.id}")
-                self.scheduler.delete_job(job.scheduler_id)
+                try:
+                    self.scheduler.delete_job(job.scheduler_id)
+                except SchedulerDeleteError as exc:
+                    logger.warning(f"Failed to delete job {job.scheduler_id}: {exc}")
             elif job.scheduler_id not in scheduler_jobs:
                 logger.info(
                     f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses: finished"
@@ -151,15 +154,14 @@ class SchedulerService(BalsamService):
                 job.state = scheduler_jobs[job.scheduler_id].state
                 logger.info(f"Job {job.id} (sched_id {job.scheduler_id}) advanced to state {job.state}")
         BatchJob.objects.bulk_update(api_jobs)
-        self.update_site_info()
+        self.update_site_info(scheduler_jobs)
 
-    def update_site_info(self) -> None:
+    def update_site_info(self, scheduler_jobs: Dict[int, SchedulerJobStatus]) -> None:
         """Update on Site from nodelist & qstat"""
         # TODO: Periodically update Site nodelist; queues from here:
         site = self.client.Site.objects.get(id=self.site_id)
-        site.backfill_windows = []
-        site.num_nodes = 0
-        site.queued_jobs = []
+        site.backfill_windows = self.scheduler.get_backfill_windows()
+        site.queued_jobs = scheduler_jobs
         site.save()
         logger.info(f"Updated Site info: {site.display_dict()}")
 
