@@ -119,7 +119,7 @@ def main(config_file: TextIO) -> None:
     )
 
     start = datetime.utcnow()
-    logger.info("Starting experiment at", start)
+    logger.info(f"Starting experiment at {start}")
     logger.info("Total duration will be {config.experiment_duration_min} minutes at most")
 
     while datetime.utcnow() - start < timedelta(minutes=config.experiment_duration_min):
