@@ -225,7 +225,7 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             try:
                 line_dict = CobaltScheduler._parse_nodelist_line(line)
             except (ValueError, TypeError):
-                logger.debug(f"Cannot parse nodelist line: {line}")
+                logger.warning(f"Cannot parse nodelist line: {line}")
             else:
                 if line_dict["wall_time_min"] > 0 and line_dict["state"] == "idle":
                     nodelist.append(line_dict)
