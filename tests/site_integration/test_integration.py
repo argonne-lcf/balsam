@@ -58,7 +58,7 @@ def launcher_job(run_service: SiteConfig, request: Any) -> Iterable[BatchJob]:
     batch_job.state = BatchJobState.pending_deletion
     batch_job.save()
     print("Killing BatchJob id:", batch_job.id)
-    for _ in range(15):
+    for _ in range(120):
         time.sleep(1)
         batch_job.refresh_from_db()
         if batch_job.state == "finished":
