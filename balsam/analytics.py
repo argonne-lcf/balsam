@@ -38,5 +38,7 @@ def available_nodes(batch_job_query: BatchJobQuery) -> Tuple[List[datetime], Lis
         running.append((job.start_time, job.num_nodes))
         running.append((job.end_time, -1 * job.num_nodes))
 
+    if not running:
+        return [], []
     running_nodes_times, running_node_counts = zip(*sorted(running))
     return list(running_nodes_times), list(accumulate(running_node_counts))
