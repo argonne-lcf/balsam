@@ -144,7 +144,7 @@ def main(config_file: TextIO) -> None:
         for (site_id, app_name), app in apps.items():
             transfer_backlog = Job.objects.filter(site_id=site_id, state=JobState.ready).count()
             runnable_backlog = Job.objects.filter(site_id=site_id, state=RUNNABLE_STATES).count()
-            assert backlog is not None
+            assert transfer_backlog is not None and runnable_backlog is not None
             if transfer_backlog < config.max_transfer_backlog and runnable_backlog < config.max_runnable_backlog:
                 jobs = job_factory.submit_jobs(app)
                 logger.info(f"Submitted {len(jobs)} {app_name} jobs to Site {site_names[site_id]}")
@@ -154,7 +154,6 @@ def main(config_file: TextIO) -> None:
                     f"{transfer_backlog} / {config.max_transfer_backlog} transfer; "
                     f"{runnable_backlog} / {config.max_runnable_backlog} runnable."
                 )
-                
 
     logger.info("Reached experiment max duration, exiting.")
 
