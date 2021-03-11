@@ -11,6 +11,7 @@ import yaml
 from pydantic import BaseSettings
 
 from balsam.api import App, Job, JobState, Site
+from balsam.schemas import RUNNABLE_STATES
 
 logfmt = "%(asctime)s.%(msecs)03d | %(levelname)s | %(lineno)s] %(message)s"
 logging.basicConfig(filename=None, level=logging.DEBUG, format=logfmt, datefmt="%Y-%m-%d %H:%M:%S", force=True)
@@ -34,6 +35,7 @@ class ExperimentConfig(BaseSettings):
     submit_period_range_sec: Tuple[int, int]
     submit_batch_size_range: Tuple[int, int]
     max_transfer_backlog: int
+    max_runnable_backlog: int
     experiment_duration_min: int
     site_ids: List[int]
     app_names: List[str]
@@ -140,11 +142,19 @@ def main(config_file: TextIO) -> None:
         time.sleep(sleep_time)
 
         for (site_id, app_name), app in apps.items():
-            backlog = Job.objects.filter(site_id=site_id, state=JobState.ready).count()
+            transfer_backlog = Job.objects.filter(site_id=site_id, state=JobState.ready).count()
+            runnable_backlog = Job.objects.filter(site_id=site_id, state=RUNNABLE_STATES).count()
             assert backlog is not None
-            if backlog < config.max_transfer_backlog:
+            if transfer_backlog < config.max_transfer_backlog and runnable_backlog < config.max_runnable_backlog:
                 jobs = job_factory.submit_jobs(app)
                 logger.info(f"Submitted {len(jobs)} {app_name} jobs to Site {site_names[site_id]}")
+            else:
+                logger.info(
+                    "Will not submit new jobs; at max backlog: "
+                    f"{transfer_backlog} / {config.max_transfer_backlog} transfer; "
+                    f"{runnable_backlog} / {config.max_runnable_backlog} runnable."
+                )
+                
 
     logger.info("Reached experiment max duration, exiting.")
 

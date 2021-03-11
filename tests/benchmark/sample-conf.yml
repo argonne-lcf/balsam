@@ -1,0 +1,22 @@
+experiment_tag: test-xpcs
+source_tag: theta-local
+submit_period_range_sec: [5, 15]
+submit_batch_size_range: [5, 10]
+max_transfer_backlog: 20 # no more than this many pending stage-ins at a time
+max_runnable_backlog: 20 # no more than this many jobs waiting to run at a time
+experiment_duration_min: 30
+site_ids: 
+  - 4
+app_names:
+ #- "demo.Hello"
+  - "xpcs.EigenCorr"
+
+xpcs_config:
+  result_dir: "/gdata/lcfwork/test/"
+  remote_alias: "aps_dtn"
+
+  transfer_sets:
+    - h5_in: "/gdata/dm/8IDI/2017-1/LambdaComm201702/cluster_results/A002_Aerogel_att3_Lq0_001_0001-0128.hdf"
+      imm_in: "/gdata/dm/8IDI/2017-1/LambdaComm201702/A002_Aerogel_att3_Lq0_001/A002_Aerogel_att3_Lq0_001_00001-00128.imm"
+    - h5_in: "/gdata/dm/8IDI/2017-1/LambdaComm201702/cluster_results/A004_Aerogel_att3_Lq0_001_0001-1024.hdf"
+      imm_in: "/gdata/dm/8IDI/2017-1/LambdaComm201702/A004_Aerogel_att3_Lq0_001/A004_Aerogel_att3_Lq0_001_00001-01024.imm"
