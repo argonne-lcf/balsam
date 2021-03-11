@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timedelta
 from itertools import product
 from pathlib import Path
-from typing import Callable, Dict, List, TextIO, Tuple
+from typing import Any, Callable, Dict, List, TextIO, Tuple
 
 import click
 import yaml
@@ -18,12 +18,13 @@ logger = logging.getLogger()
 
 
 class XPCSTransferSet(BaseSettings):
-    h5_in: str
-    imm_in: str
-    h5_out: str
+    h5_in: Path
+    imm_in: Path
 
 
 class XPCSConfig(BaseSettings):
+    result_dir: Path
+    remote_alias: str
     transfer_sets: List[XPCSTransferSet]
 
 
@@ -82,14 +83,26 @@ class JobFactory:
     def xpcs_eigen(self, app: App) -> Job:
         assert app.id is not None
         workdir = Path(f"{self.experiment_tag}/{self.source_tag}/corr_{self.idx:06d}")
-        transfers = random.choice(self.xpcs_config.transfer_sets)
+        transfer_set = random.choice(self.xpcs_config.transfer_sets)
+        h5_name = transfer_set.h5_in.name
+        transfers: Dict[str, Any] = {
+            key: {
+                "location_alias": self.xpcs_config.remote_alias,
+                "path": path,
+            }
+            for key, path in transfer_set.dict().items()
+        }
+        transfers["h5_out"] = {
+            "location_alias": self.xpcs_config.remote_alias,
+            "path": Path(self.xpcs_config.result_dir).joinpath(h5_name),
+        }
         job = Job(
             workdir=workdir,
             app_id=app.id,
             num_nodes=1,
             node_packing_count=1,
             threads_per_rank=64,
-            transfers=transfers.dict(),
+            transfers=transfers,
         )
         self.idx += 1
         return job

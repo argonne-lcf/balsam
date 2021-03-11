@@ -16,7 +16,7 @@ class EigenCorr(ApplicationDefinition):
         "OMP_NUM_THREADS": "64",
     }
     parameters = {}
-    cleanup_files = ["*.h5", "*.imm"]
+    cleanup_files = ["*.hdf", "*.imm"]
     transfers = {
         "h5_in": {
             "required": True,
