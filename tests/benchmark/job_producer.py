@@ -105,6 +105,7 @@ class JobFactory:
             node_packing_count=1,
             threads_per_rank=64,
             transfers=transfers,
+            tags={"job_source": self.source_tag, "experiment": self.experiment_tag},
         )
         self.idx += 1
         return job
