@@ -59,7 +59,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install mpich
-        run: sudo apt-get install -y -q mpich libmpich-dev
+        run: sudo apt-get update && sudo apt-get install -y -q libmpich-dev
       - name: Install Balsam
         run: |
           make install-dev
