@@ -72,7 +72,7 @@ class ElasticQueueService(BalsamService):
             f"There are {len(queued_batchjobs)} queued, {len(running_batchjobs)} running BatchJobs "
             f"totalling {num_reserved_nodes} nodes."
         )
-        if len(queued_batchjobs) + len(running_batchjobs) > self.max_queued_jobs:
+        if len(queued_batchjobs) + len(running_batchjobs) >= self.max_queued_jobs:
             logger.info(f"At {self.max_queued_jobs} max queued jobs; will not submit")
             return None
 
