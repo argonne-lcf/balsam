@@ -76,7 +76,7 @@ class ElasticQueueService(BalsamService):
             logger.info(f"At {self.max_queued_jobs} max queued jobs; will not submit")
             return None
 
-        tags = [f"{k}:{v}" for k, v in self.filter_tags.items()] if self.filter_tags else []
+        tags = [f"{k}:{v}" for k, v in self.filter_tags.items()] if self.filter_tags else None
         running_jobs = Job.objects.filter(site_id=self.site_id, state=JobState.running, tags=tags)
         runnable_jobs = Job.objects.filter(site_id=self.site_id, state=RUNNABLE_STATES, tags=tags)
         running_num_nodes = sum(float(job.num_nodes) / job.node_packing_count for job in running_jobs)
@@ -123,7 +123,7 @@ class ElasticQueueService(BalsamService):
     def run_cycle(self) -> None:
         BatchJob = self.client.BatchJob  # noqa: F811
         site = self.client.Site.objects.get(id=self.site_id)
-        tags = [f"{k}:{v}" for k, v in self.filter_tags.items()] if self.filter_tags else []
+        tags = [f"{k}:{v}" for k, v in self.filter_tags.items()] if self.filter_tags else None
         backfill_windows = site.backfill_windows
         scheduler_jobs = list(
             BatchJob.objects.filter(site_id=self.site_id, filter_tags=tags, queue=self.submit_queue)
