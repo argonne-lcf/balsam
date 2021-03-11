@@ -11,7 +11,7 @@ from balsam.config import SiteConfig
 from balsam.schemas import JobMode
 from balsam.schemas.batchjob import BatchJobState
 
-from ..test_platform import get_launcher_startup_timeout
+from ..test_platform import get_launcher_shutdown_timeout, get_launcher_startup_timeout
 
 
 def _liveness_check(batch_job: BatchJob, timeout: float = 10.0, check_period: float = 1.0) -> bool:
@@ -58,13 +58,14 @@ def launcher_job(run_service: SiteConfig, request: Any) -> Iterable[BatchJob]:
     batch_job.state = BatchJobState.pending_deletion
     batch_job.save()
     print("Killing BatchJob id:", batch_job.id)
-    for _ in range(120):
+    shutdown_timeout = int(get_launcher_shutdown_timeout())
+    for _ in range(shutdown_timeout):
         time.sleep(1)
         batch_job.refresh_from_db()
         if batch_job.state == "finished":
             print("BatchJob id FINISHED at", batch_job.id)
             return
-    raise RuntimeError("Launcher did not end within 10 seconds.")
+    raise RuntimeError(f"Launcher did not end within {shutdown_timeout} seconds.")
 
 
 @pytest.fixture(scope="function")

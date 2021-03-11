@@ -57,7 +57,6 @@ def upgrade():
         sa.Column("creation_date", sa.DateTime(), nullable=True),
         sa.Column("owner_id", sa.Integer(), nullable=True),
         sa.Column("globus_endpoint_id", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column("num_nodes", sa.Integer(), nullable=True),
         sa.Column("backfill_windows", sa.JSON(), nullable=True),
         sa.Column("queued_jobs", sa.JSON(), nullable=True),
         sa.Column("optional_batch_job_params", sa.JSON(), nullable=True),

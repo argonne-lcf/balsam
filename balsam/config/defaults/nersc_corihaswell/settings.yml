@@ -101,15 +101,40 @@ transfers:
     num_items_query_limit: 2000 # Maximum number of transfer items to fetch from API at a time
     service_period: 5 # API polling interval
 
-# Queue maintainer keeps a fixed number of jobs queued at all times
+# Elastic Queue flexibly sizes and requests BatchJobs based on the net
+# job requirements 
+elastic_queue: null
+# elastic_queue:
+#      service_period: 60  # Calculate and submit 1 BatchJob per `service_period` seconds
+#      submit_project: "datascience"
+#      submit_queue: "balsam"
+#      job_mode: "mpi"
+#      use_backfill: True # Constrains BatchJobs to fit into idle backfill slots
+#      min_wall_time_min: 35  # If `use_backfill`, ignore windows shorter than this duration
+#      max_wall_time_min: 360 # If not `use_backfill`, submit BatchJobs for this walltime limit
+#      wall_time_pad_min: 5 # Subtract this walltime duration from all submitted BatchJobs
+#      min_num_nodes:  20 # Do not request fewer than this many nodes
+#      max_num_nodes: 127 # Do not request more than this many nodes
+#      max_queue_wait_time_min: 10 # Delete BatchJobs waiting in queue for this long
+#      max_queued_jobs: 20 # Maximum number of simultaneously queued jobs
+
+# Queue maintainer keeps a fixed number of BatchJobs queued at all times
 # Useful for extended campaigns.  Inherits filter_tags from above.
 queue_maintainer: null
 # queue_maintainer:
-#     submit_period: 60
-#     submit_project: datascience
-#     submit_queue: default
-#     job_mode: mpi_app_launcher
-#     num_queued_jobs: 5
-#     num_nodes: 128
-#     wall_time_min: 60
+#      submit_period: 60
+#      submit_project: datascience
+#      submit_queue: default
+#      job_mode: mpi
+#      num_queued_jobs: 5
+#      num_nodes: 128
+#      wall_time_min: 60
 
+# File Cleaner periodically scans the workdirs of newly finished
+# jobs, and deletes any files matching the `cleanup_files` glob-pattern list
+# defined on the ApplicationDefinition. This is typically done to avoid
+# hitting storage quotas when results are staged out to a remote location.
+file_cleaner: null
+# file_cleaner: 
+#     cleanup_batch_size: 180 # Clean up to this many Job workdirs at a time
+#     service_period: 30 # Cleanup files every `service_period` seconds

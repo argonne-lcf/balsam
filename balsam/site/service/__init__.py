@@ -1,3 +1,5 @@
+from .elastic_queue import ElasticQueueService
+from .file_cleaner import FileCleanerService
 from .processing import ProcessingService
 from .queue_maintainer import QueueMaintainerService
 from .scheduler import SchedulerService
@@ -8,4 +10,6 @@ __all__ = [
     "ProcessingService",
     "QueueMaintainerService",
     "TransferService",
+    "ElasticQueueService",
+    "FileCleanerService",
 ]

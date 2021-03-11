@@ -33,8 +33,7 @@ class TestSite:
         id = site.id
         creation_ts = site.last_refresh
 
-        site.num_nodes = 128
-        site.backfill_windows = [{"queue": "default", "num_nodes": 31, "wall_time_min": 45}]
+        site.backfill_windows = {"default": [{"num_nodes": 31, "wall_time_min": 45}]}
 
         site.save()
         update_ts = site.last_refresh
@@ -48,7 +47,7 @@ class TestSite:
         handle_2 = Site.objects.get(id=handle_1.id)
         assert handle_2.id == handle_1.id
 
-        handle_2.num_nodes = 128
+        handle_2.backfill_windows = {"default": [{"num_nodes": 25, "wall_time_min": 35}]}
         handle_2.save()
         assert handle_2.last_refresh > handle_1.last_refresh
 

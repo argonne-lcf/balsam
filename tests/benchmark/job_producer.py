@@ -4,13 +4,14 @@ import time
 from datetime import datetime, timedelta
 from itertools import product
 from pathlib import Path
-from typing import Callable, Dict, List, TextIO, Tuple
+from typing import Any, Callable, Dict, List, TextIO, Tuple
 
 import click
 import yaml
 from pydantic import BaseSettings
 
 from balsam.api import App, Job, JobState, Site
+from balsam.schemas import RUNNABLE_STATES
 
 logfmt = "%(asctime)s.%(msecs)03d | %(levelname)s | %(lineno)s] %(message)s"
 logging.basicConfig(filename=None, level=logging.DEBUG, format=logfmt, datefmt="%Y-%m-%d %H:%M:%S", force=True)
@@ -18,12 +19,13 @@ logger = logging.getLogger()
 
 
 class XPCSTransferSet(BaseSettings):
-    h5_in: str
-    imm_in: str
-    h5_out: str
+    h5_in: Path
+    imm_in: Path
 
 
 class XPCSConfig(BaseSettings):
+    result_dir: Path
+    remote_alias: str
     transfer_sets: List[XPCSTransferSet]
 
 
@@ -33,6 +35,7 @@ class ExperimentConfig(BaseSettings):
     submit_period_range_sec: Tuple[int, int]
     submit_batch_size_range: Tuple[int, int]
     max_transfer_backlog: int
+    max_runnable_backlog: int
     experiment_duration_min: int
     site_ids: List[int]
     app_names: List[str]
@@ -82,21 +85,34 @@ class JobFactory:
     def xpcs_eigen(self, app: App) -> Job:
         assert app.id is not None
         workdir = Path(f"{self.experiment_tag}/{self.source_tag}/corr_{self.idx:06d}")
-        transfers = random.choice(self.xpcs_config.transfer_sets)
+        transfer_set = random.choice(self.xpcs_config.transfer_sets)
+        h5_name = transfer_set.h5_in.name
+        transfers: Dict[str, Any] = {
+            key: {
+                "location_alias": self.xpcs_config.remote_alias,
+                "path": path,
+            }
+            for key, path in transfer_set.dict().items()
+        }
+        transfers["h5_out"] = {
+            "location_alias": self.xpcs_config.remote_alias,
+            "path": Path(self.xpcs_config.result_dir).joinpath(h5_name),
+        }
         job = Job(
             workdir=workdir,
             app_id=app.id,
             num_nodes=1,
             node_packing_count=1,
             threads_per_rank=64,
-            transfers=transfers.dict(),
+            transfers=transfers,
+            tags={"job_source": self.source_tag, "experiment": self.experiment_tag},
         )
         self.idx += 1
         return job
 
 
 @click.command()
-@click.option("-c", "--config-file", required=True, type=click.File)
+@click.option("-c", "--config-file", required=True, type=click.File("r"))
 def main(config_file: TextIO) -> None:
     config = ExperimentConfig(**yaml.safe_load(config_file))
     logger.debug(f"Loaded experiment config: {yaml.dump(config.dict(), sort_keys=False, indent=2)}")
@@ -119,19 +135,26 @@ def main(config_file: TextIO) -> None:
     )
 
     start = datetime.utcnow()
-    logger.info("Starting experiment at", start)
-    logger.info("Total duration will be {config.experiment_duration_min} minutes at most")
+    logger.info(f"Starting experiment at {start}")
+    logger.info(f"Total duration will be {config.experiment_duration_min} minutes at most")
 
     while datetime.utcnow() - start < timedelta(minutes=config.experiment_duration_min):
         sleep_time = random.randint(*config.submit_period_range_sec)
         time.sleep(sleep_time)
 
         for (site_id, app_name), app in apps.items():
-            backlog = Job.objects.filter(site_id=site_id, state=JobState.ready).count()
-            assert backlog is not None
-            if backlog < config.max_transfer_backlog:
+            transfer_backlog = Job.objects.filter(site_id=site_id, state=JobState.ready).count()
+            runnable_backlog = Job.objects.filter(site_id=site_id, state=RUNNABLE_STATES).count()
+            assert transfer_backlog is not None and runnable_backlog is not None
+            if transfer_backlog < config.max_transfer_backlog and runnable_backlog < config.max_runnable_backlog:
                 jobs = job_factory.submit_jobs(app)
                 logger.info(f"Submitted {len(jobs)} {app_name} jobs to Site {site_names[site_id]}")
+            else:
+                logger.info(
+                    "Will not submit new jobs; at max backlog: "
+                    f"{transfer_backlog} / {config.max_transfer_backlog} transfer; "
+                    f"{runnable_backlog} / {config.max_runnable_backlog} runnable."
+                )
 
     logger.info("Reached experiment max duration, exiting.")
 

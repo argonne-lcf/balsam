@@ -17,6 +17,10 @@ class SchedulerSubmitError(Exception):
     pass
 
 
+class SchedulerDeleteError(Exception):
+    pass
+
+
 def scheduler_subproc(args: List[str], cwd: Optional[PathLike] = None) -> str:
     p = subprocess.run(
         args,
@@ -105,7 +109,10 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
         **kwargs: Any,
     ) -> int:
         submit_args = cls._render_submit_args(script_path, project, queue, num_nodes, wall_time_min, **kwargs)
-        stdout = scheduler_subproc(submit_args, cwd=cwd)
+        try:
+            stdout = scheduler_subproc(submit_args, cwd=cwd)
+        except SchedulerNonZeroReturnCode as exc:
+            raise SchedulerSubmitError(str(exc)) from exc
         scheduler_id = cls._parse_submit_output(stdout)
         return scheduler_id
 
@@ -124,7 +131,10 @@ class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
     @classmethod
     def delete_job(cls, scheduler_id: int) -> str:
         delete_args = cls._render_delete_args(scheduler_id)
-        stdout = scheduler_subproc(delete_args)
+        try:
+            stdout = scheduler_subproc(delete_args)
+        except SchedulerNonZeroReturnCode as exc:
+            raise SchedulerDeleteError(str(exc)) from exc
         return stdout
 
     @classmethod

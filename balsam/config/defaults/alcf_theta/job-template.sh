@@ -11,6 +11,11 @@ aprun -N 1 -n $COBALT_JOBSIZE /soft/tools/prime-cache
 sleep 10
 {% endif %}
 
+# Uncomment this if the server is on an external network
+# (Note that https_proxy is set to use an `http://` protocol!
+# Do not set other proxy env vars):
+# export https_proxy=http://theta-proxy.tmi.alcf.anl.gov:3128
+
 module unload trackdeps
 module unload darshan
 module unload xalt

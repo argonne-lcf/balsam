@@ -15,6 +15,8 @@ class EigenCorr(ApplicationDefinition):
         "HDF5_USE_FILE_LOCKING": "FALSE",
         "OMP_NUM_THREADS": "64",
     }
+    parameters = {}
+    cleanup_files = ["*.hdf", "*.imm", "*.h5"]
     transfers = {
         "h5_in": {
             "required": True,

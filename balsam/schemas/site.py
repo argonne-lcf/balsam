@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import AnyUrl, BaseModel, Field, validator
 
+from .batchjob import SchedulerBackfillWindow, SchedulerJobStatus
+
 
 class QueuedJobState(str, Enum):
     queued = "queued"
@@ -44,9 +46,12 @@ class SiteBase(BaseModel):
         ..., example="/projects/datascience/user/mySite", description="Absolute filesystem path of the Site"
     )
     globus_endpoint_id: Optional[UUID] = Field(None, description="Associated Globus endpoint ID")
-    num_nodes: int = Field(0, example=4096, description="Number of nodes available at the Site")
-    backfill_windows: List[BackfillWindow] = Field([], description="Idle backfill currently available at the Site")
-    queued_jobs: List[QueuedJob] = Field([], description="Queued scheduler jobs at the Site")
+    backfill_windows: Dict[str, List[SchedulerBackfillWindow]] = Field(
+        {}, description="Idle backfill currently available at the Site, keyed by queue name"
+    )
+    queued_jobs: Dict[int, SchedulerJobStatus] = Field(
+        {}, description="Queued scheduler jobs at the Site, keyed by scheduler ID"
+    )
     optional_batch_job_params: Dict[str, str] = Field(
         {},
         example={"enable_ssh": 1},

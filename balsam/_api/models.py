@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev d5cd726]
+# [git rev d4df837]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -25,9 +25,8 @@ class Site(balsam._api.bases.SiteBase):
     hostname = Field[str]()
     path = Field[pathlib.Path]()
     globus_endpoint_id = Field[Optional[uuid.UUID]]()
-    num_nodes = Field[int]()
-    backfill_windows = Field[typing.List[balsam.schemas.site.BackfillWindow]]()
-    queued_jobs = Field[typing.List[balsam.schemas.site.QueuedJob]]()
+    backfill_windows = Field[typing.Dict[str, typing.List[balsam.schemas.batchjob.SchedulerBackfillWindow]]]()
+    queued_jobs = Field[typing.Dict[int, balsam.schemas.batchjob.SchedulerJobStatus]]()
     optional_batch_job_params = Field[typing.Dict[str, str]]()
     allowed_projects = Field[typing.List[str]]()
     allowed_queues = Field[typing.Dict[str, balsam.schemas.site.AllowedQueue]]()
@@ -41,9 +40,10 @@ class Site(balsam._api.bases.SiteBase):
         hostname: str,
         path: pathlib.Path,
         globus_endpoint_id: Optional[uuid.UUID] = None,
-        num_nodes: int = 0,
-        backfill_windows: Optional[typing.List[balsam.schemas.site.BackfillWindow]] = None,
-        queued_jobs: Optional[typing.List[balsam.schemas.site.QueuedJob]] = None,
+        backfill_windows: Optional[
+            typing.Dict[str, typing.List[balsam.schemas.batchjob.SchedulerBackfillWindow]]
+        ] = None,
+        queued_jobs: Optional[typing.Dict[int, balsam.schemas.batchjob.SchedulerJobStatus]] = None,
         optional_batch_job_params: Optional[typing.Dict[str, str]] = None,
         allowed_projects: Optional[typing.List[str]] = None,
         allowed_queues: Optional[typing.Dict[str, balsam.schemas.site.AllowedQueue]] = None,
@@ -57,9 +57,8 @@ class Site(balsam._api.bases.SiteBase):
         hostname:                  The Site network location, for human reference only
         path:                      Absolute filesystem path of the Site
         globus_endpoint_id:        Associated Globus endpoint ID
-        num_nodes:                 Number of nodes available at the Site
-        backfill_windows:          Idle backfill currently available at the Site
-        queued_jobs:               Queued scheduler jobs at the Site
+        backfill_windows:          Idle backfill currently available at the Site, keyed by queue name
+        queued_jobs:               Queued scheduler jobs at the Site, keyed by scheduler ID
         optional_batch_job_params: Optional pass-through parameters accepted by the Site batchjob template
         allowed_projects:          Allowed projects/allocations for batchjob submission
         allowed_queues:            Allowed queues and associated queueing policies
@@ -112,9 +111,10 @@ class SiteQuery(Query[Site]):
         hostname: Optional[str] = None,
         path: Optional[pathlib.Path] = None,
         globus_endpoint_id: Optional[uuid.UUID] = None,
-        num_nodes: Optional[int] = None,
-        backfill_windows: Optional[typing.List[balsam.schemas.site.BackfillWindow]] = None,
-        queued_jobs: Optional[typing.List[balsam.schemas.site.QueuedJob]] = None,
+        backfill_windows: Optional[
+            typing.Dict[str, typing.List[balsam.schemas.batchjob.SchedulerBackfillWindow]]
+        ] = None,
+        queued_jobs: Optional[typing.Dict[int, balsam.schemas.batchjob.SchedulerJobStatus]] = None,
         optional_batch_job_params: Optional[typing.Dict[str, str]] = None,
         allowed_projects: Optional[typing.List[str]] = None,
         allowed_queues: Optional[typing.Dict[str, balsam.schemas.site.AllowedQueue]] = None,
@@ -126,9 +126,8 @@ class SiteQuery(Query[Site]):
         hostname:                  The Site network location, for human reference only
         path:                      Absolute filesystem path of the Site
         globus_endpoint_id:        Associated Globus endpoint ID
-        num_nodes:                 Number of nodes available at the Site
-        backfill_windows:          Idle backfill currently available at the Site
-        queued_jobs:               Queued scheduler jobs at the Site
+        backfill_windows:          Idle backfill currently available at the Site, keyed by queue name
+        queued_jobs:               Queued scheduler jobs at the Site, keyed by scheduler ID
         optional_batch_job_params: Optional pass-through parameters accepted by the Site batchjob template
         allowed_projects:          Allowed projects/allocations for batchjob submission
         allowed_queues:            Allowed queues and associated queueing policies
@@ -152,9 +151,10 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         hostname: str,
         path: pathlib.Path,
         globus_endpoint_id: Optional[uuid.UUID] = None,
-        num_nodes: int = 0,
-        backfill_windows: Optional[typing.List[balsam.schemas.site.BackfillWindow]] = None,
-        queued_jobs: Optional[typing.List[balsam.schemas.site.QueuedJob]] = None,
+        backfill_windows: Optional[
+            typing.Dict[str, typing.List[balsam.schemas.batchjob.SchedulerBackfillWindow]]
+        ] = None,
+        queued_jobs: Optional[typing.Dict[int, balsam.schemas.batchjob.SchedulerJobStatus]] = None,
         optional_batch_job_params: Optional[typing.Dict[str, str]] = None,
         allowed_projects: Optional[typing.List[str]] = None,
         allowed_queues: Optional[typing.Dict[str, balsam.schemas.site.AllowedQueue]] = None,
@@ -166,9 +166,8 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         hostname:                  The Site network location, for human reference only
         path:                      Absolute filesystem path of the Site
         globus_endpoint_id:        Associated Globus endpoint ID
-        num_nodes:                 Number of nodes available at the Site
-        backfill_windows:          Idle backfill currently available at the Site
-        queued_jobs:               Queued scheduler jobs at the Site
+        backfill_windows:          Idle backfill currently available at the Site, keyed by queue name
+        queued_jobs:               Queued scheduler jobs at the Site, keyed by scheduler ID
         optional_batch_job_params: Optional pass-through parameters accepted by the Site batchjob template
         allowed_projects:          Allowed projects/allocations for batchjob submission
         allowed_queues:            Allowed queues and associated queueing policies

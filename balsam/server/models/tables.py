@@ -68,7 +68,6 @@ class Site(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     globus_endpoint_id = Column(pg.UUID(as_uuid=True))
 
-    num_nodes = Column(Integer)
     backfill_windows = Column(JSON, default=list)
     queued_jobs = Column(JSON, default=list)
     optional_batch_job_params: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore

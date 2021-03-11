@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime
 from itertools import accumulate
 from typing import Dict, List, Tuple
 
 from balsam._api.models import BatchJobQuery, EventLogQuery
 from balsam.schemas import EventOrdering
+
+logger = logging.getLogger(__name__)
 
 
 def throughput_report(log_query: EventLogQuery, to_state: str = "JOB_FINISHED") -> Tuple[List[datetime], List[int]]:
@@ -29,10 +32,13 @@ def utilization_report(log_query: EventLogQuery, node_weighting: bool = True) ->
 def available_nodes(batch_job_query: BatchJobQuery) -> Tuple[List[datetime], List[int]]:
     running: List[Tuple[datetime, int]] = []
     for job in batch_job_query:
-        assert job.start_time is not None
-        assert job.end_time is not None
+        if job.start_time is None or job.end_time is None:
+            logger.warning(f"Skipping BatchJob {job.id}: missing start/end times")
+            continue
         running.append((job.start_time, job.num_nodes))
         running.append((job.end_time, -1 * job.num_nodes))
 
+    if not running:
+        return [], []
     running_nodes_times, running_node_counts = zip(*sorted(running))
     return list(running_nodes_times), list(accumulate(running_node_counts))
