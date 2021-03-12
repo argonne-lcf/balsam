@@ -3,5 +3,16 @@
 #BSUB -W {{ wall_time_min }}
 #BSUB -P {{ project }}
 
+# Uncomment this if the server is on an external network
+# (Note that https_proxy is set to use an `http://` protocol!
+# Do not set other proxy env vars):
+# export https_proxy=http://<some-server>
 
-{{ balsam_bin }}/balsam launcher --{{ wf_filter }} --job-mode={{ job_mode }} --time-limit-minutes={{ wall_time_min-2 }}
+export BALSAM_SITE_PATH={{balsam_site_path}}
+cd $BALSAM_SITE_PATH
+
+echo "Starting balsam launcher at $(date)"
+{{launcher_cmd}} -j {{job_mode}} -t {{wall_time_min}}  \
+{% for k, v in filter_tags.items() %} --tag {{k}}={{v}} {% endfor %} \
+{{partitions}}
+echo "Balsam launcher done at $(date)"
