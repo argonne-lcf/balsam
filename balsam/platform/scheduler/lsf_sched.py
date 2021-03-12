@@ -232,10 +232,6 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return SchedulerBackfillWindow(num_nodes=nodes, wall_time_min=backfill_time)
 
     @staticmethod
-    def _parse_time(time_str: str) -> datetime:
-        return dateutil.parser.parse(time_str)
-
-    @staticmethod
     def _parse_logs(scheduler_id: Union[int, str], job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         # TODO: Return job start/stop time from log file or command
         args = [LsfScheduler.status_exe]
@@ -252,6 +248,6 @@ class LsfScheduler(SubprocessSchedulerInterface):
             logger.error("something strange happened, more than one job returned: \n %s", stdout)
             return SchedulerJobLog()
         job_data = json_output["RECORDS"][0]
-        start = LsfScheduler._parse_time(job_data["START_TIME"])
-        end = LsfScheduler._parse_time(job_data["FINISH_TIME"])
+        start = dateutil.parser.parse(job_data["START_TIME"])
+        end = dateutil.parser.parse(job_data["FINISH_TIME"])
         return SchedulerJobLog(start_time=start, end_time=end)
