@@ -29,7 +29,7 @@ class SummitNode(ComputeNode):
         # remove batch#
         new_list = []
         for entry in node_hostnames:
-            if 'batch' not in entry:
+            if entry and 'batch' not in entry:
                 new_list.append(entry)
         node_hostnames = new_list
         return [cls(host, host) for host in node_hostnames]
