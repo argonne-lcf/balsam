@@ -1,12 +1,19 @@
 import datetime
+import json
 import logging
 import os
 import re
-import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface,scheduler_subproc,SchedulerNonZeroReturnCode
+from .scheduler import (
+    SchedulerBackfillWindow,
+    SchedulerJobLog,
+    SchedulerJobStatus,
+    SchedulerNonZeroReturnCode,
+    SubprocessSchedulerInterface,
+    scheduler_subproc,
+)
 
 PathLike = Union[Path, str]
 logger = logging.getLogger(__name__)
@@ -84,7 +91,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
             "num_nodes": lambda n: 0 if n == "-" else int(n),
             "wall_time_min": lambda minutes: int(float(minutes)),
             "project": lambda project: str(project),
-            "time_remaining_min": lambda time: int(int(time.split()[0])/60),
+            "time_remaining_min": lambda time: int(int(time.split()[0]) / 60),
             "queued_time_min": lambda minutes: int(minutes),
         }
         return status_field_map.get(balsam_field, None)
@@ -147,7 +154,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
         try:
             stdout = scheduler_subproc(backfill_args)
         except SchedulerNonZeroReturnCode as e:
-            if 'No backfill window meets' in str(e):
+            if "No backfill window meets" in str(e):
                 return {LsfScheduler._queue_name: []}
             raise
         backfill_windows = cls._parse_backfill_output(stdout)
@@ -182,19 +189,19 @@ class LsfScheduler(SubprocessSchedulerInterface):
         #   },
         json_output = json.loads(raw_output)
         status_dict = {}
-        batch_jobs = json_output['RECORDS']
+        batch_jobs = json_output["RECORDS"]
         for job_data in batch_jobs:
             status = {}
             try:
-               for balsam_key,scheduler_key in LsfScheduler._status_fields.items():
-                   func = LsfScheduler._status_field_map(balsam_key)
-                   if callable(func):
-                       status[balsam_key] = func(job_data[scheduler_key])
-            except KeyError as e:
-               logging.exception('failed parsing job data: %s',job_data)
+                for balsam_key, scheduler_key in LsfScheduler._status_fields.items():
+                    func = LsfScheduler._status_field_map(balsam_key)
+                    if callable(func):
+                        status[balsam_key] = func(job_data[scheduler_key])
+            except KeyError:
+                logging.exception("failed parsing job data: %s", job_data)
             else:
-               job_stat = SchedulerJobStatus(**status)
-               status_dict[job_stat.scheduler_id] = job_stat
+                job_stat = SchedulerJobStatus(**status)
+                status_dict[job_stat.scheduler_id] = job_stat
 
         return status_dict
 

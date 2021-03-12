@@ -8,7 +8,7 @@ class SummitJsrun(SubprocessAppRun):
 
     launch_command = "jsrun"
     cores_per_node = 42
-    ranks_per_task = 1 # this forces 1 MPI rank to 1 resource task TODO: make this settable
+    ranks_per_task = 1  # this forces 1 MPI rank to 1 resource task TODO: make this settable
 
     def _build_cmdline(self) -> str:
         args = [
