@@ -198,7 +198,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
                     if callable(func):
                         status[balsam_key] = func(job_data[scheduler_key])
             except KeyError:
-                logging.exception("failed parsing job data: %s", job_data)
+                logger.warning("failed parsing job data: %s", job_data)
             else:
                 job_stat = SchedulerJobStatus(**status)
                 status_dict[job_stat.scheduler_id] = job_stat
