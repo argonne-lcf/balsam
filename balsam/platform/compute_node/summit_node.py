@@ -21,17 +21,9 @@ class SummitNode(ComputeNode):
         # a01n06
         # ... 1 per CPU core
 
-        nodefile_lines = open(nodefile).readlines()
-        # remove new line chars
-        node_hostnames = [line.strip() for line in nodefile_lines]
-        # deduplicate
-        node_hostnames = list(set(node_hostnames))
-        # remove batch#
-        new_list = []
-        for entry in node_hostnames:
-            if entry and 'batch' not in entry:
-                new_list.append(entry)
-        node_hostnames = new_list
+        # Ignore whitespace, de-duplicate, ignore 'batch' node
+        with open(nodefile) as fp:
+            node_hostnames = set(line.strip() for line in fp if line.strip() and "batch" not in line)
         return [cls(host, host) for host in node_hostnames]
 
     @staticmethod
