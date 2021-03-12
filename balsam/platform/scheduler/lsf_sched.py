@@ -1,11 +1,19 @@
 import datetime
+import json
 import logging
 import os
 import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
+from .scheduler import (
+    SchedulerBackfillWindow,
+    SchedulerJobLog,
+    SchedulerJobStatus,
+    SchedulerNonZeroReturnCode,
+    SubprocessSchedulerInterface,
+    scheduler_subproc,
+)
 
 PathLike = Union[Path, str]
 logger = logging.getLogger(__name__)
@@ -32,7 +40,7 @@ def parse_datetime(t_str: str) -> datetime.datetime:
 
 
 class LsfScheduler(SubprocessSchedulerInterface):
-    status_exe = "jobstat"
+    status_exe = "bjobs"
     submit_exe = "bsub"
     delete_exe = "bkill"
     backfill_exe = "bslots"
@@ -54,40 +62,23 @@ class LsfScheduler(SubprocessSchedulerInterface):
 
     # maps Balsam status fields to the scheduler fields
     # should be a comprehensive list of scheduler status fields
-    _status_run_fields = {
-        "scheduler_id": "JobID",
-        "username": "Username",
-        "queue": "Queue",
-        "project": "Project",
-        "num_nodes": "Nodes",
-        "time_remaining_min": "Remain",
-        "start_time": "StartTime",
-        "jobname": "JobName",
+    _status_fields = {
+        "scheduler_id": "JOBID",
+        "state": "STAT",
+        "queue": "QUEUE",
+        "num_nodes": "NREQ_SLOT",
+        "wall_time_min": "RUNTIMELIMIT",
+        "project": "PROJ_NAME",
+        "time_remaining_min": "RUN_TIME",
+        "queued_time_min": "PEND_TIME",
     }
 
-    # maps Balsam status fields to the scheduler fields
-    # should be a comprehensive list of scheduler status fields
-    _status_pend_fields = {
-        "scheduler_id": "JobID",
-        "username": "Username",
-        "queue": "Queue",
-        "project": "Project",
-        "num_nodes": "Nodes",
-        "wall_time_min": "WallTime",
-        "queue_time": "QueueTime",
-        "priority": "Priority",
-        "jobname": "JobName",
-    }
-
-    _status_block_fields = {
-        "scheduler_id": "JobID",
-        "username": "Username",
-        "queue": "Queue",
-        "project": "Project",
-        "num_nodes": "Nodes",
-        "wall_time_min": "WallTime",
-        "message": "BlockReason",
-    }
+    @staticmethod
+    def _get_envs() -> Dict[str, str]:
+        env = {}
+        fields = LsfScheduler._status_fields.values()
+        env["LSB_BJOBS_FORMAT"] = " ".join(fields)
+        return env
 
     # when reading these fields from the scheduler apply
     # these maps to the string extracted from the output
@@ -95,16 +86,13 @@ class LsfScheduler(SubprocessSchedulerInterface):
     def _status_field_map(balsam_field: str) -> Optional[Callable[[str], Any]]:
         status_field_map = {
             "scheduler_id": lambda id: int(id),
-            "state": lambda state: str(state),
-            "username": lambda username: str(username),
+            "state": lambda state: LsfScheduler._job_states[state],
             "queue": lambda queue: str(queue),
             "num_nodes": lambda n: 0 if n == "-" else int(n),
-            "wall_time_min": parse_clock,
-            "start_time": parse_datetime,
-            "queue_time": parse_datetime,
-            "time_remaining_min": parse_clock,
+            "wall_time_min": lambda minutes: int(float(minutes)),
             "project": lambda project: str(project),
-            "jobname": lambda jobname: str(jobname),
+            "time_remaining_min": lambda time: int(int(time.split()[0]) / 60),
+            "queued_time_min": lambda minutes: int(minutes),
         }
         return status_field_map.get(balsam_field, None)
 
@@ -140,13 +128,16 @@ class LsfScheduler(SubprocessSchedulerInterface):
     def _render_status_args(
         project: Optional[str] = None, user: Optional[str] = None, queue: Optional[str] = None
     ) -> List[str]:
+        os.environ.update(LsfScheduler._get_envs())
         args = [LsfScheduler.status_exe]
         if user is not None:
             args += ["-u", user]
         if project is not None:
             pass  # not supported
         if queue is not None:
-            pass  # not supported on LSF
+            args += ["-q", queue]
+        # format output as json
+        args += ["-json"]
         return args
 
     @staticmethod
@@ -156,6 +147,18 @@ class LsfScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _render_backfill_args() -> List[str]:
         return [LsfScheduler.backfill_exe, '-R"select[CN]"']
+
+    @classmethod
+    def get_backfill_windows(cls) -> Dict[str, List[SchedulerBackfillWindow]]:
+        backfill_args = cls._render_backfill_args()
+        try:
+            stdout = scheduler_subproc(backfill_args)
+        except SchedulerNonZeroReturnCode as e:
+            if "No backfill window meets" in str(e):
+                return {LsfScheduler._queue_name: []}
+            raise
+        backfill_windows = cls._parse_backfill_output(stdout)
+        return backfill_windows
 
     @staticmethod
     def _parse_submit_output(submit_output: str) -> int:
@@ -170,97 +173,37 @@ class LsfScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # Example output:
-        # ------------------------------- Running Jobs: 1 (batch: 4619/4625=99.87% + batch-hm: 46/54=85.19%) -------------------------------
-        # JobID      User       Queue    Project    Nodes Remain     StartTime       JobName
-        # 697013     parton     batch    CSC388     1     19:35      01/27 16:28:13  Not_Specified
-        # -------------------------------------------------------- Eligible Jobs: 1 --------------------------------------------------------
-        # JobID      User       Queue    Project    Nodes Walltime   QueueTime       Priority JobName
-        # 696996     parton     batch    CSC388     1     20:00      01/27 16:12:21  504.00   Not_Specified
-        # -------------------------------------------------------- Blocked Jobs: 0 ---------------------------------------------------------
+        # {
+        # "COMMAND":"bjobs",
+        # "JOBS":47,
+        # "RECORDS":[
+        #   {
+        #     "JOBID":"806290",
+        #     "STAT":"RUN",
+        #     "QUEUE":"batch",
+        #     "PROJ_NAME":"BIP152",
+        #     "PEND_TIME":"17",
+        #     "NREQ_SLOT":"43",
+        #     "RUNTIMELIMIT":"1440.0",
+        #     "RUN_TIME":"16038 second(s)"
+        #   },
+        json_output = json.loads(raw_output)
         status_dict = {}
-        job_lines = raw_output.strip().split("\n")
-        state = None
-        run = False
-        pend = False
-        block = False
-        for line in job_lines:
-            if line.startswith("----"):
-                if "Running" in line:
-                    state = "running"
-                    run = True
-                    pend = False
-                    block = False
-                elif "Eligible" in line:
-                    state = "queued"
-                    run = False
-                    pend = True
-                    block = False
-                elif "Blocked" in line:
-                    state = "submit_failed"
-                    run = False
-                    pend = False
-                    block = True
-                else:
-                    raise NotImplementedError
-            elif line.startswith("JobID"):
-                continue
+        batch_jobs = json_output["RECORDS"]
+        for job_data in batch_jobs:
+            status = {}
+            try:
+                for balsam_key, scheduler_key in LsfScheduler._status_fields.items():
+                    func = LsfScheduler._status_field_map(balsam_key)
+                    if callable(func):
+                        status[balsam_key] = func(job_data[scheduler_key])
+            except KeyError:
+                logger.warning("failed parsing job data: %s", job_data)
             else:
-                fields = line.split()
-                if run:
-                    # rejoin datetime
-                    new_fields = fields[0:6]
-                    new_fields.append(" ".join(fields[6:8]))
-                    new_fields += fields[8:]
-                    fields = new_fields
-                    status = {
-                        "state": state,
-                        "wall_time_min": 0,
-                        "queue": "batch",
-                    }
-                    job_stat = LsfScheduler._parse_job_status(fields, LsfScheduler._status_run_fields, status)
-                elif pend:
-                    # rejoin datetime
-                    new_fields = fields[0:6]
-                    new_fields.append(" ".join(fields[6:8]))
-                    new_fields += fields[8:]
-                    fields = new_fields
-                    status = {
-                        "state": state,
-                        "time_remaining_min": 0,
-                        "queue": "batch",
-                    }
-                    job_stat = LsfScheduler._parse_job_status(fields, LsfScheduler._status_pend_fields, status)
-                elif block:
-                    # rejoin block reason column
-                    new_fields = fields[0:6]
-                    new_fields.append(" ".join(fields[6:]))
-                    fields = new_fields
-                    status = {
-                        "state": state,
-                        "time_remaining_min": 0,
-                        "wall_time_min": 0,
-                        "queue": "batch",
-                    }
-                    job_stat = LsfScheduler._parse_job_status(fields, LsfScheduler._status_block_fields, status)
-                else:
-                    raise NotImplementedError
-
+                job_stat = SchedulerJobStatus(**status)
                 status_dict[job_stat.scheduler_id] = job_stat
-        return status_dict
 
-    @staticmethod
-    def _parse_job_status(
-        fields: List[str], status_fields: Dict[str, str], status: Dict[str, Any]
-    ) -> SchedulerJobStatus:
-        actual = len(fields)
-        expected = len(status_fields)
-        if actual != expected:
-            raise ValueError(f"Line has {actual} columns: expected {expected}:\n{fields}")
-        for name, value in zip(status_fields, fields):
-            func = LsfScheduler._status_field_map(name)
-            if callable(func):
-                status[name] = func(value)
-        return SchedulerJobStatus(**status)
+        return status_dict
 
     @staticmethod
     def _parse_backfill_output(stdout: str) -> Dict[str, List[SchedulerBackfillWindow]]:
