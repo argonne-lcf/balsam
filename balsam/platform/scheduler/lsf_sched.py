@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
+import dateutil
+
 from .scheduler import (
     SchedulerBackfillWindow,
     SchedulerJobLog,
@@ -198,7 +200,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
                     if callable(func):
                         status[balsam_key] = func(job_data[scheduler_key])
             except KeyError:
-                logging.exception("failed parsing job data: %s", job_data)
+                logger.exception("failed parsing job data: %s", job_data)
             else:
                 job_stat = SchedulerJobStatus(**status)
                 status_dict[job_stat.scheduler_id] = job_stat
@@ -230,6 +232,26 @@ class LsfScheduler(SubprocessSchedulerInterface):
         return SchedulerBackfillWindow(num_nodes=nodes, wall_time_min=backfill_time)
 
     @staticmethod
+    def _parse_time(time_str: str) -> datetime:
+        return dateutil.parser.parse(time_str)
+
+    @staticmethod
     def _parse_logs(scheduler_id: Union[int, str], job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         # TODO: Return job start/stop time from log file or command
-        return SchedulerJobLog()
+        args = [LsfScheduler.status_exe]
+        args += ["-o", "JOBID START_TIME FINISH_TIME"]
+        # format output as json
+        args += ["-json"]
+        args += [str(scheduler_id)]
+        stdout = scheduler_subproc(args)
+        json_output = json.loads(stdout)
+        if json_output["JOBS"] == 0:
+            logger.error("no job found for JOB ID = %s", scheduler_id)
+            return SchedulerJobLog()
+        if json_output["JOBS"] > 1:
+            logger.error("something strange happened, more than one job returned: \n %s", stdout)
+            return SchedulerJobLog()
+        job_data = json_output["RECORDS"][0]
+        start = LsfScheduler._parse_time(job_data["START_TIME"])
+        end = LsfScheduler._parse_time(job_data["FINISH_TIME"])
+        return SchedulerJobLog(start_time=start, end_time=end)
