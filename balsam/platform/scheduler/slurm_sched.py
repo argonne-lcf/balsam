@@ -4,7 +4,15 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
+import dateutil
+
+from .scheduler import (
+    SchedulerBackfillWindow,
+    SchedulerJobLog,
+    SchedulerJobStatus,
+    SubprocessSchedulerInterface,
+    scheduler_subproc,
+)
 
 PathLike = Union[Path, str]
 logger = logging.getLogger(__name__)
@@ -58,6 +66,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
     submit_exe = "sbatch"
     delete_exe = "scancel"
     backfill_exe = "sinfo"
+    history_exe = "sacct"
     default_submit_kwargs: Dict[str, str] = {}
     submit_kwargs_flag_map: Dict[str, str] = {}
 
@@ -291,6 +300,27 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return {}
 
     @staticmethod
+    def _parse_time(time_str: str) -> datetime.datetime:
+        return dateutil.parser.parse(time_str)
+
+    @staticmethod
     def _parse_logs(scheduler_id: Union[int, str], job_script_path: Optional[PathLike]) -> SchedulerJobLog:
-        # TODO: return job start/stop time from files?
+        # use command to get batch job runtime
+        args = [SlurmScheduler.history_exe]
+        args += ["-o", "JobId,Start,End"]  # output format
+        args += ["-j", str(scheduler_id)]  # for this job id
+        args += ["-n"]  # no header
+        stdout = scheduler_subproc(args)
+        # ---- output like this:
+        # 40589507     2021-03-12T08:40:12 2021-03-12T08:41:18
+        # 40589507.ba+ 2021-03-12T08:40:12 2021-03-12T08:41:18
+        # 40589507.ex+ 2021-03-12T08:40:12 2021-03-12T08:41:21
+        # 40589507.0   2021-03-12T08:40:42 2021-03-12T08:40:45
+        # returns empty string with newline for not found jobs:
+        if len(stdout) > 5:
+            first_line = stdout.strip().split("\n")[0]  # only take first line
+            job_data = first_line.split()
+            start_time = SlurmScheduler._parse_time(job_data[1])
+            end_time = SlurmScheduler._parse_time(job_data[2])
+            return SchedulerJobLog(start_time=start_time, end_time=end_time)
         return SchedulerJobLog()
