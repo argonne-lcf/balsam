@@ -300,7 +300,7 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return {}
 
     @staticmethod
-    def _parse_time(time_str: str) -> datetime:
+    def _parse_time(time_str: str) -> datetime.datetime:
         return dateutil.parser.parse(time_str)
 
     @staticmethod
@@ -318,8 +318,8 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         # 40589507.0   2021-03-12T08:40:42 2021-03-12T08:40:45
         # returns empty string with newline for not found jobs:
         if len(stdout) > 5:
-            job_data = stdout.split("\n")[0]  # only take first line
-            job_data = job_data.split()
+            first_line = stdout.strip().split("\n")[0]  # only take first line
+            job_data = first_line.split()
             start_time = SlurmScheduler._parse_time(job_data[1])
             end_time = SlurmScheduler._parse_time(job_data[2])
             return SchedulerJobLog(start_time=start_time, end_time=end_time)
