@@ -57,7 +57,7 @@ def authorization_request(
     assert conf is not None
     device_code = generate_device_code()
     user_code = generate_user_code()
-    verification_uri = f"{request.url.scheme}://{request.url.netloc}" + VERIFICATION_PATH
+    verification_uri = f"{conf.redirect_scheme}://{request.url.netloc}" + VERIFICATION_PATH
     verification_uri_complete = verification_uri + f"?user_code={user_code}"
     expires_in = conf.device_code_lifetime.total_seconds()
     interval = conf.device_poll_interval.total_seconds()

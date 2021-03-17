@@ -62,7 +62,7 @@ def redirect_to_oauth_provider(request: Request, state: str) -> RedirectResponse
     """
     conf = settings.auth.oauth_provider
     assert conf is not None, "Using OAuth without configuration"
-    callback_uri = f"{request.url.scheme}://{request.url.netloc}" + conf.redirect_path
+    callback_uri = f"{conf.redirect_scheme}://{request.url.netloc}" + conf.redirect_path
     params = urlencode(
         dict(
             response_type="code",
@@ -138,7 +138,7 @@ def callback(
     # Use `code` to request an access token from the OAuth provider
     conf = settings.auth.oauth_provider
     assert conf is not None, "Using OAuth without configuration"
-    callback_uri = f"{request.url.scheme}://{request.url.netloc}" + conf.redirect_path
+    callback_uri = f"{conf.redirect_scheme}://{request.url.netloc}" + conf.redirect_path
     token_params = dict(
         client_id=conf.client_id,
         client_secret=conf.client_secret,
