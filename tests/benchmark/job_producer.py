@@ -2,7 +2,6 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
-from itertools import product
 from pathlib import Path
 from typing import Any, Callable, Dict, List, TextIO, Tuple
 
@@ -18,47 +17,48 @@ logging.basicConfig(filename=None, level=logging.DEBUG, format=logfmt, datefmt="
 logger = logging.getLogger()
 
 
-class XPCSTransferSet(BaseSettings):
+class XPCS(BaseSettings):
+    result_dir: Path
+    remote_alias: str
     h5_in: Path
     imm_in: Path
 
 
-class XPCSConfig(BaseSettings):
-    result_dir: Path
+class Eig(BaseSettings):
     remote_alias: str
-    transfer_sets: List[XPCSTransferSet]
+    result_dir: Path
+    matrix_in: Path
 
 
 class ExperimentConfig(BaseSettings):
     experiment_tag: str
-    source_tag: str
     submit_period_range_sec: Tuple[int, int]
     submit_batch_size_range: Tuple[int, int]
-    max_transfer_backlog: int
-    max_runnable_backlog: int
+    max_site_backlog: int
     experiment_duration_min: int
     site_ids: List[int]
-    app_names: List[str]
+    app_name: str
 
-    xpcs_config: XPCSConfig
+    xpcs_datasets: List[XPCS]
+    eig_datasets: List[Eig]
 
 
 class JobFactory:
     def __init__(
         self,
         experiment_tag: str,
-        source_tag: str,
         batch_size_range: Tuple[int, int],
-        xpcs_config: XPCSConfig,
+        xpcs_datasets: List[XPCS],
+        eig_datasets: List[Eig],
     ) -> None:
         self.idx = 0
         self.experiment_tag = experiment_tag
-        self.source_tag = source_tag
         self.batch_size_range = batch_size_range
-        self.xpcs_config = xpcs_config
+        self.xpcs_datasets = xpcs_datasets
+        self.eig_datasets = eig_datasets
         self.generators: Dict[str, Callable[..., Job]] = {
-            "demo.Hello": self.hello_world,
             "xpcs.EigenCorr": self.xpcs_eigen,
+            "eig.Eig": self.eig,
         }
 
     def submit_jobs(self, app: App) -> List[Job]:
@@ -68,44 +68,72 @@ class JobFactory:
         Job.objects.bulk_create(jobs)
         return jobs
 
-    def hello_world(self, app: App) -> Job:
-        assert app.id is not None
-        workdir = Path(f"{self.experiment_tag}/{self.source_tag}/hello_{self.idx:06d}")
-        job = Job(
-            workdir=workdir,
-            num_nodes=1,
-            node_packing_count=64,
-            app_id=app.id,
-            parameters={"name": f"world {self.idx}!"},
-            tags={"job_source": self.source_tag, "experiment": self.experiment_tag},
-        )
-        self.idx += 1
-        return job
-
     def xpcs_eigen(self, app: App) -> Job:
         assert app.id is not None
-        workdir = Path(f"{self.experiment_tag}/{self.source_tag}/corr_{self.idx:06d}")
-        transfer_set = random.choice(self.xpcs_config.transfer_sets)
-        h5_name = transfer_set.h5_in.name
+
+        transfer_set = random.choice(self.xpcs_datasets)
+        source_tag = transfer_set.remote_alias
+
+        workdir = Path(f"{self.experiment_tag}/{source_tag}/corr_{self.idx:06d}")
+        result_path = transfer_set.result_dir.joinpath(transfer_set.h5_in.name).with_suffix(
+            f"result{self.idx:06d}.hdf"
+        )
+
         transfers: Dict[str, Any] = {
-            key: {
-                "location_alias": self.xpcs_config.remote_alias,
-                "path": path,
-            }
-            for key, path in transfer_set.dict().items()
-        }
-        transfers["h5_out"] = {
-            "location_alias": self.xpcs_config.remote_alias,
-            "path": Path(self.xpcs_config.result_dir).joinpath(h5_name),
+            "h5_in": {
+                "location_alias": transfer_set.remote_alias,
+                "path": transfer_set.h5_in,
+            },
+            "imm_in": {
+                "location_alias": transfer_set.remote_alias,
+                "path": transfer_set.imm_in,
+            },
+            "h5_out": {
+                "location_alias": transfer_set.remote_alias,
+                "path": result_path,
+            },
         }
         job = Job(
             workdir=workdir,
             app_id=app.id,
             num_nodes=1,
             node_packing_count=1,
-            threads_per_rank=64,
+            threads_per_rank=16,
             transfers=transfers,
-            tags={"job_source": self.source_tag, "experiment": self.experiment_tag},
+            tags={"job_source": source_tag, "experiment": self.experiment_tag},
+        )
+        self.idx += 1
+        return job
+
+    def eig(self, app: App) -> Job:
+        assert app.id is not None
+
+        transfer_set = random.choice(self.eig_datasets)
+        source_tag = transfer_set.remote_alias
+
+        workdir = Path(f"{self.experiment_tag}/{source_tag}/eig_{self.idx:06d}")
+        result_path = transfer_set.result_dir.joinpath(transfer_set.matrix_in.name).with_suffix(
+            f"eig{self.idx:06d}.npy"
+        )
+
+        transfers: Dict[str, Any] = {
+            "matrix": {
+                "location_alias": transfer_set.remote_alias,
+                "path": transfer_set.matrix_in,
+            },
+            "eigvals": {
+                "location_alias": transfer_set.remote_alias,
+                "path": result_path,
+            },
+        }
+        job = Job(
+            workdir=workdir,
+            app_id=app.id,
+            num_nodes=1,
+            node_packing_count=1,
+            threads_per_rank=16,
+            transfers=transfers,
+            tags={"job_source": source_tag, "experiment": self.experiment_tag},
         )
         self.idx += 1
         return job
@@ -122,16 +150,15 @@ def main(config_file: TextIO) -> None:
         config.site_ids
     ), f"Config specified site_ids {config.site_ids} but API only found {len(site_names)} of them."
 
-    apps = {
-        (site_id, app_name): App.objects.get(site_id=site_id, class_path=app_name)
-        for (site_id, app_name) in product(config.site_ids, config.app_names)
+    apps_by_site = {
+        site_id: App.objects.get(site_id=site_id, class_path=config.app_name) for site_id in config.site_ids
     }
 
     job_factory = JobFactory(
         config.experiment_tag,
-        config.source_tag,
         config.submit_batch_size_range,
-        config.xpcs_config,
+        config.xpcs_datasets,
+        config.eig_datasets,
     )
 
     start = datetime.utcnow()
@@ -142,19 +169,19 @@ def main(config_file: TextIO) -> None:
         sleep_time = random.randint(*config.submit_period_range_sec)
         time.sleep(sleep_time)
 
-        for (site_id, app_name), app in apps.items():
-            transfer_backlog = Job.objects.filter(site_id=site_id, state=JobState.ready).count()
-            runnable_backlog = Job.objects.filter(site_id=site_id, state=RUNNABLE_STATES).count()
-            assert transfer_backlog is not None and runnable_backlog is not None
-            if transfer_backlog < config.max_transfer_backlog and runnable_backlog < config.max_runnable_backlog:
-                jobs = job_factory.submit_jobs(app)
-                logger.info(f"Submitted {len(jobs)} {app_name} jobs to Site {site_names[site_id]}")
-            else:
-                logger.info(
-                    "Will not submit new jobs; at max backlog: "
-                    f"{transfer_backlog} / {config.max_transfer_backlog} transfer; "
-                    f"{runnable_backlog} / {config.max_runnable_backlog} runnable."
-                )
+        backlogs: Dict[int, int] = {
+            site_id: Job.objects.filter(site_id=site_id, state=set([*RUNNABLE_STATES, JobState.ready])).count()  # type: ignore
+            for site_id in config.site_ids
+        }
+
+        # Load level: submit to Site with smallest backlog
+        submit_site_id, backlog = min(backlogs.items(), key=lambda x: x[1])
+
+        if backlog < config.max_site_backlog:
+            jobs = job_factory.submit_jobs(apps_by_site[submit_site_id])
+            logger.info(f"Submitted {len(jobs)} jobs to Site {site_names[submit_site_id]}")
+        else:
+            logger.info("Will not submit new jobs; at max backlog: " f"{backlog} / {config.max_site_backlog}")
 
     logger.info("Reached experiment max duration, exiting.")
 
