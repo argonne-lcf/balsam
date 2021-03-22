@@ -87,7 +87,7 @@ scheduler:
 
 # Pre/post-processing service runs job state transitions in parallel
 processing:
-    num_workers: 5  # Number of concurrent worker processes
+    num_workers: 1  # Number of concurrent worker processes
     prefetch_depth: 1000 # Number of Jobs to have prefetched from API
 
 # Transfer service dispatches stage-in/stage-out tasks

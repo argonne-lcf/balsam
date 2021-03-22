@@ -4,6 +4,7 @@
 #SBATCH --qos={{ queue }}
 #SBATCH --account={{ project }}
 #SBATCH --constraint=haswell
+{% if optional_params.get("reservation") %}#SBATCH --reservation={{optional_params["reservation"]}} {% endif %}
 
 
 export PMI_NO_FORK=1
