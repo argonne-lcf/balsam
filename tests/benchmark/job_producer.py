@@ -76,7 +76,7 @@ class JobFactory:
 
         workdir = Path(f"{self.experiment_tag}/{source_tag}/corr_{self.idx:06d}")
         result_path = transfer_set.result_dir.joinpath(transfer_set.h5_in.name).with_suffix(
-            f"result{self.idx:06d}.hdf"
+            f".result{self.idx:06d}.hdf"
         )
 
         transfers: Dict[str, Any] = {
@@ -113,7 +113,7 @@ class JobFactory:
 
         workdir = Path(f"{self.experiment_tag}/{source_tag}/eig_{self.idx:06d}")
         result_path = transfer_set.result_dir.joinpath(transfer_set.matrix_in.name).with_suffix(
-            f"eig{self.idx:06d}.npy"
+            f".eig{self.idx:06d}.npy"
         )
 
         transfers: Dict[str, Any] = {
