@@ -55,7 +55,6 @@ class TransferService(BalsamService):
         self.transfer_interfaces = transfer_interfaces
         self.transfer_batch_size = transfer_batch_size
         self.num_items_query_limit = num_items_query_limit
-        logger.info(f"Initialized TransferService:\n{self.__dict__}")
 
     @staticmethod
     def build_task_map(transfer_items: Iterable["TransferItem"]) -> "defaultdict[str, List[TransferItem]]":

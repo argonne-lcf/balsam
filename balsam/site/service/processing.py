@@ -134,7 +134,6 @@ class ProcessingService(object):
             for _ in range(num_workers)
         ]
         self._started = False
-        logger.info(f"Initialized ProcessingService:\n{self.__dict__}")
 
     def start(self) -> None:
         if not self._started:

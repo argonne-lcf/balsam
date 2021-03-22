@@ -42,7 +42,9 @@ def main(config: SiteConfig, run_time_sec: int) -> None:
     services = config.build_services()
 
     for service in services:
+        attrs = {k: v for k, v in service.__dict__.items() if not k.startswith("_")}
         logger.info(f"Starting service: {service.__class__.__name__}")
+        logger.info(str(attrs))
         service.start()
 
     while not sig_handler.wait_until_exit(timeout=60):

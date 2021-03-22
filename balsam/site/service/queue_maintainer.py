@@ -34,7 +34,6 @@ class QueueMaintainerService(BalsamService):
         self.num_nodes = num_nodes
         self.wall_time_min = wall_time_min
         self.username = getpass.getuser()
-        logger.info(f"Initialized QueueMaintainerService:\n{self.__dict__}")
 
     def get_next_submission(self) -> Dict[str, Any]:
         return {

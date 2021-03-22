@@ -4,7 +4,7 @@ site_id: {{ site_id }}  # Do not change
 
 # Log file behavior for launcher and site services
 logging:
-    level: DEBUG # Increasing verbosity: ERROR, WARNING, INFO, DEBUG
+    level: INFO # Increasing verbosity: ERROR, WARNING, INFO, DEBUG
     format: '%(asctime)s.%(msecs)03d | %(process)d | %(levelname)s | %(name)s:%(lineno)s]
         %(message)s'
     datefmt: '%Y-%m-%d %H:%M:%S'

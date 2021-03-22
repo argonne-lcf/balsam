@@ -44,7 +44,6 @@ class SchedulerService(BalsamService):
         self.submit_directory = submit_directory
         self.username = getpass.getuser()
         self.filter_tags = filter_tags
-        logger.info(f"Initialized SchedulerService:\n{self.__dict__}")
 
     def fail_submit(self, job: "BatchJob", msg: str) -> None:
         job.state = BatchJobState.submit_failed
@@ -116,7 +115,7 @@ class SchedulerService(BalsamService):
                 state=["pending_submission", "queued", "running", "pending_deletion"],
             )
         )
-        logger.info(f"Fetched API BatchJobs: {[(j.id, j.state) for j in api_jobs]}")
+        logger.debug(f"Fetched API BatchJobs: {[(j.id, j.state) for j in api_jobs]}")
         scheduler_jobs = self.scheduler.get_statuses(user=self.username)
 
         for job in api_jobs:
@@ -163,7 +162,7 @@ class SchedulerService(BalsamService):
         site.backfill_windows = self.scheduler.get_backfill_windows()
         site.queued_jobs = scheduler_jobs
         site.save()
-        logger.info(f"Updated Site info: {site.display_dict()}")
+        logger.debug(f"Updated Site info: {site.display_dict()}")
 
     def cleanup(self) -> None:
         logger.info("SchedulerService exiting")
