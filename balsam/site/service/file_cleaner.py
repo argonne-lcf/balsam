@@ -44,7 +44,7 @@ class FileCleanerService(BalsamService):
             if pstr.startswith(self.data_path.as_posix()) and ".." not in pstr:
                 try:
                     match.unlink()
-                    logger.debug(f"Removed {pstr}")
+                    logger.info(f"Removed {pstr}")
                 except (OSError, FileNotFoundError) as exc:
                     logger.warning(f"Cannot remove {pstr}: {exc}")
 
