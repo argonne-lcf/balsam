@@ -7,8 +7,9 @@ from uuid import UUID
 
 from globus_cli.services.transfer import get_client  # type: ignore
 from globus_sdk import TransferData  # type: ignore
+from globus_sdk.exc import GlobusConnectionError  # type: ignore
 
-from .transfer import TaskInfo, TransferInterface, TransferSubmitError
+from .transfer import TaskInfo, TransferInterface, TransferRetryableError, TransferSubmitError
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,10 @@ class GlobusTransferInterface(TransferInterface):
             src_endpoint, dest_endpoint = self.endpoint_id, UUID(str(remote_loc))
         else:
             raise ValueError("direction must be in or out")
-        task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths)
+        try:
+            task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths)
+        except GlobusConnectionError as exc:
+            raise TransferRetryableError(f"GlobusConnectionError in Transfer task submission: {exc}") from exc
         return str(task_id)
 
     @staticmethod
@@ -110,8 +114,12 @@ class GlobusTransferInterface(TransferInterface):
         client = get_client()
         filter_values = {"task_id": ",".join(map(str, task_ids))}
         filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())
+        try:
+            task_list = list(client.task_list(num_results=None, filter=filter_str))
+        except GlobusConnectionError as exc:
+            raise TransferRetryableError(f"GlobusConnectionError in client.task_list: {exc}")
         result = []
-        for d in client.task_list(num_results=None, filter=filter_str):
+        for d in task_list:
             state = GlobusTransferInterface._state_map(d["status"])
             info = {}
             if d.get("fatal_error"):

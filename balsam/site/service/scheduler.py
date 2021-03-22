@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Type
 
-from balsam.platform.scheduler import SchedulerDeleteError, SchedulerSubmitError
+from balsam.platform.scheduler import SchedulerDeleteError, SchedulerNonZeroReturnCode, SchedulerSubmitError
 from balsam.schemas import AllowedQueue, BatchJobState, SchedulerJobStatus
 from balsam.site import ScriptTemplate
 
@@ -116,7 +116,11 @@ class SchedulerService(BalsamService):
             )
         )
         logger.debug(f"Fetched API BatchJobs: {[(j.id, j.state) for j in api_jobs]}")
-        scheduler_jobs = self.scheduler.get_statuses(user=self.username)
+        try:
+            scheduler_jobs = self.scheduler.get_statuses(user=self.username)
+        except SchedulerNonZeroReturnCode as exc:
+            logger.error(f"scheduler.get_statuses nonzero return: {exc}")
+            return
 
         for job in api_jobs:
             if job.state == "finished":

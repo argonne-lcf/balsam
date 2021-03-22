@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, cast
 from urllib.parse import urlparse
 
-from balsam.platform.transfer import TaskInfo, TransferInterface, TransferSubmitError
+from balsam.platform.transfer import TaskInfo, TransferInterface, TransferRetryableError, TransferSubmitError
 from balsam.schemas import TransferItemState
 
 from .service_base import BalsamService
@@ -64,8 +64,15 @@ class TransferService(BalsamService):
         return task_map
 
     def update_transfers(self, transfer_items: List["TransferItem"], task: TaskInfo) -> None:
+        current_state = cast(TransferItemState, task.state)
+        if all(item.state == current_state for item in transfer_items):
+            logger.debug(
+                f"No change in {len(transfer_items)} TransferItems: "
+                f"already in state {task.state} for task {task.task_id}"
+            )
+            return
         for item in transfer_items:
-            item.state = cast(TransferItemState, task.state)
+            item.state = current_state
             item.transfer_info = {**item.transfer_info, **task.info}
         self.client.TransferItem.objects.bulk_update(transfer_items)
         logger.info(f"Updated {len(transfer_items)} TransferItems " f"with task {task.task_id} to state {task.state}")
@@ -148,6 +155,9 @@ class TransferService(BalsamService):
             task_id = transfer_interface.submit_task(remote_loc, direction, transfer_paths)
         except TransferSubmitError as exc:
             return self.error_items(batch, f"TransferSubmitError: {exc}")
+        except TransferRetryableError as exc:
+            logger.error(f"Non-fatal submit error: {exc}")
+            return
         for item in batch:
             item.task_id = str(task_id)
             item.state = TransferItemState.active
@@ -163,7 +173,12 @@ class TransferService(BalsamService):
         task_ids: List[str] = list(task_map.keys())
         num_active_tasks = len(task_map)
 
-        tasks = TransferInterface.poll_tasks(task_ids)
+        try:
+            tasks = TransferInterface.poll_tasks(task_ids)
+        except TransferRetryableError as exc:
+            logger.error(f"Non-fatal error in poll_tasks: {exc}")
+            return
+
         for task in tasks:
             items = task_map[task.task_id]
             self.update_transfers(items, task)

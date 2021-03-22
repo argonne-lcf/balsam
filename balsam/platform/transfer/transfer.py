@@ -11,6 +11,10 @@ class TransferSubmitError(Exception):
     pass
 
 
+class TransferRetryableError(Exception):
+    pass
+
+
 class TaskState(str, Enum):
     active = "active"
     inactive = "inactive"
