@@ -165,15 +165,21 @@ def rename(path: Union[str, None], name: str) -> None:
 
 
 @site.command()
-def ls() -> None:
+@click.option("-v", "--verbose", is_flag=True)
+def ls(verbose: bool) -> None:
     """
     List my balsam sites
     """
     client = ClientSettings.load_from_file().build_client()
     qs = client.Site.objects.all()
-    for site in qs:
-        click.echo(str(site))
-        click.echo("---\n")
+    if verbose:
+        for site in qs:
+            click.echo(str(site))
+            click.echo("---\n")
+    else:
+        click.echo(f"{'ID':>5s}   {'Hostname':>14s}   {'Path':<16s}")
+        for s in qs:
+            click.echo(f"{s.id:>5d}   {s.hostname:>14}   {s.path.as_posix():<16}")
 
 
 @site.command()

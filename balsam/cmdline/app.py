@@ -94,10 +94,20 @@ def sync() -> None:
 
 
 @app.command()
-def ls() -> None:
+@click.option("-v", "--verbose", is_flag=True)
+def ls(verbose: bool) -> None:
     """
     List my Apps
     """
     client = ClientSettings.load_from_file().build_client()
-    reprs = [yaml.dump(app.display_dict(), sort_keys=False, indent=4) for app in client.App.objects.all()]
-    print(*reprs, sep="\n----\n")
+    qs = client.App.objects.all()
+    if verbose:
+        reprs = [yaml.dump(app.display_dict(), sort_keys=False, indent=4) for app in qs]
+        print(*reprs, sep="\n----\n")
+    else:
+        sites = {site.id: site for site in client.Site.objects.all()}
+        click.echo(f"{'ID':>5s}   {'ClassPath':>18s}   {'Site':<20s}")
+        for a in qs:
+            site = sites[a.site_id]
+            site_str = f"{site.hostname}:{site.path}"
+            click.echo(f"{a.id:>5d}   {a.class_path:>18s}   {site_str:<20s}")

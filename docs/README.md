@@ -14,6 +14,30 @@ source env/bin/activate
 pip install -e .
 ```
 
+## Installation on Summit
+
+The `cryptography` sub-dependency of `globus-cli` can be troublesome on non-x86 environments, where 
+`pip` will try to build from source.  One workaround is to create a conda environment with the 
+`cryptography` dependency pre-satisfied, from which `pip install` works smoothly:
+
+```
+module load gcc/10.2.0
+module load python/3.7.0-anaconda3-5.3.0
+
+conda init bash
+source ~/.bashrc
+conda create -p ./b2env "cryptography>=1.8.1,<3.4.0" -y
+conda activate ./b2env
+
+git clone https://github.com/argonne-lcf/balsam.git
+cd balsam
+git checkout develop
+
+which python
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
 # Developer/server-side installation
 
 For Balsam development and server deployments, there are some additional

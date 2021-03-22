@@ -38,6 +38,7 @@ class ExperimentConfig(BaseSettings):
     experiment_duration_min: int
     site_ids: List[int]
     app_name: str
+    site_cpu_map: Dict[int, int]
 
     xpcs_datasets: List[XPCS]
     eig_datasets: List[Eig]
@@ -50,6 +51,7 @@ class JobFactory:
         batch_size_range: Tuple[int, int],
         xpcs_datasets: List[XPCS],
         eig_datasets: List[Eig],
+        site_cpu_map: Dict[int, int],
     ) -> None:
         self.idx = 0
         self.experiment_tag = experiment_tag
@@ -60,6 +62,7 @@ class JobFactory:
             "xpcs.EigenCorr": self.xpcs_eigen,
             "eig.Eig": self.eig,
         }
+        self.site_cpu_map = site_cpu_map
 
     def submit_jobs(self, app: App) -> List[Job]:
         job_factory = self.generators[app.class_path]
@@ -78,6 +81,7 @@ class JobFactory:
         result_path = transfer_set.result_dir.joinpath(transfer_set.h5_in.name).with_suffix(
             f".result{self.idx:06d}.hdf"
         )
+        num_cpus = self.site_cpu_map[app.site_id]
 
         transfers: Dict[str, Any] = {
             "h5_in": {
@@ -98,7 +102,7 @@ class JobFactory:
             app_id=app.id,
             num_nodes=1,
             node_packing_count=1,
-            threads_per_rank=16,
+            threads_per_rank=num_cpus,
             transfers=transfers,
             tags={"job_source": source_tag, "experiment": self.experiment_tag},
         )
@@ -159,6 +163,7 @@ def main(config_file: TextIO) -> None:
         config.submit_batch_size_range,
         config.xpcs_datasets,
         config.eig_datasets,
+        config.site_cpu_map,
     )
 
     start = datetime.utcnow()

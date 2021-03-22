@@ -9,7 +9,7 @@ class EigenCorr(ApplicationDefinition):
     users provide `h5_in`, `imm_in`, and `h5_out` transfer items.
     """
 
-    corr_exe = "/projects/datascience/aps/software/xpcs-eigen2/build/corr"
+    corr_exe = "/ccs/home/turam/dev/aps/xpcs-eigen/build/corr"
     command_template = f"{corr_exe} inp.h5 -imm inp.imm"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",

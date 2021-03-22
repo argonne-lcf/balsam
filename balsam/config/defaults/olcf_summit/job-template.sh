@@ -2,6 +2,9 @@
 #BSUB -nnodes {{ num_nodes }}
 #BSUB -W {{ wall_time_min }}
 #BSUB -P {{ project }}
+#BSUB -alloc_flags "smt4"
+#BSUB -q {{ queue }}
+{% if optional_params.get("reservation") %}#BSUB -U {{optional_params["reservation"]}} {% endif %}
 
 # Uncomment this if the server is on an external network
 # (Note that https_proxy is set to use an `http://` protocol!

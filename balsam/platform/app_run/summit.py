@@ -9,9 +9,7 @@ class SummitJsrun(SubprocessAppRun):
     """
 
     def _build_cmdline(self) -> str:
-        cpu_per_rs = len(self._node_spec.cpu_ids[0]) // self._ranks_per_node
-        if not cpu_per_rs:
-            cpu_per_rs = max(1, int(self._threads_per_rank // self._threads_per_core))
+        cpu_per_rs = self.get_cpus_per_rank()
         args = [
             "jsrun",
             "--nrs",  # number of Resource Sets == number of ranks
@@ -22,6 +20,8 @@ class SummitJsrun(SubprocessAppRun):
             self._ranks_per_node,
             "--cpu_per_rs",
             cpu_per_rs,  # number of cores per resource set
+            "--bind",
+            "rs",  # Bind to all cores of resource set
             "--gpu_per_rs",
             self._gpus_per_rank,  # gpus per resource set
             self._cmdline,
@@ -33,4 +33,5 @@ class SummitJsrun(SubprocessAppRun):
         # CUDA_VISIBLE_DEVICES by default on Summit
         envs = os.environ.copy()
         envs.update(self._envs)
+        envs["OMP_NUM_THREADS"] = str(self._threads_per_rank)
         self._envs = envs

@@ -6,6 +6,12 @@ experiment_duration_min: 180
 
 site_ids: 
   - 4
+
+site_cpu_map:
+  4: 64 # theta
+  5: 32 # cori-haswell
+  6: 42 # summit
+
 app_name: "eig.Eig"  # "xpcs.EigenCorr"
 
 
