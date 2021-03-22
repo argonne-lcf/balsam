@@ -1,4 +1,3 @@
-import os
 import time
 
 from .app_run import SubprocessAppRun
@@ -10,7 +9,7 @@ class SlurmRun(SubprocessAppRun):
     """
 
     def _build_cmdline(self) -> str:
-        node_ids = [h for h in self._node_spec.node_ids]
+        node_ids = [h for h in self._node_spec.hostnames]
         num_nodes = str(len(node_ids))
         args = [
             "srun",
@@ -19,9 +18,11 @@ class SlurmRun(SubprocessAppRun):
             "--ntasks-per-node",
             self._ranks_per_node,
             "--nodelist",
-            os.environ["SLURM_NODELIST"],
+            ",".join(node_ids),
             "--nodes",
             num_nodes,
+            "--cpus-per-task",
+            self.get_cpus_per_rank(),
             self._cmdline,
         ]
         return " ".join(str(arg) for arg in args)

@@ -66,6 +66,12 @@ class AppRun(ABC):
     def get_num_ranks(self) -> int:
         return self._ranks_per_node * len(self._node_spec.node_ids)
 
+    def get_cpus_per_rank(self) -> int:
+        cpu_per_rank = len(self._node_spec.cpu_ids[0]) // self._ranks_per_node
+        if not cpu_per_rank:
+            cpu_per_rank = max(1, int(self._threads_per_rank // self._threads_per_core))
+        return cpu_per_rank
+
     @abstractmethod
     def start(self) -> None:
         pass
@@ -136,6 +142,7 @@ class SubprocessAppRun(AppRun):
         if gpu_ids:
             envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
             envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
+        envs["OMP_NUM_THREADS"] = str(self._threads_per_rank)
         self._envs = envs
 
     def _open_outfile(self) -> IO[bytes]:
