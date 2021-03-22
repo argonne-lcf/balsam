@@ -14,6 +14,10 @@ class EigenCorr(ApplicationDefinition):
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
+
+    def shell_preamble(self):
+        return ["module load hdf5", "module load gcc/10.2.0"]
+
     parameters = {}
     cleanup_files = ["*.hdf", "*.imm", "*.h5"]
     transfers = {
