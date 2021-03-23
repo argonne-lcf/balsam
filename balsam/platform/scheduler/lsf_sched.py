@@ -1,4 +1,3 @@
-import datetime
 import json
 import logging
 import os
@@ -6,7 +5,9 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import dateutil
+from dateutil.parser import ParserError
+
+from balsam.util import parse_to_utc
 
 from .scheduler import (
     SchedulerBackfillWindow,
@@ -19,26 +20,6 @@ from .scheduler import (
 
 PathLike = Union[Path, str]
 logger = logging.getLogger(__name__)
-
-
-# parse "00:00:00:00" to minutes
-def parse_clock(t_str: str) -> int:
-    parts = t_str.split(":")
-    n = len(parts)
-    D = H = M = S = 0
-    if n == 4:
-        D, H, M, S = map(int, parts)
-    elif n == 3:
-        H, M, S = map(int, parts)
-    elif n == 2:
-        M, S = map(int, parts)
-
-    return D * 24 * 60 + H * 60 + M + round(S / 60)
-
-
-#   "02/17 15:56:28"
-def parse_datetime(t_str: str) -> datetime.datetime:
-    return datetime.datetime.strptime(t_str, "%m/%d %H:%M:%S")
 
 
 class LsfScheduler(SubprocessSchedulerInterface):
@@ -90,7 +71,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
             "scheduler_id": lambda id: int(id),
             "state": lambda state: LsfScheduler._job_states[state],
             "queue": lambda queue: str(queue),
-            "num_nodes": lambda n: 0 if n == "-" else int(n),
+            "num_nodes": lambda n: 0 if n == "-" else int(n // 42),
             "wall_time_min": lambda minutes: int(float(minutes)),
             "project": lambda project: str(project),
             "time_remaining_min": lambda time: int(int(time.split()[0]) / 60),
@@ -247,7 +228,18 @@ class LsfScheduler(SubprocessSchedulerInterface):
         if json_output["JOBS"] > 1:
             logger.error("something strange happened, more than one job returned: \n %s", stdout)
             return SchedulerJobLog()
+
         job_data = json_output["RECORDS"][0]
-        start = dateutil.parser.parse(job_data["START_TIME"])
-        end = dateutil.parser.parse(job_data["FINISH_TIME"])
+        start_raw = job_data.get("START_TIME")
+        end_raw = job_data.get("FINISH_TIME")
+
+        if not (start_raw and end_raw):
+            logger.warning(f"parse_logs got START_TIME: {start_raw}; FINISH_TIME: {end_raw}")
+            return SchedulerJobLog()
+        try:
+            start = parse_to_utc(start_raw, local_zone="ET")
+            end = parse_to_utc(end_raw, local_zone="ET")
+        except ParserError:
+            logger.warning(f"Failed to parse job_data times (START_TIME: {start_raw}) (FINISH_TIME: {end_raw})")
+            return SchedulerJobLog()
         return SchedulerJobLog(start_time=start, end_time=end)

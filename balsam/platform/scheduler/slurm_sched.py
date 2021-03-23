@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import dateutil
+from dateutil.parser import ParserError
+
+from balsam.util import parse_to_utc
 
 from .scheduler import (
     SchedulerBackfillWindow,
@@ -300,10 +302,6 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         return {}
 
     @staticmethod
-    def _parse_time(time_str: str) -> datetime.datetime:
-        return dateutil.parser.parse(time_str)
-
-    @staticmethod
     def _parse_logs(scheduler_id: Union[int, str], job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         # use command to get batch job runtime
         args = [SlurmScheduler.history_exe]
@@ -317,10 +315,14 @@ class SlurmScheduler(SubprocessSchedulerInterface):
         # 40589507.ex+ 2021-03-12T08:40:12 2021-03-12T08:41:21
         # 40589507.0   2021-03-12T08:40:42 2021-03-12T08:40:45
         # returns empty string with newline for not found jobs:
-        if len(stdout) > 5:
-            first_line = stdout.strip().split("\n")[0]  # only take first line
-            job_data = first_line.split()
-            start_time = SlurmScheduler._parse_time(job_data[1])
-            end_time = SlurmScheduler._parse_time(job_data[2])
-            return SchedulerJobLog(start_time=start_time, end_time=end_time)
-        return SchedulerJobLog()
+        if len(stdout) <= 5:
+            return SchedulerJobLog()
+        first_line = stdout.strip().split("\n")[0]  # only take first line
+        job_data = first_line.split()
+        try:
+            start_time = parse_to_utc(job_data[1])
+            end_time = parse_to_utc(job_data[2])
+        except ParserError:
+            logger.warning(f"Failed to parse job_data times (START_TIME: {job_data[1]}) (FINISH_TIME: {job_data[2]})")
+            return SchedulerJobLog()
+        return SchedulerJobLog(start_time=start_time, end_time=end_time)
