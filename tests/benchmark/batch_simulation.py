@@ -1,13 +1,15 @@
-from pprint import pprint
-from datetime import datetime
-import time
+import os
 import random
-from typing import List
+import time
+from datetime import datetime
 from pathlib import Path
+from pprint import pprint
+from typing import List
+
 import click
 import jinja2
+
 from balsam.platform.scheduler import CobaltScheduler
-import os
 
 os.environ["BALSAM_SITE_PATH"] = "/tmp/fakesite"
 
