@@ -12,24 +12,27 @@ import os
 os.environ["BALSAM_SITE_PATH"] = "/tmp/fakesite"
 
 SUBMIT_PROJECT = "WorkExpFacil"
-SUBMIT_QUEUE = "debug-cache-quad"
-RUN_COMMAND = "/path/python /path/eig.py "
+SUBMIT_QUEUE = "balsam"
+RUN_COMMAND = "aprun -n 1 -d 64 -cc depth python /projects/datascience/msalim/eig/random-eig.py "
 sched = CobaltScheduler()
 
 sh_template = jinja2.Template(
     """
+#!/bin/bash
 echo START_RUN: `date --iso-8601=ns`
 cp {{ input_file }} .
 echo COPIED_INPUT: `date --iso-8601=ns`
+module load miniconda-3
+export OMP_NUM_THREADS=64
 {{ run_cmd }}
 echo RUN_DONE: `date --iso-8601=ns`
-cp {{ result_file }} {{ result_dir }}
+cp *.eigs.npy {{ result_dir }}
 echo COPIED_OUTPUT: `date --iso-8601=ns`
-    """
+    """.strip()
 )
 
 
-def render_jobscript(input_file: Path, run_cmd: str, result_file: str, result_dir: Path) -> str:
+def render_jobscript(input_file: Path, run_cmd: str, result_dir: Path) -> str:
     return sh_template.render(locals())
 
 
@@ -38,11 +41,12 @@ def submit_job(input_file: Path, workdir: Path, result_dir: Path) -> int:
     script = render_jobscript(
         input_file=input_file,
         run_cmd=RUN_COMMAND + " " + input_file.name,
-        result_file=workdir.with_suffix(".eigs.npy").name,
         result_dir=result_dir,
     )
     with open(workdir / "job.sh", "w") as fp:
         fp.write(script)
+    os.chmod(fp.name, 0o750)
+
     job_id = sched.submit(
         fp.name,
         project=SUBMIT_PROJECT,
