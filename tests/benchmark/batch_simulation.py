@@ -14,8 +14,8 @@ from balsam.platform.scheduler import CobaltScheduler
 os.environ["BALSAM_SITE_PATH"] = "/tmp/fakesite"
 
 SUBMIT_PROJECT = "WorkExpFacil"
-SUBMIT_QUEUE = "balsam"
-RUN_COMMAND = "aprun -n 1 -d 64 -cc depth python /projects/datascience/msalim/eig/random-eig.py "
+SUBMIT_QUEUE = "R.WorkExpFacil"
+RUN_COMMAND = "aprun -n 1 -d 64 -cc depth python /projects/WorkExpFacil/msalim/eig/random-eig.py "
 sched = CobaltScheduler()
 
 sh_template = jinja2.Template(
