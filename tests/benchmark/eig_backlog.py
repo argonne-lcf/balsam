@@ -109,8 +109,8 @@ def main() -> None:
         site_id=site.id,
         app_id=app.id,
         experiment_tag=conf.experiment_tag,
-        jobs_per_sec=2,
-        time_limit_min=10,
+        jobs_per_sec=1,
+        time_limit_min=15,
         remote_alias=conf.remote_alias,
         result_dir=conf.result_dir,
         matrix_input=conf.matrix_input,
@@ -121,8 +121,8 @@ def main() -> None:
         site_id=site.id,
         app_id=app.id,
         experiment_tag=conf.experiment_tag,
-        jobs_per_sec=5,
-        time_limit_min=10,
+        jobs_per_sec=3,
+        time_limit_min=15,
         remote_alias=conf.remote_alias,
         result_dir=conf.result_dir,
         matrix_input=conf.matrix_input,
@@ -133,13 +133,14 @@ def main() -> None:
         site_id=site.id,
         app_id=app.id,
         experiment_tag=conf.experiment_tag,
-        jobs_per_sec=2,
-        time_limit_min=10,
+        jobs_per_sec=1,
+        time_limit_min=15,
         random_kill=True,
         remote_alias=conf.remote_alias,
         result_dir=conf.result_dir,
         matrix_input=conf.matrix_input,
     )
+    print("ALL DONE; waiting for backlog to finish normally")
 
 
 if __name__ == "__main__":
