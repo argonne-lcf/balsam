@@ -14,6 +14,7 @@ from .scheduler import (
     SchedulerJobLog,
     SchedulerJobStatus,
     SchedulerNonZeroReturnCode,
+    SchedulerSubmitError,
     SubprocessSchedulerInterface,
     scheduler_subproc,
 )
@@ -71,7 +72,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
             "scheduler_id": lambda id: int(id),
             "state": lambda state: LsfScheduler._job_states[state],
             "queue": lambda queue: str(queue),
-            "num_nodes": lambda n: 0 if n == "-" else int(n // 42),
+            "num_nodes": lambda n: 0 if n == "-" else int(int(n) // 42),
             "wall_time_min": lambda minutes: int(float(minutes)),
             "project": lambda project: str(project),
             "time_remaining_min": lambda time: int(int(time.split()[0]) / 60),
@@ -145,6 +146,8 @@ class LsfScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _parse_submit_output(submit_output: str) -> int:
+        if "Job not submitted" in submit_output:
+            raise SchedulerSubmitError(f"job submission failed with message: {submit_output}")
         try:
             start = len("Job <")
             end = submit_output.find(">", start)
