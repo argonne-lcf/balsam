@@ -147,7 +147,7 @@ class LsfScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _parse_submit_output(submit_output: str) -> int:
         if "Job not submitted" in submit_output:
-            raise SchedulerSubmitError("job submission failed with message: %s" % submit_output)
+            raise SchedulerSubmitError(f"job submission failed with message: {submit_output}")
         try:
             start = len("Job <")
             end = submit_output.find(">", start)
