@@ -216,6 +216,8 @@ def main(
     site_config.enable_logging("mpi_mode", filename=log_filename)
     filter_tags_dict: Dict[str, str] = json.loads(filter_tags)
     node_ids_list: List[Union[int, str]] = json.loads(node_ids)
+    if filter_tags_dict:
+        logger.info(f"Launcher filtering for tags: {filter_tags_dict}")
 
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node

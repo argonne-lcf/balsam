@@ -124,7 +124,7 @@ def launcher(
         partitions = [BatchJobPartition(num_nodes=len(nodes), job_mode=job_mode, filter_tags=filter_tags)]
 
     partition_dicts: List[Dict[str, Any]] = [part.dict() for part in partitions]
-    assert sum(p["num_nodes"] for p in partition_dicts) == len(nodes)
+    assert sum(p["num_nodes"] for p in partition_dicts) <= len(nodes)
     idx = 0
     for part in partition_dicts:
         num_nodes = part.pop("num_nodes")
