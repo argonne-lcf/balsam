@@ -201,9 +201,11 @@ def submit_round_robin(
     max_backlog: int,
 ) -> None:
     # Select next Site in turn
-    site_id = job_factory.submission_idx % len(apps_by_site)
+    site_idx = job_factory.submission_idx % len(apps_by_site)
+    site_id = list(apps_by_site.keys())[site_idx]
     app = apps_by_site[site_id]
     backlog = backlogs_by_site[site_id]
+    logger.info(f"Backlogs by site: {backlogs_by_site}")
     if backlog < max_backlog:
         job_factory.submit_jobs(app, batch_size)
         logger.info(f"Submitted {batch_size} jobs to Site {site_id}")

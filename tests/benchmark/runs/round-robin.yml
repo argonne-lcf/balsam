@@ -3,7 +3,7 @@ submission_mode: round-robin # const-backlog, shortest-backlog, round-robin
 submit_period: 16
 submit_batch_size: 16
 max_site_backlog: 480
-experiment_duration_min: 20
+experiment_duration_min: 16
 
 site_ids:
   - 11 #   11      thetalogin6   /lus/theta-fs0/projects/WorkExpFacil/msalim/sc21
@@ -28,7 +28,7 @@ xpcs_datasets:
     h5_in: "/gdata/lcfwork/input-2021-03-19/twotimes_sample_alcf_pilt.h5"
     imm_in: "/gdata/lcfwork/input-2021-03-19/B137_PI2_hetero_1_step2_10mm_Strain010_att0_Lq0_001_00001-00512.imm"
 
-  - result_dir: "/~/xpcs/results-2021-03-19/"
-    remote_alias: "als_dtn"
-    h5_in: "/~/xpcs/input-2021-03-19/twotimes_sample_alcf_pilt.h5"
-    imm_in: "/~/xpcs/input-2021-03-19/B137_PI2_hetero_1_step2_10mm_Strain010_att0_Lq0_001_00001-00512.imm"
+    #- result_dir: "/~/xpcs/results-2021-03-19/"
+    #- remote_alias: "als_dtn"
+    #- h5_in: "/~/xpcs/input-2021-03-19/twotimes_sample_alcf_pilt.h5"
+    #- imm_in: "/~/xpcs/input-2021-03-19/B137_PI2_hetero_1_step2_10mm_Strain010_att0_Lq0_001_00001-00512.imm"

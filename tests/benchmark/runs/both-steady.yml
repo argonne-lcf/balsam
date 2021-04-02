@@ -3,7 +3,7 @@ submission_mode: const-backlog # const-backlog, shortest-backlog, round-robin
 submit_period: 2.5
 submit_batch_size: 32
 max_site_backlog: 32
-experiment_duration_min: 20
+experiment_duration_min: 16
 
 site_ids:
   - 11 #   11      thetalogin6   /lus/theta-fs0/projects/WorkExpFacil/msalim/sc21

@@ -1,0 +1,315 @@
+2021-04-02 16:33:53.312 | DEBUG | 221] Loaded experiment config: experiment_tag: round-robin-fast1
+submission_mode: round-robin
+submit_period: 8.0
+submit_batch_size: 16
+max_site_backlog: 480
+experiment_duration_min: 16
+site_ids:
+- 11
+- 6
+- 12
+app_name: xpcs.EigenCorr
+site_cpu_map:
+  11: 64
+  6: 32
+  12: 42
+xpcs_datasets:
+- result_dir: !!python/object/apply:pathlib.PosixPath
+  - /
+  - gdata
+  - lcfwork
+  - results-2021-03-19
+  remote_alias: aps_dtn
+  h5_in: !!python/object/apply:pathlib.PosixPath
+  - /
+  - gdata
+  - lcfwork
+  - input-2021-03-19
+  - twotimes_sample_alcf_pilt.h5
+  imm_in: !!python/object/apply:pathlib.PosixPath
+  - /
+  - gdata
+  - lcfwork
+  - input-2021-03-19
+  - B137_PI2_hetero_1_step2_10mm_Strain010_att0_Lq0_001_00001-00512.imm
+eig_datasets:
+- remote_alias: als_dtn
+  result_dir: !!python/object/apply:pathlib.PosixPath
+  - /
+  - '~'
+  - matrix
+  - results-2021-03-19
+  matrix_in: !!python/object/apply:pathlib.PosixPath
+  - /
+  - '~'
+  - matrix
+  - 12_000.npy
+
+2021-04-02 16:33:53.319 | DEBUG | 971] Starting new HTTPS connection (1): balsam-flow.org:443
+2021-04-02 16:33:53.426 | DEBUG | 452] https://balsam-flow.org:443 "GET /sites/?id=11&id=6&id=12 HTTP/1.1" 200 3972
+2021-04-02 16:33:53.526 | DEBUG | 452] https://balsam-flow.org:443 "GET /apps/?site_id=11&class_path=xpcs.EigenCorr HTTP/1.1" 200 700
+2021-04-02 16:33:53.568 | DEBUG | 452] https://balsam-flow.org:443 "GET /apps/?site_id=6&class_path=xpcs.EigenCorr HTTP/1.1" 200 704
+2021-04-02 16:33:53.608 | DEBUG | 452] https://balsam-flow.org:443 "GET /apps/?site_id=12&class_path=xpcs.EigenCorr HTTP/1.1" 200 706
+2021-04-02 16:33:53.609 | INFO | 249] Starting experiment at 2021-04-02 21:33:53.609937
+2021-04-02 16:33:53.610 | INFO | 250] Total duration will be 16 minutes at most
+2021-04-02 16:34:01.651 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 24
+2021-04-02 16:34:01.687 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 24
+2021-04-02 16:34:01.723 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 24
+2021-04-02 16:34:01.724 | INFO | 208] Backlogs by site: {11: 0, 6: 0, 12: 0}
+2021-04-02 16:34:01.898 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:01.901 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:34:09.940 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:09.979 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 24
+2021-04-02 16:34:10.015 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 24
+2021-04-02 16:34:10.016 | INFO | 208] Backlogs by site: {11: 16, 6: 0, 12: 0}
+2021-04-02 16:34:10.155 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:10.160 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:34:18.197 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:18.238 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:18.278 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 24
+2021-04-02 16:34:18.279 | INFO | 208] Backlogs by site: {11: 16, 6: 16, 12: 0}
+2021-04-02 16:34:18.425 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:18.443 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:34:26.486 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:26.527 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:26.563 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:26.564 | INFO | 208] Backlogs by site: {11: 16, 6: 16, 12: 16}
+2021-04-02 16:34:26.754 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:26.757 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:34:34.797 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:34.839 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:34.875 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:34.875 | INFO | 208] Backlogs by site: {11: 32, 6: 16, 12: 16}
+2021-04-02 16:34:35.014 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:35.017 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:34:43.064 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:43.103 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:43.142 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:43.143 | INFO | 208] Backlogs by site: {11: 32, 6: 32, 12: 16}
+2021-04-02 16:34:43.323 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:43.327 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:34:51.365 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:51.412 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:51.447 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:51.447 | INFO | 208] Backlogs by site: {11: 32, 6: 16, 12: 32}
+2021-04-02 16:34:51.592 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:51.595 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:34:59.634 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:59.670 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:59.710 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:34:59.710 | INFO | 208] Backlogs by site: {11: 48, 6: 16, 12: 16}
+2021-04-02 16:34:59.851 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:34:59.854 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:35:07.913 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:07.956 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:08.003 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:08.004 | INFO | 208] Backlogs by site: {11: 48, 6: 32, 12: 16}
+2021-04-02 16:35:08.147 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:35:08.150 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:35:16.192 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:16.237 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:16.276 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:16.277 | INFO | 208] Backlogs by site: {11: 48, 6: 16, 12: 32}
+2021-04-02 16:35:16.415 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:35:16.418 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:35:24.457 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:24.497 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:24.538 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:24.539 | INFO | 208] Backlogs by site: {11: 64, 6: 16, 12: 32}
+2021-04-02 16:35:24.687 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:35:24.689 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:35:32.725 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:32.761 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:32.799 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:32.800 | INFO | 208] Backlogs by site: {11: 64, 6: 32, 12: 32}
+2021-04-02 16:35:32.938 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:35:32.940 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:35:40.981 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:41.019 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:41.057 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:41.058 | INFO | 208] Backlogs by site: {11: 48, 6: 32, 12: 48}
+2021-04-02 16:35:41.206 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:35:41.210 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:35:49.251 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:49.288 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:49.324 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:49.325 | INFO | 208] Backlogs by site: {11: 64, 6: 32, 12: 32}
+2021-04-02 16:35:49.463 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:35:49.466 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:35:57.507 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:57.546 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:57.581 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:35:57.581 | INFO | 208] Backlogs by site: {11: 64, 6: 48, 12: 32}
+2021-04-02 16:35:57.716 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:35:57.720 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:36:05.778 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:05.816 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:05.851 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:05.852 | INFO | 208] Backlogs by site: {11: 64, 6: 47, 12: 48}
+2021-04-02 16:36:06.002 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:36:06.005 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:36:14.048 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:14.089 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:14.126 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:14.127 | INFO | 208] Backlogs by site: {11: 80, 6: 46, 12: 48}
+2021-04-02 16:36:14.269 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:36:14.273 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:36:22.314 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:22.351 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:22.389 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:22.390 | INFO | 208] Backlogs by site: {11: 64, 6: 51, 12: 48}
+2021-04-02 16:36:22.534 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:36:22.537 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:36:30.575 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:30.610 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:30.645 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:30.646 | INFO | 208] Backlogs by site: {11: 64, 6: 51, 12: 64}
+2021-04-02 16:36:30.784 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:36:30.787 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:36:38.828 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:38.866 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:38.901 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:38.902 | INFO | 208] Backlogs by site: {11: 80, 6: 41, 12: 64}
+2021-04-02 16:36:39.053 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:36:39.056 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:36:47.099 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:47.137 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:47.175 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:47.175 | INFO | 208] Backlogs by site: {11: 80, 6: 57, 12: 48}
+2021-04-02 16:36:47.318 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:36:47.321 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:36:55.362 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:55.399 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:55.442 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:36:55.443 | INFO | 208] Backlogs by site: {11: 80, 6: 57, 12: 64}
+2021-04-02 16:36:55.596 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:36:55.599 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:37:03.638 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:03.676 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:03.718 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:03.718 | INFO | 208] Backlogs by site: {11: 96, 6: 55, 12: 64}
+2021-04-02 16:37:03.859 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:37:03.862 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:37:11.904 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:11.944 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:11.982 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:11.982 | INFO | 208] Backlogs by site: {11: 96, 6: 71, 12: 64}
+2021-04-02 16:37:12.130 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:37:12.133 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:37:20.136 | DEBUG | 272] Resetting dropped connection: balsam-flow.org
+2021-04-02 16:37:20.250 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:20.294 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:20.334 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:20.334 | INFO | 208] Backlogs by site: {11: 80, 6: 63, 12: 80}
+2021-04-02 16:37:20.513 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:37:20.516 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:37:28.554 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:28.587 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:28.628 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:28.628 | INFO | 208] Backlogs by site: {11: 96, 6: 63, 12: 80}
+2021-04-02 16:37:28.771 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:37:28.774 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:37:36.812 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:36.851 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:36.886 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:36.886 | INFO | 208] Backlogs by site: {11: 96, 6: 76, 12: 80}
+2021-04-02 16:37:37.021 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:37:37.024 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:37:45.060 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:45.095 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:45.130 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:45.131 | INFO | 208] Backlogs by site: {11: 96, 6: 76, 12: 96}
+2021-04-02 16:37:45.290 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:37:45.293 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:37:53.342 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:37:53.384 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:53.418 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:37:53.419 | INFO | 208] Backlogs by site: {11: 112, 6: 76, 12: 96}
+2021-04-02 16:37:53.561 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:37:53.564 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:38:01.602 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:01.638 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:01.671 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:01.672 | INFO | 208] Backlogs by site: {11: 110, 6: 82, 12: 80}
+2021-04-02 16:38:01.811 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:01.814 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:38:09.849 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:09.888 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:09.923 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:09.924 | INFO | 208] Backlogs by site: {11: 96, 6: 81, 12: 96}
+2021-04-02 16:38:10.069 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:10.072 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:38:18.114 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:18.171 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:18.207 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:18.207 | INFO | 208] Backlogs by site: {11: 112, 6: 80, 12: 96}
+2021-04-02 16:38:18.361 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:18.364 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:38:26.400 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:26.434 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:26.471 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:26.471 | INFO | 208] Backlogs by site: {11: 112, 6: 96, 12: 96}
+2021-04-02 16:38:26.619 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:26.622 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:38:34.660 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:34.701 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:34.742 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:34.743 | INFO | 208] Backlogs by site: {11: 112, 6: 96, 12: 112}
+2021-04-02 16:38:34.888 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:34.891 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:38:42.934 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:42.972 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:43.014 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:43.014 | INFO | 208] Backlogs by site: {11: 128, 6: 96, 12: 96}
+2021-04-02 16:38:43.189 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:43.193 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:38:51.232 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:51.278 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:51.312 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 25
+2021-04-02 16:38:51.313 | INFO | 208] Backlogs by site: {11: 128, 6: 112, 12: 96}
+2021-04-02 16:38:51.465 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:51.468 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:38:59.508 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:59.545 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:59.583 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:38:59.584 | INFO | 208] Backlogs by site: {11: 128, 6: 108, 12: 112}
+2021-04-02 16:38:59.727 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:38:59.730 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:39:07.771 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:07.808 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:07.842 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:07.842 | INFO | 208] Backlogs by site: {11: 128, 6: 108, 12: 112}
+2021-04-02 16:39:07.987 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:39:07.990 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:39:16.040 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:16.072 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:16.111 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:16.111 | INFO | 208] Backlogs by site: {11: 128, 6: 124, 12: 112}
+2021-04-02 16:39:16.250 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:39:16.253 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:39:24.290 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:24.331 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:24.368 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:24.369 | INFO | 208] Backlogs by site: {11: 128, 6: 120, 12: 128}
+2021-04-02 16:39:24.508 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:39:24.511 | INFO | 211] Submitted 16 jobs to Site 11
+2021-04-02 16:39:32.549 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:32.584 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:32.620 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:32.620 | INFO | 208] Backlogs by site: {11: 144, 6: 120, 12: 128}
+2021-04-02 16:39:32.763 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:39:32.767 | INFO | 211] Submitted 16 jobs to Site 6
+2021-04-02 16:39:40.807 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:40.845 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:40.882 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:40.883 | INFO | 208] Backlogs by site: {11: 144, 6: 136, 12: 128}
+2021-04-02 16:39:41.021 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:39:41.024 | INFO | 211] Submitted 16 jobs to Site 12
+2021-04-02 16:39:49.060 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=11&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:49.096 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=6&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:49.152 | DEBUG | 452] https://balsam-flow.org:443 "GET /jobs/?site_id=12&state=PREPROCESSED&state=READY&state=RESTART_READY&state=STAGED_IN&limit=0&offset=0 HTTP/1.1" 200 26
+2021-04-02 16:39:49.152 | INFO | 208] Backlogs by site: {11: 128, 6: 135, 12: 128}
+2021-04-02 16:39:49.292 | DEBUG | 452] https://balsam-flow.org:443 "POST /jobs/ HTTP/1.1" 201 7521
+2021-04-02 16:39:49.295 | INFO | 211] Submitted 16 jobs to Site 11
+
+Aborted!
