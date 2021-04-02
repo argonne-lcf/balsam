@@ -1,12 +1,13 @@
-experiment_tag: xpcs-summit-test
-submit_period_range_sec: [1, 5]
-submit_batch_size_range: [1, 10]
-max_site_backlog: 128
-experiment_duration_min: 180
+experiment_tag: shortest-backlog1
+submission_mode: shortest-backlog # const-backlog, shortest-backlog, round-robin
+submit_period: 16
+submit_batch_size: 16
+max_site_backlog: 480
+experiment_duration_min: 20
 
 site_ids:
-    #- 11 #   11      thetalogin6   /lus/theta-fs0/projects/WorkExpFacil/msalim/sc21
-    #- 6  #    6           cori03   /global/project/projectdirs/m3676/msalim/b2sites/test
+  - 11 #   11      thetalogin6   /lus/theta-fs0/projects/WorkExpFacil/msalim/sc21
+  - 6  #    6           cori03   /global/project/projectdirs/m3676/msalim/b2sites/test
   - 12 #   12           login4   /gpfs/alpine/csc435/proj-shared/msalim/sc21-site
 
 site_cpu_map:
@@ -15,7 +16,6 @@ site_cpu_map:
   12: 42 # summit
 
 app_name: "xpcs.EigenCorr"
-
 
 eig_datasets:
   - result_dir: "/~/matrix/results-2021-03-19/"

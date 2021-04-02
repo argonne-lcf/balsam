@@ -1,0 +1,34 @@
+experiment_tag: xpcs-summit-test
+submission_mode: const-backlog # const-backlog, shortest-backlog, round-robin
+submit_period: 2.5
+submit_batch_size: 16
+max_site_backlog: 128
+experiment_duration_min: 180
+
+site_ids:
+  - 11 #   11      thetalogin6   /lus/theta-fs0/projects/WorkExpFacil/msalim/sc21
+  - 6  #    6           cori03   /global/project/projectdirs/m3676/msalim/b2sites/test
+  - 12 #   12           login4   /gpfs/alpine/csc435/proj-shared/msalim/sc21-site
+
+site_cpu_map:
+  11: 64 # theta
+  6: 32 # cori-haswell
+  12: 42 # summit
+
+app_name: "xpcs.EigenCorr"
+
+eig_datasets:
+  - result_dir: "/~/matrix/results-2021-03-19/"
+    remote_alias: "als_dtn"
+    matrix_in: "/~/matrix/12_000.npy"
+
+xpcs_datasets:
+  - result_dir: "/gdata/lcfwork/results-2021-03-19/"
+    remote_alias: "aps_dtn"
+    h5_in: "/gdata/lcfwork/input-2021-03-19/twotimes_sample_alcf_pilt.h5"
+    imm_in: "/gdata/lcfwork/input-2021-03-19/B137_PI2_hetero_1_step2_10mm_Strain010_att0_Lq0_001_00001-00512.imm"
+
+  - result_dir: "/~/xpcs/results-2021-03-19/"
+    remote_alias: "als_dtn"
+    h5_in: "/~/xpcs/input-2021-03-19/twotimes_sample_alcf_pilt.h5"
+    imm_in: "/~/xpcs/input-2021-03-19/B137_PI2_hetero_1_step2_10mm_Strain010_att0_Lq0_001_00001-00512.imm"

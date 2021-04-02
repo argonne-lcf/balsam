@@ -3,11 +3,11 @@ import random
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, List, TextIO, Tuple
+from typing import Any, Callable, Dict, List, TextIO
 
 import click
 import yaml
-from pydantic import BaseSettings
+from pydantic import BaseSettings, validator
 
 from balsam.api import App, Job, JobState, Site
 from balsam.schemas import RUNNABLE_STATES
@@ -32,8 +32,9 @@ class Eig(BaseSettings):
 
 class ExperimentConfig(BaseSettings):
     experiment_tag: str
-    submit_period_range_sec: Tuple[int, int]
-    submit_batch_size_range: Tuple[int, int]
+    submission_mode: str
+    submit_period: float
+    submit_batch_size: int
     max_site_backlog: int
     experiment_duration_min: int
     site_ids: List[int]
@@ -43,19 +44,24 @@ class ExperimentConfig(BaseSettings):
     xpcs_datasets: List[XPCS]
     eig_datasets: List[Eig]
 
+    @validator("submission_mode")
+    def valid_submit_mode(cls, v: str) -> str:
+        if v not in ["const-backlog", "shortest-backlog", "round-robin"]:
+            raise ValueError(f"invalid mode: {v}")
+        return v
+
 
 class JobFactory:
     def __init__(
         self,
         experiment_tag: str,
-        batch_size_range: Tuple[int, int],
         xpcs_datasets: List[XPCS],
         eig_datasets: List[Eig],
         site_cpu_map: Dict[int, int],
     ) -> None:
         self.idx = 0
+        self.submission_idx = 0
         self.experiment_tag = experiment_tag
-        self.batch_size_range = batch_size_range
         self.xpcs_datasets = xpcs_datasets
         self.eig_datasets = eig_datasets
         self.generators: Dict[str, Callable[..., Job]] = {
@@ -64,11 +70,11 @@ class JobFactory:
         }
         self.site_cpu_map = site_cpu_map
 
-    def submit_jobs(self, app: App) -> List[Job]:
+    def submit_jobs(self, app: App, num_jobs: int) -> List[Job]:
         job_factory = self.generators[app.class_path]
-        num_jobs = random.randint(*self.batch_size_range)
         jobs = [job_factory(app) for _ in range(num_jobs)]
         Job.objects.bulk_create(jobs)
+        self.submission_idx += 1
         return jobs
 
     def xpcs_eigen(self, app: App) -> Job:
@@ -143,6 +149,69 @@ class JobFactory:
         return job
 
 
+def get_site_backlogs(site_ids: List[int]) -> Dict[int, int]:
+    backlogs: Dict[int, int] = {}
+    for site_id in site_ids:
+        qs = Job.objects.filter(site_id=site_id, state=set([*RUNNABLE_STATES, JobState.ready, JobState.staged_in]))
+        count = qs.count()
+        assert count is not None
+        backlogs[site_id] = count
+    return backlogs
+
+
+def submit_const_backlog(
+    job_factory: JobFactory,
+    apps_by_site: Dict[int, App],
+    backlogs_by_site: Dict[int, int],
+    batch_size: int,
+    max_backlog: int,
+) -> None:
+    for site_id, app in apps_by_site.items():
+        backlog = backlogs_by_site[site_id]
+        num_submit = min(batch_size, max_backlog - backlog)
+        if num_submit < 1:
+            logger.info(f"Site {site_id} at max_backlog: skipping")
+        else:
+            job_factory.submit_jobs(app, num_submit)
+            logger.info(f"Submitted {num_submit} to Site {site_id}")
+
+
+def submit_shortest_backlog(
+    job_factory: JobFactory,
+    apps_by_site: Dict[int, App],
+    backlogs_by_site: Dict[int, int],
+    batch_size: int,
+    max_backlog: int,
+) -> None:
+    # Select Site with smallest backlog
+    submit_site_id, backlog = min(backlogs_by_site.items(), key=lambda x: x[1])
+    app = apps_by_site[submit_site_id]
+    if backlog < max_backlog:
+        job_factory.submit_jobs(app, batch_size)
+        logger.info(f"Submitted {batch_size} jobs to Site {submit_site_id}")
+    else:
+        logger.info(f"Will not submit new jobs; at max backlog: {backlog} / {max_backlog}")
+
+
+def submit_round_robin(
+    job_factory: JobFactory,
+    apps_by_site: Dict[int, App],
+    backlogs_by_site: Dict[int, int],
+    batch_size: int,
+    max_backlog: int,
+) -> None:
+    # Select next Site in turn
+    site_id = job_factory.submission_idx % len(apps_by_site)
+    app = apps_by_site[site_id]
+    backlog = backlogs_by_site[site_id]
+    if backlog < max_backlog:
+        job_factory.submit_jobs(app, batch_size)
+        logger.info(f"Submitted {batch_size} jobs to Site {site_id}")
+    else:
+        job_factory.submission_idx += 1
+        logger.info(f"Will not submit new jobs to Site {site_id}; at max backlog: {backlog} / {max_backlog}")
+
+
 @click.command()
 @click.option("-c", "--config-file", required=True, type=click.File("r"))
 def main(config_file: TextIO) -> None:
@@ -160,33 +229,34 @@ def main(config_file: TextIO) -> None:
 
     job_factory = JobFactory(
         config.experiment_tag,
-        config.submit_batch_size_range,
         config.xpcs_datasets,
         config.eig_datasets,
         config.site_cpu_map,
     )
+
+    if config.submission_mode == "const-backlog":
+        submit_method = submit_const_backlog
+    elif config.submission_mode == "round-robin":
+        submit_method = submit_round_robin
+    elif config.submission_mode == "shortest-backlog":
+        submit_method = submit_shortest_backlog
+    else:
+        raise ValueError("Invalid submission mode")
 
     start = datetime.utcnow()
     logger.info(f"Starting experiment at {start}")
     logger.info(f"Total duration will be {config.experiment_duration_min} minutes at most")
 
     while datetime.utcnow() - start < timedelta(minutes=config.experiment_duration_min):
-        sleep_time = random.randint(*config.submit_period_range_sec)
-        time.sleep(sleep_time)
-
-        backlogs: Dict[int, int] = {
-            site_id: Job.objects.filter(site_id=site_id, state=set([*RUNNABLE_STATES, JobState.ready])).count()  # type: ignore
-            for site_id in config.site_ids
-        }
-
-        # Load level: submit to Site with smallest backlog
-        submit_site_id, backlog = min(backlogs.items(), key=lambda x: x[1])
-
-        if backlog < config.max_site_backlog:
-            jobs = job_factory.submit_jobs(apps_by_site[submit_site_id])
-            logger.info(f"Submitted {len(jobs)} jobs to Site {site_names[submit_site_id]}")
-        else:
-            logger.info("Will not submit new jobs; at max backlog: " f"{backlog} / {config.max_site_backlog}")
+        time.sleep(config.submit_period)
+        backlogs = get_site_backlogs(config.site_ids)
+        submit_method(
+            job_factory,
+            apps_by_site,
+            backlogs,
+            config.submit_batch_size,
+            config.max_site_backlog,
+        )
 
     logger.info("Reached experiment max duration, exiting.")
 

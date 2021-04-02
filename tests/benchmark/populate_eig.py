@@ -62,7 +62,7 @@ def populate_jobs(num_nodes: int, size_tag: str, num_jobs: int, exp_tag: str) ->
 @click.command()
 @click.option("-t", "--time-limit-min", type=int, required=True)
 @click.option("-n", "--num-nodes", type=int, required=True)
-@click.option("-s", "--size", choices=["L", "C"], required=True)
+@click.option("-s", "--size", type=click.Choice(["L", "C"]), required=True)
 @click.option("-e", "--experiment", required=True)
 def main(time_limit_min: int, num_nodes: int, size: str, experiment: str) -> None:
     start = time.time()
