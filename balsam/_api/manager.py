@@ -1,4 +1,5 @@
 import logging
+from math import ceil
 from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
 from .model import BalsamModel
@@ -111,6 +112,36 @@ class Manager(Generic[T]):
             d.update(offset=offset)
         return d
 
+    @staticmethod
+    def _chunk_filters(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        chunk_size = 512
+        chunked_filter = next(
+            (
+                (name, filter)
+                for (name, filter) in filters.items()
+                if isinstance(filter, (list, tuple, set)) and len(filter) > chunk_size
+            ),
+            None,
+        )
+        if chunked_filter is None:
+            filter_chunks = [filters]
+        else:
+            name, filter = chunked_filter
+            filter = list(filter)
+            nchunk = ceil(len(filter) / chunk_size)
+            chunks = [filter[i * chunk_size : (i + 1) * chunk_size] for i in range(nchunk)]
+            filter_chunks = [{**filters, name: chunk} for chunk in chunks]
+        return filter_chunks
+
+    def _unpack_list_response(self, response_data: Dict[str, Any]) -> Tuple[Optional[int], List[Dict[str, Any]]]:
+        if self._paginated_list_response:
+            count = response_data["count"]
+            results = response_data["results"]
+        else:
+            count = None
+            results = response_data
+        return count, results
+
     def _get_list(
         self,
         filters: Dict[str, Any],
@@ -118,16 +149,29 @@ class Manager(Generic[T]):
         limit: Optional[int],
         offset: Optional[int],
     ) -> Tuple[List[T], Optional[int]]:
-        query_params = self._build_query_params(filters, ordering, limit, offset)
-        response_data = self._client.get(self._api_path, **query_params)
-        if self._paginated_list_response:
-            count = response_data["count"]
-            results = response_data["results"]
-        else:
-            count = None
-            results = response_data
-        instances = [self._model_class._from_api(dat) for dat in results]
-        return instances, count
+
+        filter_chunks = self._chunk_filters(filters)
+        full_count: Optional[int] = 0
+        full_results: List[Dict[str, Any]] = []
+
+        # Added complexity: we handle the case that one URL query
+        # parameter is too long: chunk query into multiple GETs passing subsets
+        # of the sequence (e.g. filter by list of 100k job ids will result in 196 requests
+        # being stitched together)
+        for filter_chunk in filter_chunks:
+            query_params = self._build_query_params(filter_chunk, ordering, limit, offset)
+            response_data = self._client.get(self._api_path, **query_params)
+            count, results = self._unpack_list_response(response_data)
+            if count is not None and full_count is not None:
+                full_count += count
+            else:
+                full_count = None
+            full_results.extend(results)
+        if ordering and len(filter_chunks) > 1:
+            order_key, reverse = (ordering.lstrip("-"), True) if ordering.startswith("-") else (ordering, False)
+            full_results = sorted(full_results, key=lambda r: r[order_key], reverse=reverse)  # type: ignore
+        instances = [self._model_class._from_api(dat) for dat in full_results]
+        return instances, full_count
 
     def _do_update(self, instance: T) -> None:
         assert instance._update_model is not None

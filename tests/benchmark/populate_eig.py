@@ -1,9 +1,9 @@
-import click
 import random
 import time
 from pathlib import Path
 from typing import Any, Dict, List
 
+import click
 
 from balsam.api import App, Job, Site
 
