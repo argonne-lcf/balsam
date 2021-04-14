@@ -207,13 +207,14 @@ def get_git_hash() -> str:
 
 
 def field_to_dict(field: ModelField, schema: Type[BaseModel]) -> FieldDict:
-    if field.default == [] or field.default == {}:
+    field_default = field.field_info.default
+    if field_default == [] or field_default == {}:
         assert not field.required
         default_create = None
     elif not field.required:
-        default_create = field.default
+        default_create = field_default
     else:
-        assert field.default in [..., None], f"Expected {field} of {schema} to have default=Ellipsis or None"
+        assert field_default == ..., f"Expected required field {field} of {schema} to have default=Ellipsis"
         assert field.required
         default_create = ...
     if field.is_complex():
@@ -234,7 +235,7 @@ def field_to_dict(field: ModelField, schema: Type[BaseModel]) -> FieldDict:
         "required": field.required,
         "description": getattr(field.field_info, "description", ""),
         "annotation": annotation,
-        "schema_default": field.default,  # default attribute on the Pydantic ModelField
+        "schema_default": field_default,  # default attribute on the Pydantic ModelField
         "default_create": default_create,  # default value for __init__ kwargs
         "optional_create": default_create is None,  # whether to use Optional[] annotation in __init__
     }
