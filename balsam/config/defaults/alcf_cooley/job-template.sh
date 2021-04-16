@@ -3,7 +3,7 @@
 #COBALT -n {{ num_nodes }}
 #COBALT -q {{ queue }}
 #COBALT -t {{ wall_time_min }}
-#COBALT --attrs ssds=required:ssd_size=128
+#COBALT --attrs pubnet
 
 # Uncomment this if the server is on an external network
 # (Note that https_proxy is set to use an `http://` protocol!

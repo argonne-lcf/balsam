@@ -1,4 +1,4 @@
-# Default setup for Theta KNL cluster @ ALCF
+# Default setup for Cooley GPU cluster @ ALCF
 
 site_id: {{ site_id }}  # Do not change
 
