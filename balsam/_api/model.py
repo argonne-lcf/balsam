@@ -152,7 +152,8 @@ class BalsamModel(metaclass=BalsamModelMeta):
         self.__class__.objects._do_delete(self)
 
     class DoesNotExist(Exception):
-        pass
+        def __init__(self, filters: Dict[str, Any]) -> None:
+            super().__init__(f"No results matched the query params: {filters}")
 
     class MultipleObjectsReturned(Exception):
         def __init__(self, nobj: int) -> None:

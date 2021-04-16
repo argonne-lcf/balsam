@@ -165,7 +165,7 @@ class Query(Iterable[T]):
         if nobj == 1:
             return results[0]
         elif nobj == 0:
-            raise self._manager._model_class.DoesNotExist
+            raise self._manager._model_class.DoesNotExist(clone._filters)
         else:
             raise self._manager._model_class.MultipleObjectsReturned(nobj)
 

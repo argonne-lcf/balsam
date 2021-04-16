@@ -1,3 +1,4 @@
+from .alcf_cooley_node import CooleyNode
 from .alcf_thetagpu_node import ThetaGPUNode
 from .alcf_thetaknl_node import ThetaKNLNode
 from .compute_node import ComputeNode
@@ -11,6 +12,7 @@ __all__ = [
     "ThetaKNLNode",
     "SummitNode",
     "ThetaGPUNode",
+    "CooleyNode",
     "CoriHaswellNode",
     "CoriKNLNode",
     "ComputeNode",

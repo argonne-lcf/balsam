@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/env/bin/python balsam/schemas/api_generator.py
-# [git rev d1cec51]
+# [git rev d3dd7d4]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -75,15 +75,17 @@ class SiteQuery(Query[Site]):
         hostname: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
+        last_refresh_after: Optional[datetime.datetime] = None,
     ) -> Site:
         """
         Retrieve exactly one Site. Raises Site.DoesNotExist
         if no items were found, or Site.MultipleObjectsReturned if
         more than one item matched the query.
 
-        hostname: Only return Sites with hostnames containing this string.
-        path:     Only return Sites with paths containing this string.
-        id:       Only return Sites having an id in this list.
+        hostname:           Only return Sites with hostnames containing this string.
+        path:               Only return Sites with paths containing this string.
+        id:                 Only return Sites having an id in this list.
+        last_refresh_after: Only return Sites active since this time (UTC)
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
@@ -93,15 +95,17 @@ class SiteQuery(Query[Site]):
         hostname: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
+        last_refresh_after: Optional[datetime.datetime] = None,
     ) -> "SiteQuery":
         """
         Retrieve exactly one Site. Raises Site.DoesNotExist
         if no items were found, or Site.MultipleObjectsReturned if
         more than one item matched the query.
 
-        hostname: Only return Sites with hostnames containing this string.
-        path:     Only return Sites with paths containing this string.
-        id:       Only return Sites having an id in this list.
+        hostname:           Only return Sites with hostnames containing this string.
+        path:               Only return Sites with paths containing this string.
+        id:                 Only return Sites having an id in this list.
+        last_refresh_after: Only return Sites active since this time (UTC)
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
@@ -187,15 +191,17 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         hostname: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
+        last_refresh_after: Optional[datetime.datetime] = None,
     ) -> Site:
         """
         Retrieve exactly one Site. Raises Site.DoesNotExist
         if no items were found, or Site.MultipleObjectsReturned if
         more than one item matched the query.
 
-        hostname: Only return Sites with hostnames containing this string.
-        path:     Only return Sites with paths containing this string.
-        id:       Only return Sites having an id in this list.
+        hostname:           Only return Sites with hostnames containing this string.
+        path:               Only return Sites with paths containing this string.
+        id:                 Only return Sites having an id in this list.
+        last_refresh_after: Only return Sites active since this time (UTC)
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return SiteQuery(manager=self).get(**kwargs)
@@ -205,13 +211,15 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         hostname: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
+        last_refresh_after: Optional[datetime.datetime] = None,
     ) -> "SiteQuery":
         """
         Returns a Site Query returning items matching the filter criteria.
 
-        hostname: Only return Sites with hostnames containing this string.
-        path:     Only return Sites with paths containing this string.
-        id:       Only return Sites having an id in this list.
+        hostname:           Only return Sites with hostnames containing this string.
+        path:               Only return Sites with paths containing this string.
+        id:                 Only return Sites having an id in this list.
+        last_refresh_after: Only return Sites active since this time (UTC)
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return SiteQuery(manager=self).filter(**kwargs)
@@ -471,7 +479,7 @@ class JobQuery(Query[Job]):
         id: Union[typing.List[int], int, None] = None,
         parent_id: Union[typing.List[int], int, None] = None,
         app_id: Optional[int] = None,
-        site_id: Optional[int] = None,
+        site_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
@@ -490,7 +498,7 @@ class JobQuery(Query[Job]):
         id:                   Only return Jobs with ids in this list.
         parent_id:            Only return Jobs that are children of Jobs with ids in this list.
         app_id:               Only return Jobs associated with this App id.
-        site_id:              Only return Jobs associated with this Site id.
+        site_id:              Only return Jobs associated with these Site ids.
         batch_job_id:         Only return Jobs associated with this BatchJob id.
         last_update_before:   Only return Jobs that were updated before this time (UTC).
         last_update_after:    Only return Jobs that were updated after this time (UTC).
@@ -509,7 +517,7 @@ class JobQuery(Query[Job]):
         id: Union[typing.List[int], int, None] = None,
         parent_id: Union[typing.List[int], int, None] = None,
         app_id: Optional[int] = None,
-        site_id: Optional[int] = None,
+        site_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
@@ -528,7 +536,7 @@ class JobQuery(Query[Job]):
         id:                   Only return Jobs with ids in this list.
         parent_id:            Only return Jobs that are children of Jobs with ids in this list.
         app_id:               Only return Jobs associated with this App id.
-        site_id:              Only return Jobs associated with this Site id.
+        site_id:              Only return Jobs associated with these Site ids.
         batch_job_id:         Only return Jobs associated with this BatchJob id.
         last_update_before:   Only return Jobs that were updated before this time (UTC).
         last_update_after:    Only return Jobs that were updated after this time (UTC).
@@ -657,7 +665,7 @@ class JobManager(balsam._api.bases.JobManagerBase):
         id: Union[typing.List[int], int, None] = None,
         parent_id: Union[typing.List[int], int, None] = None,
         app_id: Optional[int] = None,
-        site_id: Optional[int] = None,
+        site_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
@@ -676,7 +684,7 @@ class JobManager(balsam._api.bases.JobManagerBase):
         id:                   Only return Jobs with ids in this list.
         parent_id:            Only return Jobs that are children of Jobs with ids in this list.
         app_id:               Only return Jobs associated with this App id.
-        site_id:              Only return Jobs associated with this Site id.
+        site_id:              Only return Jobs associated with these Site ids.
         batch_job_id:         Only return Jobs associated with this BatchJob id.
         last_update_before:   Only return Jobs that were updated before this time (UTC).
         last_update_after:    Only return Jobs that were updated after this time (UTC).
@@ -695,7 +703,7 @@ class JobManager(balsam._api.bases.JobManagerBase):
         id: Union[typing.List[int], int, None] = None,
         parent_id: Union[typing.List[int], int, None] = None,
         app_id: Optional[int] = None,
-        site_id: Optional[int] = None,
+        site_id: Union[typing.List[int], int, None] = None,
         batch_job_id: Optional[int] = None,
         last_update_before: Optional[datetime.datetime] = None,
         last_update_after: Optional[datetime.datetime] = None,
@@ -712,7 +720,7 @@ class JobManager(balsam._api.bases.JobManagerBase):
         id:                   Only return Jobs with ids in this list.
         parent_id:            Only return Jobs that are children of Jobs with ids in this list.
         app_id:               Only return Jobs associated with this App id.
-        site_id:              Only return Jobs associated with this Site id.
+        site_id:              Only return Jobs associated with these Site ids.
         batch_job_id:         Only return Jobs associated with this BatchJob id.
         last_update_before:   Only return Jobs that were updated before this time (UTC).
         last_update_after:    Only return Jobs that were updated after this time (UTC).

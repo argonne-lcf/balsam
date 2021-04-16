@@ -14,6 +14,7 @@ class SiteQuery:
     hostname: str = Query(None, description="Only return Sites with hostnames containing this string.")
     path: str = Query(None, description="Only return Sites with paths containing this string.")
     id: List[int] = Query(None, description="Only return Sites having an id in this list.")
+    last_refresh_after: datetime = Query(None, description="Only return Sites active since this time (UTC)")
 
     def apply_filters(self, qs: "orm.Query[Site]") -> "orm.Query[Site]":
         if self.hostname:
@@ -22,6 +23,8 @@ class SiteQuery:
             qs = qs.filter(Site.path.like(f"%{self.path}%"))
         if self.id:
             qs = qs.filter(Site.id.in_(self.id))
+        if self.last_refresh_after:
+            qs = qs.filter(Site.last_refresh >= self.last_refresh_after)
         return qs
 
 
@@ -106,7 +109,7 @@ class JobQuery:
         None, min_items=1, description="Only return Jobs that are children of Jobs with ids in this list."
     )
     app_id: int = Query(None, description="Only return Jobs associated with this App id.")
-    site_id: int = Query(None, description="Only return Jobs associated with this Site id.")
+    site_id: List[int] = Query(None, description="Only return Jobs associated with these Site ids.")
     batch_job_id: int = Query(None, description="Only return Jobs associated with this BatchJob id.")
     last_update_before: datetime = Query(
         None, description="Only return Jobs that were updated before this time (UTC)."
@@ -130,7 +133,7 @@ class JobQuery:
         if self.app_id:
             qs = qs.filter(Job.app_id == self.app_id)
         if self.site_id:
-            qs = qs.filter(Site.id == self.site_id)
+            qs = qs.filter(Site.id.in_(self.site_id))
         if self.batch_job_id:
             qs: "orm.Query[Job]" = qs.join(BatchJob)  # type: ignore
             qs = qs.filter(BatchJob.id == self.batch_job_id)
