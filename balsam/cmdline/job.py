@@ -243,12 +243,13 @@ def ls(
         for j in result:
             app = apps[j.app_id]
             site = sites[app.site_id]
+            assert j.state is not None
             jdict = {
                 "ID": j.id,
                 "Site": f"{site.hostname}:{site.path.name}",
                 "App": app.class_path,
                 "Workdir": j.workdir.as_posix(),
-                "State": j.state,
+                "State": j.state.value,
                 "Tags": j.tags,
             }
             data.append(jdict)
