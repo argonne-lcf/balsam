@@ -240,7 +240,6 @@ def ls(
         sites = {s.id: s for s in client.Site.objects.all()}
         apps = {a.id: a for a in client.App.objects.all()}
         data = []
-        click.echo(f"{'ID':5}   {'Job Dir':14}   {'State':16}   {'Tags':40}   {'Site':40}   {'App':20}")
         for j in result:
             app = apps[j.app_id]
             site = sites[app.site_id]
