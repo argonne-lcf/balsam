@@ -6,7 +6,7 @@ import yaml
 
 from balsam.schemas import JobState, JobTransferItem
 
-from .utils import filter_by_sites, load_client, validate_tags
+from .utils import filter_by_sites, load_client, table_print, validate_tags
 
 if TYPE_CHECKING:
     from balsam._api.models import App, AppQuery
@@ -239,18 +239,21 @@ def ls(
     else:
         sites = {s.id: s for s in client.Site.objects.all()}
         apps = {a.id: a for a in client.App.objects.all()}
+        data = []
         click.echo(f"{'ID':5}   {'Job Dir':14}   {'State':16}   {'Tags':40}   {'Site':40}   {'App':20}")
         for j in result:
             app = apps[j.app_id]
             site = sites[app.site_id]
-            path_str = site.path.as_posix()
-            if len(path_str) > 27:
-                path_str = "..." + path_str[-27:]
-            site_str = f"{site.hostname}:{path_str}"
-            app_str = f"{app.class_path}"
-            click.echo(
-                f"{j.id:5d}   {j.workdir.as_posix():14}   {j.state:16}   {str(j.tags):40}   {site_str}   {app_str}"
-            )
+            jdict = {
+                "ID": j.id,
+                "Site": f"{site.hostname}:{site.path.name}",
+                "App": app.class_path,
+                "Workdir": j.workdir.as_posix(),
+                "State": j.state,
+                "Tags": j.tags,
+            }
+            data.append(jdict)
+        table_print(data)
 
 
 @job.command()

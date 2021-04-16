@@ -224,3 +224,23 @@ def kill_site(cf: SiteConfig, service_pid: int) -> None:
             else:
                 click.echo("\nSite daemon shutdown OK")
                 break
+
+
+def table_print(data: List[Dict[str, Any]]) -> None:
+    if not data:
+        return
+    col_names = list(data[0].keys())
+    max_widths = [len(header) + 2 for header in col_names]
+    rows = []
+    for record in data:
+        row = [str(record[col_name]) for col_name in col_names]
+        for i, entry in enumerate(row):
+            max_widths[i] = max(max_widths[i], len(entry) + 2)
+        rows.append(row)
+
+    header = " ".join(col_name.ljust(width) for col_name, width in zip(col_names, max_widths))
+    click.echo(header)
+
+    for row in rows:
+        line = " ".join(row[i].ljust(width) for i, width in enumerate(max_widths))
+        click.echo(line)

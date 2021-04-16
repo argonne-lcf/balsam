@@ -129,7 +129,7 @@ class TestSingleNodeMPIMode:
             )
             jobs.append(job)
         assert all(job.state == "STAGED_IN" for job in jobs)
-        poll_until_state(jobs, "JOB_FINISHED", timeout=60)
+        poll_until_state(jobs, "JOB_FINISHED", timeout=120)
         for i, job in enumerate(jobs):
             print("Job:", job)
             assert job.state in [
