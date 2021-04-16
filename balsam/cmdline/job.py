@@ -4,23 +4,21 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 import click
 import yaml
 
-from balsam.config import SiteConfig
 from balsam.schemas import JobState, JobTransferItem
 
-from .utils import load_site_config, validate_tags
+from .utils import filter_by_sites, load_client, validate_tags
 
 if TYPE_CHECKING:
-    from balsam._api.models import App
+    from balsam._api.models import App, AppQuery
     from balsam.client import RESTClient  # noqa: F401
 
 
 @click.group()
-@click.pass_context
-def job(ctx: Any) -> None:
+def job() -> None:
     """
     Create and monitor Balsam Jobs
     """
-    ctx.obj = load_site_config()
+    pass
 
 
 def validate_state(ctx: Any, param: Any, value: Union[None, str, JobState]) -> Union[None, JobState]:
@@ -31,18 +29,14 @@ def validate_state(ctx: Any, param: Any, value: Union[None, str, JobState]) -> U
     return cast(JobState, value)
 
 
-def validate_app(ctx: Any, param: Any, value: str) -> "App":
-    site_config: SiteConfig = ctx.obj
-    site_id = site_config.settings.site_id
-    client = site_config.client
-    App = client.App
-    lookup: Dict[str, Any] = {"site_id": site_id}
-    if value.isdigit():
-        lookup["id"] = int(value)
+def fetch_app(app_qs: "AppQuery", app_str: str) -> "App":
+    lookup: Dict[str, Any]
+    if app_str.isdigit():
+        lookup = {"id": int(app_str)}
     else:
-        lookup["class_path"] = value
+        lookup = {"class_path": app_str}
     try:
-        app = App.objects.get(**lookup)
+        app = app_qs.get(**lookup)
     except App.DoesNotExist:
         raise click.BadParameter(f"No App matching criteria {lookup}")
     return app
@@ -66,9 +60,8 @@ def validate_parameters(parameters: List[str], app: "App") -> Dict[str, str]:
     return params
 
 
-def validate_transfers(ctx: Any, param: Any, value: List[str]) -> Dict[str, JobTransferItem]:
-    transfers = validate_tags(ctx, param, value)
-    app: App = ctx.params["app"]
+def validate_transfers(transfer_args: List[str], app: "App") -> Dict[str, JobTransferItem]:
+    transfers = validate_tags(None, None, transfer_args)
     all_transfers = set(app.transfers.keys())
     required_transfers = {k for k in all_transfers if app.transfers[k].required}
     provided = set(transfers.keys())
@@ -84,22 +77,20 @@ def validate_transfers(ctx: Any, param: Any, value: List[str]) -> Dict[str, JobT
     return transfers_by_name
 
 
-def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
-    client: RESTClient = ctx.obj.client
-    parent_ids = value
+def validate_parents(parent_ids: List[int], client: "RESTClient") -> None:
     if not parent_ids:
-        return []
+        return None
     jobs = list(client.Job.objects.filter(id=parent_ids))
     if len(jobs) < len(parent_ids):
         job_ids = [j.id for j in jobs]
         missing_ids = [i for i in parent_ids if i not in job_ids]
         raise click.BadParameter(f"Could not find parent job ids {missing_ids}")
-    return parent_ids
+    return None
 
 
 @job.command()
 @click.option("-w", "--workdir", required=True, type=str, help="Job directory (relative to data/)")
-@click.option("-a", "--app", required=True, type=str, callback=validate_app, help="App ID or name (module.ClassName)")
+@click.option("-a", "--app", "app_str", required=True, type=str, help="App ID or name (module.ClassName)")
 @click.option(
     "-tag", "--tag", "tags", multiple=True, type=str, callback=validate_tags, help="Job tags (--tag KEY=VALUE)"
 )
@@ -135,24 +126,22 @@ def validate_parents(ctx: Any, param: Any, value: List[int]) -> List[int]:
     "parent_ids",
     multiple=True,
     type=int,
-    callback=validate_parents,
     help="Job dependencies given as one or many parent IDs",
     show_default=True,
 )
 @click.option(
     "-s",
     "--stage-data",
-    "transfers",
+    "transfer_args",
     multiple=True,
     type=str,
-    callback=validate_transfers,
     help="Transfer slots given as TRANSFER_SLOT=LOCATION_ALIAS:/path/to/file",
 )
-@click.pass_context
+@click.option("-y", "--yes", "force_create", is_flag=True, default=False)
+@click.option("--site", "site_selector", default="", help="Site ID or path fragment")
 def create(
-    ctx: Any,
     workdir: str,
-    app: "App",
+    app_str: str,
     tags: Dict[str, str],
     parameters: List[str],
     num_nodes: int,
@@ -164,7 +153,9 @@ def create(
     launch_params: Dict[str, str],
     wall_time_min: int,
     parent_ids: List[int],
-    transfers: Dict[str, JobTransferItem],
+    transfer_args: List[str],
+    site_selector: str,
+    force_create: bool,
 ) -> None:
     """
     Add a new Balsam Job
@@ -175,11 +166,17 @@ def create(
 
         balsam job create -w test/1 -a demo.Hello -p name="world!"
     """
-    client: RESTClient = ctx.obj.client
+    client: RESTClient = load_client()
     if Path(workdir).is_absolute():
         raise click.BadParameter("workdir must be a relative path: cannot start with '/'")
-    parameters_dict = validate_parameters(parameters, app)
+
+    app_qs = filter_by_sites(App.objects.all(), site_selector)
+    app = fetch_app(app_qs, app_str)
     assert app.id is not None, "Could not resolve application ID"
+    parameters_dict = validate_parameters(parameters, app)
+    transfers = validate_transfers(transfer_args, app)
+    validate_parents(parent_ids, client)
+
     job = client.Job(
         workdir=Path(workdir),
         app_id=app.id,
@@ -197,7 +194,7 @@ def create(
         transfers=transfers,
     )
     click.echo(yaml.dump(job.display_dict(), sort_keys=False, indent=4))
-    if click.confirm("Do you want to create this Job?"):
+    if force_create or click.confirm("Do you want to create this Job?"):
         job.save()
         click.echo(f"Added Job id={job.id}")
 
@@ -207,53 +204,64 @@ def create(
 @click.option("-s", "--state", type=str, callback=validate_state)
 @click.option("-ns", "--exclude-state", type=str, callback=validate_state)
 @click.option("-w", "--workdir", type=str)
+@click.option("--site", "site_selector", default="")
 @click.option("-v", "--verbose", is_flag=True)
-@click.pass_context
 def ls(
-    ctx: Any,
     tags: List[str],
     state: Optional[JobState],
     exclude_state: Optional[JobState],
     workdir: Optional[str],
     verbose: bool,
+    site_selector: str,
 ) -> None:
     """
     List Balsam Jobs
     """
-    client: RESTClient = ctx.obj.client
-    site_id: int = ctx.obj.settings.site_id
-    jobs = client.Job.objects.filter(site_id=site_id)
+    client = load_client()
+    job_qs = filter_by_sites(client.Job.objects.all(), site_selector)
     if tags:
-        jobs = jobs.filter(tags=tags)
+        job_qs = job_qs.filter(tags=tags)
     if state:
-        jobs = jobs.filter(state=state)
+        job_qs = job_qs.filter(state=state)
     if exclude_state:
-        jobs = jobs.filter(state__ne=exclude_state)
+        job_qs = job_qs.filter(state__ne=exclude_state)
     if workdir:
-        jobs = jobs.filter(workdir__contains=workdir)
+        job_qs = job_qs.filter(workdir__contains=workdir)
 
-    result = list(jobs)
+    result = list(job_qs)
+    if not result:
+        return
+
     if verbose:
         for j in result:
             click.echo(yaml.dump(j.display_dict(), sort_keys=False, indent=4))
             click.echo("---\n")
     else:
-        click.echo(f"{'ID':5}   {'Job Dir':14}   {'State':16}   {'Tags':40}")
+        sites = {s.id: s for s in client.Site.objects.all()}
+        apps = {a.id: a for a in client.App.objects.all()}
+        click.echo(f"{'ID':5}   {'Job Dir':14}   {'State':16}   {'Tags':40}   {'Site':40}   {'App':20}")
         for j in result:
-            click.echo(f"{j.id:5d}   {j.workdir.as_posix():14}   {j.state:16}   {str(j.tags):40}")
+            app = apps[j.app_id]
+            site = sites[app.site_id]
+            path_str = site.path.as_posix()
+            if len(path_str) > 27:
+                path_str = "..." + path_str[-27:]
+            site_str = f"{site.hostname}:{path_str}"
+            app_str = f"{app.class_path}"
+            click.echo(
+                f"{j.id:5d}   {j.workdir.as_posix():14}   {j.state:16}   {str(j.tags):40}   {site_str}   {app_str}"
+            )
 
 
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
-@click.pass_context
-def rm(ctx: Any, job_ids: List[int], tags: List[str]) -> None:
+def rm(job_ids: List[int], tags: List[str]) -> None:
     """
     Remove Jobs
     """
-    site_id: int = ctx.obj.settings.site_id
-    client: RESTClient = ctx.obj.client
-    jobs = client.Job.objects.filter(site_id=site_id)
+    client: RESTClient = load_client()
+    jobs = client.Job.objects.all()
     if job_ids:
         jobs = jobs.filter(id=job_ids)
     elif tags:

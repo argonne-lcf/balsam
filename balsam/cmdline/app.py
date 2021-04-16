@@ -8,7 +8,7 @@ from balsam.config import ClientSettings
 from balsam.site import ApplicationDefinition, app_template
 from balsam.site.app import sync_apps
 
-from .utils import check_killable, kill_site, load_site_config, start_site
+from .utils import check_killable, filter_by_sites, kill_site, load_site_config, start_site
 
 
 @click.group()
@@ -95,19 +95,22 @@ def sync() -> None:
 
 @app.command()
 @click.option("-v", "--verbose", is_flag=True)
-def ls(verbose: bool) -> None:
+@click.option("-s", "--site", "site_selector", default="")
+def ls(site_selector: str, verbose: bool) -> None:
     """
     List my Apps
     """
     client = ClientSettings.load_from_file().build_client()
     qs = client.App.objects.all()
+    qs = filter_by_sites(qs, site_selector)
     if verbose:
         reprs = [yaml.dump(app.display_dict(), sort_keys=False, indent=4) for app in qs]
         print(*reprs, sep="\n----\n")
     else:
         sites = {site.id: site for site in client.Site.objects.all()}
         click.echo(f"{'ID':>5s}   {'ClassPath':>18s}   {'Site':<20s}")
-        for a in qs:
+        apps = sorted(list(qs), key=lambda app: app.site_id)
+        for a in apps:
             site = sites[a.site_id]
             site_str = f"{site.hostname}:{site.path}"
             click.echo(f"{a.id:>5d}   {a.class_path:>18s}   {site_str:<20s}")

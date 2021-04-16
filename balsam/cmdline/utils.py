@@ -3,16 +3,90 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 import click
 import psutil  # type: ignore
 
-from balsam.config import SiteConfig
+from balsam._api.models import AppQuery, BatchJobQuery, JobQuery, Site
+from balsam.config import ClientSettings, SiteConfig
 from balsam.schemas import BatchJobPartition
 
+if TYPE_CHECKING:
+    from balsam.client import RESTClient
+
+
+AppJobQuery = Union[AppQuery, JobQuery, BatchJobQuery]
+T = TypeVar("T", AppQuery, JobQuery, BatchJobQuery)
+
 PID_FILENAME = "balsam-service.pid"
+
+
+def utc_past(minutes_ago: int) -> datetime:
+    return datetime.utcnow() - timedelta(minutes=minutes_ago)
+
+
+def is_site_active(s: Site, threshold_min: int = 2) -> bool:
+    threshold = utc_past(minutes_ago=threshold_min)
+    if s.last_refresh is None:
+        return False
+    return s.last_refresh >= threshold
+
+
+def filter_by_sites(query: T, site_str: str = "") -> T:
+    """
+    Applies the appropriate site_id filter to a query based on site selector string.
+    - --site=all does not filter by site_id
+    - --site=this explicitly filters by local site_id
+    - --site=active filters by active sites only
+    - otherwise, a comma-separated list of ID's or Path fragments
+    Default behavior (no --site argument):
+        - Select the local site_id if available
+        - Otherwise, select all active sites
+    """
+    Site = query._manager._client.Site
+    try:
+        site_conf: Optional[SiteConfig] = SiteConfig()
+    except ValueError:
+        site_conf = None
+    site_id: Optional[int] = site_conf.settings.site_id if site_conf else None
+
+    values = [s.strip() for s in site_str.split(",") if s.strip()]
+    active_t = utc_past(minutes_ago=2)
+    if not values:
+        if site_id is not None:
+            return query.filter(site_id=site_id)
+        else:
+            active_ids = [site.id for site in Site.objects.filter(last_refresh_after=active_t) if site.id]
+            return query.filter(site_id=active_ids)
+
+    if "all" in values:
+        return query
+    if "active" in values:
+        active_ids = [site.id for site in Site.objects.filter(last_refresh_after=active_t) if site.id]
+        return query.filter(site_id=active_ids)
+    if "this" in values:
+        if site_id is None:
+            raise click.BadParameter(
+                "Cannot use --site=this outside of a Balsam Site. "
+                "Please navigate into a Balsam site directory, or set "
+                "BALSAM_SITE_PATH"
+            )
+        return query.filter(site_id=site_id)
+
+    site_ids, path_fragments = [], []
+    for v in values:
+        if v.isdigit():
+            site_ids.append(int(v))
+        else:
+            path_fragments.append(v)
+
+    for path_fragment in path_fragments:
+        site_ids.extend(site.id for site in Site.objects.filter(path=path_fragment) if site.id)
+
+    return query.filter(site_id=site_ids)
 
 
 def list_to_dict(arg_list: List[str]) -> Dict[str, str]:
@@ -48,6 +122,24 @@ def load_site_config() -> SiteConfig:
             "BALSAM_SITE_PATH"
         )
     return cf
+
+
+def load_site_from_selector(site_selector: str) -> Site:
+    client = load_client()
+    Site = client.Site
+    if not site_selector:
+        site_config: SiteConfig = load_site_config()
+        settings = site_config.settings
+        site = Site.objects.get(id=settings.site_id)
+    elif site_selector.isdigit():
+        site = Site.objects.get(id=int(site_selector))
+    else:
+        site = Site.objects.get(path=site_selector)
+    return site
+
+
+def load_client() -> "RESTClient":
+    return ClientSettings.load_from_file().build_client()
 
 
 def get_pidfile(site_config: SiteConfig) -> Path:

@@ -50,7 +50,7 @@ def main() -> None:
     except Exception as e:
         if os.environ.get("BALSAM_CLI_TRACEBACK"):
             raise
-        click.echo(e)
+        click.echo(f"{str(e).strip()}")
         click.echo("    [Export BALSAM_CLI_TRACEBACK=1 to see a full stack trace]")
         sys.exit(1)
 

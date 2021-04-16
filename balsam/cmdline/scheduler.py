@@ -1,21 +1,19 @@
-from typing import Any, Dict, List, cast
+from typing import Dict, List, cast
 
 import click
 import yaml
 
-from balsam.config import SiteConfig
 from balsam.schemas import BatchJobPartition, JobMode
 
-from .utils import load_site_config, validate_partitions, validate_tags
+from .utils import filter_by_sites, load_client, load_site_from_selector, validate_partitions, validate_tags
 
 
 @click.group()
-@click.pass_context
-def queue(ctx: Any) -> None:
+def queue() -> None:
     """
     Submit and monitor queued launcher jobs
     """
-    ctx.obj = load_site_config()
+    pass
 
 
 @queue.command()
@@ -27,9 +25,8 @@ def queue(ctx: Any) -> None:
 @click.option("-tag", "--tag", "filter_tags", multiple=True, callback=validate_tags)
 @click.option("-p", "--part", "partitions", multiple=True, callback=validate_partitions)
 @click.option("-x", "--extra-param", "optional_params", multiple=True, callback=validate_tags)
-@click.pass_context
+@click.option("--site", "site_selector", default="")
 def submit(
-    ctx: Any,
     num_nodes: int,
     wall_time_min: int,
     queue: str,
@@ -38,15 +35,22 @@ def submit(
     filter_tags: Dict[str, str],
     partitions: List[BatchJobPartition],
     optional_params: Dict[str, str],
+    site_selector: str,
 ) -> None:
-    site_config: SiteConfig = ctx.obj
-    BatchJob = site_config.client.BatchJob
-    settings = site_config.settings
-    if settings.scheduler is None:
-        raise RuntimeError("There is no SchedulerInterface configured in the Site settings.")
+    client = load_client()
+    BatchJob = client.BatchJob
+    Site = client.Site
+
+    try:
+        site = load_site_from_selector(site_selector)
+    except Site.DoesNotExist:
+        raise click.BadParameter(f"No site matching --site {site_selector}")
+    except Site.MultipleObjectsReturned:
+        raise click.BadParameter(f"More than one site matching --site {site_selector}")
+    assert site.id is not None
 
     job = BatchJob(
-        site_id=settings.site_id,
+        site_id=site.id,
         num_nodes=num_nodes,
         wall_time_min=wall_time_min,
         queue=queue,
@@ -58,9 +62,9 @@ def submit(
     )
     try:
         job.validate(
-            settings.scheduler.allowed_queues,
-            settings.scheduler.allowed_projects,
-            settings.scheduler.optional_batch_job_params,
+            site.allowed_queues,
+            site.allowed_projects,
+            site.optional_batch_job_params,
         )
     except ValueError as e:
         raise click.BadArgumentUsage(str(e))
@@ -69,15 +73,27 @@ def submit(
 
 
 @queue.command()
-@click.pass_context
-def ls(ctx: Any) -> None:
-    site_config: SiteConfig = ctx.obj
-    BatchJob = site_config.client.BatchJob
-    site_id = site_config.settings.site_id
+@click.option("-h", "--history", is_flag=True, default=False)
+@click.option("--site", "site_selector", default="")
+def ls(history: bool, site_selector: str) -> None:
+    client = load_client()
+    BatchJob = client.BatchJob
+    qs = filter_by_sites(BatchJob.objects.all(), site_selector)
+    if not history:
+        qs = qs.filter(state=["pending_submission", "queued", "running", "pending_deletion"])
 
-    jobs = [j.display_dict() for j in BatchJob.objects.filter(site_id=site_id)]
+    jobs = [j.display_dict() for j in qs]
+    sites = {site.id: site for site in client.Site.objects.all()}
+    for job in jobs:
+        site = sites[job["site_id"]]
+        path_str = site.path.as_posix()
+        if len(path_str) > 27:
+            path_str = "..." + path_str[-27:]
+        job["site"] = f"{site.hostname}:{path_str}"
+
     fields = [
         "id",
+        "site",
         "scheduler_id",
         "state",
         "filter_tags",
@@ -86,8 +102,6 @@ def ls(ctx: Any) -> None:
         "num_nodes",
         "wall_time_min",
         "job_mode",
-        # "optional_params",
-        # "status_info",
     ]
     rows = [[str(j[field]) for field in fields] for j in jobs]
 

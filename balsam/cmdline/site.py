@@ -9,7 +9,16 @@ import click
 from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig
 from balsam.site.app import sync_apps
 
-from .utils import PID_FILENAME, check_killable, get_pidfile, kill_site, load_site_config, read_pidfile, start_site
+from .utils import (
+    PID_FILENAME,
+    check_killable,
+    get_pidfile,
+    is_site_active,
+    kill_site,
+    load_site_config,
+    read_pidfile,
+    start_site,
+)
 
 
 @click.group()
@@ -177,9 +186,15 @@ def ls(verbose: bool) -> None:
             click.echo(str(site))
             click.echo("---\n")
     else:
-        click.echo(f"{'ID':>5s}   {'Hostname':>14s}   {'Path':<16s}")
+        click.echo(f"{'ID':>5s}   {'Hostname':>14s}   {'Path':<40s}   {'Active':<4s}")
         for s in qs:
-            click.echo(f"{s.id:>5d}   {s.hostname:>14}   {s.path.as_posix():<16}")
+            assert s.path is not None
+            assert s.last_refresh is not None
+            pathstr = s.path.as_posix()
+            if len(pathstr) > 37:
+                pathstr = "..." + pathstr[-37:]
+            active = "Yes" if is_site_active(s) else "No"
+            click.echo(f"{s.id:>5d}   {s.hostname:>14}   {pathstr:<40}   {active:<4}")
 
 
 @site.command()
