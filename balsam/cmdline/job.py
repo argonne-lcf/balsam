@@ -170,7 +170,7 @@ def create(
     if Path(workdir).is_absolute():
         raise click.BadParameter("workdir must be a relative path: cannot start with '/'")
 
-    app_qs = filter_by_sites(App.objects.all(), site_selector)
+    app_qs = filter_by_sites(client.App.objects.all(), site_selector)
     app = fetch_app(app_qs, app_str)
     assert app.id is not None, "Could not resolve application ID"
     parameters_dict = validate_parameters(parameters, app)
