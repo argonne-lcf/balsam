@@ -99,8 +99,8 @@ class LocalProcessScheduler(SchedulerInterface):
             try:
                 child.kill()
                 logger.warning(f"Force-killed unresponsive PID {pid}: {child.name()} {child.cmdline()}")
-            except psutil.ZombieProcess:
-                logger.warning(f"Failed to kill zombie PID {pid}")
+            except (psutil.NoSuchProcess, psutil.ZombieProcess):
+                logger.warning(f"Failed to kill zombie/nonexistant PID {pid}")
         return str(scheduler_id)
 
     @classmethod
