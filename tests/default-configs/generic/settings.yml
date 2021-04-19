@@ -22,7 +22,7 @@ filter_tags: {}
 
 # Launcher settings
 launcher:
-    idle_ttl_sec: 30  # Shutdown after this many seconds of nothing running
+    idle_ttl_sec: 10  # Shutdown after this many seconds of nothing running
     delay_sec: 1  # Process polling interval
     error_tail_num_lines: 10 # Number of lines from tail-end of job output to store
     max_concurrent_mpiruns: 100 # Maximum number of runs in a single MPI-mode launcher
@@ -87,7 +87,7 @@ transfers: null
 
 # Elastic Queue flexibly sizes and requests BatchJobs based on the net
 # job requirements 
-#elastic_queue: null
+elastic_queue: null
 # elastic_queue:
 #      service_period: 60  # Calculate and submit 1 BatchJob per `service_period` seconds
 #      submit_project: "datascience"

@@ -30,6 +30,7 @@ def validate_state(ctx: Any, param: Any, value: Union[None, str, JobState]) -> U
 
 
 def fetch_app(app_qs: "AppQuery", app_str: str) -> "App":
+    App = app_qs._manager._model_class
     lookup: Dict[str, Any]
     if app_str.isdigit():
         lookup = {"id": int(app_str)}
