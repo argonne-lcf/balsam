@@ -191,7 +191,7 @@ def master_main(wall_time_min: int, master_port: int, log_filename: str, num_wor
     App = site_config.client.App
     app_cache = {
         app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
-        for app in App.objects.filter(site_id=site_config.settings.site_id)
+        for app in App.objects.filter(site_id=site_config.site_id)
         if app.id is not None
     }
 
@@ -200,7 +200,7 @@ def master_main(wall_time_min: int, master_port: int, log_filename: str, num_wor
     scheduler_id = node_cls.get_scheduler_id()
     job_source = FixedDepthJobSource(
         client=site_config.client,
-        site_id=site_config.settings.site_id,
+        site_id=site_config.site_id,
         prefetch_depth=num_workers * launch_settings.serial_mode_prefetch_per_rank,
         filter_tags=filter_tags_dict,
         max_wall_time_min=wall_time_min,

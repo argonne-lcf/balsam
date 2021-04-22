@@ -228,7 +228,7 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
             test_log_dir.joinpath("testsite").as_posix(),
         )
 
-    persistent_client.Site.objects.get(id=site_config.settings.site_id).delete()
+    persistent_client.Site.objects.get(id=site_config.site_id).delete()
     del os.environ["BALSAM_SITE_PATH"]
 
 

@@ -103,7 +103,7 @@ To create jobs from the Python API:
 ```python
 from balsam.api import Job, App, site_config
  
-hello_app = App.objects.get(site_id=site_config.settings.site_id, class_path="test.Hello")
+hello_app = App.objects.get(site_id=site_config.site_id, class_path="test.Hello")
 for i in range(10):
     job = Job(
         f"test-api/{i}", 

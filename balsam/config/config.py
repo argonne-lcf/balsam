@@ -7,7 +7,7 @@ from abc import ABCMeta
 from datetime import datetime
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, cast
 from uuid import UUID
 
 import jinja2
@@ -221,7 +221,6 @@ class LauncherSettings(BaseSettings):
 
 
 class Settings(BaseSettings):
-    site_id: int = -1
     logging: LoggingConfig = LoggingConfig()
     filter_tags: Dict[str, str] = {"workflow": "test-1", "system": "H2O"}
 
@@ -269,7 +268,9 @@ class SiteConfig:
     """
 
     def __init__(self, site_path: Union[str, Path, None] = None, settings: Optional[Settings] = None) -> None:
-        self.site_path: Path = self.resolve_site_path(site_path)
+        site_path, site_id = self.resolve_site_path(site_path)
+        self.site_path: Path = site_path
+        self.site_id: int = site_id
         self.client = ClientSettings.load_from_file().build_client()
 
         if settings is not None:
@@ -305,7 +306,7 @@ class SiteConfig:
         if self.settings.scheduler:
             scheduler_service = SchedulerService(
                 client=self.client,
-                site_id=self.settings.site_id,
+                site_id=self.site_id,
                 submit_directory=self.job_path,
                 filter_tags=self.settings.filter_tags,
                 **dict(self.settings.scheduler),  # does not convert sub-models to dicts
@@ -315,7 +316,7 @@ class SiteConfig:
         if self.settings.queue_maintainer:
             queue_maintainer = QueueMaintainerService(
                 client=self.client,
-                site_id=self.settings.site_id,
+                site_id=self.site_id,
                 filter_tags=self.settings.filter_tags,
                 **dict(self.settings.queue_maintainer),  # does not convert sub-models to dicts
             )
@@ -324,7 +325,7 @@ class SiteConfig:
         if self.settings.elastic_queue:
             elastic_queue = ElasticQueueService(
                 client=self.client,
-                site_id=self.settings.site_id,
+                site_id=self.site_id,
                 filter_tags=self.settings.filter_tags,
                 **dict(self.settings.elastic_queue),
             )
@@ -333,7 +334,7 @@ class SiteConfig:
         if self.settings.processing:
             processing_service = ProcessingService(
                 client=self.client,
-                site_id=self.settings.site_id,
+                site_id=self.site_id,
                 data_path=self.data_path,
                 apps_path=self.apps_path,
                 filter_tags=self.settings.filter_tags,
@@ -349,7 +350,7 @@ class SiteConfig:
                 transfer_interfaces["globus"] = GlobusTransferInterface(endpoint_id)
             transfer_service = TransferService(
                 client=self.client,
-                site_id=self.settings.site_id,
+                site_id=self.site_id,
                 data_path=self.data_path,
                 transfer_interfaces=transfer_interfaces,
                 **dict(transfer_settings),
@@ -359,7 +360,7 @@ class SiteConfig:
         if self.settings.file_cleaner:
             cleaner_service = FileCleanerService(
                 client=self.client,
-                site_id=self.settings.site_id,
+                site_id=self.site_id,
                 apps_path=self.apps_path,
                 data_path=self.data_path,
                 **dict(self.settings.file_cleaner),
@@ -380,10 +381,6 @@ class SiteConfig:
     @staticmethod
     def load_settings_template(path: Path) -> jinja2.Template:
         raw = path.read_text()
-        ctx = jinja2.Environment().parse(raw)
-        detected_params: Set[str] = jinja2.meta.find_undeclared_variables(ctx)  # type: ignore
-        if "site_id" not in detected_params:
-            raise ValueError("{{ site_id }} missing from default settings.yml")
         return jinja2.Template(raw)
 
     @classmethod
@@ -405,7 +402,8 @@ class SiteConfig:
             client = ClientSettings.load_from_file().build_client()
         site_path = Path(site_path)
         site_path.mkdir(exist_ok=False, parents=False)
-        site_path.joinpath(".balsam-site").touch()
+
+        site_id_file = site_path.joinpath(".balsam-site")
 
         try:
             site = client.Site.objects.create(
@@ -415,9 +413,12 @@ class SiteConfig:
         except Exception:
             shutil.rmtree(site_path)
             raise
-        settings_ctx = {"site_id": site.id}
+        with open(site_id_file, "w") as fp:
+            fp.write(str(site.id))
+        os.chmod(site_id_file, 0o440)
+
         with open(site_path.joinpath("settings.yml"), "w") as fp:
-            fp.write(settings_template.render(settings_ctx) + "\n")
+            fp.write(settings_template.render({}) + "\n")
 
         try:
             settings = Settings.load(fp.name)
@@ -449,7 +450,7 @@ class SiteConfig:
         return cf
 
     @staticmethod
-    def resolve_site_path(site_path: Union[None, str, Path] = None) -> Path:
+    def resolve_site_path(site_path: Union[None, str, Path] = None) -> Tuple[Path, int]:
         # Site determined from either passed argument, environ,
         # or walking up parent directories, in that order
         site_path = site_path or os.environ.get("BALSAM_SITE_PATH") or SiteConfig.search_site_dir()
@@ -462,13 +463,15 @@ class SiteConfig:
         site_path = Path(site_path).resolve()
         if not site_path.is_dir():
             raise FileNotFoundError(f"BALSAM_SITE_PATH {site_path} must point to an existing Balsam site directory")
-        if not site_path.joinpath(".balsam-site").is_file():
+        try:
+            site_id = int(site_path.joinpath(".balsam-site").read_text())
+        except FileNotFoundError:
             raise FileNotFoundError(
                 f"BALSAM_SITE_PATH {site_path} is not a valid Balsam site directory "
                 f"(does not contain a .balsam-site file)"
             )
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
-        return site_path
+        return site_path, site_id
 
     @staticmethod
     def search_site_dir() -> Optional[Path]:
@@ -507,7 +510,7 @@ class SiteConfig:
         return {"filename": log_path, **self.settings.logging.dict()}
 
     def update_site_from_config(self) -> None:
-        site = self.client.Site.objects.get(id=self.settings.site_id)
+        site = self.client.Site.objects.get(id=self.site_id)
         old_dict = site.display_dict()
         if self.settings.scheduler:
             site.allowed_projects = self.settings.scheduler.allowed_projects
@@ -525,4 +528,4 @@ class SiteConfig:
             logger.info(f"Updated Site parameters:\n{diff_str}")
 
     def fetch_apps(self) -> Dict[str, "App"]:
-        return {app.class_path: app for app in self.client.App.objects.filter(site_id=self.settings.site_id)}
+        return {app.class_path: app for app in self.client.App.objects.filter(site_id=self.site_id)}

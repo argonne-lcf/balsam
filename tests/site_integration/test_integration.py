@@ -47,23 +47,23 @@ def launcher_job(run_service: SiteConfig, request: Any) -> Iterable[BatchJob]:
         num_nodes=1,
         wall_time_min=5,
         job_mode=job_mode,
-        site_id=run_service.settings.site_id,
+        site_id=run_service.site_id,
         project=project,
         queue=queue,
     )
-    print("Created BatchJob id:", batch_job.id)
+    print("Created BatchJob id:", batch_job.id, datetime.now())
     _liveness_check(batch_job, timeout=get_launcher_startup_timeout(), check_period=1.0)
     print("BatchJob started:", batch_job.id, datetime.now())
     yield batch_job
     batch_job.state = BatchJobState.pending_deletion
     batch_job.save()
-    print("Killing BatchJob id:", batch_job.id)
+    print("Killing BatchJob id:", batch_job.id, datetime.now())
     shutdown_timeout = int(get_launcher_shutdown_timeout())
     for _ in range(shutdown_timeout):
         time.sleep(1)
         batch_job.refresh_from_db()
         if batch_job.state == "finished":
-            print("BatchJob id FINISHED at", batch_job.id)
+            print(f"BatchJob {batch_job.id} id FINISHED at", datetime.now())
             return
     raise RuntimeError(f"Launcher did not end within {shutdown_timeout} seconds.")
 
@@ -100,16 +100,6 @@ def poll_until_state(
     return False
 
 
-def test_blank(run_service: SiteConfig) -> None:
-    """
-    Ephemeral test site is properly configured
-    """
-    cf = run_service
-    print("RUNNING A BALSAM TEST SITE\n", cf.settings)
-    print("site path:", cf.site_path)
-    assert 1
-
-
 @pytest.mark.usefixtures("live_launcher")
 class TestSingleNodeMPIMode:
     @pytest.mark.parametrize("num_jobs", [3])
@@ -128,10 +118,13 @@ class TestSingleNodeMPIMode:
                 node_packing_count=2,
             )
             jobs.append(job)
+        print(f"Created {num_jobs} jobs at", datetime.now())
         assert all(job.state == "STAGED_IN" for job in jobs)
+        print("Start polling for jobs to reach JOB_FINISHED at", datetime.now())
         poll_until_state(jobs, "JOB_FINISHED", timeout=300.0)
+        print("Polling jobs DONE at", datetime.now())
         for i, job in enumerate(jobs):
-            print("Job:", job)
+            print(f"job {i}: {job.state}")
             assert job.state in [
                 "JOB_FINISHED",
                 "RUN_DONE",

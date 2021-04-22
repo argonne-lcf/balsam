@@ -132,7 +132,7 @@ def mv(src: Union[Path, str], dest: Union[Path, str]) -> None:
     shutil.move(src.as_posix(), dest.as_posix())
     client = cf.client
 
-    site = client.Site.objects.get(id=cf.settings.site_id)
+    site = client.Site.objects.get(id=cf.site_id)
     site.path = dest
     site.save()
     click.echo(f"Moved site to new path {dest}")
@@ -148,7 +148,7 @@ def rm(path: Union[str, Path]) -> None:
     """
     cf = SiteConfig(path)
     client = cf.client
-    site = client.Site.objects.get(id=cf.settings.site_id)
+    site = client.Site.objects.get(id=cf.site_id)
     jobcount = client.Job.objects.filter(site_id=site.id).count()
     warning = f"This will wipe out {jobcount} jobs inside!" if jobcount else ""
 
@@ -167,7 +167,7 @@ def rename(path: Union[str, None], name: str) -> None:
     """
     cf = SiteConfig(path)
     client = cf.client
-    site = client.Site.objects.get(id=cf.settings.site_id)
+    site = client.Site.objects.get(id=cf.site_id)
     site.hostname = name
     site.save()
     click.echo("Renamed site {site.id} to {site.hostname}")

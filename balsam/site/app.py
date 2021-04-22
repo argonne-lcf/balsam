@@ -116,7 +116,7 @@ def app_deletion_prompt(client: "RESTClient", app: "App") -> None:
 
 def sync_apps(site_config: "SiteConfig") -> None:
     client = site_config.client
-    registered_apps = list(client.App.objects.filter(site_id=site_config.settings.site_id))
+    registered_apps = list(client.App.objects.filter(site_id=site_config.site_id))
     app_classes, mtimes = load_apps_from_dir(site_config.apps_path)
 
     for module_name, app_class_list in app_classes.items():
@@ -129,7 +129,7 @@ def sync_apps(site_config: "SiteConfig") -> None:
                 class_path,
                 mtimes[module_name],
                 registered_app,
-                site_config.settings.site_id,
+                site_config.site_id,
             )
             if registered_app is not None:
                 registered_apps.remove(registered_app)

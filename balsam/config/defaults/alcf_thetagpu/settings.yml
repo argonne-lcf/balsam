@@ -1,7 +1,5 @@
 # Default setup for Theta GPU cluster @ ALCF
 
-site_id: {{ site_id }}  # Do not change
-
 # Log file behavior for launcher and site services
 logging:
     level: INFO # Increasing verbosity: ERROR, WARNING, INFO, DEBUG

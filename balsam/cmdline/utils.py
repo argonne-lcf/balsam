@@ -51,7 +51,7 @@ def filter_by_sites(query: T, site_str: str = "") -> T:
         site_conf: Optional[SiteConfig] = SiteConfig()
     except ValueError:
         site_conf = None
-    site_id: Optional[int] = site_conf.settings.site_id if site_conf else None
+    site_id: Optional[int] = site_conf.site_id if site_conf else None
 
     values = [s.strip() for s in site_str.split(",") if s.strip()]
     active_t = utc_past(minutes_ago=2)
@@ -129,8 +129,7 @@ def load_site_from_selector(site_selector: str) -> Site:
     Site = client.Site
     if not site_selector:
         site_config: SiteConfig = load_site_config()
-        settings = site_config.settings
-        site = Site.objects.get(id=settings.site_id)
+        site = Site.objects.get(id=site_config.site_id)
     elif site_selector.isdigit():
         site = Site.objects.get(id=int(site_selector))
     else:

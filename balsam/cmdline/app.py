@@ -71,7 +71,7 @@ def create(name: str, command_template: str, description: str) -> None:
     app_cls = ApplicationDefinition.load_app_class(cf.apps_path, name)
 
     client.App.objects.create(
-        site_id=cf.settings.site_id,
+        site_id=cf.site_id,
         class_path=name,
         last_modified=mtime,
         **app_cls.as_dict(),
