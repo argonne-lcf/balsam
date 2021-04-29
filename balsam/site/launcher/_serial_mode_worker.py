@@ -240,8 +240,10 @@ def worker_main(
     SigHandler()
     site_config.enable_logging("serial_mode", filename=log_filename + f".{hostname}")
     if hostname == master_host:
-        logger.debug("Launching master subprocess")
+        logger.info(f"Launching master subprocess on {hostname}")
         master_proc = launch_master_subprocess()
+    else:
+        logger.info(f"Worker on {hostname} will connect to remote master on {master_host}")
 
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node

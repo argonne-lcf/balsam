@@ -1,9 +1,12 @@
+import logging
 import multiprocessing
 
 import click
 
 from balsam.site.launcher._serial_mode_master import master_main
 from balsam.site.launcher._serial_mode_worker import worker_main
+
+logger = logging.getLogger("balsam.site.launcher")
 
 
 @click.command()
@@ -18,8 +21,10 @@ def entry_point(
 ) -> None:
     master_host, master_port = master_address.split(":")
     if run_master:
+        logger.info("Running serial mode master at", master_address)
         master_main(wall_time_min, int(master_port), log_filename, num_workers, filter_tags)
     else:
+        logger.info("Running serial mode worker")
         worker_main(master_host, int(master_port), log_filename)
 
 

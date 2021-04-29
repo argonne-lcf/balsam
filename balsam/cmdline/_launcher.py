@@ -58,7 +58,7 @@ def start_mpi_mode(
         stdout=open(stdout_filename, "wb"),
         stderr=subprocess.STDOUT,
     )
-    logger.debug(f"Started MPI mode launcher: {str(proc.args)}")
+    logger.info(f"Started MPI mode launcher: {str(proc.args)}")
     return proc
 
 
@@ -101,7 +101,7 @@ def start_serial_mode(
         gpus_per_rank=len(nodes[0].gpu_ids),
     )
     app.start()
-    logger.debug(f"Started Serial mode launcher: {args}")
+    logger.info(f"Started Serial mode launcher: {app._cmdline}")
     return app
 
 
