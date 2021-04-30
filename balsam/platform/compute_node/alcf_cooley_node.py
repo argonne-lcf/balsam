@@ -20,7 +20,7 @@ class CooleyNode(ComputeNode):
             data = fp.read()
         splitter = "," if "," in data else None
         hostnames = data.split(splitter)
-        hostnames = [h.strip() for h in hostnames if h.strip()]
+        hostnames = [h.strip().split(".")[0] for h in hostnames if h.strip()]
         return [cls(hostname, hostname) for hostname in hostnames]
 
     @staticmethod
