@@ -1,0 +1,16 @@
+digraph model {
+    User;
+
+    Site -> User;
+    App -> Site;
+    BatchJob -> Site;
+
+    Job -> App;
+    Job -> BatchJob;
+    TransferItem -> Job;
+    LogEvent -> Job;
+
+    Job -> Session;
+    Session -> BatchJob;
+
+}
