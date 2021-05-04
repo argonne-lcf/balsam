@@ -92,6 +92,7 @@ def create_jobs(N):
             name = f"square{i}",
             workflow = "demo-square",
             application = "square",
+            node_packing_count=64, # Run up to 64 per node
         )
         job.data["x"] = i
         job.save()
@@ -120,15 +121,15 @@ if __name__ == "__main__":
 
 ## Running the example
 ```bash
-# Add 10 tasks with the script:
-python app.py 10
+# Add 16 tasks with the script:
+python app.py 16
 
 # View the tasks:
 BALSAM_LS_FIELDS=data balsam ls
 
 # Now submit a job to run those tasks
 # Important: Please modify the project (-A) and (-q) as necessary for your allocation/machine:
-balsam submit-launch -n 2 -q Comp_Perf_Workshop -A Comp_Perf_Workshop -t 5 --job-mode mpi
+balsam submit-launch -n 2 -q Comp_Perf_Workshop -A Comp_Perf_Workshop -t 5 --job-mode serial
 
 # Use `watch balsam ls` to track the status of each task in your DB
 BALSAM_LS_FIELDS=data  watch balsam ls
@@ -162,6 +163,7 @@ def create_jobs(N):
             name = f"square{i}",
             workflow = "demo-square",
             application = "square",
+            node_packing_count=64, # Run up to 64 per node
         )
         job.data["x"] = i
         job.save()

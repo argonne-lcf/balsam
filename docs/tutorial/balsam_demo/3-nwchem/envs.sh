@@ -1,7 +1,5 @@
-#!/bin/bash
-
 module add atp
-module add intel
+source /opt/intel/compilers_and_libraries_2018.0.128/linux/mkl/bin/mklvars.sh intel64 lp64
 
 export MPICH_GNI_MAX_EAGER_MSG_SIZE=16384 
 export MPICH_GNI_MAX_VSHORT_MSG_SIZE=10000 

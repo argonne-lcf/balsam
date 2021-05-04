@@ -13,7 +13,7 @@ We can confirm which database is currently in use with `balsam which`:
 # Confirm that you have a test DB activated:
 $ balsam which
 
-Current Balsam DB: /path/to/DataScience/Balsam/Balsam-training/testdb
+Current Balsam DB: /path/to/database
 {'host': 'thetalogin4', 'port': 35872}
 ```
 
@@ -72,7 +72,7 @@ Now we want to run this application several times.  We define two runs with the 
 ```bash
 # Add a couple instances of the hello app:
 $ balsam job --name hello-world --workflow demo-hello   --app hello --args 'world!'
-$ balsam job --name hello-SDL   --workflow demo-hello   --app hello --args 'SDL workshop!' --ranks-per-node 2
+$ balsam job --name hello-workshop   --workflow demo-hello   --app hello --args 'workshop!' --ranks-per-node 2
 ```
 
 The `balsam job` command constructs an instance of the `hello` app that we just defined.
@@ -86,7 +86,7 @@ We specify how the run should look with the following fields:
   - `--ranks-per-node`: Number of MPI ranks per node to launch the application with. In this case the application `echo` is obviously not using MPI, so we'll end up running two duplicate processes on the same compute node and see the output repeated twice.
 
 The `args` are joined with the application `executable` by string concatentation.  
-For the second job named `hello-SDL`, we therefore execute `"echo hello, "` + `"SDL workshop!"`, which results in `echo hello, SDL workshop!`
+For the second job named `hello-workshop`, we therefore execute `"echo hello, "` + `"workshop!"`, which results in `echo hello, workshop!`
 
 Without the `--yes` argument, you should see a detailed confirmation listing all details of 
 the created BalsamJob:
@@ -129,7 +129,9 @@ Confirm adding job to DB [y/n]: y
 ```
 
 These fields control every aspect of how this instance of your Application (BalsamJob) will
-run.  Most are omitted in this simple tutorial and default to sensible values. For more information on BalsamJob fields, refer to the [Guide to defining applications](../userguide/app.md#balsamjob-fields).
+run. Creating the BalsamJob does not run anything in itself, you are just telling the system *what* to run at a later date.  One advantage of this approach is that you can populate the database with thousands or millions of jobs, and allow them to run over several Cobalt batch jobs.  
+
+Most BalsamJob fields are omitted in this simple example and default to sensible values. For more information on BalsamJob fields, refer to the [Guide to defining applications](../userguide/app.md#balsamjob-fields).
 
 You will notice that a working directory has been chosen for you.  Balsam associates each
 job with a unique working directory, named according to the following convention:
@@ -148,14 +150,14 @@ It is actually shorthand for `balsam ls jobs`:
 $ balsam ls
                               job_id |        name |   workflow | application |   state
 ---------------------------------------------------------------------------------------
-d27257cb-925a-4818-97ef-a513db58bce4 | hello-world | demo-hello | hello       | CREATED
-391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-SDL   | demo-hello | hello       | CREATED
+d27257cb-925a-4818-97ef-a513db58bce4 | hello-world      | demo-hello | hello       | CREATED
+391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-workshop   | demo-hello | hello       | CREATED
 
 $ balsam ls jobs
                               job_id |        name |   workflow | application |   state
 ---------------------------------------------------------------------------------------
-d27257cb-925a-4818-97ef-a513db58bce4 | hello-world | demo-hello | hello       | CREATED
-391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-SDL   | demo-hello | hello       | CREATED
+d27257cb-925a-4818-97ef-a513db58bce4 | hello-world      | demo-hello | hello       | CREATED
+391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-workshop   | demo-hello | hello       | CREATED
 ```
 
 You can set the environment variable `BALSAM_LS_FIELDS` to add columns to this view:
@@ -163,8 +165,8 @@ You can set the environment variable `BALSAM_LS_FIELDS` to add columns to this v
 $ BALSAM_LS_FIELDS=ranks_per_node:args balsam ls
                               job_id |        name |   workflow | application |   state | ranks_per_node |          args
 ------------------------------------------------------------------------------------------------------------------------
-d27257cb-925a-4818-97ef-a513db58bce4 | hello-world | demo-hello | hello       | CREATED | 1              | world!
-391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-SDL   | demo-hello | hello       | CREATED | 2              | SDL workshop!
+d27257cb-925a-4818-97ef-a513db58bce4 | hello-world      | demo-hello | hello       | CREATED | 1              | world!
+391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-workshop   | demo-hello | hello       | CREATED | 2              | workshop!
 ```
 
 The important column to note here is the `state` which is `CREATED` for all jobs. 
@@ -191,8 +193,8 @@ $ watch balsam ls
 
                               job_id |        name |   workflow | application |        state
 --------------------------------------------------------------------------------------------
-d27257cb-925a-4818-97ef-a513db58bce4 | hello-world | demo-hello | hello       | JOB_FINISHED
-391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-SDL   | demo-hello | hello       | JOB_FINISHED
+d27257cb-925a-4818-97ef-a513db58bce4 | hello-world      | demo-hello | hello       | JOB_FINISHED
+391a92cf-0a65-4341-a6ac-83dbfe12b844 | hello-workshop   | demo-hello | hello       | JOB_FINISHED
 ```
 
 To jump into the working directory of a job, we can use `. bcd {first-few-chars-of-job-id}`. We should
