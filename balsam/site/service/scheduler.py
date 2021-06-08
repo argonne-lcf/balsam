@@ -6,7 +6,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Type
 
-from balsam.platform.scheduler import SchedulerDeleteError, SchedulerNonZeroReturnCode, SchedulerSubmitError
+from balsam.platform.scheduler import (
+    SchedulerDeleteError,
+    SchedulerNonZeroReturnCode,
+    SchedulerSubmitError,
+    SchedulerError,
+)
 from balsam.schemas import AllowedQueue, BatchJobState, SchedulerJobStatus
 from balsam.site import ScriptTemplate
 
@@ -163,7 +168,12 @@ class SchedulerService(BalsamService):
         """Update on Site from nodelist & qstat"""
         # TODO: Periodically update Site nodelist; queues from here:
         site = self.client.Site.objects.get(id=self.site_id)
-        site.backfill_windows = self.scheduler.get_backfill_windows()
+        try:
+            site.backfill_windows = self.scheduler.get_backfill_windows()
+        except SchedulerError as e:
+            logger.warning(f"get_backfill_windows() error: {e}")
+            logger.warning("Clearing site backfill windows; could not obtain")
+            site.backfill_windows = {}
         site.queued_jobs = scheduler_jobs
         site.save()
         logger.debug(f"Updated Site info: {site.display_dict()}")
