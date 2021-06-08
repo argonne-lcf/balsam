@@ -9,15 +9,19 @@ from balsam.schemas import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJo
 PathLike = Union[Path, str]
 
 
-class SchedulerNonZeroReturnCode(Exception):
+class SchedulerError(Exception):
     pass
 
 
-class SchedulerSubmitError(Exception):
+class SchedulerNonZeroReturnCode(SchedulerError):
     pass
 
 
-class SchedulerDeleteError(Exception):
+class SchedulerSubmitError(SchedulerError):
+    pass
+
+
+class SchedulerDeleteError(SchedulerError):
     pass
 
 
