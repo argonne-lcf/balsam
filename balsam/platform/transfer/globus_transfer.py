@@ -7,7 +7,7 @@ from uuid import UUID
 
 from globus_cli.services.transfer import get_client  # type: ignore
 from globus_sdk import TransferData  # type: ignore
-from globus_sdk.exc import GlobusConnectionError  # type: ignore
+from globus_sdk.exc import GlobusConnectionError, TransferAPIError  # type: ignore
 
 from .transfer import TaskInfo, TransferInterface, TransferRetryableError, TransferSubmitError
 
@@ -42,7 +42,10 @@ def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch: Sequence[SrcDestR
     )
     for src, dest, recurse in batch:
         transfer_data.add_item(str(src), str(dest), recursive=recurse)
-    res = client.submit_transfer(transfer_data)
+    try:
+        res = client.submit_transfer(transfer_data)
+    except TransferAPIError as exc:
+        raise TransferSubmitError(str(exc))
     task_id = res.get("task_id", None)
     if task_id is None:
         raise TransferSubmitError(str(res))
