@@ -11,7 +11,7 @@ from .utils import filter_by_sites, load_client, load_site_from_selector, valida
 @click.group()
 def queue() -> None:
     """
-    Submit and monitor queued launcher jobs
+    Submit and monitor BatchJobs (queued launcher pilots)
     """
     pass
 
@@ -37,6 +37,17 @@ def submit(
     optional_params: Dict[str, str],
     site_selector: str,
 ) -> None:
+    """
+    Submit a new BatchJob to the Site scheduler.
+
+    1) Request 2 nodes to run all Jobs
+
+        balsam queue submit -n 2 -t 60  -q default -A MyAllocation -j mpi
+
+    2) Request 2 nodes to run only Jobs with certain tags
+
+        balsam queue submit -n 2 -t 60  -q default -A alloc -j mpi -tag experiment=foo
+    """
     client = load_client()
     BatchJob = client.BatchJob
     Site = client.Site
@@ -76,6 +87,17 @@ def submit(
 @click.option("-h", "--history", is_flag=True, default=False)
 @click.option("--site", "site_selector", default="")
 def ls(history: bool, site_selector: str) -> None:
+    """
+    List BatchJobs
+
+    1) View current BatchJobs
+
+        balsam queue ls
+
+    2) View historical BatchJobs at all sites
+
+        balsam queue ls --history --site all
+    """
     client = load_client()
     BatchJob = client.BatchJob
     qs = filter_by_sites(BatchJob.objects.all(), site_selector)

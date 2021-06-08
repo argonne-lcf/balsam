@@ -34,6 +34,7 @@ def start() -> None:
     """Start up the site daemon"""
     cf = load_site_config()
     if not get_pidfile(cf).is_file():
+        click.echo(f"Starting Balsam site at {cf.site_path}")
         proc = start_site(cf.site_path)
         click.echo(f"Started Balsam site daemon [pid {proc.pid}] on {socket.gethostname()}")
         return None
@@ -204,6 +205,13 @@ def sync() -> None:
     """
     cf = load_site_config()
     cf.update_site_from_config()
+    click.echo("Updated site.")
+    kill_pid = check_killable(cf)
+    if kill_pid is not None:
+        click.echo(f"Restarting Site {cf.site_path}")
+        kill_site(cf, kill_pid)
+        proc = start_site(cf.site_path)
+        click.echo(f"Restarted Balsam site daemon [pid {proc.pid}] on {socket.gethostname()}")
 
 
 @site.command()
