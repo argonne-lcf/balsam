@@ -37,9 +37,8 @@ def _main() -> None:
     """
     Balsam Command Line Interface.
 
-    Each subcommand is recursively documented; use `-h` or `--help` to get
-    information for any balsam subcommand.  After using
-    `balsam activate`, Balsam tab-completion is enabled in bash shells.
+    Each subcommand is recursively documented; use `--help` to get
+    information for each balsam subcommand.
     """
     pass
 

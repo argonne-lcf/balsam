@@ -32,9 +32,10 @@ def create(name: str, command_template: str, description: str) -> None:
     """
     Create a new Balsam App in the current Site.
 
-    The App file is generated according to a template; feel free to
-    write app files without using this command.  You can also define
-    several Apps per file.
+    The App file is generated according to a template to get you started.
+    Feel free to write your own app files without using this command.
+    You can also define several Apps per file.  Run `balsam app sync`
+    to synchronize changes in your ApplicationDefinitions with the service.
 
     Example:
 
@@ -87,7 +88,7 @@ def sync() -> None:
     sync_apps(cf)
     kill_pid = check_killable(cf)
     if kill_pid is not None:
-        click.echo("Restarting Site...")
+        click.echo(f"Restarting Site {cf.site_path}")
         kill_site(cf, kill_pid)
         proc = start_site(cf.site_path)
         click.echo(f"Restarted Balsam site daemon [pid {proc.pid}] on {socket.gethostname()}")
@@ -98,7 +99,15 @@ def sync() -> None:
 @click.option("-s", "--site", "site_selector", default="")
 def ls(site_selector: str, verbose: bool) -> None:
     """
-    List my Apps
+    List Apps
+
+    1) View apps across all sites
+
+        balsam app ls --site=all
+
+    2) Filter apps by specific site IDs or Path fragments
+
+        balsam app ls --site=123,my_site_folder
     """
     client = ClientSettings.load_from_file().build_client()
     qs = client.App.objects.all()

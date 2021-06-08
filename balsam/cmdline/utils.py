@@ -209,7 +209,7 @@ def kill_site(cf: SiteConfig, service_pid: int) -> None:
             f"Make sure the Balsam site daemon isn't running and delete {get_pidfile(cf)}"
         )
     click.echo(f"Sent SIGTERM to Balsam site daemon [pid {service_pid}]")
-    click.echo("Waiting for site daemon to shutdown...")
+    click.echo(f"Waiting for site {cf.site_path} to shutdown...")
     with click.progressbar(range(12)) as bar:
         for i in bar:
             try:

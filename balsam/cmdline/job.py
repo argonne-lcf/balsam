@@ -217,6 +217,18 @@ def ls(
 ) -> None:
     """
     List Balsam Jobs
+
+    1) Filter by Site ID or Path fragments (comma-separated)
+
+        balsam job ls --site=123,my-cori-site
+
+    2) Select Jobs by their tags
+
+        balsam job ls --tag experiment=XPCS --tag system=H2O
+
+    3) Select Jobs by their state
+
+        balsam job ls --state JOB_FINISHED --tag system=H2O
     """
     client = load_client()
     job_qs = filter_by_sites(client.Job.objects.all(), site_selector)
@@ -263,6 +275,14 @@ def ls(
 def rm(job_ids: List[int], tags: List[str]) -> None:
     """
     Remove Jobs
+
+    1) Remove Jobs by ID
+
+        balsam job rm --id 41 --id 42 --id 43
+
+    2) Remove Jobs by Tags
+
+        balsam job rm --tag workflow=temp-test
     """
     client: RESTClient = load_client()
     jobs = client.Job.objects.all()
