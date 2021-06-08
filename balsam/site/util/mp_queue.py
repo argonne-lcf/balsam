@@ -24,13 +24,13 @@ class SharedCounter(object):
         self.count = multiprocessing.Value("i", n)
 
     def increment(self, n: int = 1) -> None:
-        """ Increment the counter by n (default = 1) """
+        """Increment the counter by n (default = 1)"""
         with self.count.get_lock():
             self.count.value += n
 
     @property
     def value(self) -> int:
-        """ Return the value of the counter """
+        """Return the value of the counter"""
         return cast(int, self.count.value)
 
 
@@ -73,11 +73,11 @@ class _FallbackQueue(_QueueBase[T]):
         return result
 
     def qsize(self) -> int:
-        """ Reliable implementation of multiprocessing.Queue.qsize() """
+        """Reliable implementation of multiprocessing.Queue.qsize()"""
         return self.size.value
 
     def empty(self) -> bool:
-        """ Reliable implementation of multiprocessing.Queue.empty() """
+        """Reliable implementation of multiprocessing.Queue.empty()"""
         return not self.qsize()
 
 
