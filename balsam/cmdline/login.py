@@ -16,6 +16,8 @@ def login(address: str, username: str) -> None:
     if address is not None or username is not None:
         address = address or click.prompt("Balsam server address")
         username = username or click.prompt("Balsam username")
+        address = address.strip()
+        username = username.strip()
         if not address.startswith("http"):
             address = "https://" + address
         settings = ClientSettings(api_root=address, username=username)
