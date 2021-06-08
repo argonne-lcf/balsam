@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Dict, List, Type
 
 from balsam.platform.scheduler import (
     SchedulerDeleteError,
+    SchedulerError,
     SchedulerNonZeroReturnCode,
     SchedulerSubmitError,
-    SchedulerError,
 )
 from balsam.schemas import AllowedQueue, BatchJobState, SchedulerJobStatus
 from balsam.site import ScriptTemplate

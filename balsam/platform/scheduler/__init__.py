@@ -3,10 +3,10 @@ from .local import LocalProcessScheduler
 from .lsf_sched import LsfScheduler
 from .scheduler import (
     SchedulerDeleteError,
+    SchedulerError,
     SchedulerInterface,
     SchedulerNonZeroReturnCode,
     SchedulerSubmitError,
-    SchedulerError,
 )
 from .slurm_sched import SlurmScheduler
 
