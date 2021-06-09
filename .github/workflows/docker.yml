@@ -2,7 +2,7 @@ name: Docker Pipeline
 on:
   push:
     branches:
-      - develop
+      - main
 jobs:
   container-test:
     name: Build, Test, Publish Docker image
