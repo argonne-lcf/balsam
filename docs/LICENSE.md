@@ -1,6 +1,6 @@
 BSD 3-Clause License
 
-Copyright (c) 2019, UChicago Argonne LLC
+Copyright (c) 2021, UChicago Argonne LLC
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
