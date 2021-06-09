@@ -21,13 +21,14 @@ theme:
   name: 'material'
   language: 'en'
   palette:
-    primary: 'teal'
+    primary: 'indigo'
     accent: 'amber'
+    scheme: 'preference'
   features:
     - tabs
     - instant
-  icon: 
-    logo: material/cloud
+  logo: './img/Argonne_wireframe_white_transparent.png'
+  favicon: './img/alcf_favicon.ico'
 
 markdown_extensions:
   - admonition
@@ -46,13 +47,13 @@ extra_css:
 extra_javascript: 
   - mermaid.min.js
 
-repo_name: 'balsam-alcf/balsam'
-repo_url: 'https://github.com/balsam-alcf/balsam'
+repo_name: 'argonne-lcf/balsam'
+repo_url: 'https://github.com/argonne-lcf/balsam'
 
 extra:
   social:
     - icon: 'fontawesome/brands/github-alt'
-      link: 'https://github.com/balsam-alcf'
+      link: 'https://github.com/argonne-lcf/balsam'
 
 plugins:
   - search
