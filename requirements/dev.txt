@@ -3,8 +3,7 @@
 # Pinned deployment dependencies:
 -r deploy.txt
 
-# No need to pin these:
-mypy>=0.800
+mypy==0.800
 coverage 
 black
 flake8
@@ -16,3 +15,12 @@ isort
 sqlalchemy-stubs
 mkdocs-material
 mkdocs
+
+# These will be necessary when upgrading mypy from .800 to .900
+# types-redis
+# types-jwt
+# types-PyYAML
+# types-requests
+# types-python-dateutil
+# types-Jinja2
+# types-click
