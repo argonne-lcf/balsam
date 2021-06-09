@@ -1,3 +1,10 @@
+![logo](./img/small3.png)
+
+A unified platform to manage high-throughput workflows across the HPC landscape.
+
+Create Balsam Sites on any laptop, cluster, or supercomputer. 
+The Balsam service provides a central API for you to submit tasks to these sites from anywhere.
+
 # User installation
 
 Balsam users should simply add Balsam to their environment with `pip`. 

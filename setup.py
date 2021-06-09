@@ -1,44 +1,56 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import setuptools
+import re
+from setuptools.command import easy_install
 
-import shutil
-import subprocess
-from pathlib import Path
+"""
+Monkey patch setuptools to write faster console_scripts with this format:
+    import sys
+    from mymodule import entry_function
+    sys.exit(entry_function())
+This is better.
+(c) 2016, Aaron Christianson
+http://github.com/ninjaaron/fast-entry_points
+"""
 
-from setuptools import setup
-from setuptools.command.develop import develop
-from setuptools.command.install import install
-from setuptools.config import read_configuration
-
-# Do not remove this import: monkey-patches the easy_install ScriptWriter
-import fastentrypoints  # noqa: F401
-
-setup_cfg = Path(__file__).parent.joinpath("setup.cfg")
-conf_dict = read_configuration(setup_cfg)
-
-
-class PostDevelopCommand(develop):
-    def run(self):
-        develop.run(self)
-        setup_autocomplete()
-
-
-class PostInstallCommand(install):
-    def run(self):
-        install.run(self)
-        setup_autocomplete()
+TEMPLATE = r"""
+# -*- coding: utf-8 -*-
+# EASY-INSTALL-ENTRY-SCRIPT: '{3}','{4}','{5}'
+__requires__ = '{3}'
+import re
+import sys
+from {0} import {1}
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
+    sys.exit({2}())
+""".lstrip()
 
 
-def setup_autocomplete():
-    balsam_bin = Path(shutil.which("balsam")).parent
-    completion_path = balsam_bin / "completion.sh"
-    subprocess.run(
-        f"_BALSAM_COMPLETE=source balsam > {completion_path}",
-        shell=True,
-        executable="/bin/bash",
-    )
+@classmethod
+def get_args(cls, dist, header=None):  # noqa: D205,D400
+    """
+    Yield write_script() argument tuples for a distribution's
+    console_scripts and gui_scripts entry points.
+    """
+    if header is None:
+        # pylint: disable=E1101
+        header = cls.get_header()
+    spec = str(dist.as_requirement())
+    for type_ in "console", "gui":
+        group = type_ + "_scripts"
+        for name, ep in dist.get_entry_map(group).items():
+            # ensure_safe_name
+            if re.search(r"[\\/]", name):
+                raise ValueError("Path separators not allowed in script names")
+            script_text = TEMPLATE.format(ep.module_name, ep.attrs[0], ".".join(ep.attrs), spec, group, name)
+            # pylint: disable=E1101
+            args = cls._get_script_args(type_, name, header, script_text)
+            for res in args:
+                yield res
 
 
-setup(
-    cmdclass={"develop": PostDevelopCommand, "install": PostInstallCommand},
-)
+# pylint: disable=E1101
+easy_install.ScriptWriter.get_args = get_args
+
+setuptools.setup()
