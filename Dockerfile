@@ -9,7 +9,6 @@ COPY setup.cfg .
 COPY setup.py .
 COPY Makefile .
 COPY pyproject.toml .
-COPY fastentrypoints.py .
 COPY entrypoint.sh .
 
 RUN apt-get update && apt-get install -y \
