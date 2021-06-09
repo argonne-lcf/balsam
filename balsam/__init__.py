@@ -13,7 +13,7 @@ try:
 except ImportError:
     print("Warning: Django is not installed")
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
