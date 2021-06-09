@@ -1,12 +1,6 @@
 version: 2
 
-updates:
-- package-ecosystem: pip
-  directory: /requirements/
-  target-branch: main
-  schedule:
-    interval: weekly
-    
+updates:    
 - package-ecosystem: pip
   directory: /
   target-branch: main
