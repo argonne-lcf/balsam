@@ -2,7 +2,7 @@
 
 
 ![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/balsam-alcf/balsam.svg?label=version)
-[![Documentation Status](https://readthedocs.org/projects/balsam/badge/?version=latest)](https://balsam.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/balsam/badge/?version=)](https://balsam.readthedocs.io/en/master/?badge=master)
 ![PyPI - License](https://img.shields.io/pypi/l/balsam-flow.svg)
 
 # Balsam: HPC Workflows & Edge Service
@@ -46,7 +46,7 @@ The Balsam API enables a variety of scenarios beyond the independent bag-of-task
 - Program dynamic workflows: some tasks spawn or kill other tasks at runtime
 - Remotely submit workflows, track their progress, and coordinate data movement tasks
 
-**Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/latest/)!
+**Read the Balsam Documentation online at** [balsam.readthedocs.io](https://balsam.readthedocs.io/en/master/)!
 
 ## Existing site-wide installations
 
