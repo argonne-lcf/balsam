@@ -7,7 +7,7 @@ First create a new virtualenv and install it on Balsam:
 ```
 $ /soft/datascience/create_env.sh my-env # Or do it yourself
 $ source my-env/bin/activate
-$ git clone https://github.com/balsam-alcf/balsam.git
+$ git clone https://github.com/argonne-lcf/balsam.git
 $ cd balsam/
 $ git checkout develop
 $ pip install -e .
