@@ -43,6 +43,8 @@ def load_module(fpath: Union[str, Path]) -> ModuleType:
 
     fpath = str(fpath)
     spec = importlib.util.spec_from_file_location(fpath, fpath)
+    if spec is None:
+        raise ImportError(f"Failed to load module spec; please double check {fpath}")
     module = importlib.util.module_from_spec(spec)
     if spec.loader is None:
         raise ImportError(f"Failed to load {fpath}: spec has no loader")
@@ -168,7 +170,7 @@ class ApplicationDefinitionMeta(type):
 
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "ApplicationDefinitionMeta":
         super_new = super().__new__
-        cls = cast(ApplicationDefinitionMeta, super_new(mcls, name, bases, attrs))
+        cls = super_new(mcls, name, bases, attrs)
         if not bases:
             return cls
 

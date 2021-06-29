@@ -68,7 +68,7 @@ T = TypeVar("T", bound="BalsamModel")
 class BalsamModelMeta(type):
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "BalsamModelMeta":
         if bases == (object,) or bases == () or "_read_model_cls" not in attrs:
-            return cast(BalsamModelMeta, super().__new__(mcls, name, bases, attrs))
+            return super().__new__(mcls, name, bases, attrs)
 
         field_names = set()
         for model_cls in [
@@ -82,7 +82,7 @@ class BalsamModelMeta(type):
             if field_name in attrs:
                 attrs[field_name].name = field_name
         cls = super().__new__(mcls, name, bases, attrs)
-        return cast(BalsamModelMeta, cls)
+        return cls
 
 
 class BalsamModel(metaclass=BalsamModelMeta):
