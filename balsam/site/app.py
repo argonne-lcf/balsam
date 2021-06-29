@@ -178,7 +178,7 @@ class ApplicationDefinitionMeta(type):
             raise AttributeError(f"ApplicationDefiniton {name} must define a `command_template` string.")
 
         # Validate command template
-        cls.command_template = " ".join(cls.command_template.strip().split())
+        cls.command_template = cls.command_template.strip()
         for param in re.findall(mcls._param_pattern, cls.command_template):
             if not param.strip().isidentifier():
                 raise AttributeError(
