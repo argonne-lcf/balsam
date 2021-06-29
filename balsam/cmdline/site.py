@@ -8,6 +8,7 @@ import click
 
 from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig
 from balsam.site.app import sync_apps
+from balsam.util import globus_auth
 
 from .utils import (
     PID_FILENAME,
@@ -220,3 +221,22 @@ def sample_settings() -> None:
     Print a sample settings.yml site configuration
     """
     click.echo(Settings().dump_yaml())
+
+
+@site.command()
+def globus_login() -> None:
+    """
+    Get credentials for the Globus CLI
+
+    Necessary before any Globus CLI commands which require authentication will work
+    This command directs you to the page necessary to permit the Globus CLI to make API
+    calls for you, and gets the OAuth2 tokens needed to use those permissions.
+    """
+    # if not forcing, stop if user already logged in
+    if globus_auth.check_logged_in():  # type: ignore
+        click.echo("You are already logged in!")
+        return
+
+    globus_auth.do_link_auth_flow(force_new_client=True)  # type: ignore
+
+    click.echo("You have successfully logged in to the Globus CLI!")

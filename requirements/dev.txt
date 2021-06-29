@@ -3,7 +3,8 @@
 # Pinned deployment dependencies:
 -r deploy.txt
 
-mypy==0.800
+mypy==0.910
+mkdocs-material>=7.1.9,<8.0.0
 coverage 
 black
 flake8
@@ -13,14 +14,12 @@ pytest-cov
 pytest-mock
 isort
 sqlalchemy-stubs
-mkdocs-material
-mkdocs
 
-# These will be necessary when upgrading mypy from .800 to .900
-# types-redis
-# types-jwt
-# types-PyYAML
-# types-requests
-# types-python-dateutil
-# types-Jinja2
-# types-click
+# mypy type stubs:
+types-PyYAML
+types-aiofiles 
+types-orjson 
+types-python-dateutil 
+types-redis 
+types-requests 
+types-ujson

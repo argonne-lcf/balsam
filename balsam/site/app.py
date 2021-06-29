@@ -187,7 +187,7 @@ class ApplicationDefinitionMeta(type):
 
         # Detect parameters via Jinja
         ctx = jinja2.Environment().parse(cls.command_template)
-        detected_params: Set[str] = jinja2.meta.find_undeclared_variables(ctx)  # type: ignore
+        detected_params: Set[str] = jinja2.meta.find_undeclared_variables(ctx)
 
         # Validate parameters dict
         for param_name, param in cls.parameters.items():

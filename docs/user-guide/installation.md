@@ -25,7 +25,7 @@ $ pip install --pre balsam-flow
 
 ## Summit (OLCF)
 
-The `cryptography` sub-dependency of `globus-cli` can be troublesome on non-x86 environments, where 
+The `cryptography` sub-dependency of `globus-sdk` can be troublesome on non-x86 environments, where 
 `pip` will try to build from source.  One workaround is to create a conda environment with the 
 `cryptography` dependency pre-satisfied, from which `pip install` works smoothly:
 

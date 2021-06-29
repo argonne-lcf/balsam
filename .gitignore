@@ -5,7 +5,7 @@ __pycache__
 *.egg-info
 
 .*
-!.env
+!.env.example
 !.gitignore
 !.readthedocs.yml
 !.readthedocs.yaml

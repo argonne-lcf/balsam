@@ -2,20 +2,10 @@
 isort = isort balsam tests
 black = black --target-version py37 balsam tests
 
-.venv:
-	python3 -m venv .venv
-	.venv/bin/python -m pip install --upgrade wheel pip
-	
-.PHONY: install-dev-venv
-install-dev-venv: .venv
-	.venv/bin/python -m pip install --no-cache-dir -r requirements/dev.txt
-	.venv/bin/python -m pip install --no-cache-dir -e .
-
 .PHONY: install-dev
 install-dev:
 	python -m pip install --upgrade wheel pip
-	python -m pip install --no-cache-dir -r requirements/dev.txt
-	python -m pip install --no-cache-dir -e .
+	python -m pip install -r requirements/dev.txt
 
 .PHONY: format
 format:
