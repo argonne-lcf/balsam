@@ -1,7 +1,12 @@
 site_name: Balsam
 nav:
   - Home: README.md
-  - Development:
+  - Tutorials:
+    - ALCF-Theta Quickstart: tutorials/theta-quickstart.md
+  - User Guide:
+    - Installation: user-guide/installation.md
+  - Developer Guide:
+      - Developer Installation: development/installation.md
       - Understanding Balsam: development/data-model.md
       - Project Layout: development/layout.md
       - Contribution Guide: development/contributing.md
@@ -12,8 +17,6 @@ nav:
       - Web Client: development/web-client.md
       - Roadmap: development/todo.md
   - Running a Balsam Server: development/deploy.md
-  - Tutorials:
-    - ALCF-Theta Quickstart: tutorials/theta-quickstart.md
   - License: LICENSE.md
 
 

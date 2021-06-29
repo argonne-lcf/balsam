@@ -21,4 +21,5 @@
     },
     "python.languageServer": "Pylance",
     "python.analysis.typeCheckingMode": "off",
+    "python.pythonPath": ".venv/bin/python",
 }
