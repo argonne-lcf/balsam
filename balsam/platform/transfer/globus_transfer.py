@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import List, Sequence, Tuple, Union
 from uuid import UUID
 
-from balsam.util.globus_auth import get_client  # type: ignore
 from globus_sdk import TransferData  # type: ignore
 from globus_sdk.exc import GlobusConnectionError, TransferAPIError  # type: ignore
+
+from balsam.util.globus_auth import get_client  # type: ignore
 
 from .transfer import TaskInfo, TransferInterface, TransferRetryableError, TransferSubmitError
 

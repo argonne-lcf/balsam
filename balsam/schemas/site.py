@@ -102,9 +102,9 @@ class SiteOut(SiteBase):
     class Config:
         orm_mode = True
 
-    id: int
-    last_refresh: datetime
-    creation_date: datetime
+    id: int = Field(..., example=123)
+    last_refresh: datetime = Field(..., example=datetime.utcnow())
+    creation_date: datetime = Field(..., example=datetime.utcnow())
 
 
 class PaginatedSitesOut(BaseModel):

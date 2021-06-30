@@ -94,7 +94,7 @@ class AppOut(AppBase):
     class Config:
         orm_mode = True
 
-    id: int
+    id: int = Field(..., example=234)
 
 
 class PaginatedAppsOut(BaseModel):

@@ -1,12 +1,13 @@
 # type: ignore
-import click
 import os
 import random
 import time
+
+import click
+import globus_sdk
 from configobj import ConfigObj
 from globus_sdk import RefreshTokenAuthorizer, TransferClient
-from globus_sdk.exc import NetworkError, AuthAPIError
-import globus_sdk
+from globus_sdk.exc import AuthAPIError, NetworkError
 
 CLIENT_ID_OPTNAME = "client_id"
 CLIENT_SECRET_OPTNAME = "client_secret"
@@ -23,6 +24,7 @@ SCOPES = (
     "urn:globus:auth:scope:auth.globus.org:view_identity_set "
     "urn:globus:auth:scope:transfer.api.globus.org:all"
 )
+
 
 class RetryingTransferClient(TransferClient):
     """
