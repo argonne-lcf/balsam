@@ -97,6 +97,7 @@ class FixedDepthJobSource(Process):
         self.max_aggregate_nodes = max_aggregate_nodes
         self.scheduler_id = scheduler_id
         self.start_time = time.time()
+        self.fetch_limit = 2048
 
     def get_jobs(self, max_num_jobs: int) -> List["Job"]:
         fetched = []
@@ -129,6 +130,7 @@ class FixedDepthJobSource(Process):
         while not sig_handler.wait_until_exit(timeout=1):
             qsize = self.queue.qsize()
             fetch_count = max(0, self.prefetch_depth - qsize)
+            fetch_count = min(fetch_count, self.fetch_limit)
             logger.debug(f"JobSource queue depth is currently {qsize}. Fetching {fetch_count} more")
             if fetch_count:
                 params = self._get_acquire_parameters(fetch_count)
