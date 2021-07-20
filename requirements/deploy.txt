@@ -10,6 +10,6 @@ alembic==1.6.5
 SQLAlchemy==1.4.21
 aredis==1.1.8
 redis==3.5.3
-requests==2.25.1
+requests==2.26.0
 multiprocessing-logging==0.3.1
 -e .
