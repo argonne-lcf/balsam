@@ -1,7 +1,6 @@
-version: '3.9'
+version: "3.9"
 
 services:
-
   gunicorn:
     container_name: gunicorn
     build: .
@@ -38,12 +37,17 @@ services:
       POSTGRES_DB: balsam
     volumes:
       - "pgdata:/var/lib/postgresql/data"
+    command: "-c log_min_duration_sample=2s -c log_statement_sample_rate=0.2"
+    logging:
+      options:
+        max-size: "50m"
+        max-file: "5"
+      driver: "json-file"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 6
-
 
   redis:
     container_name: redis
