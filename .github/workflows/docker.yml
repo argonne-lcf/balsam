@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BALSAM_LOG_DIR: "./balsam-logs"
+      SERVER_PORT: 8000
     steps:
       - uses: actions/checkout@v2
       - name: Build image
