@@ -7,19 +7,17 @@ services:
     image: masalim2/balsam
     restart: always
     ports:
-      - 8000:8000
+      - ${SERVER_PORT}:${SERVER_PORT}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+    # Vars in env_file are exported to the containers
+    # Vars in ".env" specifically are also usable in the compose file as ${VAR}
+    env_file: ".env"
     environment:
-      BALSAM_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/balsam
-      BALSAM_SERVER_BIND: "0.0.0.0:8000"
-      BALSAM_REDIS_PARAMS: '{"host": "redis", "port": "6379"}'
-      BALSAM_LOG_LEVEL:
-      BALSAM_LOG_DIR:
-      BALSAM_NUM_UVICORN_WORKERS:
+      BALSAM_SERVER_BIND: "0.0.0.0:${SERVER_PORT}"
     volumes:
       - "${BALSAM_LOG_DIR}:/balsam/log"
       - "./balsam:/balsam/balsam:ro"
