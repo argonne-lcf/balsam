@@ -54,7 +54,7 @@ class AuthSettings(BaseSettings):
     algorithm = "HS256"
     token_ttl: timedelta = timedelta(hours=48)
     auth_method: str = "balsam.server.auth.user_from_token"
-    login_methods: List[LoginMethod] = []
+    login_methods: List[LoginMethod] = [LoginMethod.password]
     oauth_provider: Optional[OAuthProviderSettings] = None
 
     def get_auth_method(self) -> Callable[..., schemas.UserOut]:
