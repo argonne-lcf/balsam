@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from datetime import timedelta
+from enum import Enum
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -12,6 +13,12 @@ from balsam import schemas
 from balsam.util import validate_log_level
 
 logger = logging.getLogger(__name__)
+
+
+class LoginMethod(str, Enum):
+    oauth_authcode = "oauth_authcode"
+    oauth_device = "oauth_device"
+    password = "password"
 
 
 class OAuthProviderSettings(BaseSettings):
@@ -25,11 +32,11 @@ class OAuthProviderSettings(BaseSettings):
     client_id: str
     client_secret: str
     redirect_scheme: str = "https"
-    redirect_path: str = "/auth/ALCF/callback"
+    redirect_path: str = "/auth/oauth/ALCF/callback"
     request_uri: str = "https://oauth2-dev.alcf.anl.gov/o/authorize/"
     token_uri: str = "https://oauth2-dev.alcf.anl.gov/o/token/"
     user_info_uri: str = "https://oauth2-dev.alcf.anl.gov/api/v1/user/"
-    scope: str = "read"
+    scope: str = "read_basic_user_data"
     device_code_lifetime: timedelta = timedelta(seconds=300)
     device_poll_interval: timedelta = timedelta(seconds=3)
 
@@ -47,6 +54,7 @@ class AuthSettings(BaseSettings):
     algorithm = "HS256"
     token_ttl: timedelta = timedelta(hours=48)
     auth_method: str = "balsam.server.auth.user_from_token"
+    login_methods: List[LoginMethod] = []
     oauth_provider: Optional[OAuthProviderSettings] = None
 
     def get_auth_method(self) -> Callable[..., schemas.UserOut]:

@@ -7,8 +7,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from balsam.server import settings
 from balsam.server.utils import TimingMiddleware, setup_logging
 
-from .auth import user_from_token
-from .auth.router import auth_router
+from .auth import build_auth_router, user_from_token
 from .pubsub import pubsub
 from .routers import apps, batch_jobs, events, jobs, sessions, sites, transfers
 
@@ -31,7 +30,7 @@ async def no_result_handler(request: Request, exc: NoResultFound) -> JSONRespons
 
 
 app.include_router(
-    auth_router,
+    build_auth_router(),
     prefix="/auth",
     tags=["auth"],
     dependencies=[],

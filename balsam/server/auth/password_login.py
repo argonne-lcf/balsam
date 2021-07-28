@@ -1,12 +1,11 @@
 import logging
 from typing import Any, Dict
 
-from fastapi import Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserCreate, UserOut
-from balsam.server.auth.router import auth_router
 from balsam.server.models import get_session
 from balsam.server.models.crud import users
 
@@ -14,6 +13,8 @@ from .password_utils import verify_password
 from .token import create_access_token, user_from_token
 
 logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/password")
 
 
 def authenticate_user_password(db: Session, username: str, password: str) -> UserOut:
@@ -33,7 +34,7 @@ def authenticate_user_password(db: Session, username: str, password: str) -> Use
     return UserOut(id=user.id, username=user.username)
 
 
-@auth_router.post("/login/password")
+@router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_session)) -> Dict[str, Any]:
     username = form_data.username
     password = form_data.password
@@ -43,12 +44,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     return {"access_token": token, "token_type": "bearer", "expiration": expiry}
 
 
-@auth_router.get("/me", response_model=UserOut)
+@router.get("/me", response_model=UserOut)
 def profile(user: UserOut = Depends(user_from_token)) -> UserOut:
     return user
 
 
-@auth_router.post("/register/password", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_session)) -> UserOut:
     if users.user_exists(db, user.username):
         raise HTTPException(status_code=400, detail="Username already taken")

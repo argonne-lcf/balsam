@@ -5,12 +5,11 @@ from datetime import datetime
 from typing import Any, Dict
 from uuid import UUID
 
-from fastapi import Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserOut
 from balsam.server import settings
-from balsam.server.auth.router import auth_router
 from balsam.server.models import get_session
 from balsam.server.models.crud import users
 
@@ -18,8 +17,10 @@ from .token import create_access_token
 
 logger = logging.getLogger(__name__)
 
-VERIFICATION_PATH = "/auth/ALCF/login/device"
+VERIFICATION_PATH = "/auth/oauth/ALCF/login/device"
 GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
+
+router = APIRouter(prefix="/device")
 
 
 def generate_device_code() -> str:
@@ -41,7 +42,7 @@ def generate_user_code() -> str:
     return f"{part1}-{part2}"
 
 
-@auth_router.post("/login/device")
+@router.post("/login")
 def authorization_request(
     request: Request,
     db: Session = Depends(get_session),
@@ -86,7 +87,7 @@ def authorization_request(
     return response
 
 
-@auth_router.post("/token/device")
+@router.post("/token")
 def access_token_request(
     db: Session = Depends(get_session),
     grant_type: str = Form(...),

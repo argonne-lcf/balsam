@@ -1,4 +1,4 @@
-DEVICE_LOGIN = "auth/login/device"
-DEVICE_TOKEN = "auth/token/device"
-PASSWORD_LOGIN = "auth/login/password"
-PASSWORD_REGISTER = "auth/register/password"
+DEVICE_LOGIN = "auth/device/login"
+DEVICE_TOKEN = "auth/device/token"
+PASSWORD_LOGIN = "auth/password/login"
+PASSWORD_REGISTER = "auth/password/register"

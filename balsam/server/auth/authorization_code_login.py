@@ -4,17 +4,19 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 import requests
-from fastapi import Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserOut
 from balsam.server import settings
-from balsam.server.auth.router import auth_router
 from balsam.server.models import get_session
 from balsam.server.models.crud import users
 
 logger = logging.getLogger(__name__)
+
+
+router = APIRouter(prefix="/oauth")
 
 
 def generate_state(user_code: Optional[str] = None) -> str:
@@ -75,7 +77,7 @@ def redirect_to_oauth_provider(request: Request, state: str) -> RedirectResponse
     return RedirectResponse(conf.request_uri + "?" + params)
 
 
-@auth_router.get("/ALCF/login/device")
+@router.get("/ALCF/login/device")
 def start_login_device(request: Request, user_code: str, db: Session = Depends(get_session)) -> RedirectResponse:
     """
     User provides user code to proceed with "device code flow" (started by a CLI login client)
@@ -91,7 +93,7 @@ def start_login_device(request: Request, user_code: str, db: Session = Depends(g
     return redirect_to_oauth_provider(request, state)
 
 
-@auth_router.get("/ALCF/login")
+@router.get("/ALCF/login")
 def start_login(request: Request, db: Session = Depends(get_session)) -> RedirectResponse:
     """
     User initiated Web browser authorization code flow
@@ -102,7 +104,7 @@ def start_login(request: Request, db: Session = Depends(get_session)) -> Redirec
     return redirect_to_oauth_provider(request, state)
 
 
-@auth_router.get("/ALCF/callback")
+@router.get("/ALCF/callback")
 def callback(
     request: Request,
     code: str,
