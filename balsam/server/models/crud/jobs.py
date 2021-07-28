@@ -1,4 +1,5 @@
 from datetime import datetime
+from logging import getLogger
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 from fastapi import HTTPException, status
@@ -12,6 +13,7 @@ from balsam.server import ValidationError, models
 from balsam.server.routers.filters import JobQuery
 from balsam.server.util import Paginator
 
+logger = getLogger(__name__)
 
 def owned_job_query(db: Session, owner: schemas.UserOut, with_parents: bool = False) -> "Query[models.Job]":
     qs: "Query[models.Job]"
@@ -172,6 +174,7 @@ def bulk_create(
 
     set_parent_ids(created_jobs)
     db.flush()
+    logger.debug(f"Bulk-created {len(created_jobs)} jobs")
     return created_jobs, created_events, created_transfers
 
 
@@ -365,7 +368,7 @@ def delete_query(
     qs = qs.filter(models.Job.session_id.is_(None)).with_for_update(of=models.Job)  # type: ignore
     ids: List[int] = [job.id for job in qs.options(orm.load_only(models.Job.id))]  # type: ignore
     delete_ids = set(_select_children(db, ids))
-    print("Deleting job ids:", delete_ids)
+    logger.debug(f"Deleting {len(delete_ids)} jobs")
     db.query(models.Job).filter(models.Job.id.in_(delete_ids)).delete(synchronize_session=False)
     db.flush()
     return delete_ids
