@@ -15,6 +15,7 @@ from balsam.server.util import Paginator
 
 logger = getLogger(__name__)
 
+
 def owned_job_query(db: Session, owner: schemas.UserOut, with_parents: bool = False) -> "Query[models.Job]":
     qs: "Query[models.Job]"
     if with_parents:
