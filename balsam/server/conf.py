@@ -73,7 +73,6 @@ class Settings(BaseSettings):
     redis_params: Dict[str, Any] = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
     log_level: Union[str, int] = logging.INFO
     log_dir: Optional[Path]
-    log_sql: bool = True
     num_uvicorn_workers: int = 1
     gunicorn_pid_file: str = "gunicorn.pid"
 

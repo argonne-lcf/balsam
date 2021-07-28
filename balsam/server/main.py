@@ -1,4 +1,7 @@
+import sys
+from typing import Any
 import logging
+import logging.handlers
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, status
 from fastapi.responses import JSONResponse
@@ -17,26 +20,29 @@ app = FastAPI(
 )
 
 
+def log_uncaught_exceptions(exctype: Any, value: Any, tb: Any) -> None:
+    root_logger = logging.getLogger("balsam.server")
+    root_logger.error(f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb))
+
+
 def setup_logging() -> logging.Logger:
-    balsam_logger = logging.getLogger("balsam.server")
-    sql_logger = logging.getLogger("sqlalchemy.engine")
-    formatter = logging.Formatter("%(levelname)s|%(name)s:%(lineno)s] %(message)s")
-
     logging.getLogger("balsam").handlers.clear()
-    for logger in balsam_logger, sql_logger:
-        logger.setLevel(settings.log_level)
-        logger.handlers.clear()
 
-    if settings.log_dir is None:
-        return logging.getLogger("balsam.server.main")
+    logger = logging.getLogger("balsam.server")
+    logger.handlers.clear()
+    format = "%(asctime)s.%(msecs)03d | %(process)d | %(levelname)s | %(name)s:%(lineno)s] %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+    formatter = logging.Formatter(format, datefmt=datefmt)
 
-    balsam_handler = logging.FileHandler(filename=settings.log_dir / "server-balsam.log")
-    balsam_handler.setFormatter(formatter)
-    balsam_logger.addHandler(balsam_handler)
-
-    if settings.log_sql:
-        sql_handler = logging.FileHandler(filename=settings.log_dir / "server-sql.log")
-        sql_logger.addHandler(sql_handler)
+    handler = logging.handlers.RotatingFileHandler(
+        filename=settings.log_dir / "server-balsam.log",
+        maxBytes=int(32 * 1e6),
+        backupCount=3,
+    ) if settings.log_dir else logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logger.setLevel(settings.log_level)
+    logger.addHandler(handler)
+    sys.excepthook = log_uncaught_exceptions
     return logging.getLogger("balsam.server.main")
 
 
