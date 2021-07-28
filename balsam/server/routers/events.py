@@ -6,7 +6,7 @@ from sqlalchemy import orm
 from balsam import schemas
 from balsam.server import settings
 from balsam.server.models import LogEvent, crud, get_session
-from balsam.server.util import Paginator
+from balsam.server.utils import Paginator
 
 from .filters import EventLogQuery
 

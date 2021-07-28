@@ -8,7 +8,7 @@ from balsam import schemas
 from balsam.server import settings
 from balsam.server.models import Site, crud, get_session
 from balsam.server.pubsub import pubsub
-from balsam.server.util import Paginator
+from balsam.server.utils import Paginator
 
 from .filters import SiteQuery
 

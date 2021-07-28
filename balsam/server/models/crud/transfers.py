@@ -7,7 +7,7 @@ from sqlalchemy.orm import Query, Session
 from balsam import schemas
 from balsam.server import ValidationError, models
 from balsam.server.routers.filters import TransferItemQuery
-from balsam.server.util import Paginator
+from balsam.server.utils import Paginator
 
 
 def owned_transfer_query(db: Session, owner: schemas.UserOut) -> "Query[models.TransferItem]":

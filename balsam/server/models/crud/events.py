@@ -5,7 +5,7 @@ from sqlalchemy.orm import Query, Session
 from balsam import schemas
 from balsam.server import models
 from balsam.server.routers.filters import EventLogQuery
-from balsam.server.util import Paginator
+from balsam.server.utils import Paginator
 
 
 def fetch(

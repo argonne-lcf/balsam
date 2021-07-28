@@ -7,7 +7,7 @@ from sqlalchemy.orm import Query, Session
 from balsam import schemas
 from balsam.server import ValidationError, models
 from balsam.server.routers.filters import SiteQuery
-from balsam.server.util import Paginator
+from balsam.server.utils import Paginator
 
 
 def fetch(

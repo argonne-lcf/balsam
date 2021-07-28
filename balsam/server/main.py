@@ -1,56 +1,25 @@
 import logging
-import logging.handlers
-import sys
-from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm.exc import NoResultFound
 
 from balsam.server import settings
+from balsam.server.utils import TimingMiddleware, setup_logging
 
 from .auth import user_from_token
 from .auth.router import auth_router
 from .pubsub import pubsub
 from .routers import apps, batch_jobs, events, jobs, sessions, sites, transfers
 
+logger = logging.getLogger("balsam.server.main")
+
 app = FastAPI(
     title="Balsam API",
     version="0.1.0",
 )
 
-
-def log_uncaught_exceptions(exctype: Any, value: Any, tb: Any) -> None:
-    root_logger = logging.getLogger("balsam.server")
-    root_logger.error(f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb))
-
-
-def setup_logging() -> logging.Logger:
-    logging.getLogger("balsam").handlers.clear()
-
-    logger = logging.getLogger("balsam.server")
-    logger.handlers.clear()
-    format = "%(asctime)s.%(msecs)03d | %(process)d | %(levelname)s | %(name)s:%(lineno)s] %(message)s"
-    datefmt = "%Y-%m-%d %H:%M:%S"
-    formatter = logging.Formatter(format, datefmt=datefmt)
-
-    handler = (
-        logging.handlers.RotatingFileHandler(
-            filename=settings.log_dir / "server-balsam.log",
-            maxBytes=int(32 * 1e6),
-            backupCount=3,
-        )
-        if settings.log_dir
-        else logging.StreamHandler()
-    )
-    handler.setFormatter(formatter)
-    logger.setLevel(settings.log_level)
-    logger.addHandler(handler)
-    sys.excepthook = log_uncaught_exceptions
-    return logging.getLogger("balsam.server.main")
-
-
-logger = setup_logging()
+setup_logging(settings.log_dir, settings.log_level)
 
 
 @app.exception_handler(NoResultFound)
@@ -146,4 +115,5 @@ async def subscribe_user(websocket: WebSocket) -> None:
             await websocket.send_bytes(msg["data"])
 
 
+app.add_middleware(TimingMiddleware)
 logger.info(f"Loaded balsam.server.main\n{settings}")

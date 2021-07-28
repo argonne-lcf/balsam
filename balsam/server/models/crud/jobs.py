@@ -11,7 +11,7 @@ from balsam import schemas
 from balsam.schemas.job import JobState
 from balsam.server import ValidationError, models
 from balsam.server.routers.filters import JobQuery
-from balsam.server.util import Paginator
+from balsam.server.utils import Paginator
 
 logger = getLogger(__name__)
 
