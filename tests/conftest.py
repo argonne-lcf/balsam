@@ -18,6 +18,7 @@ from balsam.client import BasicAuthRequestsClient, urls
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home
 from balsam.server import models
+from balsam.server.conf import AuthSettings
 from balsam.site.app import sync_apps
 from balsam.util import postgres as pg
 
@@ -100,6 +101,7 @@ def live_server(setup_database: Optional[str], free_port: str, test_log_dir: Pat
 
     settings = balsam.server.Settings(
         log_dir=test_log_dir,
+        auth=AuthSettings(login_methods=["password"]),
         database_url=setup_database,
         log_level="DEBUG",
         server_bind=f"0.0.0.0:{free_port}",
