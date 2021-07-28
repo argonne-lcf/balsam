@@ -3,7 +3,7 @@ import resource
 import time
 from typing import Awaitable, Callable
 
-from fastapi import FastAPI, Request, Response
+from fastapi import APIRouter, FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.routing import Match, Mount
 
@@ -20,19 +20,19 @@ def _get_cpu_time() -> float:
 
 
 class TimingMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: FastAPI):
+    def __init__(self, app: FastAPI, router: APIRouter):
         super().__init__(app)
-        self.app = app
+        self.router = router
 
     def get_route_name(self, request: Request) -> str:
         scope = request.scope
         route = None
-        for r in self.app.router.routes:  # type: ignore
+        for r in self.router.routes:
             if r.matches(scope)[0] == Match.FULL:
                 route = r
                 break
         if hasattr(route, "endpoint") and hasattr(route, "name"):
-            name = f"{self.prefix}{route.endpoint.__module__}.{route.name}"  # type: ignore
+            name = f"{route.endpoint.__module__}.{route.name}"  # type: ignore
         elif isinstance(route, Mount):
             name = f"{type(route.app).__name__}<{route.name!r}>"
         else:
@@ -43,6 +43,6 @@ class TimingMiddleware(BaseHTTPMiddleware):
         start_wall, start_cpu = time.perf_counter(), _get_cpu_time()
         response = await call_next(request)
         wall, cpu = time.perf_counter() - start_wall, _get_cpu_time() - start_cpu
-        timing_info = f"Timer: {self.get_route_name(request)} Wall: {wall} CPU: {cpu}"
+        timing_info = f"TIMER: {self.get_route_name(request)} Wall: {wall:.6f} CPU: {cpu:.6f}"
         logger.info(timing_info)
         return response

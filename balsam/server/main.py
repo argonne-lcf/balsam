@@ -115,5 +115,5 @@ async def subscribe_user(websocket: WebSocket) -> None:
             await websocket.send_bytes(msg["data"])
 
 
-app.add_middleware(TimingMiddleware)
+app.add_middleware(TimingMiddleware, router=app.router)
 logger.info(f"Loaded balsam.server.main\n{settings}")
