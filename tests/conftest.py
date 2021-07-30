@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import socket
@@ -18,7 +19,6 @@ from balsam.client import BasicAuthRequestsClient, urls
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home
 from balsam.server import models
-from balsam.server.conf import AuthSettings
 from balsam.site.app import sync_apps
 from balsam.util import postgres as pg
 
@@ -99,17 +99,22 @@ def live_server(setup_database: Optional[str], free_port: str, test_log_dir: Pat
 
     assert setup_database is not None
 
-    settings = balsam.server.Settings(
-        log_dir=test_log_dir,
-        auth=AuthSettings(login_methods=["password"]),
-        database_url=setup_database,
-        log_level="DEBUG",
-        server_bind=f"0.0.0.0:{free_port}",
-        num_uvicorn_workers=1,
-    )
+    os.environ["BALSAM_LOG_DIR"] = test_log_dir.as_posix()
+    os.environ["BALSAM_LOG_LEVEL"] = "DEBUG"
+    os.environ["BALSAM_AUTH_LOGIN_METHODS"] = json.dumps(["password"])
+    os.environ["SERVER_PORT"] = str(free_port)
+    os.environ["BALSAM_DATABASE_URL"] = setup_database
 
-    args = settings.gunicorn_env()
-    proc = subprocess.Popen(args)
+    gunicorn_config_file = Path(balsam.server.__file__).parent / "gunicorn.conf.example.py"
+    assert gunicorn_config_file.is_file()
+    proc = subprocess.Popen(
+        [
+            "gunicorn",
+            "-c",
+            gunicorn_config_file.as_posix(),
+            "balsam.server.main:app",
+        ]
+    )
 
     url = f"http://localhost:{free_port}/"
     _server_health_check(url, timeout=10.0, check_interval=0.5)

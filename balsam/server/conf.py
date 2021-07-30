@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from datetime import timedelta
@@ -75,14 +74,11 @@ class Settings(BaseSettings):
         env_file = ".env"
         extra = "forbid"
 
-    server_bind: str = "0.0.0.0:8000"
     database_url: str = "postgresql://postgres@localhost:5432/balsam"
     auth: AuthSettings = AuthSettings()
     redis_params: Dict[str, Any] = {"unix_socket_path": "/tmp/redis-balsam.server.sock"}
     log_level: Union[str, int] = logging.INFO
     log_dir: Optional[Path]
-    num_uvicorn_workers: int = 1
-    gunicorn_pid_file: str = "gunicorn.pid"
 
     @validator("log_level", always=True)
     def validate_balsam_log_level(cls, v: Union[str, int]) -> int:
@@ -97,38 +93,3 @@ class Settings(BaseSettings):
         elif not v.is_dir():
             raise ValueError(f"{v} is not a valid log directory")
         return v
-
-    def gunicorn_env(self) -> List[str]:
-        """
-        Set os.environ and return args for Gunicorn
-        """
-        for k, v in json.loads(self.json()).items():
-            envvar = (self.Config.env_prefix + k).upper()
-            if v is not None:
-                os.environ[envvar] = json.dumps(v) if not isinstance(v, str) else v
-
-        # Settings from environ consistent with self
-        assert Settings() == self
-        env_str = " ".join(
-            [
-                "-k",
-                "uvicorn.workers.UvicornWorker",
-                "--bind",
-                self.server_bind,
-                "--log-level",
-                str(self.log_level),
-                "--access-logfile",
-                self.log_dir.joinpath("gunicorn.access").as_posix() if self.log_dir else "/dev/null",
-                "--error-logfile",
-                self.log_dir.joinpath("gunicorn.out").as_posix() if self.log_dir else "/dev/null",
-                "--capture-output",
-                "--name",
-                "balsam-server",
-                "--workers",
-                str(self.num_uvicorn_workers),
-                "--pid",
-                self.gunicorn_pid_file,
-            ]
-        )
-        os.environ["GUNICORN_CMD_ARGS"] = env_str
-        return ["gunicorn", "balsam.server.main:app"]

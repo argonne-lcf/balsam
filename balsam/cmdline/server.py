@@ -58,6 +58,8 @@ def up(path: Union[Path, str], log: bool) -> None:
     from balsam.util import postgres as pg
 
     path = Path(path).resolve()
+    gunicorn_config_file = Path(balsam.server.__file__).parent / "gunicorn.conf.example.py"
+    assert gunicorn_config_file.is_file()
 
     click.echo("Starting Redis daemon")
     try:
@@ -69,17 +71,15 @@ def up(path: Union[Path, str], log: bool) -> None:
     dsn = pg.load_dsn(db_path)
     pg.configure_balsam_server_from_dsn(dsn)
 
-    settings = balsam.server.Settings(log_dir=path if log else None)
-    args = settings.gunicorn_env()
+    os.environ["BALSAM_LOG_DIR"] = path.as_posix() if log else ""
+    args = [
+        "gunicorn",
+        "-c",
+        gunicorn_config_file.as_posix(),
+        "balsam.server.main:app",
+    ]
     p = subprocess.Popen(args, cwd=path)
-    click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")
-
-
-@server.command()
-def exec_gunicorn() -> None:
-    """Exec gunicorn using current environment"""
-    args = balsam.server.Settings().gunicorn_env()
-    os.execlp("gunicorn", *args)
+    click.echo(f"Started gunicorn (pid={p.pid})")
 
 
 @server.command()
@@ -93,6 +93,9 @@ def deploy(path: Union[Path, str]) -> None:
         raise click.BadParameter(f"{path} already exists")
 
     from balsam.util import postgres as pg
+
+    gunicorn_config_file = Path(balsam.server.__file__).parent / "gunicorn.conf.example.py"
+    assert gunicorn_config_file.is_file()
 
     click.echo("Creating database")
     pw_dict = pg.create_new_db(db_path=path.joinpath("balsamdb"))
@@ -112,10 +115,15 @@ def deploy(path: Union[Path, str]) -> None:
     except RuntimeError:
         click.echo("Skipping Redis")
 
-    settings = balsam.server.Settings(log_dir=path)
-    args = settings.gunicorn_env()
+    os.environ["BALSAM_LOG_DIR"] = path.as_posix()
+    args = [
+        "gunicorn",
+        "-c",
+        gunicorn_config_file.as_posix(),
+        "balsam.server.main:app",
+    ]
     p = subprocess.Popen(args, cwd=path)
-    click.echo(f"Started gunicorn at {settings.server_bind} (pid={p.pid})")
+    click.echo(f"Started gunicorn (pid={p.pid})")
 
 
 @server.command()

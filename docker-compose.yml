@@ -17,13 +17,13 @@ services:
     # Vars in ".env" specifically are also usable in the compose file as ${VAR}
     env_file: ".env"
     environment:
-      SERVER_PORT: 8000
-      BALSAM_SERVER_BIND: "0.0.0.0:${SERVER_PORT}"
-      BALSAM_LOG_DIR: "/dev/null"
+      SERVER_PORT: ${SERVER_PORT}
+      BALSAM_LOG_DIR: ${BALSAM_LOG_DIR}
     volumes:
       - "${BALSAM_LOG_DIR}:/balsam/log"
       - "./balsam:/balsam/balsam:ro"
       - "./tests:/balsam/tests:ro"
+      - ${GUNICORN_CONFIG_FILE}:"/balsam/gunicorn.conf.py:ro"
 
   postgres:
     container_name: postgres

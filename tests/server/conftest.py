@@ -4,7 +4,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+
 from balsam.client import urls
+import balsam.server
 from balsam.server import models
 from balsam.server.models.crud import users
 
@@ -28,6 +30,7 @@ def fastapi_user_test_client(setup_database, db_session):
         db_session.commit()
         created_users.append(user)
 
+        balsam.server.settings.auth.login_methods = ["password"]
         from balsam.server.main import app
 
         client = BalsamTestClient(TestClient(app))
