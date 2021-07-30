@@ -37,7 +37,7 @@ services:
       POSTGRES_DB: balsam
     volumes:
       - "pgdata:/var/lib/postgresql/data"
-    command: "-c log_min_duration_sample=2s -c log_statement_sample_rate=0.2"
+    command: "-c log_min_duration_sample=100ms -c log_statement_sample_rate=0.2 -c log_min_duration_statement=1s"
     logging:
       options:
         max-size: "50m"
