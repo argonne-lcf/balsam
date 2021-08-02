@@ -4,9 +4,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-
-from balsam.client import urls
 import balsam.server
+from balsam.client import urls
 from balsam.server import models
 from balsam.server.models.crud import users
 

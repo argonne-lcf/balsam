@@ -115,5 +115,5 @@ async def subscribe_user(websocket: WebSocket) -> None:
 
 
 app.add_middleware(TimingMiddleware, router=app.router)
-logger.info(f"Loaded balsam.server.main")
+logger.info("Loaded balsam.server.main")
 logger.info(settings.serialize_without_secrets())
