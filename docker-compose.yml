@@ -23,7 +23,7 @@ services:
       - "${BALSAM_LOG_DIR}:/balsam/log"
       - "./balsam:/balsam/balsam:ro"
       - "./tests:/balsam/tests:ro"
-      - ${GUNICORN_CONFIG_FILE}:"/balsam/gunicorn.conf.py:ro"
+      - "${PWD}/${GUNICORN_CONFIG_FILE}:/balsam/gunicorn.conf.py:ro" # Must be abs path
 
   postgres:
     container_name: postgres

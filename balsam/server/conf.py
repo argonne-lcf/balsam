@@ -93,3 +93,15 @@ class Settings(BaseSettings):
         elif not v.is_dir():
             raise ValueError(f"{v} is not a valid log directory")
         return v
+
+    def serialize_without_secrets(self) -> str:
+        return self.json(
+            exclude={
+                "auth": {
+                    "secret_key": ...,
+                    "oauth_provider": {
+                        "client_secret": ...,
+                    },
+                }
+            }
+        )
