@@ -19,7 +19,7 @@ jobs:
       - name: Start service
         run: docker-compose up -d
       - name: Run Migrations
-        run: docker-compose exec gunicorn balsam server migrate
+        run: docker exec gunicorn balsam server migrate
       - name: Test container
         run: make test-container
       - name: Archive test logs
