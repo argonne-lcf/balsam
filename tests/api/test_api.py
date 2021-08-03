@@ -649,6 +649,22 @@ class TestTransfers:
         all_t = TransferItem.objects.filter(state={"pending", "awaiting_job"})
         assert all_t.count() == 2
 
+    def test_create_transfers_shortcut(self, client):
+        Job = client.Job
+        TransferItem = client.TransferItem
+        app = self.create_app_with_transfers(client)
+        Job.objects.create(
+            workdir="test/test",
+            app_id=app.id,
+            transfers={
+                "input_data": "laptop:/path/to/input.dat",
+                "output_results": "laptop:/path/to/output.json",
+            },
+        )
+        pending = TransferItem.objects.filter(state="pending")
+        assert pending.count() == 1
+        assert pending[0].remote_path.as_posix() == "/path/to/input.dat"
+
 
 class TestEvents:
     def setup_scenario(self, client):
