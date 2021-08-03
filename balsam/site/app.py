@@ -170,12 +170,12 @@ class ApplicationDefinitionMeta(type):
 
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "ApplicationDefinitionMeta":
         super_new = super().__new__
+        if "parameters" not in attrs:
+            attrs["parameters"] = {}
         cls = super_new(mcls, name, bases, attrs)
         if not bases:
             return cls
 
-        if "parameters" not in attrs:
-            raise AttributeError(f"Must set `parameters` dict on the {name} ApplicationDefinition class.")
         if "command_template" not in attrs or not isinstance(attrs["command_template"], str):
             raise AttributeError(f"ApplicationDefiniton {name} must define a `command_template` string.")
 
