@@ -15,6 +15,7 @@ from .batchjob import (
 )
 from .job import (
     RUNNABLE_STATES,
+    ClientJobCreate,
     JobBulkUpdate,
     JobCreate,
     JobOrdering,
@@ -65,6 +66,7 @@ __all__ = [
     "PaginatedSessionsOut",
     "SessionAcquire",
     "JobCreate",
+    "ClientJobCreate",
     "JobUpdate",
     "JobBulkUpdate",
     "PaginatedJobsOut",

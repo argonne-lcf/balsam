@@ -107,7 +107,7 @@ hello_app = App.objects.get(site_id=site_config.site_id, class_path="test.Hello"
 for i in range(10):
     job = Job(
         f"test-api/{i}", 
-        hello_app.id, 
+        app_id=hello_app.id, 
         parameters={"name": "testing!", "sleeptime": "3"},
         node_packing_count=16,
     )

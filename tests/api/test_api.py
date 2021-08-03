@@ -183,10 +183,28 @@ class TestJobs:
             parameters={"geometry": {"required": True}},
         )
 
-        job = Job("test/run1", app.id, parameters={"geometry": "test.xyz"}, ranks_per_node=64)
+        job = Job("test/run1", app_id=app.id, parameters={"geometry": "test.xyz"}, ranks_per_node=64)
         assert job.id is None
         job.save()
         assert job.id is not None
+        assert job.state == "STAGED_IN"
+
+    def test_create_using_app_name(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
+        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        app = App.objects.create(
+            site_id=site.id,
+            class_path="app.one",
+            parameters={"geometry": {"required": True}},
+        )
+
+        job = Job("test/run1", app_name="app.one", parameters={"geometry": "test.xyz"}, ranks_per_node=64)
+        assert job.id is None
+        job.save()
+        assert job.id is not None
+        assert job.app_id == app.id
         assert job.state == "STAGED_IN"
 
     def test_set_and_fetch_data(self, client):
@@ -196,7 +214,7 @@ class TestJobs:
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
-        job = Job.objects.create("test/run1", app.id)
+        job = Job.objects.create("test/run1", app_id=app.id)
         assert job.id is not None
 
         job.data = {"foo": 1234}
@@ -210,7 +228,7 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        job = Job.objects.create("test/run1", app.id, data={"foo": 1234}, num_nodes=1)
+        job = Job.objects.create("test/run1", app_id=app.id, data={"foo": 1234}, num_nodes=1)
 
         # Correct way to update a mutable field:
         data = job.data
@@ -232,7 +250,7 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        jobs = [Job(f"test/{i}", app.id) for i in range(8)]
+        jobs = [Job(f"test/{i}", app_id=app.id) for i in range(8)]
         random.shuffle(jobs)
         Job.objects.bulk_create(jobs)
 
@@ -255,7 +273,7 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        jobs = [Job(f"test/{i}", app.id) for i in range(10)]
+        jobs = [Job(f"test/{i}", app_id=app.id) for i in range(10)]
 
         jobs = Job.objects.bulk_create(jobs)
         assert all(job.state == "STAGED_IN" for job in jobs)
@@ -286,9 +304,9 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        parent = Job("test/parent", app.id)
+        parent = Job("test/parent", app_id=app.id)
         parent.save()
-        child = Job("test/child", app.id, parent_ids=[parent.id])
+        child = Job("test/child", app_id=app.id, parent_ids=[parent.id])
         child.save()
 
         assert parent.state == "STAGED_IN"
@@ -306,7 +324,7 @@ class TestJobs:
             class_path="app.one",
             parameters={"geometry": {"required": False, "default": "inp.xyz"}},
         )
-        job = Job("test/test", app.id, ranks_per_node=64)
+        job = Job("test/test", app_id=app.id, ranks_per_node=64)
         job.save()
         t1 = job.last_update
 
@@ -323,7 +341,7 @@ class TestJobs:
         EventLog = client.EventLog
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        job = Job("test/test", app.id)
+        job = Job("test/test", app_id=app.id)
         job.save()
         history = EventLog.objects.filter(job_id=job.id)
         states = [event.to_state for event in history]
@@ -346,7 +364,7 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        jobs = [Job(f"test/{i}", app.id) for i in range(3)]
+        jobs = [Job(f"test/{i}", app_id=app.id) for i in range(3)]
         Job.objects.bulk_create(jobs)
         assert Job.objects.count() == 3
         Job.objects.all().delete()
@@ -358,7 +376,7 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        jobs = [Job(f"test/{i}", app.id, tags={"foo": i, "bar": i * 2}) for i in range(3)]
+        jobs = [Job(f"test/{i}", app_id=app.id, tags={"foo": i, "bar": i * 2}) for i in range(3)]
         Job.objects.bulk_create(jobs)
         assert Job.objects.count() == 3
         qs = Job.objects.filter(tags="foo:1")
@@ -374,11 +392,11 @@ class TestJobs:
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
-        foo_jobs = [Job(f"foo/{i}", app.id) for i in range(3)]
+        foo_jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(3)]
         foo_jobs = Job.objects.bulk_create(foo_jobs)
         ids = [j.id for j in foo_jobs]
 
-        bar_jobs = [Job(f"bar/{i}", app.id) for i in range(3)]
+        bar_jobs = [Job(f"bar/{i}", app_id=app.id) for i in range(3)]
         bar_jobs = Job.objects.bulk_create(bar_jobs)
 
         assert Job.objects.count() == 6
@@ -390,7 +408,7 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
+        jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
         jobs[2].state = "PREPROCESSED"
         jobs[2].save()
@@ -404,8 +422,8 @@ class TestJobs:
         Job = client.Job
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
-        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
-        jobs.append(Job("bar/99", app.id))
+        jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
+        jobs.append(Job("bar/99", app_id=app.id))
         jobs = Job.objects.bulk_create(jobs)
 
         assert Job.objects.filter(workdir__contains="foo/2").count() == 1
@@ -422,13 +440,34 @@ class TestJobs:
         app1 = App.objects.create(site_id=site1.id, class_path="app.one")
         app2 = App.objects.create(site_id=site2.id, class_path="app.one")
 
-        jobs = [Job(f"foo/{i}", app1.id) for i in range(2)] + [Job(f"foo/{i}", app2.id) for i in range(2)]
+        jobs = [Job(f"foo/{i}", app_id=app1.id) for i in range(2)] + [
+            Job(f"foo/{i}", app_id=app2.id) for i in range(2)
+        ]
         jobs = Job.objects.bulk_create(jobs)
 
         # Check site filters
         assert Job.objects.filter(site_id=site1.id).count() == 2
         assert Job.objects.filter(site_id=site2.id).count() == 2
         assert Job.objects.all().count() == 4
+
+    def test_create_by_name_and_site_path(self, client):
+        App = client.App
+        Site = client.Site
+        Job = client.Job
+        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
+        app1 = App.objects.create(site_id=site1.id, class_path="app.one")
+        app2 = App.objects.create(site_id=site2.id, class_path="app.one")
+
+        job1 = Job("test/1", app_name="app.one", site_path="foo")
+        job1.save()
+        assert job1.id is not None
+        assert job1.app_id == app1.id
+
+        job2 = Job("test/2", app_name="app.one", site_path="bar")
+        job2.save()
+        assert job2.id is not None
+        assert job2.app_id == app2.id
 
     def test_filter_by_parameters(self, client):
         App = client.App
@@ -440,8 +479,8 @@ class TestJobs:
             class_path="app.one",
             parameters={"geometry": {"required": True}},
         )
-        jobs = [Job(f"foo/{i}", app.id, parameters={"geometry": f"{i}.xyz"}) for i in range(4)]
-        jobs.append(Job("bar/2", app.id, parameters={"geometry": "xy:32.xyz"}))
+        jobs = [Job(f"foo/{i}", app_id=app.id, parameters={"geometry": f"{i}.xyz"}) for i in range(4)]
+        jobs.append(Job("bar/2", app_id=app.id, parameters={"geometry": "xy:32.xyz"}))
         jobs = Job.objects.bulk_create(jobs)
 
         assert Job.objects.filter(parameters="geometry:4.xyz").count() == 0
@@ -455,7 +494,7 @@ class TestJobs:
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
-        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
+        jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
         jobs[2].state = "PREPROCESSED"
         jobs[2].save()
@@ -472,7 +511,7 @@ class TestJobs:
         site = Site.objects.create(hostname="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
-        jobs = [Job(f"foo/{i}", app.id) for i in range(4)]
+        jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
 
         pending_cleanup = Job.objects.filter(state="STAGED_IN", pending_file_cleanup=True)
@@ -877,7 +916,7 @@ class TestSessions:
         return site, app
 
     def job(self, client, name, app, args={}, **kwargs):
-        return client.Job(f"test/{name}", app.id, parameters=args, **kwargs)
+        return client.Job(f"test/{name}", app_id=app.id, parameters=args, **kwargs)
 
     def create_jobs(self, client, app, num_jobs=3, state="PREPROCESSED"):
         jobs = [self.job(client, i, app) for i in range(num_jobs)]

@@ -113,7 +113,7 @@ class TestSingleNodeMPIMode:
         for i in range(num_jobs):
             job = client.Job.objects.create(
                 Path(f"bar/{i}"),
-                app.id,
+                app_id=app.id,
                 parameters={"name": f"world{i}!"},
                 node_packing_count=2,
             )

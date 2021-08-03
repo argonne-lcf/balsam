@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from balsam import schemas
 
@@ -107,23 +107,43 @@ class BatchJobManagerBase(Manager["BatchJob"]):
 
 
 class JobBase(CreatableBalsamModel):
-    _create_model_cls = schemas.JobCreate
+    _create_model_cls = schemas.ClientJobCreate
     _update_model_cls = schemas.JobUpdate
     _read_model_cls = schemas.JobOut
 
-    _app_cache: Dict[int, "App"] = {}
+    _app_id_cache: Dict[Tuple[str, str], int] = {}
 
     objects: "JobManager"
     workdir: Field[Path]
     app_id: Field[int]
     parent_ids: Field[Set[int]]
 
-    def load_app(self) -> "App":
-        if self.app_id not in self._app_cache:
-            logger.debug(f"Cache miss: fetching app {self.app_id} from API")
-            app = self.objects._client.App.objects.get(id=self.app_id)
-            self._app_cache[self.app_id] = app
-        return self._app_cache[self.app_id]
+    def __init__(self, _api_data: bool = False, **kwargs: Any) -> None:
+        app_id = kwargs.get("app_id")
+        if app_id is None:
+            app_name = str(kwargs.get("app_name", ""))
+            site_path = str(kwargs.get("site_path", ""))
+            if not app_name:
+                raise ValueError("Cannot create a Job without `app_id` or `app_name`")
+            try:
+                kwargs["app_id"] = self.fetch_app_id(app_name=app_name, site_path=site_path)
+            except CreatableBalsamModel.MultipleObjectsReturned:
+                raise ValueError(
+                    f"You have more than one App named '{app_name}'.  Please provide a more specific `site_path`."
+                )
+            except CreatableBalsamModel.DoesNotExist:
+                raise ValueError(f"Could not find any App named '{app_name}'")
+        return super().__init__(_api_data=_api_data, **kwargs)
+
+    def fetch_app_id(self, app_name: str, site_path: str) -> int:
+        app_key = (site_path, app_name)
+        if app_key not in JobBase._app_id_cache:
+            AppManager = self.objects._client.App.objects
+            logger.debug(f"App Cache miss: fetching app {app_key}")
+            app = AppManager.get(site_path=site_path, class_path=app_name)
+            assert isinstance(app.id, int)
+            JobBase._app_id_cache[app_key] = app.id
+        return JobBase._app_id_cache[app_key]
 
     def resolve_workdir(self, data_path: Path) -> Path:
         return data_path.joinpath(self.workdir)

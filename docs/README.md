@@ -1,4 +1,4 @@
-![logo](./img/small3.png)
+![logo](./img/balsam-black.png)
 
 *This page is for the Balsam 0.6 pre-release. Click [here for stable Balsam 0.5 docs.](https://balsam.readthedocs.io/en/master)*
 
@@ -37,8 +37,8 @@ BatchJob.objects.create(
 ## Features
 
 * Simple `pip` installation on any machine with internet access
-* Control apps as Python classes: flexible environments and lifecycle hooks
-* Distributed by default: submit and monitor tasks securely from *anywhere*
+* Distributed by default: submit and monitor workflows from *anywhere*
+* Run any existing application, with flexible execution environments and job lifecycle hooks
 * Define data dependencies for any task: Balsam orchestrates the necessary data transfers
 * High-throughput and fault-tolerant task execution on diverse resources
 * Elastic queueing: auto-scale resources to the workload size

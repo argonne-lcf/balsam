@@ -2,7 +2,7 @@
 
 ## Higher priority 
 
-- [ ] Generalized ElasticQueue implementation
+- [X] Generalized ElasticQueue implementation
 - [X] Server & Client Auth: beyond password-based
 - [X] Test runner framework (ability to run tests selectively based on location)
 - [ ] Site unit tests & test framework:
@@ -11,7 +11,7 @@
   - [ ] Scheduler
   - [ ] Launcher (MPI mode)
   - [ ] Launcher (Serial mode)
-  - [ ] Integration test
+  - [X] Integration test
   - [ ] Throughput benchmark
 
 ## Medium priority

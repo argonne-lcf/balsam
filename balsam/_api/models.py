@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev 108ccbb]
+# [git rev a005243]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -271,6 +271,7 @@ class AppQuery(Query[App]):
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
+        site_path: Optional[str] = None,
     ) -> App:
         """
         Retrieve exactly one App. Raises App.DoesNotExist
@@ -280,6 +281,7 @@ class AppQuery(Query[App]):
         site_id:    Only return Apps associated with the Site IDs in this list.
         id:         Only return Apps with IDs in this list.
         class_path: Only return Apps matching this dotted class path (module.ClassName)
+        site_path:  Only return Apps from Sites having paths containing this substring.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
@@ -289,6 +291,7 @@ class AppQuery(Query[App]):
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
+        site_path: Optional[str] = None,
     ) -> "AppQuery":
         """
         Retrieve exactly one App. Raises App.DoesNotExist
@@ -298,6 +301,7 @@ class AppQuery(Query[App]):
         site_id:    Only return Apps associated with the Site IDs in this list.
         id:         Only return Apps with IDs in this list.
         class_path: Only return Apps matching this dotted class path (module.ClassName)
+        site_path:  Only return Apps from Sites having paths containing this substring.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
@@ -367,6 +371,7 @@ class AppManager(balsam._api.bases.AppManagerBase):
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
+        site_path: Optional[str] = None,
     ) -> App:
         """
         Retrieve exactly one App. Raises App.DoesNotExist
@@ -376,6 +381,7 @@ class AppManager(balsam._api.bases.AppManagerBase):
         site_id:    Only return Apps associated with the Site IDs in this list.
         id:         Only return Apps with IDs in this list.
         class_path: Only return Apps matching this dotted class path (module.ClassName)
+        site_path:  Only return Apps from Sites having paths containing this substring.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return AppQuery(manager=self).get(**kwargs)
@@ -385,6 +391,7 @@ class AppManager(balsam._api.bases.AppManagerBase):
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
         class_path: Optional[str] = None,
+        site_path: Optional[str] = None,
     ) -> "AppQuery":
         """
         Returns a App Query returning items matching the filter criteria.
@@ -392,13 +399,14 @@ class AppManager(balsam._api.bases.AppManagerBase):
         site_id:    Only return Apps associated with the Site IDs in this list.
         id:         Only return Apps with IDs in this list.
         class_path: Only return Apps matching this dotted class path (module.ClassName)
+        site_path:  Only return Apps from Sites having paths containing this substring.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return AppQuery(manager=self).filter(**kwargs)
 
 
 class Job(balsam._api.bases.JobBase):
-    _create_model_cls = balsam.schemas.job.JobCreate
+    _create_model_cls = balsam.schemas.job.ClientJobCreate
     _update_model_cls = balsam.schemas.job.JobUpdate
     _read_model_cls = balsam.schemas.job.JobOut
     objects: "JobManager"
@@ -417,8 +425,10 @@ class Job(balsam._api.bases.JobBase):
     node_packing_count = Field[int]()
     wall_time_min = Field[int]()
     app_id = Field[int]()
+    app_name = Field[str]()
+    site_path = Field[str]()
     parent_ids = Field[typing.Set[int]]()
-    transfers = Field[typing.Dict[str, balsam.schemas.job.JobTransferItem]]()
+    transfers = Field[typing.Dict[str, typing.Union[str, balsam.schemas.job.JobTransferItem]]]()
     batch_job_id = Field[Optional[int]]()
     state = Field[Optional[balsam.schemas.job.JobState]]()
     state_timestamp = Field[Optional[datetime.datetime]]()
@@ -430,7 +440,6 @@ class Job(balsam._api.bases.JobBase):
     def __init__(
         self,
         workdir: pathlib.Path,
-        app_id: int,
         tags: Optional[typing.Dict[str, str]] = None,
         parameters: Optional[typing.Dict[str, str]] = None,
         data: Optional[typing.Dict[str, typing.Any]] = None,
@@ -443,8 +452,11 @@ class Job(balsam._api.bases.JobBase):
         gpus_per_rank: float = 0,
         node_packing_count: int = 1,
         wall_time_min: int = 0,
+        app_id: Optional[int] = None,
+        app_name: Optional[str] = None,
+        site_path: Optional[str] = None,
         parent_ids: typing.Set[int] = set(),
-        transfers: Optional[typing.Dict[str, balsam.schemas.job.JobTransferItem]] = None,
+        transfers: Optional[typing.Dict[str, typing.Union[str, balsam.schemas.job.JobTransferItem]]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -465,6 +477,8 @@ class Job(balsam._api.bases.JobBase):
         node_packing_count: Maximum number of concurrent runs per node.
         wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
         app_id:             App ID
+        app_name:           App Class Name
+        site_path:          Site Path Substring
         parent_ids:         Set of parent Job IDs (dependencies).
         transfers:          TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
         """
@@ -615,7 +629,6 @@ class JobManager(balsam._api.bases.JobManagerBase):
     def create(
         self,
         workdir: pathlib.Path,
-        app_id: int,
         tags: Optional[typing.Dict[str, str]] = None,
         parameters: Optional[typing.Dict[str, str]] = None,
         data: Optional[typing.Dict[str, typing.Any]] = None,
@@ -628,8 +641,11 @@ class JobManager(balsam._api.bases.JobManagerBase):
         gpus_per_rank: float = 0,
         node_packing_count: int = 1,
         wall_time_min: int = 0,
+        app_id: Optional[int] = None,
+        app_name: Optional[str] = None,
+        site_path: Optional[str] = None,
         parent_ids: typing.Set[int] = set(),
-        transfers: Optional[typing.Dict[str, balsam.schemas.job.JobTransferItem]] = None,
+        transfers: Optional[typing.Dict[str, typing.Union[str, balsam.schemas.job.JobTransferItem]]] = None,
     ) -> Job:
         """
         Create a new Job object and save it to the API in one step.
@@ -648,6 +664,8 @@ class JobManager(balsam._api.bases.JobManagerBase):
         node_packing_count: Maximum number of concurrent runs per node.
         wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
         app_id:             App ID
+        app_name:           App Class Name
+        site_path:          Site Path Substring
         parent_ids:         Set of parent Job IDs (dependencies).
         transfers:          TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
         """

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union
 
 from pydantic import BaseModel, Field, validator
 
@@ -99,6 +99,35 @@ class JobCreate(JobBase):
         },
         description="TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.",
     )
+
+
+class ClientJobCreate(JobBase):
+    app_id: Optional[int] = Field(None, example=123, description="App ID")
+    app_name: Optional[str] = Field(None, example="demo.Hello", description="App Class Name")
+    site_path: Optional[str] = Field(None, example="my-polaris-site", description="Site Path Substring")
+    parent_ids: Set[int] = Field(set(), example={2, 3}, description="Set of parent Job IDs (dependencies).")
+    transfers: Dict[str, Union[str, JobTransferItem]] = Field(
+        {},
+        example={
+            "input_file": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/input.dat",
+            },
+            "input_file2": "APS_DTN:/path/to/inp2.dat",
+        },
+        description="TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.",
+    )
+
+    @validator("transfers")
+    def validate_transfers(cls, transfers: Dict[str, Union[str, JobTransferItem]]) -> Dict[str, JobTransferItem]:
+        validated = {}
+        for key, val in transfers.items():
+            if isinstance(val, str):
+                location_alias, path = val.split(":", 1)
+                validated[key] = JobTransferItem(location_alias=location_alias, path=path)
+            else:
+                validated[key] = val
+        return validated
 
 
 class JobUpdate(JobBase):
