@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev a005243]
+# [git rev b119d68]
 # Do *not* make changes to the API by changing this file!
 
 import datetime

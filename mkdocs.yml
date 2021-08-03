@@ -1,4 +1,5 @@
 site_name: Balsam
+site_url: https://balsam.readthedocs.io/en/latest/
 nav:
   - Home: README.md
   - Tutorials:

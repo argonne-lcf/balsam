@@ -111,7 +111,8 @@ class JobBase(CreatableBalsamModel):
     _update_model_cls = schemas.JobUpdate
     _read_model_cls = schemas.JobOut
 
-    _app_id_cache: Dict[Tuple[str, str], int] = {}
+    _app_cache: Dict[Tuple[str, str], "App"] = {}
+    _app_id_cache: Dict[int, "App"] = {}
 
     objects: "JobManager"
     workdir: Field[Path]
@@ -126,7 +127,8 @@ class JobBase(CreatableBalsamModel):
             if not app_name:
                 raise ValueError("Cannot create a Job without `app_id` or `app_name`")
             try:
-                kwargs["app_id"] = self.fetch_app_id(app_name=app_name, site_path=site_path)
+                app = self._fetch_app_by_name(app_name=app_name, site_path=site_path)
+                kwargs["app_id"] = app.id
             except CreatableBalsamModel.MultipleObjectsReturned:
                 raise ValueError(
                     f"You have more than one App named '{app_name}'.  Please provide a more specific `site_path`."
@@ -135,15 +137,34 @@ class JobBase(CreatableBalsamModel):
                 raise ValueError(f"Could not find any App named '{app_name}'")
         return super().__init__(_api_data=_api_data, **kwargs)
 
-    def fetch_app_id(self, app_name: str, site_path: str) -> int:
+    def _fetch_app_by_name(self, app_name: str, site_path: str) -> "App":
         app_key = (site_path, app_name)
-        if app_key not in JobBase._app_id_cache:
+        if app_key not in JobBase._app_cache:
             AppManager = self.objects._client.App.objects
             logger.debug(f"App Cache miss: fetching app {app_key}")
             app = AppManager.get(site_path=site_path, class_path=app_name)
-            assert isinstance(app.id, int)
-            JobBase._app_id_cache[app_key] = app.id
-        return JobBase._app_id_cache[app_key]
+            assert app.id is not None
+            JobBase._app_cache[app_key] = app
+            JobBase._app_id_cache[app.id] = app
+        return JobBase._app_cache[app_key]
+
+    def _fetch_app_by_id(self) -> "App":
+        if self.app_id is None:
+            raise ValueError("Cannot fetch by app ID; is None")
+        if self.app_id not in JobBase._app_id_cache:
+            AppManager = self.objects._client.App.objects
+            logger.debug(f"App Cache miss: fetching app {self.app_id}")
+            app = AppManager.get(id=self.app_id)
+            JobBase._app_id_cache[self.app_id] = app
+        return JobBase._app_id_cache[self.app_id]
+
+    @property
+    def app(self) -> "App":
+        return self._fetch_app_by_id()
+
+    @property
+    def site_id(self) -> int:
+        return self._fetch_app_by_id().site_id
 
     def resolve_workdir(self, data_path: Path) -> Path:
         return data_path.joinpath(self.workdir)

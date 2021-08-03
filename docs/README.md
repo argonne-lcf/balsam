@@ -4,28 +4,50 @@
 
 A unified platform to manage high-throughput workflows across the HPC landscape.
 
-Create Balsam Sites on any laptop, cluster, or supercomputer. 
-The Balsam service provides a central API for you to submit tasks to these sites from anywhere.
+**Run Balsam Sites on any laptop, cluster, or supercomputer.**
+
+```console
+$ pip install --pre balsam-flow 
+$ balsam login
+$ balsam site init my-site
+```
+
+**Declare HPC Apps and execution lifecycle hooks.**
 
 ```python
-from balsam.api import App, Job, BatchJob
+# my-site/apps/demo.py
+from balsam.site import ApplicationDefinition
 
-# Add 10 fibonacci tasks
-fibo_app = App.objects.get(class_path="demo.fibonacci")
+class Hello(ApplicationDefinition):
+    command_template = "echo hello {{ name }}"
+
+    def preprocess(self):
+        print("Preprocessing!")
+        self.job.state = "PREPROCESSED"
+```
+
+**Run Apps from anywhere, using the unified Balsam service.**
+
+```python
+# On any other machine with internet access...
+from balsam.api import Job, BatchJob
+
+# Submit 10 demo.Hello Jobs to run at my-site
 jobs = [
     Job(
-        app_id=fibo_app.id,
-        workdir=f"demo-sweep/{n}",
-        parameters={"N": n},
+        site_path="my-site",
+        app_name="demo.Hello",
+        workdir=f"test/{n}",
+        parameters={"name": f"world {n} out of 10!"},
     )
     for n in range(10)
 ]
 Job.objects.bulk_create(jobs)
 
-# Request 2 nodes for 10 minutes at the corresponding Site
+# Request 1 compute node at my-site for 10 minutes
 BatchJob.objects.create(
-    site_id=fibo_app.site_id,
-    num_nodes=2,
+    site_id=jobs[0].site_id,
+    num_nodes=1,
     wall_time_min=10,
     job_mode="serial",
     project="datascience",
@@ -45,38 +67,4 @@ BatchJob.objects.create(
 * Monitoring APIs: query recent task failures, node utilization, or throughput
 * Portable: [easy to install on several HPC systems](user-guide/installation.md) and easily adaptable to others.
 
-## Quick Start
 
-Add Balsam to any Python environment with `pip`:
-
-```bash
-# Use --pre to get the Balsam0.6 pre-release
-$ pip install --pre balsam-flow 
-```
-
-Login to the Balsam API service:
-```bash
-$ balsam login
-```
-
-Now register your first Balsam site:
-```bash
-$ balsam site init my-site
-cd my-site
-balsam site start
-```
-
-This creates a directory `my-site/` serving as a project space in which you can define applications and manage
-workflows remotely.
-
-
-
-## To view the docs in your browser:
-
-Navigate to top-level balsam directory (where `mkdocs.yml` is located) and run:
-```
-mkdocs serve
-```
-
-Follow the link to the documentation. Docs are markdown files in the `balsam/docs` subdirectory and can be edited 
-on-the-fly.  The changes will auto-refresh in the browser window.

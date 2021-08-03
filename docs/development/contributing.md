@@ -55,3 +55,12 @@ graph TD
     C -->|Two| E[Result 2]
 ```
 
+## To view the docs in your browser:
+
+Navigate to top-level balsam directory (where `mkdocs.yml` is located) and run:
+```
+mkdocs serve
+```
+
+Follow the link to the documentation. Docs are markdown files in the `balsam/docs` subdirectory and can be edited 
+on-the-fly.  The changes will auto-refresh in the browser window.
