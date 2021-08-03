@@ -61,14 +61,14 @@ def validate_parameters(parameters: List[str], app: "App") -> Dict[str, str]:
     return params
 
 
-def validate_transfers(transfer_args: List[str], app: "App") -> Dict[str, JobTransferItem]:
+def validate_transfers(transfer_args: List[str], app: "App") -> Dict[str, Union[str, JobTransferItem]]:
     transfers = validate_tags(None, None, transfer_args)
     all_transfers = set(app.transfers.keys())
     required_transfers = {k for k in all_transfers if app.transfers[k].required}
     provided = set(transfers.keys())
     validate_set(all_transfers, required_transfers, provided)
 
-    transfers_by_name = {}
+    transfers_by_name: Dict[str, Union[str, JobTransferItem]] = {}
     for name in transfers:
         try:
             loc, path = transfers[name].split(":")
