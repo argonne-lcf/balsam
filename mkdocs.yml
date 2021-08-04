@@ -6,16 +6,23 @@ nav:
     - ALCF-Theta Quickstart: tutorials/theta-quickstart.md
   - User Guide:
     - Installation: user-guide/installation.md
-    - Balsam Sites: user-guide/site-config.md
+    - Creating Balsam Sites: user-guide/site-config.md
     - Defining Apps: user-guide/appdef.md
+    - The Command Line: user-guide/cli.md
+    - Managing Jobs: user-guide/jobs.md
+    - The Python API: user-guide/api.md
+    - Scheduling Launchers: user-guide/batchjob.md
+    - Monitoring Workflows: user-guide/monitoring.md
+    - Auto Scaling: user-guide/elastic.md
+    - Data Transfers: user-guide/transfer.md
   - Developer Guide:
       - Instructions: development/contributing.md
       - Understanding Balsam: development/data-model.md
       - Project Layout: development/layout.md
-      - Porting Balsam: development/porting.md
+      - Porting to New Sites: development/porting.md
       - Integration Testing: development/testing.md
       - The Python REST Client: development/client.md
-  - Deployment Guide: development/deploy.md
+  - Admin Guide: development/deploy.md
   - License: LICENSE.md
 
 

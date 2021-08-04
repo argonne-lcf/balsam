@@ -4,7 +4,7 @@
 
 A unified platform to manage high-throughput workflows across the HPC landscape.
 
-**Run Balsam Sites on any laptop, cluster, or supercomputer.**
+**Run Balsam on any laptop, cluster, or supercomputer.**
 
 ```console
 $ pip install --pre balsam-flow 
@@ -15,45 +15,38 @@ $ balsam site init my-site
 **Declare HPC Apps and execution lifecycle hooks.**
 
 ```python
-# my-site/apps/demo.py
 from balsam.site import ApplicationDefinition
 
 class Hello(ApplicationDefinition):
     command_template = "echo hello {{ name }}"
 
-    def preprocess(self):
-        print("Preprocessing!")
-        self.job.state = "PREPROCESSED"
+    def handle_timeout(self):
+        self.job.state = "RESTART_READY"
 ```
 
 **Run Apps from anywhere, using the unified Balsam service.**
 
 ```python
-# On any other machine with internet access...
+# On any machine with internet access...
 from balsam.api import Job, BatchJob
 
-# Submit 10 demo.Hello Jobs to run at my-site
-jobs = [
-    Job(
-        site_path="my-site",
-        app_name="demo.Hello",
-        workdir=f"test/{n}",
-        parameters={"name": f"world {n} out of 10!"},
-    )
-    for n in range(10)
-]
-Job.objects.bulk_create(jobs)
+# Create Jobs:
+job = Job.objects.create(
+    site_path="my-site",
+    app_name="demo.Hello",
+    workdir="test/say-hello",
+    parameters={"name": "world!"},
+)
 
-# Request 1 compute node at my-site for 10 minutes
+# Or allocate resources:
 BatchJob.objects.create(
-    site_id=jobs[0].site_id,
+    site_id=job.site_id,
     num_nodes=1,
     wall_time_min=10,
     job_mode="serial",
     project="datascience",
     queue="debug-cache-quad",
 )
-
 ```
 
 ## Features
