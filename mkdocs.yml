@@ -17,7 +17,7 @@ nav:
       - Defining Applications: development/appdef.md
       - Web Client: development/web-client.md
       - Roadmap: development/todo.md
-  - Running a Balsam Server: development/deploy.md
+  - Deployment Guide: development/deploy.md
   - License: LICENSE.md
 
 
