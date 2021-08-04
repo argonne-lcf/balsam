@@ -1,51 +1,83 @@
-# Developer Guidelines
+# Contributing to Balsam
 
-## Porting to new HPC systems
+## Installing Balsam for Development
 
-To port Balsam to a new system, a developer should only need to 
-implement the following platform interfaces:
+For Balsam development and full-stack testing, there are some additional
+requirements which are not installed with standard `pip install -e .`
+Use `make install-dev` to install Balsam with the necessary dependencies.  Direct server dependencies (e.g. FastAPI) are pinned to help with reproducible deployments.
 
-- `platform/app_run`: Add AppRun subclass and list it in the __init__.py
-- `platform/compute_node`: Same for ComputeNode
-- `platform/scheduler`: Same for SchedulerInterface
+```
+git clone https://github.com/argonne-lcf/balsam.git
+cd balsam
 
-Then create a new default configuration folder for the Site under `balsam/config/defaults`.  This isn't strictly necessary (users can write their own config files) but it makes it very convenient for others to quickly spin up a Site with the interfaces you wrote.  
-
-You will need the following inside the default Site configuration directory:
-
-- `apps/__init__.py` (and other default apps therein)
-- `settings.yml` (Referencing the platform interfaces added above)
-- `job-template.sh`
-
-## Developer Installation
-
-```bash
-# Use a Python3.7+ environment
+# Set up Python3.7+ environment
 python3.8 -m venv env
 source env/bin/activate
 
-# Install with deployment/development dependencies:
+# Install with pinned deployment and dev dependencies:
 make install-dev
 
 # Set up pre-commit linting hooks:
 pre-commit install
 ```
 
-On commit, code will be auto-formatted with `isort` and `black` and linted with `flake8`.
-Linting errors will cause the commit to fail and point to errors.
+## Writing code
 
-Contributors may also run the following to re-format, lint, type-check, and test the code:
+Balsam relies on several tools for consistent code formatting, linting, and type checking.  These are automatically run on each `git commit` when the `pre-commit install` has been used to install the pre-commit hooks. 
+
+Otherwise, you should manually perform these actions before pushing new code or making pull requests.  Otherwise, the CI is likely to fail:
 
 ```bash
 $ make format
+$ make lint
+$ make mypy
+```
+
+If you have made any changes to the Balsam API schemas (in `balsam/schemas/`) or the REST query parameters (in `balsam/server/routers/filters.py`), you must re-generate the client Python library:
+
+```bash
+$ make generate-api
+```
+
+This runs the `balsam/schemas/api_generator.py` to re-generate the `balsam/_api/models.py` file.  You should not edit this file by hand.
+
+## Testing Locally
+
+To run tests locally, be sure that `BALSAM_TEST_DB_URL` points to an appropriate PostgreSQL testing database (the default value of `postgresql://postgres@localhost:5432/balsam-test` assumes running a DB named `balsam-test` on localhost port 5432 as the `postgres` database user without a password.)
+
+The testing commands rely on `pytest` and can be gleaned from the Makefile.  To run all of the tests, simply use:
+
+```bash
 $ make all
 ```
 
-Please run these steps before making pull requests.
+If you are developing with the Docker container and have a running service, you can simply execute test commands inside the running Balsam web container (named `gunicorn` by default). A shortcut for this is:
 
+```bash
+$ make test-container
+```
 
-## Creating diagrams in markdown
-Refer to [mermaid.js](https://mermaid-js.github.io/mermaid/#/) for examples on graphs, flowcharts, sequence diagrams, class diagrams, state diagrams, etc...
+## CI Workflows
+
+Currently, the following processes run in Github Actions whenever code is pushed to `main` or on new pull requests:
+1. Build `mkdocs` documentation
+2. Run linting, formatting, and `mypy` type checks
+3. Run tests against Python3.7, 3.8, and 3.9
+
+Additionally, when new code is pushed or merged to `main`, the official Docker container is rebuilt and published on Docker Hub.  These Github Actions are defined and maintained within the `.github/` directory.
+
+## Viewing and Writing Documentation
+
+To view the docs locally while you edit them, navigate to top-level balsam directory (where `mkdocs.yml` is located) and run:
+
+```bash
+$ mkdocs serve
+```
+
+Follow the link to the documentation. Docs are markdown files in the `balsam/docs` subdirectory and can be edited 
+on-the-fly.  The changes will auto-refresh in the browser window.
+
+You can follow [mermaid.js](https://mermaid-js.github.io/mermaid/#/) examples to create graphs, flowcharts, sequence diagrams, class diagrams, state diagrams, etc... within the Markdown files.  For example:
 
 ```mermaid
 graph TD
@@ -54,13 +86,3 @@ graph TD
     C -->|One| D[Result 1]
     C -->|Two| E[Result 2]
 ```
-
-## To view the docs in your browser:
-
-Navigate to top-level balsam directory (where `mkdocs.yml` is located) and run:
-```
-mkdocs serve
-```
-
-Follow the link to the documentation. Docs are markdown files in the `balsam/docs` subdirectory and can be edited 
-on-the-fly.  The changes will auto-refresh in the browser window.

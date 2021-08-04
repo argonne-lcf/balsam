@@ -8,7 +8,7 @@ With a suitable Python environment, Balsam can be installed with `pip`:
 $ pip install --pre balsam-flow 
 ```
 
-Balsam developers or service administrators should instead follow the [developer installation instructions](../development/installation.md).
+Balsam developers or service administrators should instead follow the [developer installation instructions](../development/contributing.md).
 
 ## Theta-KNL (ALCF)
 
