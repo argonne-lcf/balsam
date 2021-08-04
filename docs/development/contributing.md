@@ -86,3 +86,18 @@ graph TD
     C -->|One| D[Result 1]
     C -->|Two| E[Result 2]
 ```
+
+## Release checklist
+
+1. Start with code in a state that is passing all CI Tests (green checkmark in Github Actions)
+2. Double check `make all`: all tests passing locally
+3. Update the `__version__` attribute in `balsam/__init__.py`
+4. Make a new release commit on the `main` branch with the updated version.
+5. Tag the commit: `git tag $VERSION`
+6. Push the release commit: `git push`
+7. Push the tags: `git push --tags`
+8. Update the PyPA `build` and `pip` tools: `pip install --upgrade build pip twine`
+9. If it exists, clean up any old distributions: `rm -r dist/`
+10. Build the latest Balsam distribution: `python -m build`
+11. Check the builds: `python -m twine check dist/*` and ensure both the `.whl` and `.tar.gz` have `PASSED`
+12. Publish to PyPI: `python -m twine upload dist/*` (This will require having the PyPI credentials stored locally)
