@@ -12,52 +12,40 @@ This subpackage is the fully self-contained codebase for the API server, impleme
 
 ## `balsam.client`
 
-This package defines the `RESTClient` interface which forms the basis for all API interactions from the rest of Balsam. The implementations capture the details of authentication to the Balsam API and performing HTTP requests.
+This package defines the low-level `RESTClient` interface used by all the Balsam Python clients.  
+The implementations capture the details of authentication to the Balsam API and performing HTTP requests.
 
 ## `balsam._api`
 
-Whereas the `RESTClient` provides a lower-level interface rooted in exchanging JSON data over HTTP, the `balsam._api` defines Django ORM-like `Models` and `Managers` to emulate the original Balsam API:
+Whereas the `RESTClient` provides a lower-level interface (exchanging JSON data over HTTP),
+the `balsam._api` defines Django ORM-like `Models` and `Managers` to emulate the original Balsam API:
 
 ```python3
-from balsam.config import SiteConfig
+from balsam.api import Job
 
-conf = SiteConfig()
-current_site_id = conf.site_id
-App = conf.client.App
-
-my_apps = App.objects.filter(site_id=current_site_id)
+finished_jobs = Job.objects.filter(state="JOB_FINISHED")
 ```
 
-This user-facing API is accessed via the `client` (a `RESTClient` instance) located in the `SiteConfig`. Rather than using the `RESTClient` directly, users obtain handles to the model classes:
-
-- `client.Site`
-- `client.App`
-- `client.Job`
-- `client.BatchJob`
-- `client.TransferItem`
-- `client.EventLog`
-
-Each of these Model classes subclasses the `BalsamModel` base class. The permitted model fields and their types are auto-generated from the schema in `balsam.schemas` (see below). A `Manager` instance named `objects` on each Model class is used to build queries and access the API via the `client`.
+This is the primary user-facing API.  Under the hood, it uses a `RESTClient` implementation  from the `balsam.client` subpackage to actually make HTTP requests.
 
 ## `balsam.schemas`
 
-[Pydantic](https://pydantic-docs.helpmanual.io/) is used to define the data structures of the above models and perform validation on the data. The schemas under `balsam.schemas` are used _both_ by the user-facing `balsam._api` classes and the backend `balsam.server.routers` API. Thus when an update to the schema is made, both the client and server-side code inherit the change.
+[Pydantic](https://pydantic-docs.helpmanual.io/) is used to define the API data structures and perform validation. The schemas under `balsam.schemas` are used _both_ by the user-facing `balsam._api` classes and the backend `balsam.server.routers` API. Thus when an update to the schema is made, both the client and server-side code inherit the change.
 
 ## `balsam.platform`
 
-The `platform` subpackage contains all the _platform-specific_ interfaces to various HPC systems. The goal of this architecture is to make porting Balsam to new HPC systems easier: a developer should **only** have to write minimal interface code under `balsam.platform` and add an appropriate default configuration under `balsam.config.defaults`.
+The `platform` subpackage contains all the **platform-specific** interfaces to various HPC systems.
+The goal of this architecture is to make porting Balsam to new HPC systems easier: a developer
+should **only** have to write minimal interface code under `balsam.platform` (with an appropriate
+off-the-shelf config file in `balsam.config.defaults`).
+
+Here is a summary of the key Balsam platform interfaces:
 
 ### `AppRun`
 
-This is the Balsam-wide application launch interface which is used by the Balsam launcher (pilot job) components. It encapsulates the full lifecycle of running a shell command on a system:
-
-- Setting up environment
-- Setting working directory and output file
-- Specifying compute resources
-- Running command and monitoring the process
-- Facilities to terminate process/check output/return code
-
-`AppRun` implementations may use a subprocess to manage an `mpirun` (or equivalent) command, run a local subprocess, or do something entirely different that does not involve a subprocess at all.
+This is the application launcher (`mpirun`, `aprun`, `jsrun`) interface used by the Balsam launcher (pilot job). 
+It encapsulates the environment, workdir, output streams, compute resource specification (such as MPI ranks and GPUs), and the running process.
+`AppRun` implementations may or may not use a subprocess implementation to invoke the run.
 
 ### `ComputeNode`
 
@@ -73,9 +61,11 @@ The Balsam Site uses this interface to submit new transfer tasks and poll on the
 
 ## `balsam.config`
 
-Unlike the previous Balsam, where a minimal global configuration was stored in the home directory (`~/.balsam`), here a comprehensive YAML configuration file is stored for each Balsam Site in the Site directory as `settings.yml`. This improves isolation when multiple systems share a home file system, and enables flexible configuration of Site behavior _per-project_.
+A comprehensive configuration is stored in each Balsam Site as `settings.yml`.
+This *per-site* config improves isolation between sites, and enables more flexible configs when multiple sites share a filesystem.
 
-The Settings are also described by a Pydantic schema, which is used to validate the YAML file every time it is loaded. The loaded settings are stored in a `SiteConfig` instance, which provides a handle to many related Site-level entities (e.g. the `client`, the Job working directories) and administrative functions (e.g. bootstrapping a new `Site`).
+The Settings are also described by a Pydantic schema, which is used to validate the YAML file every time it is loaded.
+The loaded settings are stored in a `SiteConfig` object, defined within this subpackage.
 
 ## `balsam.site`
 
