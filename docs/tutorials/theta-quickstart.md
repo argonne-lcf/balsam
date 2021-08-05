@@ -1,174 +1,188 @@
-# Running on Theta
+# Getting started
 
-## Installation
+This tutorial gets you up and running with a new Balsam Site quickly.
+Although the examples refer to the Theta-KNL system a few times, Balsam is
+highly platform-agnostic, and you can follow along easily on any of the currently
+supported systems:
 
-First create a new virtualenv and install it on Balsam:
+- Theta-KNL
+- Theta-GPU
+- Cooley
+- Cori (Haswell or KNL partitions)
+- Summit
+- A local MacOS or Linux system
 
-```
-$ /soft/datascience/create_env.sh my-env # Or do it yourself
+## Install
+
+First create a new virtualenv and install Balsam:
+
+```bash
+$ /soft/datascience/create_env.sh my-env # Or DIY
 $ source my-env/bin/activate
-$ git clone https://github.com/argonne-lcf/balsam.git
-$ cd balsam/
-$ git checkout develop
-$ pip install -e .
+$ pip install --pre balsam-flow
 ```
 
 ## Log In 
 
-Now you will need to create a Balsam user account and log in.  Logging in fetches an access token
-that is used to identify you in subsequent API interactions, until the token expires and you have to log in again.
-```
-$ balsam register
-Balsam server address: http://generic-01:8000
-# Set your own username and password
-# Use a "throwaway" password since it's transmitted over plaintext for now
+Now that the `balsam` command line tool is installed, you need to log in. 
+Logging in fetches an access token that is used to identify you 
+in all future API interactions, until the token expires and you have to log in again.
 
-$ balsam login
-# Follow the prompts to log into http://generic-01:8000
-# With the credentials you used to register
+```bash
+$ balsam login https://balsam-dev.alcf.anl.gov
+# Follow the prompt to authenticate
 ```
 
+Once you are logged in, you can create a Balsam Site for job execution, or send jobs to any of your other existing Sites.
 
-## Create a Balsam site
 
-While the database is centrally located on the `generic-01` host and shared, users will still 
-create their own directories where Jobs run.  Each Balsam execution directory is called a **Site**. 
-A User can own many **Sites** across different HPC systems, or even have **Sites** configured on their laptop.
+## Create a Balsam Site
 
-Instead of creating a database with `balsam init`, we will create our first Balsam **Site** as follows:
+All Balsam workflows are namespaced under **Sites**: self-contained project
+spaces belonging to individual users. You can use Balsam to manage
+Sites across one or several HPC systems from a single command line interface (or Python script).
 
-```
-$ export BALSAM_LOG_LEVEL=WARNING   # to avoid excessive logs on the CLI for now
-$ balsam site init my-site
+Let's start by creating a Balsam site in a folder named `./my-site`:
+
+```bash
+$ balsam site init ./my-site
 # Select the default configuration for Theta-KNL
-$ cd my-site
+```
+
+The directory `my-site/` will be created and preconfigured for Theta-KNL.
+You can always check the `balsam site ls` command to list your Sites.
+
+```bash
 $ balsam site ls
-# You should see the details of the Site that was just created
+
+   ID         Hostname   Path                               Active
+   21      thetalogin4   .../projects/datascience/my-site   No 
 ```
 
 ## Set up your Apps
 
-Every `App` in Balsam is now fully-specified by an `ApplicationDefinition` class that you write.
-You can add Apps to modules in the Site `apps/` folder, with multiple apps per Python module file and multiple files.
-Every Site comes "pre-packaged" with some default Apps that Balsam developers have pre-configured for that particular HPC system.
+To run an application in Balsam, you must submit a **Job** that refers to a
+specific **App** registered at one of your Sites.  Every Site has its own
+colllection of Balsam Apps. A Balsam App is simply declared by writing an `ApplicationDefinition`
+class in a Python file located in the `apps/` folder inside your Site.
 
-You are to modify, delete, and add your own apps.  To make a new app, you can simply copy one of the existing `App` modules as a 
-starting point, or you can use the command line interface to generate a new template app:
+The simplest `ApplicationDefinition` is just a declaration of the application command line, with any adjustable parameters enclosed in double-curly braces:
 
+```python
+from balsam.site import ApplicationDefinition
+
+class Hello(ApplicationDefinition):
+    command_template = "echo Hello, {{ name }}!"
 ```
-$ balsam app create
-Application Name (of the form MODULE.CLASS): test.Hello
-Application Template [e.g. 'echo Hello {{ name }}!']: echo hello {{ name }} && sleep {{ sleeptime }} && echo goodbye
-```
 
-Now open `apps/test.py` and see the `Hello` class that was generated for you.  The allowed parameters for this App are given in 
-double curly braces: `{{ name }}` and `{{ sleeptime }}`.  When you add `test.Hello` jobs, you will have to pass these two parameters 
-and Balsam will take care of building the command line.  
+In fact, you'll find this "Hello, world" example already written in the `apps/demo.py` file of your new Site!   Feel free to add more `ApplicationDefinitions` to `demo.py`, or create additional Python files with their own `ApplicationDefinitions`.  Whenever your Apps change, just run:
 
-The other components of an App are also defined directly on the `ApplicationDefinition` class, rather than in other files:
-
-- `preprocess()` will run on Jobs immediately before `RUNNING`
-- `postprocess()` will run on Jobs immediately after `RUN_DONE`
-- `shell_preamble()` takes the place of the `envscript`: return a multiline string envscript or a `list` of commands
-- `handle_timeout()` will run immediately after `RUN_TIMEOUT`
-- `handle_error()` will run immediately after `RUN_ERROR`
-
-Whenever you have changed your `apps/` directory, you need to inform the API about the changes.  All it takes is a single command
-to sync up:
-```
+```bash
 $ balsam app sync
-$ balsam app ls
-# Now you should see your newly-created App show up
 ```
 
-Note that the API does not store *anything* about the `ApplicationDefinition` classes other than the class name and some metadata
-about allowed parameters, allowed data transfers, etc...  What actually runs at the Site is determined entirely from the class
-on the local filesystem.
+Your can use the CLI to get a listing of all Apps defined across all your Sites:
+
+```bash
+$ balsam app ls --site=all
+
+   ID            ClassPath   Site                
+   56           demo.Hello   thetalogin4:.../projects/datascience/my-site
+```
+
 
 ## Add Jobs
 
-To create jobs from the CLI:
-```
-# Get help:
-$ balsam job --help
-$ balsam job create --help
-
-# Create a couple jobs:
-$ balsam job create --app test.Hello --workdir test/1 --param name="world" --param sleeptime=2
-$ balsam job create --app test.Hello --workdir test/2 --param name="balsam" --param sleeptime=1
+To create a Balsam Job from the CLI, you must provide the app name and working directory,
+along with any parameters required by the command template:
+```bash
+$ balsam job create --app demo.Hello --workdir test/1 --param name="world"
 ```
 
-To create jobs from the Python API:
+There are many additional CLI options in job creation, which can be summarized with `balsam job create --help`.
+More often, when you need to create a large number of related Jobs, the Python API is 
+the best option:
 
 ```python
-from balsam.api import Job, App, site_config
+from balsam.api import Job
  
-hello_app = App.objects.get(site_id=site_config.site_id, class_path="test.Hello")
 for i in range(10):
-    job = Job(
-        f"test-api/{i}", 
-        app_id=hello_app.id, 
-        parameters={"name": "testing!", "sleeptime": "3"},
-        node_packing_count=16,
+    Job.objects.create(
+        site_path="my-site",
+        app_name="demo.Hello",
+        workdir=f"test-api/{i}", 
+        parameters={"name": f"world {i}"},
+        node_packing_count=10,
     )
-    job.save()
 ```
 
 Your jobs can be viewed from the CLI:
 ```
 $ balsam job ls
+
+ID       Site                  App          Workdir   State       Tags  
+267280   thetalogin4:my-site   demo.Hello   test/2    STAGED_IN   {}    
+267279   thetalogin4:my-site   demo.Hello   test/1    STAGED_IN   {} 
 ```
 
 ## Running the Site
 
-Any Balsam CLI or API interaction that you perform, other than the ones that bootstrap
-a new Site, does not affect the HPC system directly.  Instead, a daemon running on your
-behalf at the Balsam Site **pulls** state changes from the API and applies that state within
-the local Site environment.
+Thus far, we've only interacted with the Balsam web service via the CLI or Python.
+So how does anything actually run on the HPC system?
+To start, **you have to turn the Site on**:
 
-```mermaid
-sequenceDiagram
-    User->>API:  `balsam queue submit`
-    API-->>User:  OK
-    Site->>API:  Have any new BatchJobs for me?
-    API-->>Site:  Yes, here is one
-    Site->>Cobalt:  `qsub` this BatchJob
-    Cobalt-->>Site:  New Cobalt Job ID
-    Site->>API:  Update BatchJob with Cobalt Job ID
-    API-->>Site:  OK
-    User->>API:  `balsam queue ls`
-    API-->>User:  Updated BatchJob
-
-```
-
-For instance, commands like `balsam queue submit` will not actually do
-anything with the queue if the Site is not running: they just update the
-central API. To start the Site:
-
-```
+```bash
+$ cd my-site
 $ balsam site start
 ```
 
-The Site will run in the background, sync with API, perform qsub/qstat, initiate data transfers,
-and pre/post-process  jobs.  It can eventually be stopped with:
+With this command, the Site runs an agent on your behalf.  The agent runs
+persistently in the background, using
+your access token to sync with the
+Balsam backend and orchestrate workflows locally. 
 
-```
+You may need to restart the Site when the system is rebooted or otherwise goes down
+for maintenance.  You can always stop the Site yourself:
+
+```bash
 $ balsam site stop
 ```
 
-## Submitting a Job
+## Queueing a BatchJob
 
-Now we can submit a BatchJob via the API and watch it appear in Cobalt:
+A key concept in Balsam is that **Jobs** only specify *what* to run, and you must
+create **BatchJobs** to provision the resources that actually *execute* your jobs.
 
-```
+This way, your workflow definitions are neatly separated from the
+concern of what allocation they run on.  You create a collection of Jobs first,
+and then many of these Jobs can run inside one (or more) BatchJobs.
+
+BatchJobs will *automatically* run as many Jobs as they can at their Site.  You can simply
+queue up one or several BatchJobs and let them divide and conquer your workload. 
+
+```bash
+# Substitute -q QUEUE and -A ALLOCATION for your project:
 $ balsam queue submit -q debug-cache-quad -A datascience -n 1 -t 10 -j mpi 
-$ watch "qstat -u $USER && balsam queue ls"
 ```
 
-When the BatchJob starts, an MPI mode launcher should run the jobs.  You will see (copious) logs in the `logs/`  directory showing what's going on.  Track the Job statuses with:
+After running this command, the Site agent will soon detect the new BatchJob, and 
+*synchronize* the local state by making a pilot job submission to the local resource manager (e.g. via `qsub`). 
+You can verify that the allocation was actually created by checking with the local resource manager (e.g.  `qstat`) or by checking with Balsam:
+
+```bash
+$ balsam queue ls
+```
+
+When the BatchJob starts, an MPI mode launcher pilot job will run your jobs. You will see (copious) logs in the `logs/`  directory showing what's going on.  Follow the Job statuses with `balsam job ls`:
 
 ```
 $ balsam job ls
+
+ID       Site                  App          Workdir   State          Tags  
+267280   thetalogin4:my-site   demo.Hello   test/2    JOB_FINISHED   {}    
+267279   thetalogin4:my-site   demo.Hello   test/1    JOB_FINISHED   {} 
 ```
 
-All of the workdirs that are created will be visible  under the `data/` directory.
+Each job runs in the `workdir` that we specified, located relative to the Site's
+`data/` directory.  You will find the "Hello world" job outputs in `job.out`
+files therein.

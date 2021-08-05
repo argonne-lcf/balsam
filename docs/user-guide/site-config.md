@@ -1,5 +1,36 @@
 # Site Configuration
 
+Any Balsam CLI or API interaction that you perform, other than the ones that bootstrap
+a new Site, does not affect the HPC system directly.  Instead, a daemon running on your
+behalf at the Balsam Site **pulls** state changes from the API and applies that state within
+the local Site environment.
+
+The Site runs an agent on your behalf.  The agent runs
+persistently in the background, using
+your access token to sync with the
+Balsam backend and orchestrate workflows locally. This orchestration is divided among
+several Site modules such as the `SchedulerPlugin`, `TransferPlugin`, and `ElasticQueuePlugin`. 
+
+
+```mermaid
+sequenceDiagram
+    User->>API:  `balsam queue submit`
+    API-->>User:  OK
+    Site->>API:  Have any new BatchJobs for me?
+    API-->>Site:  Yes, here is one
+    Site->>Cobalt:  `qsub` this BatchJob
+    Cobalt-->>Site:  New Cobalt Job ID
+    Site->>API:  Update BatchJob with Cobalt Job ID
+    API-->>Site:  OK
+    User->>API:  `balsam queue ls`
+    API-->>User:  Updated BatchJob
+
+```
+
+For instance, commands like `balsam queue submit` will not actually do
+anything with the queue if the Site is not running: they just update the
+central API. To start the Site:
+
 ## The API Client configuration
 
 The `balsam login` command updates API client configuration data in the

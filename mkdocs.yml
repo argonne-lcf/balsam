@@ -3,7 +3,7 @@ site_url: https://balsam.readthedocs.io/en/latest/
 nav:
   - Home: README.md
   - Tutorials:
-    - ALCF-Theta Quickstart: tutorials/theta-quickstart.md
+    - Getting Started: tutorials/theta-quickstart.md
   - User Guide:
     - Installation: user-guide/installation.md
     - Creating Balsam Sites: user-guide/site-config.md
@@ -49,6 +49,9 @@ markdown_extensions:
           - name: mermaid
             class: mermaid
             format: !!python/name:pymdownx.superfences.fence_div_format
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
 
 extra_css: 
   - extra.css
