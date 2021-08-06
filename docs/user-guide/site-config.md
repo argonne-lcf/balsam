@@ -103,22 +103,54 @@ scheduler:
 
 ## Customizing the Settings
 
-There are many settings:  
+There are numerous adjustable parameters in `settings.yml` that control how the
+Site runs and processes your workflows.  The default values are designed to work
+on the chosen platform *as-is*, but users are encouraged to read the comments
+and modify `settings.yml` to suit their own needs.  
 
-  - `allowed_projects` lets the API know about projects that the Site may submit to
-  - `allowed_queues` lets the API know about the local queue policy
-  - `transfer_locations` lets the API know about remote Globus endpoints
-    or scp addresses that the Site is willing to stage data in/out from
-  - `globus_endpoint_id` sets a local Globus endpoint ID for the Site
-  - `optional_batch_job_params` lets the API know about "pass-through" parameters that the Job template
-     will accept in submitting a BatchJob
+!!! note
+    Be sure to run `balsam site sync` to apply any changes to the Site agent!
 
+We highlight just a few of the important settings you may want to adjust:
+
+  - `logging.level`: Change the verbosity to get more or less diagnostics from Balsam  in your `log/` directory.
+  - `launcher.idle_ttl_sec`:  controls how long the pilot job should stay alive before quitting when nothing is running.  You might turn this up if you are debugging and want to *hold on* to resources.
+  - `scheduler.allowed_projects`: lists the projects/allocations that the Site may submit to.  You need to update this to manage what allocations the Site may use.
+  - `scheduler.allowed_queues`: defines the queueing policies per-queue name.  If a special reservation or partition is created for your project or a workshop,  you will need to define that here.
+  - `processing.num_workers`: controls the number of simultaneous processes handling your Jobs' pre/post-processing workload.  If I/O-intensive preprocessing is a bottleneck, you can turn this value up.
+  - `transfers.transfer_locations`: lets Balsam know about remote Globus endpoints
+    that the Site may stage data in/out from
+  - `elastic_queue`: controls automated queue submissions by defining the granularity and flexibility of resource requests.  This is disabled by default and must be configured on an as-needed basis (see the [Auto Scaling](./elastic.md) page for more information).
 
 ## The Site CLI
 
 ### Starting, Stopping, and Restarting Sites
 
+```bash
+# To start and stop the Site agent:
+$ balsam site start
+$ balsam site stop
+
+# Restart the Site agent and push relevant changes to the API:
+$ balsam site sync
+```
+
 ### Listing Sites
+
+The CLI is useful to get a quick listing of all the Sites you own:
+```bash
+# Summary of Sites:
+$ balsam site ls
+```
+
+The `Active` column indicates whether Sites have recently communicated with the
+API and are most likely up and running.  You can obtain much more detailed Site information (such as a listing of currently idle backfill windows at each Site) by
+including the `-v/--verbose` flag:
+
+```bash
+# Detailed Site data:
+$ balsam site ls -v
+```
 
 ## Why is there a delay in queue submission?
 Any Balsam CLI or Python API interaction (like running `balsam queue submit`),
