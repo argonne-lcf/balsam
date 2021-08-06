@@ -17,7 +17,7 @@ nav:
     - Data Transfers: user-guide/transfer.md
   - Developer Guide:
       - Instructions: development/contributing.md
-      - Understanding Balsam: development/data-model.md
+      - Understanding the Data Model: development/data-model.md
       - Project Layout: development/layout.md
       - Porting to New Sites: development/porting.md
       - Integration Testing: development/testing.md

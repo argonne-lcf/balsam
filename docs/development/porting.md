@@ -1,25 +1,33 @@
 # Porting Balsam to new HPC Sites
 
-To port Balsam to a new system, a developer should only need to 
-implement the following platform interfaces:
+Porting Balsam to a new system requires minimal (or no) code.
+We simply need to provide an off-the-shelf **default configuration** that
+users of the system can bootstrap new Sites from. 
 
-- `platform/app_run`: Add an `AppRun` subclass and include it in the `__init__.py`
-- `platform/compute_node`: Same for `ComputeNode`
-- `platform/scheduler`: Same for `SchedulerInterface`
+## Select the Platform Interfaces
 
-A minimum of code is needed to support new batch schedulers (`SchedulerInterface`), compute node resources (`ComputeNode`), and MPI
-application launchers (`AppRun`).  Developers should find and adapt existing implementations for systems already supported.
+To port Balsam to a new system, one only needs to select *three* compatible interfaces:
 
-Next, create a new default configuration folder for the Site under `balsam/config/defaults`. 
-This isn't strictly necessary (users can write their own config files),
-but it makes it very convenient for others to quickly spin up a Site with the interfaces you wrote.
+1.  `AppRun`: The MPI application launcher class
+2.  `ComputeNode`: The node resource definition class
+3.  `SchedulerInterface`: The HPC resource manager (batch scheduler) class
 
-You will need the following inside the default Site configuration directory:
+Several interfaces are implemented in the respective platform directories:
+`platform/app_run`, `platform/compute_node`, and `platform/scheduler`.  If the
+interface to your system is missing, simply add a new subclass that copies the
+structure of an existing, related implementation.  In most cases, the necessary
+changes are minimal.  New interfaces should be included in the appropriate
+`__init__.py` for uniform accessibility.
+
+## Create a Default Configuration
+
+Create a new configuration folder for your platform under `balsam/config/defaults/`.
+Inside, you will need to add the following:
 
 - `apps/__init__.py` (and other default apps therein)
 - `settings.yml` (Referencing the platform interfaces added above)
 - `job-template.sh`
 
-The `job-template.sh` in particular must be written to be compatible with the form of batch job scripts
-submitted to the HPC resource manager. Any BatchJob-wide scheduler flags, module loads (e.g. to ensure that 
-internet access is available), should be present in the file.  The command containing the `{{ launcher_cmd }}` template should be copied as-is from existing job templates.  This is the line that will actually start the Balsam launcher.
+Again, the easiest way is to copy an example from one of the existing folders in `balsam/config/defaults/`.
+The `job-template.sh` is used to generate the shell scripts that are ultimately submitted to the HPC scheduler.
+This is where any necessary scheduler flags or `module load` statements can be added.

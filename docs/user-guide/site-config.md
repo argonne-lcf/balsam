@@ -1,16 +1,139 @@
-# Site Configuration
+# Balsam Sites
 
-Any Balsam CLI or API interaction that you perform, other than the ones that bootstrap
-a new Site, does not affect the HPC system directly.  Instead, a daemon running on your
-behalf at the Balsam Site **pulls** state changes from the API and applies that state within
-the local Site environment.
+## Sites have a single owner
+All Balsam workflows are namespaced under **Sites**, which are self-contained
+project directories managed by an autonomous user agent. There is no concept of
+sharing Balsam Sites with other users: **each Site has exactly one owner**, who is
+the sole user able to see the Site. Therefore, to create a
+new Site, you must be authenticated with Balsam:
 
-The Site runs an agent on your behalf.  The agent runs
-persistently in the background, using
-your access token to sync with the
-Balsam backend and orchestrate workflows locally. This orchestration is divided among
-several Site modules such as the `SchedulerPlugin`, `TransferPlugin`, and `ElasticQueuePlugin`. 
+```bash
+$ balsam login
+```
 
+## Creating a site
+
+To initialize a Balsam site, we use the CLI to select an appropriate **default configuration**
+for the current system.  Balsam creates a new Site directory and registers it with the REST API.
+
+```bash
+$ balsam site init SITE-PATH
+```
+
+The Site is populated with several folders and a bootstrapped configuration file `settings.yml`.
+
+![site-init](../img/balsam-init.gif)
+
+## The Site directory
+
+Each Balsam site has a regular structure comprising certain files and directories:
+
+- `apps/`:  This directory contains Python modules with `ApplicationDefinition` classes defining
+  the known applications in each Site.  You can freely extend the examples and create Jobs
+  to invoke these Apps.
+- `data/`:  Each Balsam Job runs in a subdirectory of `data/`.   The Job working directories
+  are specified *relative* to this folder via `job.workdir`.
+- `log/`:   The Site user agent and launcher pilot jobs send diagnostic messages
+here. Checking the logs is a great way to track exactly what is happening or
+what went wrong.
+- `qsubmit/`:  Balsam runs your apps inside of *launchers* which are
+submitted to the HPC batch scheduler via a shell script.  This directory
+contains each of the materialized scripts that was actually submitted to the batch queue.
+- `job-template.sh`:  This is the template for the  `qsubmit/` 
+scripts submitted to the HPC batch scheduler.
+- `settings.yml`:  This is where the majority of Balsam Site behavior is configured.  The file is populated with sensible defaults and heavily commented for you to read and modify.
+
+
+## Customizing the Job Template
+You can adapt the `job-template.sh` file to add custom scheduler flags, or to
+run code on your allocation before the pilot job starts.  Some examples of job
+template customization include:
+
+  - Adding scheduler-specific directives to the header of the shell script
+  - Configuring hardware (e.g. setting up MIG mode on GPUs)
+  - Staging data by copying files to node-local SSD's
+  - Loading modules or exporting global environment variables
+
+Feel free to add logic to the `job-template.sh` file as needed.  You can also maintain templates with
+different filenames, and point to the currently active job template by changing the `job_template_path` parameter in `settings.yml`.
+
+!!! note "Keep Template Variables Intact"
+    Any values enclosed in double-curly braces (`{{launcher_cmd}}`) are
+    variables provided to the template from Balsam.  Be sure to leave these
+    names intact when modifying the template!
+
+Whenever you change the job template or Site settings file, it is necessary to 
+reload the Site if it's already running:
+
+```bash
+$ balsam site sync
+```
+
+!!! warning
+    The `job-template.sh` and `settings.yml` are first loaded when the Site starts and stay in memory!  Therefore, any changes will **not** apply until you stop and restart the Site, using `balsam site stop` and `balsam site start` or `balsam site sync`.
+
+### Optional Template Variables
+Because templates are generated with [Jinja2](https://jinja.palletsprojects.com/en/3.0.x/), you
+can write custom templates leveraging variables, if-statements, for-loops,
+etc... referring to the Jinja2 template syntax.  You can define **optional
+parameters** exposed to the template by using the `optional_batch_job_params` key
+of `settings.yml`. This expects a dictionary mapping parameter **names** to **default string values**. 
+
+These "pass-through" parameters can then be provided as
+extras on the command line via `-x/--extra-param` flags.
+For instance, the ALCF-Theta job template supports a `singularity_prime_cache` option that allows you to enable this
+feature using `-x singularity_prime_cache=yes` on the `balsam queue submit`
+command.  Here's how that option is implemented:
+
+```yaml
+# In settings.yml
+scheduler:
+  optional_batch_job_params:
+      singularity_prime_cache: 'no'
+```
+
+```bash
+# In job-template.sh
+{% if optional_params.get("singularity_prime_cache") == 'yes' %}
+  # Prime LDAP for large-scale Singularity runs
+  aprun -N 1 -n $COBALT_JOBSIZE /soft/tools/prime-cache
+  sleep 10
+{% endif %}
+```
+
+## Customizing the Settings
+
+There are many settings:  
+
+  - `allowed_projects` lets the API know about projects that the Site may submit to
+  - `allowed_queues` lets the API know about the local queue policy
+  - `transfer_locations` lets the API know about remote Globus endpoints
+    or scp addresses that the Site is willing to stage data in/out from
+  - `globus_endpoint_id` sets a local Globus endpoint ID for the Site
+  - `optional_batch_job_params` lets the API know about "pass-through" parameters that the Job template
+     will accept in submitting a BatchJob
+
+
+## The Site CLI
+
+### Starting, Stopping, and Restarting Sites
+
+### Listing Sites
+
+## Why is there a delay in queue submission?
+Any Balsam CLI or Python API interaction (like running `balsam queue submit`),
+does not affect the HPC system directly. In fact, you're only manipulating resources in the REST API (creating a `BatchJob`). Eventually, the Site agent that runs in
+the background
+fetches state from the backend and performs local actions (run `sbatch` or `qsub`) to synchronize your Site with the central state.  
+
+This decoupled design, with all control flow routed through the central REST
+API, makes Balsam interactions completely uniform, whether you're running
+commands locally or remotely. For instance, you can provision resources on a
+remote supercomputer simply by specifying the `--site` on the command line:
+
+```bash
+$ balsam queue submit --site=my-site -n 1 -t 15 -q debug -A Project -j mpi
+```
 
 ```mermaid
 sequenceDiagram
@@ -26,44 +149,3 @@ sequenceDiagram
     API-->>User:  Updated BatchJob
 
 ```
-
-For instance, commands like `balsam queue submit` will not actually do
-anything with the queue if the Site is not running: they just update the
-central API. To start the Site:
-
-## The API Client configuration
-
-The `balsam login` command updates API client configuration data in the
-`~/.balsam/client.yml` file. This file contains a reference to a `Client` class and
-the configuration needed to instantiate a Client.
-All components of Balsam using the API then read from the client settings file upon
-initialization.
-
-## The Site configuration
-
-The behavior of each Balsam Site is largely controlled by the `settings.yml` file located in the
-Site directory. Upon initializing a new Site with the `balsam site init` command, a user is prompted
-to select from one of the pre-packaged default configurations.  Suitable example files are then
-copied into the `settings.yml` and `batchjob.tmpl` files. Additionally, pre-configured Balsam application
-modules are copied into the `apps/` subdirectory.
-
-Several fields in the Site configuration file or Job Template are sync'ed with the `Site` API:
-
-  - `allowed_projects` lets the API know about projects that the Site may submit to
-  - `allowed_queues` lets the API know about the local queue policy
-  - `transfer_locations` lets the API know about remote Globus endpoints
-    or scp addresses that the Site is willing to stage data in/out from
-  - `globus_endpoint_id` sets a local Globus endpoint ID for the Site
-  - `optional_batch_job_params` lets the API know about "pass-through" parameters that the Job template
-     will accept in submitting a BatchJob
-
-
-
-
-## Local configuration
-
-A Balsam Site is initialized with `balsam init`.
-
-Site settings for each launcher Job mode dictate whether multi-apps-per-node is supported and what is the max occupancy per node.
-
-## Global configuration
