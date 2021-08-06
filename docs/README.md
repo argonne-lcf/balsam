@@ -12,6 +12,8 @@ $ balsam login
 $ balsam site init my-site
 ```
 
+![site-init](./img/balsam-init.gif)
+
 **Declare HPC Apps and execution lifecycle hooks.**
 
 ```python
