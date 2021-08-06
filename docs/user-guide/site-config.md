@@ -131,7 +131,7 @@ We highlight just a few of the important settings you may want to adjust:
 $ balsam site start
 $ balsam site stop
 
-# Restart the Site agent and push relevant changes to the API:
+# Restart the Site agent and push settings changes to the API:
 $ balsam site sync
 ```
 
@@ -150,6 +150,20 @@ including the `-v/--verbose` flag:
 ```bash
 # Detailed Site data:
 $ balsam site ls -v
+```
+
+### Moving or Deleting Sites
+
+To **permanently** delete a Site and all associated workflows inside:
+
+```bash
+$ balsam site rm SITE-PATH
+```
+
+To **rename** a site or move it to a new directory:
+
+```bash
+$ balsam site mv SITE-PATH DESTINATION
 ```
 
 ## Why is there a delay in queue submission?
