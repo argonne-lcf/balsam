@@ -4,10 +4,11 @@ import random
 import time
 from json import JSONDecodeError
 from pprint import pformat
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
 
+from . import urls
 from .rest_base_client import RESTClient
 
 logger = logging.getLogger(__name__)
@@ -20,8 +21,25 @@ class NotAuthenticatedError(Exception):
 
 
 class RequestsClient(RESTClient):
+
+    _client_classes: "Dict[str, Type[RequestsClient]]" = {}
+
+    @staticmethod
+    def discover_supported_client(base_url: str) -> "RequestsClient":
+        url = base_url.rstrip("/") + "/" + urls.CHECK_LOGIN_FLOWS
+        auth_methods: List[str] = requests.get(url).json()
+
+        if "LoginMethod.oauth_device" in auth_methods:
+            cls = RequestsClient._client_classes["oauth_device"]
+        elif "LoginMethod.password" in auth_methods:
+            cls = RequestsClient._client_classes["password"]
+        else:
+            raise NotImplementedError(f"This client does not support the server's auth methods: {auth_methods}")
+
+        return cls(api_root=base_url)
+
     def __init__(
-        self, api_root: str, connect_timeout: float = 3.1, read_timeout: float = 60, retry_count: int = 3
+        self, api_root: str, connect_timeout: float = 3.1, read_timeout: float = 120.0, retry_count: int = 3
     ) -> None:
         self.api_root = api_root
         self.connect_timeout = connect_timeout

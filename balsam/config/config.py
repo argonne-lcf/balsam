@@ -14,7 +14,7 @@ import jinja2
 import yaml
 from pydantic import AnyUrl, BaseSettings, Field, ValidationError, validator
 
-from balsam.client import NotAuthenticatedError, RESTClient
+from balsam.client import NotAuthenticatedError, RequestsClient
 from balsam.platform.app_run import AppRun
 from balsam.platform.compute_node import ComputeNode
 from balsam.platform.scheduler import SchedulerInterface
@@ -60,20 +60,19 @@ def import_string(dotted_path: str) -> Any:
 
 class ClientSettings(BaseSettings):
     api_root: str
-    username: str
-    client_class: Type[RESTClient] = Field("balsam.client.BasicAuthRequestsClient")
+    client_class: Type[RequestsClient] = Field("balsam.client.BasicAuthRequestsClient")
     token: Optional[str] = None
     token_expiry: Optional[datetime] = None
     connect_timeout: float = 3.1
-    read_timeout: float = 5.0
+    read_timeout: float = 120.0
     retry_count: int = 3
 
     @validator("client_class", pre=True, always=True)
-    def load_client_class(cls, v: str) -> Type[RESTClient]:
+    def load_client_class(cls, v: str) -> Type[RequestsClient]:
         loaded = import_string(v) if isinstance(v, str) else v
-        if not issubclass(loaded, RESTClient):
-            raise TypeError(f"client_class must subclass {get_class_path(RESTClient)}")
-        return cast(Type[RESTClient], loaded)
+        if not issubclass(loaded, RequestsClient):
+            raise TypeError(f"client_class must subclass {get_class_path(RequestsClient)}")
+        return cast(Type[RequestsClient], loaded)
 
     @staticmethod
     def settings_path() -> Path:
@@ -110,7 +109,7 @@ class ClientSettings(BaseSettings):
         with open(settings_path, "w+") as fp:
             yaml.dump(data, fp, sort_keys=False, indent=4)
 
-    def build_client(self) -> RESTClient:
+    def build_client(self) -> RequestsClient:
         client = self.client_class(**self.dict(exclude={"client_class"}))
         return client
 
@@ -389,7 +388,7 @@ class SiteConfig:
         site_path: Union[str, Path],
         default_site_path: Path,
         hostname: Optional[str] = None,
-        client: Optional["RESTClient"] = None,
+        client: Optional["RequestsClient"] = None,
     ) -> "SiteConfig":
         """
         Creates a new site directory, registers Site

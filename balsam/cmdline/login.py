@@ -2,37 +2,43 @@ import getpass
 
 import click
 
-from balsam.client import NotAuthenticatedError, urls
+from balsam.client import NotAuthenticatedError, RequestsClient, urls
 from balsam.config import ClientSettings
 
 
+def is_auth() -> bool:
+    """
+    Returns True only if an access token is stored and working.
+    """
+    try:
+        settings = ClientSettings.load_from_file()
+    except NotAuthenticatedError:
+        return False
+
+    client = settings.build_client()
+    return client._authenticated
+
+
 @click.command()
-@click.option("-a", "--address")
-@click.option("-u", "--username")
-def login(address: str, username: str) -> None:
+@click.option("-u", "--url", default="https://balsam-dev.alcf.anl.gov", help="Balsam server address")
+@click.option("-f", "--force", is_flag=True, default=False, help="Force redo, even if logged in")
+def login(url: str, force: bool) -> None:
     """
     Set client information and authenticate to server
     """
-    if address is not None or username is not None:
-        address = address or click.prompt("Balsam server address")
-        username = username or click.prompt("Balsam username")
-        address = address.strip()
-        username = username.strip()
-        if not address.startswith("http"):
-            address = "https://" + address
-        settings = ClientSettings(api_root=address, username=username)
-    else:
-        try:
-            settings = ClientSettings.load_from_file()
-        except NotAuthenticatedError:
-            address = click.prompt("Balsam server address")
-            username = click.prompt("Balsam username")
-            if not address.startswith("http"):
-                address = "https://" + address
-            settings = ClientSettings(api_root=address, username=username)
+    if not force and is_auth():
+        click.echo("You already have a good login stored.")
+        click.echo("To force login, try again with the --force option.")
+        return
 
-    click.echo(f"Logging in as {settings.username} to {settings.api_root}")
-    client = settings.build_client()
+    url = url.strip()
+    if not url.startswith("http"):
+        url = "https://" + url
+    click.echo(f"Logging into {url}")
+
+    client = RequestsClient.discover_supported_client(url)
+    settings = ClientSettings(api_root=url, client_class=type(client))
+
     update_fields = client.interactive_login()
     if update_fields:
         data = settings.dict()
@@ -42,13 +48,13 @@ def login(address: str, username: str) -> None:
 
 
 @click.command()
-@click.option("-a", "--address", prompt="Balsam server address")
-@click.option("-u", "--username", prompt="Balsam username")
+@click.option("-a", "--address", prompt="Balsam server address", help="Balsam server address")
+@click.option("-u", "--username", prompt="Balsam username", help="Balsam username")
 def register(address: str, username: str) -> None:
     """
     Register a new user account with Balsam server
     """
-    settings = ClientSettings(api_root=address, username=username)
+    settings = ClientSettings(api_root=address)
     client = settings.build_client()
     password = getpass.getpass("Password:")
     conf_password = getpass.getpass("Confirm Password:")

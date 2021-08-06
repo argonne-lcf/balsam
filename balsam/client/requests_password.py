@@ -16,12 +16,12 @@ class BasicAuthRequestsClient(RequestsClient):
     def __init__(
         self,
         api_root: str,
-        username: str,
+        username: Optional[str] = None,
         password: Optional[str] = None,
         token: Optional[str] = None,
         token_expiry: Optional[datetime] = None,
         connect_timeout: float = 3.1,
-        read_timeout: float = 60.0,
+        read_timeout: float = 120.0,
         retry_count: int = 3,
     ) -> None:
         super().__init__(
@@ -48,8 +48,8 @@ class BasicAuthRequestsClient(RequestsClient):
                 logger.warning(f"Auth Token will expire in {self.expires_in}; please refresh with `balsam login`")
 
     def refresh_auth(self) -> None:
-        if self.password is None:
-            raise ValueError("Cannot refresh_auth: self.password is None. Please provide a password")
+        if self.username is None or self.password is None:
+            raise ValueError("Cannot refresh_auth without username and password. Please provide these values.")
         # Login with HTTPBasic Auth to get a token:
         cred = {"username": self.username, "password": self.password}
         resp = self.request(urls.PASSWORD_LOGIN, "POST", data=cred, authenticating=True)
@@ -67,7 +67,11 @@ class BasicAuthRequestsClient(RequestsClient):
 
     def interactive_login(self) -> Dict[str, Any]:
         """Initiate interactive login flow"""
+        self.username = click.prompt("Balsam username", hide_input=False)
         self.password = click.prompt("Balsam password", hide_input=True)
         self.refresh_auth()
         click.echo("Logged In")
         return {"token": self.token, "token_expiry": self.token_expiry}
+
+
+RequestsClient._client_classes["password"] = BasicAuthRequestsClient

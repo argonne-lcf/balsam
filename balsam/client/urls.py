@@ -1,3 +1,4 @@
+CHECK_LOGIN_FLOWS = "auth/how"
 DEVICE_LOGIN = "auth/device/login"
 DEVICE_TOKEN = "auth/device/token"
 PASSWORD_LOGIN = "auth/password/login"

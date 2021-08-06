@@ -17,15 +17,14 @@ from .rest_base_client import AuthError
 logger = logging.getLogger(__name__)
 
 
-class ALCFOAuthRequestsClient(RequestsClient):
+class OAuthRequestsClient(RequestsClient):
     def __init__(
         self,
         api_root: str,
-        username: Optional[str],
         token: Optional[str] = None,
         token_expiry: Optional[datetime] = None,
         connect_timeout: float = 3.1,
-        read_timeout: float = 60.0,
+        read_timeout: float = 120.0,
         retry_count: int = 3,
     ) -> None:
         super().__init__(
@@ -34,7 +33,6 @@ class ALCFOAuthRequestsClient(RequestsClient):
             read_timeout=read_timeout,
             retry_count=retry_count,
         )
-        self.username = username
         self.token = token
         self.token_expiry = token_expiry
         self.expires_in = timedelta(hours=240)
@@ -59,7 +57,7 @@ class ALCFOAuthRequestsClient(RequestsClient):
     def prompt_user(self, auth_uri_complete: str) -> None:
         click.echo(f"Logging into Balsam API at {self.api_root}")
         click.echo(f"To proceed, please navigate to: {auth_uri_complete}")
-        click.echo("Authenticate with your ALCF credentials then come back here!")
+        click.echo("Authenticate with your credentials then come back here!")
 
     def poll_for_token(self, device_code: str, user_code: str, expires_in: float, interval: float) -> None:
         data = {
@@ -102,3 +100,6 @@ class ALCFOAuthRequestsClient(RequestsClient):
         self.refresh_auth()
         click.echo("Logged In")
         return {"token": self.token, "token_expiry": self.token_expiry}
+
+
+RequestsClient._client_classes["oauth_device"] = OAuthRequestsClient
