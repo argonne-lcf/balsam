@@ -32,11 +32,12 @@ class SiteDefaults(BaseModel):
     globus_endpoint_id: Optional[UUID]
 
 
-def load_default_configs() -> Dict[Path, SiteDefaults]:
+def load_default_configs(top: Optional[Path] = None) -> Dict[Path, SiteDefaults]:
     """
     Load mapping of {default_dir: default_settings_dict} from config/defaults
     """
-    top = Path(__file__).parent.joinpath("defaults")
+    if top is None:
+        top = Path(__file__).parent.joinpath("defaults")
     default_settings_files = top.glob("*/settings.yml")
     configs_map = {}
     for path in default_settings_files:
@@ -47,13 +48,14 @@ def load_default_configs() -> Dict[Path, SiteDefaults]:
     return configs_map
 
 
-def render_settings_file(default_settings: Dict[str, Any]) -> str:
+def render_settings_file(default_settings: Dict[str, Any], template_path: Optional[Path] = None) -> str:
     """
     Generate settings.yml from the master template and a default_settings_dict
     """
-    tmpl_path = Path(__file__).parent / "defaults/settings.tmpl.yml"
+    if template_path is None:
+        template_path = Path(__file__).parent / "defaults/settings.tmpl.yml"
     env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True)
-    tmpl = env.from_string(tmpl_path.read_text())
+    tmpl = env.from_string(template_path.read_text())
     return tmpl.render(default_settings)
 
 
@@ -63,6 +65,7 @@ def new_site_setup(
     default_site_conf: SiteDefaults,
     hostname: Optional[str] = None,
     client: Optional["RequestsClient"] = None,
+    settings_template_path: Optional[Path] = None,
 ) -> "SiteConfig":
     """
     Creates a new site directory, registers Site
@@ -93,7 +96,7 @@ def new_site_setup(
     os.chmod(site_id_file, 0o440)
 
     with open(site_path.joinpath("settings.yml"), "w") as fp:
-        settings_txt = render_settings_file(default_site_conf.dict())
+        settings_txt = render_settings_file(default_site_conf.dict(), template_path=settings_template_path)
         fp.write(settings_txt + "\n")
 
     try:

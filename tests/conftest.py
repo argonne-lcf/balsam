@@ -17,7 +17,7 @@ import requests
 import balsam.server
 from balsam.client import BasicAuthRequestsClient, urls
 from balsam.cmdline.utils import start_site
-from balsam.config import ClientSettings, SiteConfig, balsam_home
+from balsam.config import ClientSettings, SiteConfig, balsam_home, site_builder
 from balsam.server import models
 from balsam.site.app import sync_apps
 from balsam.util import postgres as pg
@@ -216,15 +216,22 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
     Create new Balsam Site/Apps for BALSAM_TEST_PLATFORM environ
     Yields the SiteConfig and cleans up Site at the end of module scope.
     """
-    plat = get_platform()
+    TEST_DEFAULTS_DIR = Path(__file__).parent / "default-configs"
+
+    platform = get_platform()
     tmpdir_top = get_test_dir()
-    site_config_path = Path(__file__).parent.joinpath("default-configs", plat).resolve()
+    configs_map = site_builder.load_default_configs(top=TEST_DEFAULTS_DIR)
+    default_path = next(path for path in configs_map if path.name == platform)
+    default_conf = configs_map[default_path]
+
     with tempfile.TemporaryDirectory(prefix="balsam-test-site", dir=tmpdir_top) as tmpdir:
         site_path = Path(tmpdir).joinpath("testsite")
-        site_config = SiteConfig.new_site_setup(
+        site_config = site_builder.new_site_setup(
             site_path=site_path,
-            default_site_path=site_config_path,
+            default_site_path=default_path,
+            default_site_conf=default_conf,
             client=persistent_client,
+            settings_template_path=TEST_DEFAULTS_DIR / "settings.tmpl.yml",
         )
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
         sync_apps(site_config)
