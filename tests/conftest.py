@@ -197,7 +197,6 @@ def persistent_client(live_server: str, temp_client_file: str) -> Iterable[Basic
     client = _make_user_client(live_server)
     settings = ClientSettings(
         api_root=client.api_root,
-        username=client.username,
         client_class="balsam.client.BasicAuthRequestsClient",
         token=client.token,
         token_expiry=client.token_expiry,
