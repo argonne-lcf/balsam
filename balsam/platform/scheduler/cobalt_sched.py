@@ -1,10 +1,13 @@
 import logging
 import os
+import subprocess
+import tempfile
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
+import click
 import dateutil.parser
 
 from .scheduler import (
@@ -306,3 +309,29 @@ class CobaltScheduler(SubprocessSchedulerInterface):
             return SchedulerJobLog(start_time=start_time, end_time=end_time)
         logger.warning(f"Could not parse log: no line containing COBALT_STARTTIME in {logfile}")
         return SchedulerJobLog()
+
+    @classmethod
+    def discover_projects(cls) -> List[str]:
+        """
+        Get the user's allowed/preferred allocations
+        """
+        click.echo("Checking with Cobalt for your current allocations...")
+        with tempfile.NamedTemporaryFile() as fp:
+            os.chmod(fp.name, 0o777)
+            proc = subprocess.run(
+                f"qsub -t 35 -n 1 -A placeholder_null {fp.name}",
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                encoding="utf-8",
+            )
+
+        projects = []
+        for line in proc.stdout.split("\n"):
+            if "Projects available" in line:
+                projects = line.split()[2:]
+                break
+
+        if not projects:
+            projects = super().discover_projects()
+        return projects

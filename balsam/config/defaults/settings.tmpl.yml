@@ -1,0 +1,139 @@
+# Log file behavior for launcher and site services
+logging:
+    level: INFO # Increasing verbosity: ERROR, WARNING, INFO, DEBUG
+    format: '%(asctime)s.%(msecs)03d | %(process)d | %(levelname)s | %(name)s:%(lineno)s]
+        %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+    buffer_num_records: 1024  # Flush logs after this many records emitted
+    flush_period: 30  # Flush logs after this many seconds since last flush
+
+
+# Use filter_tags to limit what jobs the Site will process.
+# Launchers submitted from the command line will ignore this setting 
+# and use the --filter-tags specified as command line arguments.
+# For example:
+#   filter_tags:
+#     system: H2O
+#     workflow: test
+filter_tags: {}
+
+
+# Launcher settings
+launcher:
+    idle_ttl_sec: 30  # Shutdown after this many seconds of nothing running
+    delay_sec: 1  # Process polling interval
+    error_tail_num_lines: 10 # Number of lines from tail-end of job output to store
+    max_concurrent_mpiruns: 990 # Maximum number of runs in a single MPI-mode launcher
+    
+    # Launcher platform interfaces:
+    compute_node: {{ compute_node }}
+    mpi_app_launcher: {{ mpi_app_launcher }}
+    local_app_launcher: {{ local_app_launcher }}
+    mpirun_allows_node_packing: {{ mpirun_allows_node_packing }} # mpi_app_launcher supports multiple concurrent runs per node
+    serial_mode_prefetch_per_rank: 64 # How many jobs to prefetch from API in serial mode
+
+    # Pass-through parameters to mpirun when starting the serial mode launcher:
+    serial_mode_startup_params: {{ {} if not serial_mode_startup_params }}
+        {% for k, v in serial_mode_startup_params.items() %}
+        {{k}}: {{v or '""'}}
+        {% endfor %}
+
+# ###################################################################
+# BALSAM Site modules
+# Any of the modules below can be disabled by setting the key: null
+#
+# For instance, `transfers: null` will disable the transfers module
+# if you are not performing any remote data transfers
+# ###################################################################
+
+# Scheduler service syncs the Balsam API with local queues
+scheduler:
+    scheduler_class: {{ scheduler_class }}
+    sync_period: 10 # Scheduler polling / API update interval in seconds
+
+    # Configure the queues to which BatchJobs may be submitted at this Site
+    allowed_queues:
+        {% for qname, queue in allowed_queues.items() %}
+        {{ qname }}:
+            max_nodes: {{ queue.max_nodes }}
+            max_queued_jobs: {{ queue.max_queued_jobs }}
+            max_walltime: {{ queue.max_walltime }}
+        {% endfor %}
+
+    # Projects to which BatchJobs may be submitted:
+    allowed_projects:
+    {% for project in allowed_projects %}
+    - {{ project }}
+    {% endfor %}
+
+    # Supported "pass-through" parameters to the BatchJob template
+    # Provided as key:value pairs, where key is the parameter name
+    # and value is the *default* value of the parameter
+    optional_batch_job_params:  {{ {} if not optional_batch_job_params }}
+        {% for k,v in optional_batch_job_params.items() %}
+        {{ k }}: {{ v or '""' }}
+        {% endfor %}
+
+    # The path to the job template currently in use at this Site
+    job_template_path: job-template.sh
+
+# Pre/post-processing service runs job state transitions in parallel
+processing:
+    num_workers: 1  # Number of concurrent worker processes
+    prefetch_depth: 1000 # Number of Jobs to have prefetched from API
+
+# Transfer service dispatches stage-in/stage-out tasks
+transfers:
+    # Trusted transfer locations
+    # The site will only transfer data to/from remote locations given here
+    # Given as a set of {site_alias}: {protocol}//{address} pairs
+    transfer_locations:
+        olcf_dtn: globus://ef1a9560-7ca1-11e5-992c-22000b96db58
+        cori_dtn: globus://9d6d99eb-6d04-11e5-ba46-22000b92c6ec
+        theta_dtn: globus://08925f04-569f-11e7-bef8-22000b9a448b
+        aps_dtn: globus://1c85525e-8948-11e9-8e6a-029d279f7e24
+        als_dtn: globus://c7c11b22-e127-11e8-8c91-0a1d4c5c824a
+
+    globus_endpoint_id: {{ globus_endpoint_id or "null" }} # The local Globus endpoint ID
+    max_concurrent_transfers: 5 # How many TransferTasks can run at a time
+    transfer_batch_size: 100 # Maximum number of items per TransferTask
+    num_items_query_limit: 2000 # Maximum number of transfer items to fetch from API at a time
+    service_period: 5 # API polling interval
+
+# Elastic Queue flexibly sizes and requests BatchJobs based on the net
+# job requirements 
+elastic_queue: null
+# elastic_queue:
+#      service_period: 60  # Calculate and submit 1 BatchJob per `service_period` seconds
+#      submit_project: "datascience"
+#      submit_queue: "balsam"
+#      job_mode: "mpi"
+#      use_backfill: True # Constrains BatchJobs to fit into idle backfill slots
+#      min_wall_time_min: 35  # If `use_backfill`, ignore windows shorter than this duration
+#      max_wall_time_min: 360 # If not `use_backfill`, submit BatchJobs for this walltime limit
+#      wall_time_pad_min: 5 # Subtract this walltime duration from all submitted BatchJobs
+#      min_num_nodes:  20 # Do not request fewer than this many nodes
+#      max_num_nodes: 127 # Do not request more than this many nodes
+#      max_queue_wait_time_min: 10 # Delete BatchJobs waiting in queue for this long
+#      max_queued_jobs: 20 # Maximum number of simultaneously queued jobs
+
+# Queue maintainer keeps a fixed number of BatchJobs queued at all times
+# Useful for extended campaigns.  Inherits filter_tags from above.
+queue_maintainer: null
+# queue_maintainer:
+#      submit_period: 60
+#      submit_project: datascience
+#      submit_queue: default
+#      job_mode: mpi
+#      num_queued_jobs: 5
+#      num_nodes: 128
+#      wall_time_min: 60
+
+# File Cleaner periodically scans the workdirs of newly finished
+# jobs, and deletes any files matching the `cleanup_files` glob-pattern list
+# defined on the ApplicationDefinition. This is typically done to avoid
+# hitting storage quotas when results are staged out to a remote location.
+file_cleaner: null
+# file_cleaner: 
+#     cleanup_batch_size: 180 # Clean up to this many Job workdirs at a time
+#     service_period: 30 # Cleanup files every `service_period` seconds

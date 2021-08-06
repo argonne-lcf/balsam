@@ -29,7 +29,7 @@ Logging in fetches an access token that is used to identify you
 in all future API interactions, until the token expires and you have to log in again.
 
 ```bash
-$ balsam login https://balsam-dev.alcf.anl.gov
+$ balsam login
 # Follow the prompt to authenticate
 ```
 

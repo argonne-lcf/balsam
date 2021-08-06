@@ -99,6 +99,16 @@ class SchedulerInterface(abc.ABC):
         """
         raise NotImplementedError
 
+    @classmethod
+    def discover_projects(cls) -> List[str]:
+        """
+        Get the user's allowed/preferred allocations
+        """
+        project = ""
+        while not project:
+            project = input("Enter the name of your primary allocation: ").strip()
+        return [project]
+
 
 class SubprocessSchedulerInterface(SchedulerInterface, abc.ABC):
     @classmethod

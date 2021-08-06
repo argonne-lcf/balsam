@@ -117,3 +117,7 @@ class LocalProcessScheduler(SchedulerInterface):
         Reads the scheduler logs to determine job metadata like start_time and end_time
         """
         return SchedulerJobLog()
+
+    @classmethod
+    def discover_projects(cls) -> List[str]:
+        return ["local"]

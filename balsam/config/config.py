@@ -1,8 +1,6 @@
 import json
 import logging
 import os
-import shutil
-import socket
 from abc import ABCMeta
 from datetime import datetime
 from importlib import import_module
@@ -10,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, cast
 from uuid import UUID
 
-import jinja2
 import yaml
 from pydantic import AnyUrl, BaseSettings, Field, ValidationError, validator
 
@@ -367,86 +364,6 @@ class SiteConfig:
             services.append(cleaner_service)
 
         return services
-
-    @staticmethod
-    def load_default_config_dirs() -> List[Path]:
-        """
-        Get list of pre-configured Site directories for new site setup
-        """
-        defaults_dir = Path(__file__).parent.joinpath("defaults")
-        default_settings_files = defaults_dir.glob("*/settings.yml")
-        return [p.parent for p in default_settings_files]
-
-    @staticmethod
-    def load_settings_template(path: Path) -> jinja2.Template:
-        raw = path.read_text()
-        return jinja2.Template(raw)
-
-    @classmethod
-    def new_site_setup(
-        cls,
-        site_path: Union[str, Path],
-        default_site_path: Path,
-        hostname: Optional[str] = None,
-        client: Optional["RequestsClient"] = None,
-    ) -> "SiteConfig":
-        """
-        Creates a new site directory, registers Site
-        with Balsam API, and writes default settings.yml into
-        Site directory
-        """
-        defaults_path = default_site_path.joinpath("settings.yml")
-        settings_template = cls.load_settings_template(defaults_path)
-        if client is None:
-            client = ClientSettings.load_from_file().build_client()
-        site_path = Path(site_path)
-        site_path.mkdir(exist_ok=False, parents=False)
-
-        site_id_file = site_path.joinpath(".balsam-site")
-
-        try:
-            site = client.Site.objects.create(
-                hostname=socket.gethostname() if hostname is None else hostname,
-                path=site_path,
-            )
-        except Exception:
-            shutil.rmtree(site_path)
-            raise
-        with open(site_id_file, "w") as fp:
-            fp.write(str(site.id))
-        os.chmod(site_id_file, 0o440)
-
-        with open(site_path.joinpath("settings.yml"), "w") as fp:
-            fp.write(settings_template.render({}) + "\n")
-
-        try:
-            settings = Settings.load(fp.name)
-        except ValidationError as exc:
-            shutil.rmtree(site_path)
-            site.delete()
-            raise InvalidSettings(f"{defaults_path} is invalid:\n{exc}")
-
-        try:
-            cf = cls(site_path=site_path, settings=settings)
-            for path in [cf.log_path, cf.job_path, cf.data_path]:
-                path.mkdir(exist_ok=False)
-            shutil.copytree(
-                src=default_site_path.joinpath("apps"),
-                dst=cf.apps_path,
-            )
-            if settings.scheduler is not None:
-                job_template_path = settings.scheduler.job_template_path
-            else:
-                job_template_path = Path("job-template.sh")
-            shutil.copy(
-                src=default_site_path.joinpath(job_template_path),
-                dst=cf.site_path,
-            )
-        except FileNotFoundError:
-            site.delete()
-            shutil.rmtree(site_path)
-            raise
-        return cf
 
     @staticmethod
     def resolve_site_path(site_path: Union[None, str, Path] = None) -> Tuple[Path, int]:

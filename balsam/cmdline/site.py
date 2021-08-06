@@ -2,11 +2,11 @@ import shutil
 import socket
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 import click
 
-from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig
+from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig, site_builder
 from balsam.site.app import sync_apps
 from balsam.util import globus_auth
 
@@ -65,16 +65,6 @@ def stop() -> None:
         kill_site(cf, kill_pid)
 
 
-def load_settings_comments(settings_dirs: Dict[str, Path]) -> Dict[str, str]:
-    descriptions = {name: "" for name in settings_dirs}
-    for name, dir in settings_dirs.items():
-        firstline = dir.joinpath("settings.yml").read_text().split("\n")[0]
-        firstline = firstline.strip()
-        if firstline.startswith("#"):
-            descriptions[name] = f'({firstline.lstrip("#").strip()})'
-    return descriptions
-
-
 @site.command()
 @click.argument("site-path", type=click.Path(writable=True))
 @click.option("-h", "--hostname")
@@ -87,26 +77,25 @@ def init(site_path: Union[str, Path], hostname: str) -> None:
     import inquirer  # type: ignore
 
     site_path = Path(site_path).absolute()
-    default_dirs = {v.name: v for v in SiteConfig.load_default_config_dirs()}
-    descriptions = load_settings_comments(default_dirs)
-    choices = [f"{name}  {description}" for name, description in descriptions.items()]
-
-    site_prompt = inquirer.List(
-        "default_dir",
-        message=f"Select a default configuration to initialize your Site {site_path.name}",
-        choices=choices,
-        carousel=True,
-    )
-
     if site_path.exists():
         raise click.BadParameter(f"{site_path} already exists")
 
-    selected = inquirer.prompt([site_prompt])["default_dir"]
-    selected = selected.split()[0]
-    default_site_path = default_dirs[selected]
+    path_conf_map = site_builder.load_default_configs()
+    site_prompt = inquirer.List(
+        "path",
+        message="Select system",
+        choices=[(conf.title, path) for path, conf in path_conf_map.items()],
+        carousel=True,
+    )
+    selected_path = inquirer.prompt([site_prompt])["path"]
 
     try:
-        cf = SiteConfig.new_site_setup(site_path=site_path, default_site_path=default_site_path, hostname=hostname)
+        cf = site_builder.new_site_setup(
+            site_path=site_path,
+            default_site_path=selected_path,
+            default_site_conf=path_conf_map[selected_path],
+            hostname=hostname,
+        )
     except (InvalidSettings, FileNotFoundError) as exc:
         click.echo(str(exc))
         sys.exit(1)

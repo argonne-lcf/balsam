@@ -1,20 +1,18 @@
 import sys
 import tempfile
-from pathlib import Path
 
-from balsam.config import Settings, SiteConfig
+from balsam.config import Settings, site_builder
 
 if __name__ == "__main__":
-    here = Path(__file__).resolve().parent
-    for settings_file in here.glob("*/settings.yml"):
+    for path, site_defaults in site_builder.load_default_configs().items():
         try:
-            tmpl = SiteConfig.load_settings_template(settings_file)
             with tempfile.NamedTemporaryFile(mode="w") as fp:
-                fp.write(tmpl.render({"site_id": 123}))
+                txt = site_builder.render_settings_file(site_defaults.dict())
+                fp.write(txt)
                 fp.flush()
                 Settings.load(fp.name)
         except Exception as exc:
-            print(f"Invalid settings file {settings_file}\n  --> {exc}")
+            print(f"Invalid default settings in {path}\n  --> {exc}")
             sys.exit(1)
         else:
-            print(f"{settings_file.parent.name}: OK")
+            print(f"{path.name}: OK")
