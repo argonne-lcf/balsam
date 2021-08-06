@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter
 
 from balsam.server import settings
@@ -21,6 +23,12 @@ def build_auth_router() -> APIRouter:
     auth_router = APIRouter()
     for method in settings.auth.login_methods:
         auth_router.include_router(LOGIN_ROUTERS[method])
+
+    @auth_router.get("/how")
+    def get_auth_methods() -> List[str]:
+        methods = [str(s) for s in settings.auth.login_methods]
+        return methods
+
     return auth_router
 
 
