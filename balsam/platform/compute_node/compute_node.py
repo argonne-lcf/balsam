@@ -19,7 +19,7 @@ class ComputeNode:
         self.busy_cpus: List[IntStr] = []
         if gpu_ids is None:
             gpu_ids = self.gpu_ids
-        self.idle_gpus: List[IntStr] = [i for i in self.gpu_ids]
+        self.idle_gpus: List[IntStr] = [i for i in gpu_ids]
         self.busy_gpus: List[IntStr] = []
 
     def check_fit(self, num_cpus: int, num_gpus: int, occupancy: float) -> bool:
