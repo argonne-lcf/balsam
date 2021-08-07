@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash -lx
 #COBALT -A {{ project }}
 #COBALT -n {{ num_nodes }}
 #COBALT -q {{ queue }}

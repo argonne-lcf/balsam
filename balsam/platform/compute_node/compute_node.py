@@ -10,13 +10,15 @@ class ComputeNode:
     cpu_ids: List[IntStr] = []
     gpu_ids: List[IntStr] = []
 
-    def __init__(self, node_id: IntStr, hostname: str) -> None:
+    def __init__(self, node_id: IntStr, hostname: str, gpu_ids: Optional[List[IntStr]] = None) -> None:
         self.node_id = node_id
         self.hostname = hostname
         self.occupancy = 0.0
         self.jobs: Dict[int, Dict[str, Any]] = {}
         self.idle_cpus: List[IntStr] = [i for i in self.cpu_ids]
         self.busy_cpus: List[IntStr] = []
+        if gpu_ids is None:
+            gpu_ids = self.gpu_ids
         self.idle_gpus: List[IntStr] = [i for i in self.gpu_ids]
         self.busy_gpus: List[IntStr] = []
 

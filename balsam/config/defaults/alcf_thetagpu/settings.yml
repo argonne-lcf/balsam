@@ -18,5 +18,7 @@ allowed_queues:
 allowed_projects:
 - datascience
 
-optional_batch_job_params: {}
+optional_batch_job_params:
+    mig_count: "0"  # Use -x mig_count='2' (or '3' or '7') to split GPUs N-ways
+
 globus_endpoint_id: 08925f04-569f-11e7-bef8-22000b9a448b # The local Globus endpoint ID
