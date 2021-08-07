@@ -2,12 +2,10 @@
 
 ## Adding App Files
 Once you have a Site installed, the next logical step is to define the applications that Balsam may run.
-**Each Site's applications are defined by the `ApplicationDefinition` classes in the `apps/` directory.**
-
-!!! note "Defining the `ApplicationDefinition`"
-    At a minimum, `ApplicationDefinitions` declare the template for a
-    shell command and its adjustable parameters.  To run an application, we submit a
-    **Job** that provides values for these parameters.
+Each Site's applications are defined by the set of `ApplicationDefinition` classes in the `apps/` directory.
+At a minimum, `ApplicationDefinitions` declare the template for a
+shell command and its adjustable parameters.  To run an application, we then submit a
+**Job** that provides values for these parameters.
 
 You may add `ApplicationDefinition` subclasses to Python module files (`*.py`)
 in the `apps/` folder, with multiple apps per file and/or multiple files.  Every
@@ -66,14 +64,15 @@ $ balsam app ls
 
 At their simplest, `ApplicationDefinitions` provide a declarative template for a
 shell command and its adjustable parameters.  To run an application, we submit a
-Job that provides values for these parameters. However, these classes have
-several special attributes and methods that we can set to build useful
-workflows.
+Job that provides values for these parameters. 
 
 Importantly, we **do not** specify how the application is launched (`mpiexec`)
 or its CPU/GPU resources in the `ApplicationDefinition`.  Instead, Balsam takes
-care of acquiring compute nodes, managing resources, building command lines, and
-efficiently launching our Jobs across the available resources.
+care of managing resources and building the command lines to efficiently launch our Jobs.
+
+Besides the fundamental `command_template` shown above, `ApplicationDefinitions`
+provide other special attributes and methods that we can override to build more
+complex and useful workflow components.
 
 ### The Class Path
 
@@ -90,7 +89,7 @@ The docstring that follows the `class` statement is captured by Balsam
 and stored as a `description` with the REST API.  This is purely
 human-readable text that can be displayed in your App catalog.
 
-```python
+```python hl_lines="2-4"
 class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
@@ -137,7 +136,7 @@ to omit any parameter named in the template.  We can change this behavior below.
 
 Maybe we want to have some **optional** parameters in the `command_template`,
 which take on a default value in the absence of a value specified in the Job.
-We can do this, and more, by providing the `parameters` dictionary:
+We can do this by providing the `parameters` dictionary:
 
 ```python hl_lines="9-16"
 class MySimulation(ApplicationDefinition):
@@ -164,11 +163,39 @@ sense to have a default value, or not. If a parameter's `required` value is `Fal
 The `help` field is another optional, human-readable field, to assist with
 App curation in the Web interface.
 
-!!! note
-    Command templates and parameters can only contain valid Python identifiers, so names with `-`, for instance, will be rejected when you 
+!!! note "Valid Python Identifiers"
+    App parameters can only contain valid Python identifiers, so names with `-`, for instance, will be rejected when you 
     attempt to run `balsam app sync`.
 
 ### Transfer Slots
+
+A core feature of Balsam, described in more detail in the [Data Transfers section](./transfer.md), is the ability to write distributed workflows, where
+data products move between Sites, and Jobs can be triggered when data arrives at its destination.
+
+We create this behavior starting at the `ApplicationDefinition` level, by defining **Transfer Slots** for data that needs to be **staged in** before or **staged out** after execution.  You can think of the Job workdir as an ephemeral sandbox where data arrives, computation happens, and then results are staged out to a more accessible location for further analysis.
+
+Each `ApplicationDefinition` may declare a `transfers` dictionary, where each
+string key names a Transfer Slot.
+
+```python
+class MySimulation(ApplicationDefinition):
+    transfers = {
+        "input_file": {
+            "required": True,
+            "direction": "in",
+            "local_path": "input.nw",
+            "description": "Input Deck",
+            "recursive": False,
+        },
+        "result": {
+            "required": True,
+            "direction": "out",
+            "local_path": "job.out",
+            "description": "Calculation stdout",
+            "recursive": False
+        }
+    },
+```
 
 ### Cleanup Files
 
@@ -189,3 +216,7 @@ App curation in the Web interface.
 ### Error Handler
 - `handle_error()` will run immediately after `RUN_ERROR`
 
+## General class features
+
+- Define your own methods and attrs (just avoid name collisions with the special names)
+- Can create class hierarchies
