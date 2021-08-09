@@ -177,7 +177,7 @@ We create this behavior starting at the `ApplicationDefinition` level, by defini
 Each `ApplicationDefinition` may declare a `transfers` dictionary, where each
 string key names a Transfer Slot.
 
-```python
+```python hl_lines="2-17"
 class MySimulation(ApplicationDefinition):
     transfers = {
         "input_file": {
@@ -193,30 +193,216 @@ class MySimulation(ApplicationDefinition):
             "local_path": "job.out",
             "description": "Calculation stdout",
             "recursive": False
-        }
+        },
     },
 ```
 
+In order to fill the slots, each `Job` invoking this application must then provide concrete URIs of the external files:
+
+```python hl_lines="4-8"
+Job.objects.create(
+    workdir="ensemble/1",
+    app_name="sim.MySimulation",
+    transfers={
+        # Using 'laptop' alias defined in settings.yml
+        "input_file": "laptop:/path/to/input.dat",
+        "result": "laptop:/path/to/output.json",
+    },
+)
+```
+
+Transfer slots with `required=False` are optional when creating Jobs.
+The `direction` key must contain the value `"in"` or `"out"` for stage-in and stage-out, respectively.
+The `description` is an optional, human-readable parameter to assist in App curation. The `recursive` flag should be `True` for directory transfers; otherwise, the transfer is treated as a single file. 
+
+Finally, `local_path` must always be given **relative to the Job workdir**.  When `direction=in`, the `local_path` refers to the transfer *destination*.  When `direction=out`, the `local_path` refers to the transfer *source*. 
+This `local_path` behavior encourages a pattern where files in the working directory are always named identically, and only the *remote* sources and destinations vary. If you need to stage-in remote files *without renaming* them, a `local_path` value of `.` can be used.
+
+After running `balsam app sync`, the command `balsam app ls --verbose` will show any transfer slots registered for each of your apps.
+
 ### Cleanup Files
+
+In long-running data-intensive workflows, a Balsam site may exhaust its HPC storage
+allocation and trigger disk quota errors.  To avoid this problem, valuable data
+products should be packaged and staged out, while   intermediate files are
+periodically deleted to free storage space.  The Site `file_cleaner` service can
+be enabled in `settings.yml` to safely remove files from working directories of
+finished jobs.  Cleanup does not occur until a job reaches the `JOB_FINISHED`
+state, after all stage out tasks have completed.
+
+By default, the `file_cleaner` will not delete anything, even when it has been enabled.  The `ApplicationDefinition` must *also* define a list of glob patterns in the `cleanup_files` attribute, for which matching files will be removed upon job completion.
+
+```python hl_lines="9"
+class MySimulation(ApplicationDefinition):
+    """
+    Some description of the app goes here
+    """
+    environment_variables = {
+        "HDF5_USE_FILE_LOCKING": "FALSE",
+    }
+    command_template = "/path/to/simulation.exe -inp {{ input_filename }}"
+    cleanup_files = ["*.hdf", "*.imm", "*.h5"]
+```
+
+Cleanup occurs once for each finished Job and reads the list of deletion patterns from the `cleanup_files` attribute in the `ApplicationDefinition`.
 
 ## Job Lifecycle Hooks
 
-### Preprocess
-- `preprocess()` will run on Jobs immediately before `RUNNING`
+The `ApplicationDefinition` class provides several *hooks* into stages of the
+[Balsam Job lifecycle](./jobs.md#the-balsam-job-lifecycle), in the form of
+methods that can be overriden to implement workflow logic.  These methods are
+called by the Balsam Site as it handles your Jobs, advancing them from
+`CREATED` to `JOB_FINISHED` through a series of state transitions.
+
+To be more specific, an *instance* of the `ApplicationDefinition` class is
+created for each `Job` as it undergoes processing. The hooks are called as ordinary
+*instance methods*, wherein the current `Job` is accessible via `self.job` (see examples below). You
+may refer to `self.job` or any other custom methods defined on the class.
+
+!!! note "`ApplicationDefinitions` are not persistent!"
+    `ApplicationDefinition` instances are created and torn down after each invocation of a hook for a particular Job.  This is because they might execute days or weeks apart on different physical hosts.  Therefore, any data that you set on the `self` object within the hook will *not* persist.
+    Instead, hooks can persist arbitrary JSON-serializable data on the `Job` object via `self.job.data`.
+
+Hook methods are always executed in the current `Job`'s working directory with
+stdout/stderr routed into the file `balsam.log`.  All of the methods described
+below are **optional**: the default implementation is essentially a
+no-op that moves the `Job` state forward.  Note that if you *do* choose to
+override a lifecycle hook, it is your responsibility to set the `Job` state
+appropriately (e.g. `self.job.state = "PREPROCESSED"` in the `preprocess()`
+function).  The reason for this is that hooks may choose to *retry* or *fail* a
+particular state transition; the `ApplicationDefinition` should be the explicit
+source of truth on these possible actions.
+
+
+### The Preprocess Hook
+
+The `preprocess` method advances jobs from `STAGED_IN` to `PREPROCESSED`.  This represents an opportunity to run lightweight or I/O-bound code after any data for a Job has been staged in, and *before* the application begins executing. This runs in the `processing` service on the host where the Site Agent is running.
+
+```python
+class MySimulation(ApplicationDefinition):
+
+    def preprocess(self):
+        # Can read anything from self.job.data
+        coordinates = self.job.data["input_coords"]
+
+        # Run arbitrary methods defined on the class:
+        success = self.generate_input(coordinates)
+
+        # Advance the job state
+        if success:
+            # Ready to run
+            self.job.state = "PREPROCESSED"
+        else:
+            # Fail the job and attach searchable data
+            # to the failure event
+            self.job.state = "FAILED"
+            self.job.state_data = {"error": "Preproc got bad coordinates"}
+```
+
 
 ### The Shell Preamble
-- `shell_preamble()` takes the place of the `envscript`: return a multiline string envscript or a `list` of commands
+The `shell_preamble` method can return a **multi-line string** *or* a **list of
+strings**, which are executed in the `bash` shell immediately preceding the
+application launch command.  Unlike `preprocess`, this occurs in the launcher
+(pilot job) on the application launch node.  This hook directly affects the
+environment of the `mpirun` (or equivalent) command used to launch each Job;
+therefore, it is appropriate for loading modules or exporting environment
+variables in an App- or Job-specific fashion. 
 
-### Postprocess
-- `postprocess()` will run on Jobs immediately after `RUN_DONE`
+```python
+class MySimulation(ApplicationDefinition):
+
+    def shell_preamble(self):
+        return f'''
+        module load conda/tensorflow
+        export FOO={self.job.data["env_vars"]["foo"]}
+        '''
+```
+
+### The Postprocess Hook
+
+The `postprocess` hook is exactly like the `preprocess` hook, except that it
+runs **after** Jobs have succesfully executed.  In Balsam a "successful
+execution" simply means the application command return code was `0`, and the
+job is advanced by the launcher from `RUNNING` to `RUN_DONE`. Some common patterns in the `postprocess` hook include: 
+
+- parsing output files
+- summarizing/archiving useful data to be staged out
+- persisting data on the `job.data` attribute
+- dynamically creating *additional* `Jobs` to continue the workflow
+
+
+Upon successful postprocessing, the job state should be advanced to
+`POSTPROCESSED`.  However, a return code of 0 does not necessarily imply a
+successful run. The method may therefore choose to set a job as
+`FAILED` (to halt further processing) or `RESTART_READY` (to run again, perhaps
+after changing some input).
+
+```python
+class MySimulation(ApplicationDefinition):
+
+    def postprocess(self):
+        with open("out.hdf") as fp:
+            # Call your own result parser:
+            results = self.parse_results(fp)
+
+        if self.is_converged(results):
+            self.job.state = "POSTPROCESSED"
+        else:
+            # Call your own input file fixer:
+            self.fix_input()
+            self.job.state = "RESTART_READY"
+```
 
 ### Timeout Handler
-- `handle_timeout()` will run immediately after `RUN_TIMEOUT`
+We have just seen how the `postprocess` hook handles the return code `0` scenario by moving jobs from `RUN_DONE` to `POSTPROCESSED`.  There are two less happy scenarios that Balsam handles:
+
+1. The launcher wallclock time expired and the Job was terminated while still running.  The launcher marks the job state as `RUN_TIMEOUT`.
+2. The application finished with a nonzero exit code. This is interpreted by the launcher as an *error*, and the job state is set to `RUN_ERROR`.
+
+The `handle_timeout` hook gives us an oppportunity to manage timed-out jobs in
+the `RUN_TIMEOUT` state. The *default* Balsam action is to immediately mark the
+timed out job as `RESTART_READY`: it is simply eligible to run again as soon as
+resources are available.  If you wish to *fail* the job or tweak inputs before running again, this is the right place to do it.  
+
+In this example, we choose to mark the timed out job as `FAILED` but dynamically generate a follow-up job with related parameters.
+
+```python
+from balsam.api import Job
+
+class MySimulation(ApplicationDefinition):
+
+    def handle_timeout(self):
+        # Sorry, not retrying slow runs:
+        self.job.state = "FAILED"
+        self.job.state_data = {"reason": "Job Timed out"}
+
+        # Create another, faster run:
+        new_job_params = self.next_run_kwargs()
+        Job.objects.create(**new_job_params)
+```
 
 ### Error Handler
-- `handle_error()` will run immediately after `RUN_ERROR`
+The `handle_error` hook handles the second scenario listed in the previous
+section: when the job terminates with a nonzero exit code.  If you can fix the
+error and try again, set the job state to `RESTART_READY`; otherwise, the
+default implementation simply fails jobs that encountered a `RUN_ERROR` state.
 
-## General class features
+The following example calls some user-defined `fix_inputs()` to retry a failed
+run up to three times before declaring the job as `FAILED`.
 
-- Define your own methods and attrs (just avoid name collisions with the special names)
-- Can create class hierarchies
+```python
+class MySimulation(ApplicationDefinition):
+
+    def handle_error(self):
+        dat = self.job.data
+        retry_count = dat.get("retry_count", 0)
+
+        if retry_count <= 3:
+            self.fix_inputs()
+            self.job.state = "RESTART_READY"
+            self.job.data = {**dat, "retry_count": retry_count+1}
+        else:
+            self.job.state = "FAILED"
+            self.job.state_data = {"reason": "Exceeded maximum retries"}
+```

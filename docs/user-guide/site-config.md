@@ -126,6 +126,9 @@ We highlight just a few of the important settings you may want to adjust:
 
 ### Starting, Stopping, and Restarting Sites
 
+In order for workflows to actually run at a Site, the agent must
+be started as a background process on a login (or gateway) node.
+
 ```bash
 # To start and stop the Site agent:
 $ balsam site start
@@ -134,6 +137,26 @@ $ balsam site stop
 # Restart the Site agent and push settings changes to the API:
 $ balsam site sync
 ```
+
+!!! note "Site Agent Resources"
+    The Balsam site agent runs as persistent daemon.  It can be started
+    on any node with Internet access, access to the parallel filesystems, and access to the HPC resource manager.  This is typically a "login" or "gateway" node in a multi-user environment.
+
+The site agent runs a collection of plug-in modules responsible for various
+facets of the workflow.  These plug-ins can be configured, enabled, and disabled in the `settings.yml` file by adjusting data under these keys:
+
+- `scheduler`: interfaces with the HPC resource manager to submit and query batch resource allocations
+- `processing`: runs pre- and post- job execution lifecycle hooks to advance the workflow.
+- `transfers`: manages batch transfer tasks for stage in and stage out of job data
+- `elastic_queue`: automates batch job submissions to auto-scale resources to the runnable backlog
+- `file_cleaner`: clears unused data from working directories of finished jobs
+
+!!! note "Launchers will still run if the agent is stopped"
+    Once submitted to the HPC queue, the Balsam launchers (pilot jobs) operate
+    on the compute nodes *independently* of the Site agent.  As long as they
+    have a valid access token, they will work regardless of whether the Site
+    is running.  However, you typically want the Site to continue running so
+    that new Jobs can be preprocessed for execution.
 
 ### Listing Sites
 
