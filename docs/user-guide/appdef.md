@@ -4,8 +4,8 @@
 Once you have a Site installed, the next logical step is to define the applications that Balsam may run.
 Each Site's applications are defined by the set of `ApplicationDefinition` classes in the `apps/` directory.
 At a minimum, `ApplicationDefinitions` declare the template for a
-shell command and its adjustable parameters.  To run an application, we then submit a
-**Job** that provides values for these parameters.
+shell command and its adjustable parameters.  To run an application, we then [submit a
+**Job**](./jobs.md) that provides values for these parameters.
 
 You may add `ApplicationDefinition` subclasses to Python module files (`*.py`)
 in the `apps/` folder, with multiple apps per file and/or multiple files.  Every
@@ -55,10 +55,20 @@ $ balsam app ls
     app sync` to apply changes to the running Site.  Otherwise, new or modified 
     Apps will not run correctly.
 
-    Note that the API does not store anything about the
-    `ApplicationDefinition` classes other than the class name and some metadata
-    about allowed parameters, allowed data transfers, etc...  What actually runs
-    at the Site is loaded solely from the class on the local filesystem.
+## Apps versus ApplicationDefinitions
+In the rest of the documentation, we use the terms `ApplicationDefinition` and
+`App` somewhat interchangably, but there is an important distinction.  The
+`ApplicationDefinition` is a Python class stored in the `apps/` folder of a
+Site. `Apps` are stored in the central web service and have a **one-to-one** correspondence with `ApplicationDefinition` classes. 
+The API `App` is merely a *pointer* to a
+`ApplicationDefinition` class at a certain Site.  The `App` does not store
+anything about the `ApplicationDefinition` classes other than the class name and
+some metadata about allowed parameters, allowed data transfers, and so forth.  Code executed at the Site is strictly loaded from the  site-local filesystem.
+
+When creating a `Job`, we refer to the desired `App` by its name or ID.  This
+decoupling enables us to search `Apps` and submit `Jobs` from anywhere. 
+That is, we don't actually need to to
+access the `ApplicationDefinition` class to use it when building workflows.
 
 ## Writing ApplicationDefinitions
 
@@ -249,10 +259,10 @@ Cleanup occurs once for each finished Job and reads the list of deletion pattern
 ## Job Lifecycle Hooks
 
 The `ApplicationDefinition` class provides several *hooks* into stages of the
-[Balsam Job lifecycle](./jobs.md#the-balsam-job-lifecycle), in the form of
-overridable methods on the class.  These methods are
-called by the Balsam Site as it handles your Jobs, advancing them from
-`CREATED` to `JOB_FINISHED` through a series of state transitions.
+[Balsam Job lifecycle](./jobs.md), in the form of overridable methods on the
+class.  These methods are called by the Balsam Site as it handles your Jobs,
+advancing them from `CREATED` to `JOB_FINISHED` through a series of state
+transitions.
 
 To be more specific, an *instance* of the `ApplicationDefinition` class is
 created for each `Job` as it undergoes processing. The hooks are called as ordinary
