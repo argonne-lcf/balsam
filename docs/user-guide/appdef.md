@@ -250,25 +250,26 @@ Cleanup occurs once for each finished Job and reads the list of deletion pattern
 
 The `ApplicationDefinition` class provides several *hooks* into stages of the
 [Balsam Job lifecycle](./jobs.md#the-balsam-job-lifecycle), in the form of
-methods that can be overriden to implement workflow logic.  These methods are
+overridable methods on the class.  These methods are
 called by the Balsam Site as it handles your Jobs, advancing them from
 `CREATED` to `JOB_FINISHED` through a series of state transitions.
 
 To be more specific, an *instance* of the `ApplicationDefinition` class is
 created for each `Job` as it undergoes processing. The hooks are called as ordinary
-*instance methods*, wherein the current `Job` is accessible via `self.job` (see examples below). You
-may refer to `self.job` or any other custom methods defined on the class.
+*instance methods*, where `self` refers to an `ApplicationDefinition` object handling a particular `Job`.  The current `Job` can be accessed via the `self.job` attribute (see examples below).  Of course, you
+may define any additional methods on the class and access them as usual.
+
 
 !!! note "`ApplicationDefinitions` are not persistent!"
     `ApplicationDefinition` instances are created and torn down after each invocation of a hook for a particular Job.  This is because they might execute days or weeks apart on different physical hosts.  Therefore, any data that you set on the `self` object within the hook will *not* persist.
-    Instead, hooks can persist arbitrary JSON-serializable data on the `Job` object via `self.job.data`.
+    Instead, hooks can persist arbitrary JSON-serializable data on the `Job` object itself via `self.job.data`.
 
 Hook methods are always executed in the current `Job`'s working directory with
 stdout/stderr routed into the file `balsam.log`.  All of the methods described
 below are **optional**: the default implementation is essentially a
-no-op that moves the `Job` state forward.  Note that if you *do* choose to
+no-op that moves the `Job` state forward.  However, if you *do* choose to
 override a lifecycle hook, it is your responsibility to set the `Job` state
-appropriately (e.g. `self.job.state = "PREPROCESSED"` in the `preprocess()`
+appropriately (e.g. you must write `self.job.state = "PREPROCESSED"` in the `preprocess()`
 function).  The reason for this is that hooks may choose to *retry* or *fail* a
 particular state transition; the `ApplicationDefinition` should be the explicit
 source of truth on these possible actions.
@@ -276,7 +277,9 @@ source of truth on these possible actions.
 
 ### The Preprocess Hook
 
-The `preprocess` method advances jobs from `STAGED_IN` to `PREPROCESSED`.  This represents an opportunity to run lightweight or I/O-bound code after any data for a Job has been staged in, and *before* the application begins executing. This runs in the `processing` service on the host where the Site Agent is running.
+The `preprocess` method advances jobs from `STAGED_IN` to `PREPROCESSED`.  This represents an opportunity to run lightweight or I/O-bound code on the login node after any data for a Job has been staged in, and *before* the application begins executing. This runs in the `processing` service on the host where the Site Agent is running.
+
+In the following example, `preprocess` is used to read some user-defined data from the `Job` object, attempt to generate an input file, and advance the job state only if the generated input was valid.
 
 ```python
 class MySimulation(ApplicationDefinition):
@@ -302,12 +305,12 @@ class MySimulation(ApplicationDefinition):
 
 ### The Shell Preamble
 The `shell_preamble` method can return a **multi-line string** *or* a **list of
-strings**, which are executed in the `bash` shell immediately preceding the
-application launch command.  Unlike `preprocess`, this occurs in the launcher
-(pilot job) on the application launch node.  This hook directly affects the
-environment of the `mpirun` (or equivalent) command used to launch each Job;
-therefore, it is appropriate for loading modules or exporting environment
-variables in an App- or Job-specific fashion. 
+strings**, which are executed in an ephemeral `bash` shell immediately preceding the
+application launch command.  This hook directly affects the environment of the
+`mpirun` (or equivalent) command used to launch each Job; therefore, it is
+appropriate for loading modules or exporting environment variables in an App- or
+Job-specific manner. Unlike `preprocess`, this hook is executed by the launcher (pilot
+job) on the application launch node.  
 
 ```python
 class MySimulation(ApplicationDefinition):
@@ -406,3 +409,13 @@ class MySimulation(ApplicationDefinition):
             self.job.state = "FAILED"
             self.job.state_data = {"reason": "Exceeded maximum retries"}
 ```
+
+!!! warning "Be careful when updating `job.data`!"
+    Notice in the example above that we did not simply update `self.job.data["retry_count"]`, even though that's the only value that changed.  Instead, we created a **new dictionary** *merging* the existing contents of `data` with the incremented value for `retry_count`. If we had attempted the former method, **`job.data` would not have been updated**.
+
+    This is a subtle consequence of the Balsam Python API, which [*tracks*
+    mutated data](https://docs.python.org/3/howto/descriptor.html) on the `Job` object whenever a new value is assigned to one of the object's fields. This works great for immutable values, but unfortunately, updates to mutable fields (like appending to a list or setting a new key:value pair on a dictionary)  are not currently intercepted.
+    
+    The Balsam `processing` service that runs these lifecycle hooks inspects
+    mutations on each `Job` and propagates efficient bulk-updates to the REST
+    API.
