@@ -101,6 +101,9 @@ scheduler:
 {% endif %}
 ```
 
+Users of ThetaGPU at the ALCF can similarly leverage the MIG partitioning
+capability of A100 GPUs by passing the optional parameter `-x mig_count=N` (three possible split values of `N` equal to `2`, `3`, and `7` are currently supported).
+
 ## Customizing the Settings
 
 There are numerous adjustable parameters in `settings.yml` that control how the
