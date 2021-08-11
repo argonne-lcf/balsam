@@ -293,50 +293,249 @@ occupy a whole number of CPU cores and GPU devices while it runs.  For each comp
 
 ### Parent Job Dependencies
 
+By including parent Job IDs in a `Job` constructor, we create *dependencies*:
+every `Job` waits to begin executing until all of its parents reach the
+`JOB_FINISHED` state. This can be used to build workflows comprising several
+`Apps`. Moreover, since `Jobs` can be created in lifecycle hooks, we can
+leverage this ability to dynamically change the workflow graph as Jobs are
+executed.
+
+```python
+# Create a Job that depends on job1 and job2:
+Job.objects.create(
+    # ...other kwargs
+    parent_ids=[job1.id, job2.id]
+)
+```
+
 ### Data Transfer
 
+In the [App Transfer Slots section](./appdef.md#transfer-slots), we explained
+how `ApplicationDefinition` classes define requirements for remote data
+stage in before execution (or stage out after execution).  This scheme has
+two advantages:
+
+- The inputs and outputs for an `App` are explicitly defined and consistently named
+  alongside the other ingredients of the `ApplicationDefinition` class. This pattern
+  facilitates writing command templates and lifecycle hooks that are decoupled from
+  details like external file paths.
+- The Balsam Site Agent automatically groups transfers from endpoint `A` to `B`
+across many Jobs.  It can then submit *batched* transfer tasks to the underlying
+transfer service provider, and those transfers are monitored until completion.
+As soon as input data arrives, waiting jobs transition from `READY` to
+`STAGED_IN` and begin preprocessing.  The end-to-end lifecycle (await parent
+dependencies, stage in datasets, preprocess, schedule compute nodes, launch
+application) is **fully managed** by the Site Agent.
+
+Since the `ApplicationDefinition` decides how files are named in local working directories,
+we only need to fill the Transfer Slots by providing
+remote data locations. The Job `transfers` argument
+is a dictionary of the form `{"slot_name": "location_alias:absolute_path"}`.
+
+- `slot_name` must match one of the App's transfer keys.
+- `location_alias` must match one of the keys in the
+`transfer_locations` dictionary in `settings.yml`. 
+- `absolute_path` is the fully-resolved path to the source file or directory for
+stage-ins. For stage-outs, it is the path of the *destination* to be written.
+  
+!!! note "Adding Location Aliases"
+    The `transfer_locations` dictionary in `settings.yml` maps location aliases
+    to values of the form `protocol://network_location`.  A useful example would
+    be a [Globus Connect
+    Personal](https://www.globus.org/globus-connect-personal) endpoint running
+    on your laptop.  The corresponding list item under `transfer_locations` in
+    `settings.yml` would look like this:
+
+    ```yaml
+    transfer_locations:
+        laptop: globus://9d6d99eb-6d04-11e5-ba46-22000b92c6ec
+    ```
+
+In this example, we create a `Job` that runs on a supercomputer but copies the
+`input_file` from our laptop and eventually writes the `result` back to it.
+
+```python
+Job.objects.create(
+    # ...other kwargs
+    transfers={
+        # Using 'laptop' alias defined in settings.yml
+        "input_file": "laptop:/path/to/input.dat",
+        "result": "laptop:/path/to/output.json",
+    },
+)
+```
 
 ## Querying Jobs
 
-Search by: 
-- workdir
-- tags
-- app
-- state
+Once many `Jobs` are added to Balsam, there are several effective ways of
+searching and manipulating those jobs from the CLI or Python API. The Balsam
+query API has a regular structure that's the same for all resources (`Site`,
+`App`, `Job`, `BatchJob`, etc...) and loosely based on the [Django
+ORM](https://docs.djangoproject.com/en/3.2/topics/db/queries/).  Refer to the
+[next section on the Balsam API](./api.md) for general details that apply to
+*all* resources.  In the following, we focus on `Job` specific examples, because
+those are the most common and useful queries you'll be performing with
+Balsam.  
 
-Order by:
+!!! note "The CLI is just a wrapper of the API"
+    While the examples focus on the Python API, the CLI is merely a thin
+    wrapper of the API, and most CLI queries can be inferred from the `balsam job ls
+    --help` menu.
 
-Examine:
-- data
-- return_code
-- state
-- batch_job_id
-- last_update
+    For example, this Python query:
+    ```python
+    Job.objects.filter(state="FAILED", tags={"experiment": "foo"})
+    ```
 
-### How to use Tags
+    is equivalent to this command line:
+    ```bash
+    $ balsam job ls --state FAILED --tag experiment=foo
+    ```
 
-### API Queries
-
-### The CLI Queries
-
-## Accessing Parent Jobs with API
-
-## Resolving the Job Workdir
-
-## Accessing Job Data
-
-## Querying Job Events
-
-- refer to Analytics
-
-## Updating Jobs with API
-
-## Deleting Jobs with API
+### Filtering Examples
+`Job.objects` is a **Manager** class that talks to the underlying REST API over
+HTTPS and builds `Job` objects from JSON data transferred over the Web.  We can
+start to build a query with one or many filter kwargs passed to
+Job.objects.filter().  The `filter` docstrings are again very useful here in
+listing the supported query parameters within your IDE.  Queries are *chainable*
+and
+*lazily-evaluated*:
 
 ```python
-def preprocess(self):
-    parents = self.job.parent_query()
-    for parent in parents:
-        print("Parent workdir:", parent.workdir)
-    self.job.state = "PREPROCESSED"
+from balsam.api import Site, Job
+
+# This hits the network and immediately returns ONE Site object:
+theta_site = Site.objects.get(hostname="theta", path="my-site")
+
+# This doesn't hit the network yet:
+foo_jobs = Job.objects.filter(
+    site_id=theta_site.id, 
+    tags={"experiment": "foo"},
+)
+
+# We chain the query and iterate, triggering HTTPS request:
+failed_workdirs = [
+    j.workdir 
+    for j in foo_jobs.filter(state="FAILED")
+]
+```
+
+We can generate a query that returns *all* Jobs across Balsam:
+
+```python
+all_jobs = Job.objects.all()
+```
+
+Queries support slicing operations:
+```python
+some_jobs = all_jobs[5:15]
+```
+
+We can count the number of Jobs that satisfy some query:
+```python
+Job.objects.filter(state="RUNNING").count()
+```
+
+We can order the Jobs according to some criterion (prefix with `-` for descending order):
+```python
+ten_most_recent_finished = Job.objects.filter(
+    state="JOB_FINISHED"
+).order_by("-last_update")[:10]
+```
+
+We can build up queries based on numerous criteria, including but not limited to:
+
+- `workdir__contains`: path fragment
+- `tags`
+- `app_id`
+- `state`
+- `parameters`
+- `id` (single or list of Job IDs)
+- `parent_id` (single or list of Parent Job IDs)
+
+The iterable queries return `Job` instances that can be inspected or modified
+and updated by calling `job.save()`.  Again, refer to the docstrings or use
+`help(Job)` to see a detailed listing of the Job fields.
+
+```python
+failed = Job.objects.filter(workdir__contains="production-X", state="FAILED")
+
+for job in failed:
+    if job.return_code == 1:
+        job.num_nodes = 16
+        job.state = "RESTART_READY"
+        job.save()
+```
+
+### Resolving the Workdir
+The `Job.workdir` attribute is given and stored *relative* to the Site `data/`
+directory.  Sometimes it is useful to resolve an absolute path to a job's working directory:
+
+```python
+# From a given Site and Job...
+site = Site.objects.get(id=123)
+job = Job.objects.get(id=456)
+
+# The workdir can be constructed with Path join operators:
+abs_workdir = site.path / "data" / job.workdir
+
+# Or with the helper method:
+abs_workdir = job.resolve_workdir(site.path / "data")
+```
+
+If you are running code from *inside* a Site, you can access the current Site configuration and the resolved `data/` path:
+
+```python
+from balsam.api import site_config
+
+abs_workdir = job.resolve_workdir(site_config.data_path)
+```
+
+
+### Accessing Parents
+`Jobs` contain the special method `parent_query()` which returns a iterable
+query over the job's parents.  For example, we can combine this with
+`resolve_workdir` to list the parents' working directories.  This pattern can
+be particularly useful in the preprocessing app hook, where a Job needs to read some
+data from its parents before executing:
+
+```python hl_lines="9-10"
+from balsam.api import site_config
+from balsam.site import ApplicationDefinition
+
+class MyApp(ApplicationDefinition):
+    # ...other class attrs
+
+    def preprocess(self):
+        parent_workdirs = [
+            j.resolve_workdir(site_config.data_path)
+            for j in self.job.parent_query()
+        ]
+```
+
+
+
+## Updating Jobs
+
+In addition to the examples where `Jobs` were modified and updated by calling
+`save()`, we can efficiently apply the same update to *all* jobs
+matching a particular query.  This can be **significantly** faster than calling
+`job.save()` in a loop, which repeatedly sends small HTTP update requests over
+the wire.
+
+```python
+# Run all the Failed Jobs again:
+Job.objects.filter(state="FAILED").update(state="RESTART_READY")
+```
+
+## Deleting Jobs
+
+Just as we can apply updates to individual jobs or job sets selected by a query, we can also **delete** `Jobs`:
+
+```python
+# Delete a single job:
+job.delete()
+
+# Delete a collection of Jobs:
+Job.objects.filter(state="FAILED", tags={"run": "H2O"}).delete()
 ```
