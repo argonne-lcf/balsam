@@ -262,5 +262,6 @@ efficient to use the `count()` method mentioned above.
 
 ### Boolean Value
 
-Evaluating the query with `if query` also triggers evaluation, and the query
-evaluates to `True` if there is at least one object in the result set; it's `False` otherwise.
+Evaluating the query as a Boolean expression (e.g. in an if statement like `if
+query:`) also triggers evaluation, and the query evaluates to `True` if there is
+at least one object in the result set; it's `False` otherwise.

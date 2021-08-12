@@ -11,7 +11,7 @@ nav:
     - The Command Line: user-guide/cli.md
     - Managing Jobs: user-guide/jobs.md
     - The Python API: user-guide/api.md
-    - Scheduling Launchers: user-guide/batchjob.md
+    - Executing Jobs: user-guide/batchjob.md
     - Monitoring Workflows: user-guide/monitoring.md
     - Auto Scaling: user-guide/elastic.md
     - Data Transfers: user-guide/transfer.md
@@ -61,6 +61,7 @@ extra_javascript:
 
 repo_name: 'argonne-lcf/balsam'
 repo_url: 'https://github.com/argonne-lcf/balsam'
+edit_uri: edit/main/docs/
 
 extra:
   social:

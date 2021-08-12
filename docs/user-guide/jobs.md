@@ -12,6 +12,16 @@ of `Jobs`. Each Job specifies any data transfer or inter-job
 dependencies. The collection of `Jobs` represents our workflow, which is then
 executed by Balsam over time.
 
+!!! note "Jobs do not automatically run!"
+    As mentioned in the
+    [quickstart](../tutorials/theta-quickstart.md#queueing-a-batchjob),
+    Jobs only specify the CPU/GPU resources needed for each task.  In
+    order to **run** Jobs, we then request a block of node-hours
+    by [submitting a BatchJob](./batchjob.md).  This section goes into
+    detail on managing `Jobs`, which is a separate concern in Balsam.
+    You will find your jobs waiting in the `PREPROCESSED` state until
+    a `BatchJob` begins running.
+
 
 In the normal (successful) flow of execution, a `Job` moves through the
 following sequence of states.  The table below defines each state as well as the 
@@ -117,7 +127,12 @@ The [quickstart tutorial](../tutorials/theta-quickstart.md) showed an example of
 $ balsam job create --app demo.Hello --workdir test/1 --param name="world"
 ```
 
-If `-a/--app` doesn't unambiguously specify an App by its [class path](./appdef.md#the-class-path), you can provide the numeric app ID (revealed by `balsam app ls`) or target a specific site [using the `--site` selector](./cli.md).
+If `-a/--app` doesn't uniquely specify an App by its [class
+path](./appdef.md#the-class-path), you can provide the numeric app ID (revealed
+by `balsam app ls`) or target a specific site [using the `--site`
+selector](./cli.md).  **Since you can target any App defined at any Site, the
+process of submitting Jobs locally or between systems
+is seamless and unified.**
 
 By passing `test/1` to the `-w/--workdir` option, we declare that the job should
 run in the `data/test/1/` subdirectory of the Site.  This folder will be created
