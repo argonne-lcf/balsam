@@ -12,7 +12,7 @@ nav:
     - Managing Jobs: user-guide/jobs.md
     - The Python API: user-guide/api.md
     - Executing Jobs: user-guide/batchjob.md
-    - Monitoring Workflows: user-guide/monitoring.md
+    - Workflow Monitoring and Analytics: user-guide/monitoring.md
     - Auto Scaling: user-guide/elastic.md
     - Data Transfers: user-guide/transfer.md
   - Developer Guide:
