@@ -34,14 +34,17 @@ theme:
     accent: 'amber'
     scheme: 'preference'
   features:
-    - tabs
-    - instant
+    - navigation.instant
+    - navigation.tabs
   logo: './img/balsam_favicon.ico'
   favicon: './img/balsam_favicon.ico'
 
 markdown_extensions:
   - admonition
   - codehilite
+  - attr_list
+  - toc:
+      permalink: true
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.superfences:

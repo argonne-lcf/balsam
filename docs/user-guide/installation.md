@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Installation
 
 Balsam requires Python3.7+ and is tested on Linux and MacOS.

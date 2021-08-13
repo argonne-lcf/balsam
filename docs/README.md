@@ -1,4 +1,9 @@
-![logo](./img/balsam-black.png)
+---
+hide:
+  - toc
+---
+
+![logo](./img/balsam-black.png){ style="width: 55%; display: block; margin: 0 auto" }
 
 *This page is for the Balsam 0.6 pre-release. Click [here for stable Balsam 0.5 docs.](https://balsam.readthedocs.io/en/master)*
 
@@ -12,7 +17,7 @@ $ balsam login
 $ balsam site init my-site
 ```
 
-![site-init](./img/balsam-init.gif)
+![site-init](./img/balsam-init.gif){ style="width: 80%; display: block; margin: 0 auto" }
 
 **Declare HPC Apps and execution lifecycle hooks.**
 
@@ -53,13 +58,12 @@ BatchJob.objects.create(
 
 ## Features
 
-* Simple `pip` installation on any machine with internet access
-* Distributed by default: submit and monitor workflows from *anywhere*
-* Run any existing application, with flexible execution environments and job lifecycle hooks
-* Define data dependencies for any task: Balsam orchestrates the necessary data transfers
-* High-throughput and fault-tolerant task execution on diverse resources
-* Elastic queueing: auto-scale resources to the workload size
-* Monitoring APIs: query recent task failures, node utilization, or throughput
-* Portable: [easy to install on several HPC systems](user-guide/installation.md) and easily adaptable to others.
+* Easy `pip` installation [runs out-of-the-box on several HPC systems](user-guide/installation.md) and is [easily adaptable to others](./development/porting.md).
+* [Balsam Sites](./user-guide/site-config.md) are remotely  controlled by design: submit and monitor workflows from *anywhere*
+* [Run any existing application, with flexible execution environments and job lifecycle hooks](./user-guide/appdef.md)
+* [High-throughput and fault-tolerant task execution](./user-guide/batchjob.md) on diverse resources
+* Define data dependencies for any task: [Balsam orchestrates the necessary data transfers](./user-guide/transfer.md)
+* [Elastic queueing](./user-guide/elastic.md): auto-scale resources to the workload size
+* [Monitoring APIs](./user-guide/monitoring.md): query recent task failures, node utilization, or throughput
 
 
