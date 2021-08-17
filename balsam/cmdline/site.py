@@ -194,9 +194,9 @@ def sync() -> None:
     Sync changes in local settings.yml with Balsam online
     """
     cf = load_site_config()
+    kill_pid = check_killable(cf, raise_exc=True)
     cf.update_site_from_config()
     click.echo("Updated site.")
-    kill_pid = check_killable(cf)
     if kill_pid is not None:
         click.echo(f"Restarting Site {cf.site_path}")
         kill_site(cf, kill_pid)
