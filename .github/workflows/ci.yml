@@ -7,6 +7,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v2
       - name: set up python
@@ -26,6 +27,7 @@ jobs:
 
   test-linux:
     name: Testing with Python${{ matrix.python-version }} on Ubuntu
+    needs: lint
     runs-on: ubuntu-latest
     services:
       postgres:
