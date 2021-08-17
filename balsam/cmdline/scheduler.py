@@ -3,7 +3,7 @@ from typing import Dict, List, cast
 import click
 import yaml
 
-from balsam.schemas import BatchJobPartition, JobMode
+from balsam.schemas import BatchJobPartition, BatchJobState, JobMode
 
 from .utils import filter_by_sites, load_client, load_site_from_selector, validate_partitions, validate_tags
 
@@ -140,3 +140,21 @@ def ls(history: bool, site_selector: str) -> None:
         for i, col in enumerate(row):
             row[i] = col.rjust(col_widths[i] + 1)
         print(*row)
+
+
+@queue.command()
+@click.argument("scheduler_id", type=int)
+def term(scheduler_id: int) -> None:
+    """
+    Terminate a BatchJob by scheduler id
+    """
+    client = load_client()
+    BatchJob = client.BatchJob
+
+    bjob = BatchJob.objects.get(scheduler_id=scheduler_id)
+    if bjob.state in [BatchJobState.queued, BatchJobState.running]:
+        bjob.state = BatchJobState.pending_deletion
+        bjob.save()
+        click.echo("Marked BatchJob for deletion")
+    else:
+        click.echo("BatchJob is not queued or running")
