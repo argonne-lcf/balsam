@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'mkdocs.yml'
+      - 'docs/**'
 jobs:
   container-test:
     name: Build, Test, Publish Docker image
