@@ -1,6 +1,9 @@
 import signal
+from logging import getLogger
 from threading import Event
 from typing import Any
+
+logger = getLogger(__name__)
 
 
 class SigHandler:
@@ -13,6 +16,7 @@ class SigHandler:
 
     @staticmethod
     def _handler(signum: int, stack: Any) -> None:
+        logger.debug(f"Caught signal {signum}: setting exit event!")
         SigHandler._exit_event.set()
 
     @staticmethod

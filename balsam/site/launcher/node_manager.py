@@ -51,8 +51,6 @@ class NodeManager:
         self.allow_node_packing = allow_node_packing
 
     def _assign_single_node(self, job_id: int, num_cpus: int, num_gpus: int, node_occupancy: float) -> NodeSpec:
-        logger.debug(f"Assigning job {job_id}: {num_cpus} CPU, {num_gpus} GPU, {node_occupancy} occupancy")
-        logger.debug(f"Current resources:{self.nodes}")
         if not self.allow_node_packing:
             node_occupancy = 1.0
         for node_idx, node in enumerate(self.nodes):

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SessionThread:
+class SessionThread(threading.Thread):
     """
     Creates and maintains lease on a Session object by periodically pinging API in background thread
     """
@@ -25,6 +25,8 @@ class SessionThread:
     TICK_PERIOD = timedelta(minutes=1)
 
     def __init__(self, client: "RESTClient", site_id: int, scheduler_id: Optional[int] = None) -> None:
+        super().__init__(daemon=True)
+        assert self.daemon
         batch_job_id = None
         if scheduler_id is not None:
             try:
@@ -40,17 +42,13 @@ class SessionThread:
                     "The run will still work, but Jobs will not be associated with a BatchJob."
                 )
         self.session = client.Session.objects.create(site_id=site_id, batch_job_id=batch_job_id)
-        self._schedule_next_tick()
 
-    def _schedule_next_tick(self) -> None:
-        self.timer = threading.Timer(self.TICK_PERIOD.total_seconds(), self._schedule_next_tick)
-        self.timer.daemon = True
-        self.timer.start()
-        self._do_tick()
-
-    def _do_tick(self) -> None:
-        self.session.tick()
-        logger.debug("Ticked session")
+    def run(self) -> None:
+        while True:
+            if self.session.id is not None:
+                self.session.tick()
+                logger.debug("Ticked session")
+            time.sleep(self.TICK_PERIOD.total_seconds())
 
 
 class FixedDepthJobSource(Process):
@@ -124,6 +122,7 @@ class FixedDepthJobSource(Process):
                 client=self.client, site_id=self.site_id, scheduler_id=self.scheduler_id
             )
             self.session = self.session_thread.session
+            self.session_thread.start()
 
         assert self.session is not None
 
@@ -139,13 +138,11 @@ class FixedDepthJobSource(Process):
                     logger.debug(
                         f"Acquired from session {self.session.id} (batch_job_id {self.session.batch_job_id})"
                     )
-                    for job in jobs:
-                        logger.debug(f"Acquired id {job.id}: batch_job_id {job.batch_job_id}")
                     logger.info(f"JobSource acquired {len(jobs)} jobs:")
                 for job in jobs:
                     self.queue.put_nowait(job)
         logger.info("Signal: JobSource cancelling tick thread and deleting API Session")
-        self.session_thread.timer.cancel()
+        self.queue.cancel_join_thread()
         self.session.delete()
         logger.info("JobSource exit graceful")
 
@@ -201,6 +198,7 @@ class SynchronousJobSource(object):
 
         self.scheduler_id = scheduler_id
         self.session_thread = SessionThread(client=self.client, site_id=self.site_id, scheduler_id=self.scheduler_id)
+        self.session_thread.start()
         self.session = self.session_thread.session
 
     def start(self) -> None:
@@ -208,7 +206,6 @@ class SynchronousJobSource(object):
 
     def terminate(self) -> None:
         logger.info("Signal: JobSource cancelling tick thread and deleting API Session")
-        self.session_thread.timer.cancel()
         self.session.delete()
         logger.info("JobSource exit graceful")
 

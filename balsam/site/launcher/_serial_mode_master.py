@@ -171,7 +171,11 @@ class Master:
         # We trigger JobSourceexit after StatusUpdater has joined to ensure
         # *all* Jobs get properly released
         logger.info("Terminating JobSource...")
+        self.job_source.queue.cancel_join_thread()
+        logger.debug("Called cancel join thread")
         self.job_source.terminate()
+        logger.debug("Sent SIGTERM to jobsource")
+        logger.debug("blocking on job_source.join")
         self.job_source.join()
         logger.info("JobSource has joined.")
         logger.info("Master sending exit message to all Workers")
