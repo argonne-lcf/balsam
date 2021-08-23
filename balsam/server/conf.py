@@ -11,8 +11,6 @@ from pydantic import BaseSettings, validator
 from balsam import schemas
 from balsam.util import validate_log_level
 
-logger = logging.getLogger(__name__)
-
 
 class LoginMethod(str, Enum):
     oauth_authcode = "oauth_authcode"
@@ -92,6 +90,7 @@ class Settings(BaseSettings):
             v.mkdir(parents=True, exist_ok=False)
         elif not v.is_dir():
             raise ValueError(f"{v} is not a valid log directory")
+        v.chmod(0o700)
         return v
 
     def serialize_without_secrets(self) -> str:
