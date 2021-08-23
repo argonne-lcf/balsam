@@ -25,6 +25,7 @@ jobs:
         run: docker exec gunicorn balsam server migrate
       - name: Test container
         run: |
+          docker exec gunicorn apt-get update
           docker exec gunicorn apt-get install -y mpich libmpich-dev
           docker exec gunicorn make install-dev
           docker exec -e BALSAM_LOG_DIR="/balsam/log" -e BALSAM_TEST_API_URL="http://localhost:8000" gunicorn make testcov
