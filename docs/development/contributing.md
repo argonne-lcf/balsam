@@ -51,10 +51,12 @@ The testing commands rely on `pytest` and can be gleaned from the Makefile.  To 
 $ make all
 ```
 
-If you are developing with the Docker container and have a running service, you can simply execute test commands inside the running Balsam web container (named `gunicorn` by default). A shortcut for this is:
+If you are developing with the Docker container and have a running service, you can simply execute test commands inside the running Balsam web container (named `gunicorn` by default):
 
 ```bash
-$ make test-container
+$ docker exec -e BALSAM_LOG_DIR="/balsam/log" \
+   -e BALSAM_TEST_API_URL="http://localhost:8000" \ 
+   gunicorn make testcov
 ```
 
 ## CI Workflows

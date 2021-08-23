@@ -16,15 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build image
-        run: | 
+        run: |
           cp .env.example .env
-          docker-compose build
+          docker-compose build --pull --no-cache
       - name: Start service
         run: docker-compose up -d
       - name: Run Migrations
         run: docker exec gunicorn balsam server migrate
       - name: Test container
-        run: make test-container
+        run: |
+          docker exec gunicorn apt-get install -y mpich libmpich-dev
+          docker exec gunicorn make install-dev
+          docker exec -e BALSAM_LOG_DIR="/balsam/log" -e BALSAM_TEST_API_URL="http://localhost:8000" gunicorn make testcov
       - name: Archive test logs
         uses: actions/upload-artifact@v2
         if: failure()
@@ -41,5 +44,8 @@ jobs:
       - name: Push to Docker Hub
         uses: docker/build-push-action@v2.6.1
         with:
+          context: .
           push: true
           tags: masalim2/balsam:latest
+          pull: true
+          no-cache: true
