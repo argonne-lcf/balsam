@@ -98,6 +98,7 @@ def new_site_setup(
     with open(site_path.joinpath("settings.yml"), "w") as fp:
         settings_txt = render_settings_file(default_site_conf.dict(), template_path=settings_template_path)
         fp.write(settings_txt + "\n")
+    Path(fp.name).chmod(0o600)
 
     try:
         settings = Settings.load(fp.name)
@@ -114,14 +115,17 @@ def new_site_setup(
             src=default_site_path.joinpath("apps"),
             dst=cf.apps_path,
         )
+        cf.job_path.chmod(0o700)
         if settings.scheduler is not None:
             job_template_path = settings.scheduler.job_template_path
         else:
             job_template_path = Path("job-template.sh")
-        shutil.copy(
+        job_template_target = shutil.copy(
             src=default_site_path.joinpath(job_template_path),
             dst=cf.site_path,
         )
+        Path(job_template_target).chmod(0o700)
+
     except FileNotFoundError:
         site.delete()
         shutil.rmtree(site_path)
