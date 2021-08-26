@@ -131,7 +131,7 @@ def migrate() -> None:
     from balsam.util import postgres as pg
 
     dsn = balsam.server.Settings().database_url
-    click.echo("Running alembic migrations")
+    click.echo(f"Running alembic migrations for {dsn}")
     pg.run_alembic_migrations(dsn)
     click.echo("Migrations complete!")
 

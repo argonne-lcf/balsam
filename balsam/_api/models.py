@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev 9ec37c2]
+# [git rev b8f50a2]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -22,7 +22,7 @@ class Site(balsam._api.bases.SiteBase):
     _read_model_cls = balsam.schemas.site.SiteOut
     objects: "SiteManager"
 
-    hostname = Field[str]()
+    name = Field[str]()
     path = Field[pathlib.Path]()
     globus_endpoint_id = Field[Optional[uuid.UUID]]()
     backfill_windows = Field[typing.Dict[str, typing.List[balsam.schemas.batchjob.SchedulerBackfillWindow]]]()
@@ -37,7 +37,7 @@ class Site(balsam._api.bases.SiteBase):
 
     def __init__(
         self,
-        hostname: str,
+        name: str,
         path: pathlib.Path,
         globus_endpoint_id: Optional[uuid.UUID] = None,
         backfill_windows: Optional[
@@ -54,7 +54,7 @@ class Site(balsam._api.bases.SiteBase):
         Construct a new Site object.  You must eventually call the save() method or
         pass a Site list into Site.objects.bulk_create().
 
-        hostname:                  The Site network location, for human reference only
+        name:                      Unique Site name
         path:                      Absolute filesystem path of the Site
         globus_endpoint_id:        Associated Globus endpoint ID
         backfill_windows:          Idle backfill currently available at the Site, keyed by queue name
@@ -72,7 +72,7 @@ class Site(balsam._api.bases.SiteBase):
 class SiteQuery(Query[Site]):
     def get(
         self,
-        hostname: Optional[str] = None,
+        name: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
         last_refresh_after: Optional[datetime.datetime] = None,
@@ -82,7 +82,7 @@ class SiteQuery(Query[Site]):
         if no items were found, or Site.MultipleObjectsReturned if
         more than one item matched the query.
 
-        hostname:           Only return Sites with hostnames containing this string.
+        name:               Fetch the site with this name
         path:               Only return Sites with paths containing this string.
         id:                 Only return Sites having an id in this list.
         last_refresh_after: Only return Sites active since this time (UTC)
@@ -92,7 +92,7 @@ class SiteQuery(Query[Site]):
 
     def filter(
         self,
-        hostname: Optional[str] = None,
+        name: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
         last_refresh_after: Optional[datetime.datetime] = None,
@@ -102,7 +102,7 @@ class SiteQuery(Query[Site]):
         if no items were found, or Site.MultipleObjectsReturned if
         more than one item matched the query.
 
-        hostname:           Only return Sites with hostnames containing this string.
+        name:               Fetch the site with this name
         path:               Only return Sites with paths containing this string.
         id:                 Only return Sites having an id in this list.
         last_refresh_after: Only return Sites active since this time (UTC)
@@ -112,7 +112,7 @@ class SiteQuery(Query[Site]):
 
     def update(
         self,
-        hostname: Optional[str] = None,
+        name: Optional[str] = None,
         path: Optional[pathlib.Path] = None,
         globus_endpoint_id: Optional[uuid.UUID] = None,
         backfill_windows: Optional[
@@ -127,7 +127,7 @@ class SiteQuery(Query[Site]):
         """
         Updates all items selected by this query with the given values.
 
-        hostname:                  The Site network location, for human reference only
+        name:                      Unique Site name
         path:                      Absolute filesystem path of the Site
         globus_endpoint_id:        Associated Globus endpoint ID
         backfill_windows:          Idle backfill currently available at the Site, keyed by queue name
@@ -152,7 +152,7 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
 
     def create(
         self,
-        hostname: str,
+        name: str,
         path: pathlib.Path,
         globus_endpoint_id: Optional[uuid.UUID] = None,
         backfill_windows: Optional[
@@ -167,7 +167,7 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         """
         Create a new Site object and save it to the API in one step.
 
-        hostname:                  The Site network location, for human reference only
+        name:                      Unique Site name
         path:                      Absolute filesystem path of the Site
         globus_endpoint_id:        Associated Globus endpoint ID
         backfill_windows:          Idle backfill currently available at the Site, keyed by queue name
@@ -188,7 +188,7 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
 
     def get(
         self,
-        hostname: Optional[str] = None,
+        name: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
         last_refresh_after: Optional[datetime.datetime] = None,
@@ -198,7 +198,7 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         if no items were found, or Site.MultipleObjectsReturned if
         more than one item matched the query.
 
-        hostname:           Only return Sites with hostnames containing this string.
+        name:               Fetch the site with this name
         path:               Only return Sites with paths containing this string.
         id:                 Only return Sites having an id in this list.
         last_refresh_after: Only return Sites active since this time (UTC)
@@ -208,7 +208,7 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
 
     def filter(
         self,
-        hostname: Optional[str] = None,
+        name: Optional[str] = None,
         path: Optional[str] = None,
         id: Union[typing.List[int], int, None] = None,
         last_refresh_after: Optional[datetime.datetime] = None,
@@ -216,7 +216,7 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
         """
         Returns a Site Query returning items matching the filter criteria.
 
-        hostname:           Only return Sites with hostnames containing this string.
+        name:               Fetch the site with this name
         path:               Only return Sites with paths containing this string.
         id:                 Only return Sites having an id in this list.
         last_refresh_after: Only return Sites active since this time (UTC)

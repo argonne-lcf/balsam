@@ -20,7 +20,7 @@ def site(auth_client):
     """Called before each test"""
     return create_site(
         auth_client,
-        hostname="site1",
+        name="site1",
         transfer_locations={"MyCluster": f"globus://{uuid4()}"},
     )
 

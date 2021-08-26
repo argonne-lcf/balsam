@@ -14,8 +14,8 @@ def test_created_app_in_list_view(auth_client):
 
 
 def test_filter_apps_by_site(auth_client):
-    site1 = create_site(auth_client, path="/site/1")
-    site2 = create_site(auth_client, path="/site/2")
+    site1 = create_site(auth_client, name="site1", path="/site/1")
+    site2 = create_site(auth_client, name="site2", path="/site/2")
     create_app(auth_client, site1["id"], class_path="demo.SayHelloA")
     create_app(auth_client, site1["id"], class_path="demo.SayHelloB")
     create_app(auth_client, site2["id"], class_path="demo.SayHelloC")
@@ -26,7 +26,7 @@ def test_filter_apps_by_site(auth_client):
 
 def test_cannot_create_duplicate(auth_client):
     site1 = create_site(auth_client)
-    site2 = create_site(auth_client, hostname="otherhost")
+    site2 = create_site(auth_client, name="otherhost")
     create_app(auth_client, site_id=site1["id"], class_path="Foo.bar")
     create_app(auth_client, site_id=site2["id"], class_path="Foo.bar")
     create_app(

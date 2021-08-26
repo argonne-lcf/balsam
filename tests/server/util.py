@@ -72,14 +72,14 @@ class BalsamTestClient:
 
 def create_site(
     client,
-    hostname="baz",
+    name="baz",
     path="/foo",
     transfer_locations={},
     check=status.HTTP_201_CREATED,
 ):
     return client.post(
         "/sites/",
-        hostname=hostname,
+        name=name,
         path=path,
         transfer_locations=transfer_locations,
         check=check,

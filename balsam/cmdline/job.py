@@ -259,7 +259,7 @@ def ls(
             assert j.state is not None
             jdict = {
                 "ID": j.id,
-                "Site": f"{site.hostname}:{site.path.name}",
+                "Site": f"{site.name}",
                 "App": app.class_path,
                 "Workdir": j.workdir.as_posix(),
                 "State": j.state.value,

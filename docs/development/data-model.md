@@ -23,13 +23,15 @@ model classes in the ORM. Each arrow represents a ForeignKey (or
      the graph. For example, to get all the jobs belonging to `current_user`,
      join the tables via `Job.objects.filter(app__site__user=current_user)`
 
-  2. A `Site` is uniquely identified as a directory on some machine: `(machine
-     hostname,  directory path)`. One user can own several Balsam sites
-     located across one or several machines.  Each site is an *independent*
-     endpoint where applications are registered, data is transferred in and
-     out, and Job working directories are located. **Each Balsam site runs a daemon on behalf of the user that communicates with the central API.** If a user has multiple active Balsam Sites, then a separate
-     daemon runs at each of them.  The authenticated daemons communicate with the central
-     Balsam API to fetch jobs, orchestrate the workflow locally, and update the database state. 
+  2. A `Site` must have a globally unique `name` which corresponds to a
+  directory on some machine. One user can own several Balsam sites located
+  across one or several machines.  Each site is an *independent* endpoint where
+  applications are registered, data is transferred in and out, and Job working
+  directories are located. **Each Balsam site runs a daemon on behalf of the
+  user that communicates with the central API.** If a user has multiple active
+  Balsam Sites, then a separate daemon runs at each of them.  The authenticated
+  daemons communicate with the central Balsam API to fetch jobs, orchestrate the
+  workflow locally, and update the database state. 
 
   3. **An `App` represents a runnable application at a particular Balsam Site.**
      Every Balsam Site contains an `apps/` directory with Python modules
@@ -144,7 +146,7 @@ Generally, Balsam will need two types of Auth to function:
 | Field Name                  | Description                                                                                                 |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `id `                       | Unique Site ID                                                                                              |
-| `hostname `                 | The server address or hostname like `thetalogin3.theta.alcf.anl.gov`                                        |
+| `name `                 | The unique site name like `theta-knl`                                        |
 | `path `                     | Absolute POSIX path to the Site directory                                                                   |
 | `last_refresh `             | Automatically updated timestamp: last update to Site information                                            |
 | `creation_date `            | Timestamp when Site was created                                                                             |

@@ -11,14 +11,14 @@ from balsam.server.models import App, BatchJob, Job, LogEvent, Session, Site, Tr
 
 @dataclass
 class SiteQuery:
-    hostname: str = Query(None, description="Only return Sites with hostnames containing this string.")
+    name: str = Query(None, description="Fetch the site with this name")
     path: str = Query(None, description="Only return Sites with paths containing this string.")
     id: List[int] = Query(None, description="Only return Sites having an id in this list.")
     last_refresh_after: datetime = Query(None, description="Only return Sites active since this time (UTC)")
 
     def apply_filters(self, qs: "orm.Query[Site]") -> "orm.Query[Site]":
-        if self.hostname:
-            qs = qs.filter(Site.hostname.like(f"%{self.hostname}%"))
+        if self.name:
+            qs = qs.filter(Site.name == self.name)
         if self.path:
             qs = qs.filter(Site.path.like(f"%{self.path}%"))
         if self.id:

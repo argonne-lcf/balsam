@@ -220,7 +220,7 @@ def main(config_file: TextIO) -> None:
     config = ExperimentConfig(**yaml.safe_load(config_file))
     logger.debug(f"Loaded experiment config: {yaml.dump(config.dict(), sort_keys=False, indent=2)}")
 
-    site_names = {site.id: (site.hostname, site.path.name) for site in Site.objects.filter(id=config.site_ids)}
+    site_names = {site.id: (site.name, site.path.name) for site in Site.objects.filter(id=config.site_ids)}
     assert len(site_names) == len(
         config.site_ids
     ), f"Config specified site_ids {config.site_ids} but API only found {len(site_names)} of them."

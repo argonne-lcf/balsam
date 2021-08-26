@@ -58,10 +58,10 @@ class AuthorizationState(Base):
 
 class Site(Base):
     __tablename__ = "sites"
-    __table_args__ = (UniqueConstraint("hostname", "path"),)
+    __table_args__ = (UniqueConstraint("owner_id", "name"),)
 
     id = Column(Integer, primary_key=True)
-    hostname = Column(String(100))
+    name = Column(String(100), unique=True)
     path = Column(String(512))
     last_refresh = Column(DateTime)
     creation_date = Column(DateTime, default=datetime.utcnow)

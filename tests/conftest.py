@@ -227,6 +227,7 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
     with tempfile.TemporaryDirectory(prefix="balsam-test-site", dir=tmpdir_top) as tmpdir:
         site_path = Path(tmpdir).joinpath("testsite")
         site_config = site_builder.new_site_setup(
+            name="tmpsite",
             site_path=site_path,
             default_site_path=default_path,
             default_site_conf=default_conf,

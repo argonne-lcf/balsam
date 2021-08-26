@@ -7,7 +7,7 @@ from .util import create_site
 
 
 def test_can_create_batchjob(auth_client):
-    site1 = create_site(auth_client, hostname="site1")
+    site1 = create_site(auth_client, name="site1")
     batch_job = auth_client.post(
         "/batch-jobs/",
         site_id=site1["id"],
@@ -24,8 +24,8 @@ def test_can_create_batchjob(auth_client):
 
 
 def test_list_batchjobs_spanning_sites(auth_client):
-    site1 = create_site(auth_client, hostname="site1")
-    site2 = create_site(auth_client, hostname="site2")
+    site1 = create_site(auth_client, name="site1")
+    site2 = create_site(auth_client, name="site2")
     for time in [10, 20, 30, 40]:
         for site in [site1, site2]:
             auth_client.post(
@@ -44,8 +44,8 @@ def test_list_batchjobs_spanning_sites(auth_client):
 
 
 def test_filter_by_site(auth_client):
-    site1 = create_site(auth_client, hostname="site1")
-    site2 = create_site(auth_client, hostname="site2")
+    site1 = create_site(auth_client, name="site1")
+    site2 = create_site(auth_client, name="site2")
     for time in [10, 20, 30, 40]:
         for site in [site1, site2]:
             auth_client.post(
@@ -67,7 +67,7 @@ def test_filter_by_site(auth_client):
 
 
 def test_filter_by_time_range(auth_client):
-    site = create_site(auth_client, hostname="site1")
+    site = create_site(auth_client, name="site1")
     # Create 10 historical batchjobs
     # Job n started n hours ago and took 30 minutes
     now = datetime.utcnow()
@@ -107,7 +107,7 @@ def test_filter_by_time_range(auth_client):
 
 
 def test_json_tags_filter_list(auth_client):
-    site = create_site(auth_client, hostname="site1")
+    site = create_site(auth_client, name="site1")
     for priority in [None, 1, 2, 3]:
         for system in ["H2O", "D2O", "HF"]:
             if priority:
@@ -139,7 +139,7 @@ def test_json_tags_filter_list(auth_client):
 
 
 def test_detail_view(auth_client):
-    site = create_site(auth_client, hostname="site1")
+    site = create_site(auth_client, name="site1")
     bjob = auth_client.post(
         "/batch-jobs/",
         site_id=site["id"],
@@ -155,7 +155,7 @@ def test_detail_view(auth_client):
 
 
 def test_update_to_invalid_state(auth_client):
-    site = create_site(auth_client, hostname="site1")
+    site = create_site(auth_client, name="site1")
     bjob = auth_client.post(
         "/batch-jobs/",
         site_id=site["id"],
@@ -174,7 +174,7 @@ def test_update_to_invalid_state(auth_client):
 
 
 def test_update_valid(auth_client):
-    site = create_site(auth_client, hostname="site1")
+    site = create_site(auth_client, name="site1")
     bjob = auth_client.post(
         "/batch-jobs/",
         site_id=site["id"],
@@ -196,8 +196,8 @@ def test_update_valid(auth_client):
 
 
 def test_bulk_status_update_batch_jobs(auth_client):
-    theta = create_site(auth_client, hostname="theta")
-    cooley = create_site(auth_client, hostname="cooley")
+    theta = create_site(auth_client, name="theta")
+    cooley = create_site(auth_client, name="cooley")
     for _ in range(10):
         auth_client.post(
             "/batch-jobs/",
@@ -241,7 +241,7 @@ def test_bulk_status_update_batch_jobs(auth_client):
 
 
 def test_delete_running_batchjob(auth_client):
-    site = create_site(auth_client, hostname="theta")
+    site = create_site(auth_client, name="theta")
     bjob = auth_client.post(
         "/batch-jobs/",
         site_id=site["id"],
@@ -287,7 +287,7 @@ def test_delete_running_batchjob(auth_client):
 
 
 def test_delete_api_endpoint(auth_client):
-    site = create_site(auth_client, hostname="theta")
+    site = create_site(auth_client, name="theta")
     bjob = auth_client.post(
         "/batch-jobs/",
         site_id=site["id"],

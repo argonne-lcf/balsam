@@ -56,7 +56,7 @@ class JobSubmitter(HttpUser):
         resp = self.client.post(
             "/sites",
             json={
-                "hostname": "thetalogin4",
+                "name": "thetalogin4",
                 "path": f"/path/to/site/{username}",
                 "transfer_locations": {},
             },

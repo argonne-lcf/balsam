@@ -11,8 +11,8 @@ class TestSite:
     def test_create_and_list(self, client):
         Site = client.Site
         assert len(Site.objects.all()) == 0
-        s1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        s2 = Site.objects.create(hostname="cooley", path="/projects/bar")
+        s1 = Site.objects.create(name="theta", path="/projects/foo")
+        s2 = Site.objects.create(name="cooley", path="/projects/bar")
         assert len(Site.objects.all()) == 2
         assert s1.id is not None
         assert "foo" in s1.path.as_posix()
@@ -20,7 +20,7 @@ class TestSite:
 
     def test_create_via_save(self, client):
         Site = client.Site
-        newsite = Site(hostname="theta", path="/projects/foo")
+        newsite = Site(name="theta", path="/projects/foo")
         assert newsite.id is None
         assert newsite._state == "creating"
         newsite.save()
@@ -29,7 +29,7 @@ class TestSite:
 
     def test_update_status(self, client):
         Site = client.Site
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         id = site.id
         creation_ts = site.last_refresh
 
@@ -43,7 +43,7 @@ class TestSite:
 
     def test_refresh_from_db(self, client):
         Site = client.Site
-        handle_1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        handle_1 = Site.objects.create(name="theta", path="/projects/foo")
         handle_2 = Site.objects.get(id=handle_1.id)
         assert handle_2.id == handle_1.id
 
@@ -56,8 +56,8 @@ class TestSite:
 
     def test_delete(self, client):
         Site = client.Site
-        Site.objects.create(hostname="theta", path="/projects/foo")
-        tempsite = Site.objects.create(hostname="cooley", path="/projects/bar")
+        Site.objects.create(name="theta", path="/projects/foo")
+        tempsite = Site.objects.create(name="cooley", path="/projects/bar")
         assert tempsite.id is not None
         assert len(Site.objects.all()) == 2
 
@@ -65,52 +65,55 @@ class TestSite:
         assert tempsite.id is None
         sites = Site.objects.all()
         assert len(sites) == 1
-        assert sites[0].hostname == "theta"
+        assert sites[0].name == "theta"
 
-    def test_filter_on_hostname(self, client):
+    def test_filter_on_name(self, client):
         Site = client.Site
-        Site.objects.create(hostname="thetalogin3.alcf.anl.gov", path="/projects/foo")
-        Site.objects.create(hostname="thetalogin4.alcf.anl.gov", path="/projects/bar")
-        Site.objects.create(hostname="cooley", path="/projects/baz")
+        Site.objects.create(name="thetalogin3.alcf.anl.gov", path="/projects/foo")
+        Site.objects.create(name="thetalogin4.alcf.anl.gov", path="/projects/bar")
+        Site.objects.create(name="cooley", path="/projects/baz")
 
-        cooley_only = Site.objects.filter(hostname="cooley")
+        cooley_only = Site.objects.filter(name="cooley")
         assert len(cooley_only) == 1
 
-        theta_only = Site.objects.filter(hostname="theta")
-        assert len(theta_only) == 2
+        theta_substr = Site.objects.filter(name="theta")
+        assert len(theta_substr) == 0
 
     def test_get_by_id_returns_match(self, client):
         Site = client.Site
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
+        site1 = Site.objects.create(name="theta", path="/projects/foo")
         retrieved = Site.objects.get(id=site1.id)
         assert site1 == retrieved
 
-    def test_get_by_host_and_path_returns_match(self, client):
+    def test_get_by_name_or_path_returns_match(self, client):
         Site = client.Site
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
-        retrieved = Site.objects.get(hostname="theta", path="/projects/bar")
+        site1 = Site.objects.create(name="theta1", path="/projects/foo")
+        site2 = Site.objects.create(name="theta2", path="/projects/bar")
+        retrieved = Site.objects.get(name="theta2")
         assert retrieved == site2
-        assert retrieved.id != site1.id
+        assert retrieved.id == site2.id
+        retrieved = Site.objects.get(path="foo")
+        assert retrieved == site1
+        assert retrieved.id == site1.id
 
     def test_get_raises_doesnotexist(self, client):
         Site = client.Site
         with pytest.raises(Site.DoesNotExist):
-            Site.objects.get(hostname="nonsense")
+            Site.objects.get(name="nonsense")
 
     def test_get_raises_multipleobj(self, client):
         Site = client.Site
-        Site.objects.create(hostname="theta", path="/projects/foo")
-        Site.objects.create(hostname="theta", path="/projects/bar")
+        Site.objects.create(name="theta1", path="/projects/foo")
+        Site.objects.create(name="theta2", path="/projects/foo2")
         with pytest.raises(Site.MultipleObjectsReturned):
-            Site.objects.get(hostname="theta")
+            Site.objects.get(path="foo")
 
     def test_count_queryset(self, client):
         Site = client.Site
-        Site.objects.create(hostname="theta", path="/projects/foo")
-        Site.objects.create(hostname="theta", path="/projects/bar")
-        Site.objects.create(hostname="theta", path="/projects/baz")
-        Site.objects.create(hostname="theta", path="/home/bar")
+        Site.objects.create(name="theta1", path="/projects/foo")
+        Site.objects.create(name="theta2", path="/projects/bar")
+        Site.objects.create(name="theta3", path="/projects/baz")
+        Site.objects.create(name="theta4", path="/home/bar")
         assert Site.objects.filter(path="/projects/").count() == 3
         assert Site.objects.filter(path="/home/").count() == 1
 
@@ -121,7 +124,7 @@ class TestApps:
         Site = client.Site
         assert len(App.objects.all()) == 0
 
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         App.objects.create(
             site_id=site.id,
             class_path="nwchem.GeomOpt",
@@ -135,7 +138,7 @@ class TestApps:
     def test_get_by_id(self, client):
         App = client.App
         Site = client.Site
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         new_app = App(
             site_id=site.id,
             class_path="nwchem.GeomOpt",
@@ -147,8 +150,8 @@ class TestApps:
     def test_filter_by_site_id(self, client):
         App = client.App
         Site = client.Site
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="summit", path="/projects/bar")
+        site1 = Site.objects.create(name="theta", path="/projects/foo")
+        site2 = Site.objects.create(name="summit", path="/projects/bar")
         App.objects.create(site_id=site1.id, class_path="app.one", parameters={})
         App.objects.create(site_id=site1.id, class_path="app.two", parameters={})
         App.objects.create(site_id=site2.id, class_path="app.three", parameters={})
@@ -158,7 +161,7 @@ class TestApps:
     def test_update_parameters(self, client):
         App = client.App
         Site = client.Site
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one", parameters={})
         assert app.parameters == {}
         app.parameters = {"foo": {"required": "True"}}
@@ -176,7 +179,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
             class_path="app.one",
@@ -193,7 +196,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
             class_path="app.one",
@@ -211,7 +214,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
         job = Job.objects.create("test/run1", app_id=app.id)
@@ -226,7 +229,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         job = Job.objects.create("test/run1", app_id=app.id, data={"foo": 1234}, num_nodes=1)
 
@@ -248,7 +251,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"test/{i}", app_id=app.id) for i in range(8)]
         random.shuffle(jobs)
@@ -271,7 +274,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"test/{i}", app_id=app.id) for i in range(10)]
 
@@ -302,7 +305,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         parent = Job("test/parent", app_id=app.id)
         parent.save()
@@ -318,7 +321,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
             class_path="app.one",
@@ -339,7 +342,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         EventLog = client.EventLog
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         job = Job("test/test", app_id=app.id)
         job.save()
@@ -362,7 +365,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"test/{i}", app_id=app.id) for i in range(3)]
         Job.objects.bulk_create(jobs)
@@ -374,7 +377,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"test/{i}", app_id=app.id, tags={"foo": i, "bar": i * 2}) for i in range(3)]
         Job.objects.bulk_create(jobs)
@@ -389,7 +392,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
         foo_jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(3)]
@@ -406,7 +409,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
@@ -420,7 +423,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs.append(Job("bar/99", app_id=app.id))
@@ -435,8 +438,8 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
+        site1 = Site.objects.create(name="theta1", path="/projects/foo")
+        site2 = Site.objects.create(name="theta2", path="/projects/bar")
         app1 = App.objects.create(site_id=site1.id, class_path="app.one")
         app2 = App.objects.create(site_id=site2.id, class_path="app.one")
 
@@ -454,8 +457,8 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
+        site1 = Site.objects.create(name="theta1", path="/projects/foo")
+        site2 = Site.objects.create(name="theta2", path="/projects/bar")
         app1 = App.objects.create(site_id=site1.id, class_path="app.one")
         app2 = App.objects.create(site_id=site2.id, class_path="app.one")
 
@@ -473,7 +476,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
             class_path="app.one",
@@ -491,7 +494,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
@@ -508,7 +511,7 @@ class TestJobs:
         App = client.App
         Site = client.Site
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
@@ -528,7 +531,7 @@ class TestJobs:
 class TestTransfers:
     def create_app_with_transfers(self, client):
         site = client.Site.objects.create(
-            hostname="theta",
+            name="theta",
             path="/projects/foo",
             transfer_locations={"laptop": f"globus://{uuid4()}"},
         )
@@ -671,7 +674,7 @@ class TestEvents:
         Site = client.Site
         App = client.App
         Job = client.Job
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         before_creation = datetime.utcnow()
 
@@ -758,7 +761,7 @@ class TestBatchJobs:
     def test_create(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         bjob = BatchJob.objects.create(
             site_id=site.id,
             project="datascience",
@@ -774,7 +777,7 @@ class TestBatchJobs:
     def test_filter_by_scheduler_id(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         bjob = BatchJob.objects.create(
             site_id=site.id,
             project="datascience",
@@ -793,8 +796,8 @@ class TestBatchJobs:
     def test_filter_by_site_id(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
-        site1 = Site.objects.create(hostname="theta", path="/projects/foo")
-        site2 = Site.objects.create(hostname="theta", path="/projects/bar")
+        site1 = Site.objects.create(name="theta1", path="/projects/foo")
+        site2 = Site.objects.create(name="theta2", path="/projects/bar")
         assert site1.id != site2.id
         BatchJob.objects.create(
             site_id=site1.id,
@@ -820,7 +823,7 @@ class TestBatchJobs:
     def test_bulk_update(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         for i in range(3):
             BatchJob.objects.create(
                 site_id=site.id,
@@ -846,7 +849,7 @@ class TestBatchJobs:
     def test_delete(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         for i in range(3):
             BatchJob.objects.create(
                 site_id=site.id,
@@ -869,7 +872,7 @@ class TestBatchJobs:
     def test_filter_by_tags(self, client):
         Site = client.Site
         BatchJob = client.BatchJob
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         for system in ["H2O", "D2O", "NH3", "CH2O"]:
             BatchJob.objects.create(
                 site_id=site.id,
@@ -889,7 +892,7 @@ class TestBatchJobs:
         App = client.App
         Job = client.Job
         Session = client.Session
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
 
         batch_job = BatchJob.objects.create(
@@ -927,7 +930,7 @@ class TestSessions:
     def create_site_app(self, client):
         Site = client.Site
         App = client.App
-        site = Site.objects.create(hostname="theta", path="/projects/foo")
+        site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(site_id=site.id, class_path="app.one")
         return site, app
 
@@ -955,7 +958,7 @@ class TestSessions:
 
     def test_create(self, client):
         before_create = datetime.utcnow()
-        site = client.Site.objects.create(hostname="theta", path="/projects/foo")
+        site = client.Site.objects.create(name="theta", path="/projects/foo")
         sess = self.create_sess(client, site)
         assert sess.heartbeat > before_create
 
@@ -1028,7 +1031,7 @@ class TestSessions:
         assert acquired[0].tags == dict(system="H2O", type="energy")
 
     def test_tick(self, client):
-        site = client.Site.objects.create(hostname="theta", path="/projects/foo")
+        site = client.Site.objects.create(name="theta", path="/projects/foo")
         sess = self.create_sess(client, site)
         creation_time = sess.heartbeat
         sess.tick()

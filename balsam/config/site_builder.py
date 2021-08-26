@@ -1,6 +1,5 @@
 import os
 import shutil
-import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
@@ -61,9 +60,9 @@ def render_settings_file(default_settings: Dict[str, Any], template_path: Option
 
 def new_site_setup(
     site_path: Union[str, Path],
+    name: str,
     default_site_path: Path,
     default_site_conf: SiteDefaults,
-    hostname: Optional[str] = None,
     client: Optional["RequestsClient"] = None,
     settings_template_path: Optional[Path] = None,
 ) -> "SiteConfig":
@@ -84,10 +83,7 @@ def new_site_setup(
     site_id_file = site_path.joinpath(".balsam-site")
 
     try:
-        site = client.Site.objects.create(
-            hostname=socket.gethostname() if hostname is None else hostname,
-            path=site_path,
-        )
+        site = client.Site.objects.create(name=name, path=site_path)
     except Exception:
         shutil.rmtree(site_path)
         raise

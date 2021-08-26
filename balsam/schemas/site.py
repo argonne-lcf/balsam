@@ -39,9 +39,7 @@ class AllowedQueue(BaseModel):
 
 
 class SiteBase(BaseModel):
-    hostname: str = Field(
-        ..., example="thetalogin3.alcf.anl.gov", description="The Site network location, for human reference only"
-    )
+    name: str = Field(..., example="theta-knl", description="Unique Site name")
     path: Path = Field(
         ..., example="/projects/datascience/user/mySite", description="Absolute filesystem path of the Site"
     )
@@ -94,7 +92,7 @@ class SiteCreate(SiteBase):
 
 
 class SiteUpdate(SiteBase):
-    hostname: Optional[str] = Field(None, example="thetalogin3.alcf.anl.gov", description="The Site network location, for human reference only")  # type: ignore
+    name: Optional[str] = Field(None, example="theta-knl", description="Unique Site name")  # type: ignore
     path: Optional[Path] = Field(None, example="/projects/datascience/user/mySite", description="Absolute filesystem path of the Site")  # type: ignore
 
 

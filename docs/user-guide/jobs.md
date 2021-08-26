@@ -420,7 +420,7 @@ and
 from balsam.api import Site, Job
 
 # This hits the network and immediately returns ONE Site object:
-theta_site = Site.objects.get(hostname="theta", path="my-site")
+theta_site = Site.objects.get(name="theta", path="my-site")
 
 # This doesn't hit the network yet:
 foo_jobs = Job.objects.filter(

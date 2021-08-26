@@ -31,9 +31,9 @@ def fetch(
 
 
 def create(db: Session, owner: schemas.UserOut, site: schemas.SiteCreate) -> models.Site:
-    site_id = db.query(models.Site.id).filter_by(hostname=site.hostname, path=site.path.as_posix()).scalar()  # type: ignore
+    site_id = db.query(models.Site.id).filter_by(name=site.name, owner_id=owner.id).scalar()  # type: ignore
     if site_id is not None:
-        raise ValidationError("A site with this hostname and path already exists")
+        raise ValidationError("A site with this name already exists")
     new_site = models.Site(
         **jsonable_encoder(site),
         creation_date=datetime.utcnow(),

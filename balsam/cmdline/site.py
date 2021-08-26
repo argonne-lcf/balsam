@@ -67,8 +67,8 @@ def stop() -> None:
 
 @site.command()
 @click.argument("site-path", type=click.Path(writable=True))
-@click.option("-h", "--hostname")
-def init(site_path: Union[str, Path], hostname: str) -> None:
+@click.option("-n", "--name", prompt="Enter Site Name", default=socket.gethostname, show_default=socket.gethostname())
+def init(site_path: Union[str, Path], name: str) -> None:
     """
     Create a new balsam site at SITE-PATH
 
@@ -94,7 +94,7 @@ def init(site_path: Union[str, Path], hostname: str) -> None:
             site_path=site_path,
             default_site_path=selected_path,
             default_site_conf=path_conf_map[selected_path],
-            hostname=hostname,
+            name=name,
         )
     except (InvalidSettings, FileNotFoundError) as exc:
         click.echo(str(exc))
@@ -154,14 +154,14 @@ def rm(path: Union[str, Path]) -> None:
 @click.argument("name")
 def rename(path: Union[str, None], name: str) -> None:
     """
-    Change the hostname of a balsam site
+    Change the name of a balsam site
     """
     cf = SiteConfig(path)
     client = cf.client
     site = client.Site.objects.get(id=cf.site_id)
-    site.hostname = name
+    site.name = name
     site.save()
-    click.echo("Renamed site {site.id} to {site.hostname}")
+    click.echo(f"Renamed site {site.id} to {site.name}")
 
 
 @site.command()
@@ -177,7 +177,7 @@ def ls(verbose: bool) -> None:
             click.echo(str(site))
             click.echo("---\n")
     else:
-        click.echo(f"{'ID':>5s}   {'Hostname':>14s}   {'Path':<40s}   {'Active':<4s}")
+        click.echo(f"{'ID':>5s}   {'Name':>14s}   {'Path':<40s}   {'Active':<4s}")
         for s in qs:
             assert s.path is not None
             assert s.last_refresh is not None
@@ -185,7 +185,7 @@ def ls(verbose: bool) -> None:
             if len(pathstr) > 37:
                 pathstr = "..." + pathstr[-37:]
             active = "Yes" if is_site_active(s) else "No"
-            click.echo(f"{s.id:>5d}   {s.hostname:>14}   {pathstr:<40}   {active:<4}")
+            click.echo(f"{s.id:>5d}   {s.name:>14}   {pathstr:<40}   {active:<4}")
 
 
 @site.command()

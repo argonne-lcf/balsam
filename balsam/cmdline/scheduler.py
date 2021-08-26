@@ -111,7 +111,7 @@ def ls(history: bool, site_selector: str) -> None:
         path_str = site.path.as_posix()
         if len(path_str) > 27:
             path_str = "..." + path_str[-27:]
-        job["site"] = f"{site.hostname}:{path_str}"
+        job["site"] = f"{site.name}"
 
     fields = [
         "id",

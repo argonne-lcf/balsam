@@ -55,7 +55,7 @@ You can always check the `balsam site ls` command to list your Sites.
 ```bash
 $ balsam site ls
 
-   ID         Hostname   Path                               Active
+   ID             Name   Path                               Active
    21      thetalogin4   .../projects/datascience/my-site   No 
 ```
 

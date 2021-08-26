@@ -121,5 +121,5 @@ def ls(site_selector: str, verbose: bool) -> None:
         apps = sorted(list(qs), key=lambda app: app.site_id)
         for a in apps:
             site = sites[a.site_id]
-            site_str = f"{site.hostname}:{site.path}"
+            site_str = f"{site.name}"
             click.echo(f"{a.id:>5d}   {a.class_path:>18s}   {site_str:<20s}")
