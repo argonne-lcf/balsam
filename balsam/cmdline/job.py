@@ -213,7 +213,7 @@ def ls(
     tags: List[str],
     state: Optional[JobState],
     exclude_state: Optional[JobState],
-    id: Optional[str],
+    id: Optional[int],
     by_state: Optional[bool],
     workdir: Optional[str],
     verbose: bool,
@@ -253,11 +253,7 @@ def ls(
     if workdir:
         job_qs = job_qs.filter(workdir__contains=workdir)
     if id:
-        job_qs = job_qs.filter(
-            id=[
-                id,
-            ]
-        )
+        job_qs = job_qs.filter(id=[id])
 
     result = list(job_qs)
     if not result:
@@ -287,13 +283,14 @@ def ls(
                 data.append(jdict)
             table_print(data)
     else:
-        data = []
+        state_data: List[Dict[str, Any]] = []
         # job_qs
         for state in JobState:
             state_count = job_qs.filter(state=state).count()
+            assert state_count is not None
             if state_count > 0 or verbose:
                 state_dict = {"State": state.value, "Count": state_count}
-                data.append(state_dict)
+                state_data.append(state_dict)
 
         table_print(data)
 
