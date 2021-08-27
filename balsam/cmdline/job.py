@@ -298,7 +298,8 @@ def ls(
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
-def rm(job_ids: List[int], tags: List[str]) -> None:
+@click.option("--all", is_flag=True, default=False)
+def rm(job_ids: List[int], tags: List[str], all: bool) -> None:
     """
     Remove Jobs
 
@@ -309,6 +310,10 @@ def rm(job_ids: List[int], tags: List[str]) -> None:
     2) Remove Jobs by Tags
 
         balsam job rm --tag workflow=temp-test
+
+    3) Remove all jobs (DANGER!)
+
+        balsam job rm --all
     """
     client: RESTClient = load_client()
     jobs = client.Job.objects.all()
@@ -316,6 +321,9 @@ def rm(job_ids: List[int], tags: List[str]) -> None:
         jobs = jobs.filter(id=job_ids)
     elif tags:
         jobs = jobs.filter(tags=tags)
+    elif all:
+        click.echo("THIS WILL DELETE ALL JOBS! CAUTION!")
+        pass
     else:
         raise click.BadParameter("Provide either list of Job ids or tags to delete")
     count = jobs.count()
