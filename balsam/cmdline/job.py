@@ -204,8 +204,8 @@ def create(
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
 @click.option("-s", "--state", type=str, callback=validate_state)
 @click.option("-ns", "--exclude-state", type=str, callback=validate_state)
-@click.option("--id",type=str)
-@click.option("--by-state",type=bool, default=False, is_flag=True)
+@click.option("--id", type=str)
+@click.option("--by-state", type=bool, default=False, is_flag=True)
 @click.option("-w", "--workdir", type=str)
 @click.option("--site", "site_selector", default="")
 @click.option("-v", "--verbose", is_flag=True)
@@ -253,7 +253,11 @@ def ls(
     if workdir:
         job_qs = job_qs.filter(workdir__contains=workdir)
     if id:
-        job_qs = job_qs.filter(id=[id,])
+        job_qs = job_qs.filter(
+            id=[
+                id,
+            ]
+        )
 
     result = list(job_qs)
     if not result:
@@ -288,11 +292,8 @@ def ls(
         for state in JobState:
             state_count = job_qs.filter(state=state).count()
             if state_count > 0 or verbose:
-                 state_dict = {
-                    "State" : state.value,
-                    "Count" : state_count
-                 }
-                 data.append(state_dict)
+                state_dict = {"State": state.value, "Count": state_count}
+                data.append(state_dict)
 
         table_print(data)
 
