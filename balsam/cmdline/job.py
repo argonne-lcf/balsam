@@ -292,7 +292,7 @@ def ls(
                 state_dict = {"State": state.value, "Count": state_count}
                 state_data.append(state_dict)
 
-        table_print(data)
+        table_print(state_data)
 
 
 @job.command()
