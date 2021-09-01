@@ -52,7 +52,7 @@ def render_settings_file(default_settings: Dict[str, Any], template_path: Option
     Generate settings.yml from the master template and a default_settings_dict
     """
     if template_path is None:
-        template_path = Path(__file__).parent / "defaults/settings.tmpl.yml"
+        template_path = Path(__file__).parent / "defaults/settings.yml.j2"
     env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True)
     tmpl = env.from_string(template_path.read_text())
     return tmpl.render(default_settings)

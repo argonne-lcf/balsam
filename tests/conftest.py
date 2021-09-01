@@ -232,7 +232,7 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
             default_site_path=default_path,
             default_site_conf=default_conf,
             client=persistent_client,
-            settings_template_path=TEST_DEFAULTS_DIR / "settings.tmpl.yml",
+            settings_template_path=TEST_DEFAULTS_DIR / "settings.yml.j2",
         )
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
         sync_apps(site_config)
