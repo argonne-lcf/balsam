@@ -33,9 +33,11 @@ class LocustBalsamClient(OAuthRequestsClient):
 
     def request(self, url: str, http_method: str, **kwargs: Any) -> Any:  # type: ignore
         start_time = time.perf_counter()
+        url_parts = [(part if not part.isdigit() else ":id") for part in url.split("/")]
+        url_name = "/".join(url_parts)
         request_meta = {
             "request_type": "balsam-requests-client",
-            "name": f"{http_method} {url}",
+            "name": f"{http_method} {url_name}",
             "response_length": 0,
             "response": None,
             "context": {},  # see HttpUser if you actually want to implement contexts
