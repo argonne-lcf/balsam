@@ -16,6 +16,7 @@ pytest-cov
 pytest-mock
 isort
 sqlalchemy-stubs
+locust
 
 # mypy type stubs:
 types-PyYAML
