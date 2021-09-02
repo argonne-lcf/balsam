@@ -102,11 +102,11 @@ class BalsamUser(User):  # type: ignore
         path = f"/projects/foo/{uuid4()}"
         self.Site.objects.create(hostname=name, path=path)
 
-    @task(5)
+    @task(3)
     def site_list(self) -> None:
         list(self.Site.objects.all())
 
-    @task(3)
+    @task(1)
     def app_create(self):
         site = self.premade_site
         num_apps = len(self.App.objects.filter(site_id=site.id))
@@ -118,11 +118,11 @@ class BalsamUser(User):  # type: ignore
             parameters=parameters,
         )
 
-    @task(5)
+    @task(3)
     def app_list(self) -> None:
         list(self.App.objects.all())
 
-    @task(7)
+    @task(10)
     def job_create(self) -> None:
         app = self.premade_app
 
@@ -138,7 +138,7 @@ class BalsamUser(User):  # type: ignore
     def job_list_site(self) -> None:
         list(self.Job.objects.filter(site_id=self.premade_site.id))
 
-    @task(5)
+    @task(10)
     def bulk_job_submission(self) -> None:
         site = self.premade_site
         app = self.premade_app
@@ -199,8 +199,6 @@ class BalsamUser(User):  # type: ignore
             # session heartbeat
             sess.tick()
 
-            time.sleep(random.uniform(0.5, 5))
-
             # change jobs to done or error state
             for job in jobs[start:end]:
                 job.state = "RUN_DONE" if random.random() < 0.95 else "RUN_ERROR"
@@ -208,3 +206,6 @@ class BalsamUser(User):  # type: ignore
 
             # session heartbeat
             sess.tick()
+
+        # Delete session when exiting:
+        sess.delete()
