@@ -26,3 +26,4 @@ types-redis
 types-requests 
 types-ujson
 types-jwt
+types-six

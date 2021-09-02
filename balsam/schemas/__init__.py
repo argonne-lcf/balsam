@@ -1,3 +1,4 @@
+from .serializer import serialize, deserialize, get_source
 from .apps import AppCreate, AppOut, AppParameter, AppUpdate, PaginatedAppsOut, TransferSlot
 from .batchjob import (
     BatchJobBulkUpdate,
@@ -87,4 +88,7 @@ __all__ = [
     "SchedulerBackfillWindow",
     "SchedulerJobLog",
     "SchedulerJobStatus",
+    "serialize",
+    "deserialize",
+    "get_source",
 ]

@@ -61,7 +61,7 @@ class Site(Base):
     __table_args__ = (UniqueConstraint("owner_id", "name"),)
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(100), unique=True)
+    name = Column(String(100))
     path = Column(String(512))
     last_refresh = Column(DateTime)
     creation_date = Column(DateTime, default=datetime.utcnow)
@@ -101,15 +101,17 @@ class Site(Base):
 
 class App(Base):
     __tablename__ = "apps"
-    __table_args__ = (UniqueConstraint("site_id", "class_path"),)
+    __table_args__ = (UniqueConstraint("site_id", "name"),)
 
     id = Column(Integer, primary_key=True)
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"))
+    name = Column(String(200), nullable=False)
     description = Column(Text)
-    class_path = Column(String(200), nullable=False)
     parameters: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
     transfers: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
     last_modified = Column(Float, default=0.0)
+    serialized_class = Column(Text)
+    source_code = Column(Text)
 
     site = orm.relationship(Site, back_populates="apps")
     jobs = orm.relationship("Job", back_populates="app", cascade="all, delete-orphan", passive_deletes=True)
@@ -155,7 +157,9 @@ class Job(Base):
         nullable=True,
         default=None,
     )
-    parameters = Column(pg.JSONB, default=dict)
+    serialized_parameters = Column(Text)
+    serialized_return_value = Column(Text)
+    serialized_exception = Column(Text)
     batch_job_id = Column(Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True)
     state = Column(String(32), index=True)
     last_update = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())

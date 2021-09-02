@@ -122,9 +122,6 @@ class JobQuery:
     state__ne: schemas.JobState = Query(None, description="Only return jobs with states not equal to this state.")
     state: Set[schemas.JobState] = Query(None, description="Only return jobs in this set of states.")
     tags: List[str] = Query(None, description="Only return jobs containing these tags (list of KEY:VALUE strings)")
-    parameters: List[str] = Query(
-        None, description="Only return jobs having these App command parameters (list of KEY:VALUE strings)"
-    )
     pending_file_cleanup: bool = Query(None, description="Only return jobs which have not yet had workdir cleaned.")
     ordering: schemas.JobOrdering = Query(None, description="Order Jobs by this field.")
 
@@ -153,9 +150,6 @@ class JobQuery:
         if self.tags:
             tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)  # type: ignore
             qs = qs.filter(Job.tags.contains(tags_dict))  # type: ignore
-        if self.parameters:
-            params_dict: Dict[str, str] = dict(p.split(":", 1) for p in self.parameters if ":" in p)  # type: ignore
-            qs = qs.filter(Job.parameters.contains(params_dict))  # type: ignore
         if self.pending_file_cleanup:
             qs = qs.filter(Job.pending_file_cleanup)
         if self.ordering:

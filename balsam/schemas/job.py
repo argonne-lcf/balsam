@@ -56,9 +56,7 @@ RUNNABLE_STATES = {JobState.preprocessed, JobState.restart_ready}
 class JobBase(BaseModel):
     workdir: Path = Field(..., example="test_jobs/test1", description="Job path relative to site data/ folder.")
     tags: Dict[str, str] = Field({}, example={"system": "H2O"}, description="Custom key:value string tags.")
-    parameters: Dict[str, str] = Field(
-        {}, example={"input_file": "input.dat"}, description="App parameter name:value pairs."
-    )
+    serialized_parameters: str = Field("", description="Encoded parameters dict")
     data: Dict[str, Any] = Field({}, example={"energy": -0.5}, description="Arbitrary JSON-able data dictionary.")
     return_code: Optional[int] = Field(None, example=0, description="Return code from last execution of this Job.")
 
@@ -137,6 +135,9 @@ class JobUpdate(JobBase):
     state_timestamp: datetime = Field(None, description="Time (UTC) at which Job state change occured")
     state_data: Dict[str, Any] = Field({}, description="Arbitrary associated state change data for logging")
     pending_file_cleanup: bool = Field(None, description="Whether job remains to have workdir cleaned.")
+    serialized_parameters: str = Field(None, description="Encoded parameters dict")
+    serialized_return_value: str = Field(None, description="Encoded return value")
+    serialized_exception: str = Field(None, description="Encoded wrapped Exception")
 
 
 class JobBulkUpdate(JobUpdate):
@@ -151,6 +152,9 @@ class JobOut(JobBase):
     last_update: datetime = Field(...)
     state: JobState = Field(..., example="JOB_FINISHED")
     pending_file_cleanup: bool = Field(..., description="Whether job remains to have workdir cleaned.")
+    serialized_parameters: str = Field(..., description="Encoded parameters dict")
+    serialized_return_value: str = Field(..., description="Encoded return value")
+    serialized_exception: str = Field(..., description="Encoded wrapped Exception")
 
     class Config:
         orm_mode = True
