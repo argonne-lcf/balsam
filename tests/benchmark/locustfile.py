@@ -1,11 +1,11 @@
-from pathlib import Path
-import logging
-from uuid import uuid4
-import os
 import copy
+import logging
+import os
 import random
 import time
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from locust import User, task  # type: ignore
 from locust.env import Environment  # type: ignore
