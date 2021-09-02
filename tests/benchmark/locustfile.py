@@ -12,8 +12,6 @@ tokens = [
     for line in open("/lus/theta-fs0/projects/datascience/parton/balsam2-dev/test-tokens.txt").readlines()
 ]
 
-print(copy.__file__)
-
 
 class LocustBalsamClient(OAuthRequestsClient):
     def __init__(self, api_root, token, request_event):
