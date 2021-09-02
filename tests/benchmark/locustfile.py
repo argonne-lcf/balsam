@@ -1,24 +1,33 @@
+from pathlib import Path
+import os
 import copy
 import random
 import time
+from typing import Any
 
-from locust import User, task
+from locust import User, task  # type: ignore
+from locust.env import Environment  # type: ignore
+from locust.event import EventHook  # type: ignore
 
 from balsam._api import models
 from balsam.client import OAuthRequestsClient
 
-tokens = [
-    line.strip()
-    for line in open("/lus/theta-fs0/projects/datascience/parton/balsam2-dev/test-tokens.txt").readlines()
-]
+TEST_TOKENS_FILE = os.environ.get("BALSAM_TEST_TOKENS", "test-tokens.txt")
+if not Path(TEST_TOKENS_FILE).is_file():
+    raise RuntimeError(
+        f"Cannot find token file {TEST_TOKENS_FILE}. Create this or set the path with BALSAM_TEST_TOKENS."
+    )
+
+with open(TEST_TOKENS_FILE) as fp:
+    tokens = [line.strip() for line in fp.readlines()]
 
 
 class LocustBalsamClient(OAuthRequestsClient):
-    def __init__(self, api_root, token, request_event):
+    def __init__(self, api_root: str, request_event: EventHook) -> None:
         super().__init__(api_root, token=random.choice(tokens))
         self._request_event = request_event
 
-    def request(self, url, http_method, **kwargs):
+    def request(self, url: str, http_method: str, **kwargs: Any) -> Any:  # type: ignore
         start_time = time.perf_counter()
         request_meta = {
             "request_type": "balsam-requests-client",
@@ -37,12 +46,10 @@ class LocustBalsamClient(OAuthRequestsClient):
         return request_meta["response"]
 
 
-class BalsamUser(User):
-    def __init__(self, environment):
+class BalsamUser(User):  # type: ignore
+    def __init__(self, environment: Environment) -> None:
         super().__init__(environment)
-        self.client = LocustBalsamClient(
-            "https://balsam-dev.alcf.anl.gov/", "DUMMY_TOKEN", environment.events.request
-        )
+        self.client = LocustBalsamClient("https://balsam-dev.alcf.anl.gov/", environment.events.request)
         self.Site = copy.deepcopy(
             models.Site
         )  # Use DeepCopy; otherwise multiple threads will use the same "Site" client!
@@ -62,12 +69,13 @@ class BalsamUser(User):
 
     def on_start(self) -> None:
         name = "premade_site"
-        path = "/projects/premade_site"
+        path = Path("/projects/premade_site")
         self.premade_site = self.Site.objects.create(hostname=name, path=path)
+        assert self.premade_site.id is not None
         class_path = "premade_app"
-        parameters = {"foo": {"required": False}, "bar": {"required": False}}
+        parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
         self.premade_app = self.App.objects.create(
-            site_id=self.premade_site.id, class_path=class_path, parameters=parameters
+            site_id=self.premade_site.id, class_path=class_path, parameters=parameters  # type: ignore
         )
 
     def on_stop(self) -> None:
@@ -87,9 +95,9 @@ class BalsamUser(User):
     @task(3)
     def app_create(self):
         site = self.premade_site
-        num_apps = len(self.Site.objects.filter(id == site.id))
-        class_path = "foo.bar_%08d" % num_apps
-        parameters = {"foo": {"required": False}, "bar": {"required": False}}
+        num_apps = len(self.Site.objects.filter(id=site.id))
+        class_path = f"foo.bar_{num_apps:08d}"
+        parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
         self.App.objects.create(
             site_id=site.id,
             class_path=class_path,
@@ -104,7 +112,7 @@ class BalsamUser(User):
     def job_create(self) -> None:
         app = self.premade_app
 
-        parameters = {"foo": {"required": False}, "bar": {"required": False}}
+        parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
         job_num = len(self.Job.objects.all())
         self.Job.objects.create("test/run_%08d" % job_num, app_id=app.id, parameters=parameters)
 
@@ -122,7 +130,7 @@ class BalsamUser(User):
         app = self.premade_app
         # create a bunch of jobs:
         jobs = []
-        parameters = {"foo": {"required": False}, "bar": {"required": False}}
+        parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
         batch_id = str(int(time.time()))
         # create between 1 and 100 jobs
         for i in range(random.choice(range(128, 512))):
@@ -155,6 +163,7 @@ class BalsamUser(User):
 
         # associate jobs with batchjob
         sess.acquire_jobs(
+            max_num_jobs=1024,
             filter_tags={"batch_id": batch_id},
             states=["PREPROCESSED", "RESTART_READY"],
         )
