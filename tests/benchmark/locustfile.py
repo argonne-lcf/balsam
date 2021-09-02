@@ -47,30 +47,27 @@ class BalsamUser(User):
             models.Site
         )  # Use DeepCopy; otherwise multiple threads will use the same "Site" client!
         self.Site.objects = models.SiteManager(self.client)
-        self.App = copy.deepycopy(models.App)  # Deepcopy
+        self.App = copy.deepcopy(models.App)  # Deepcopy
         self.App.objects = models.AppManager(self.client)
-        self.BatchJob = copy.deepycopy(models.BatchJob)  # Deepcopy
+        self.BatchJob = copy.deepcopy(models.BatchJob)  # Deepcopy
         self.BatchJob.objects = models.BatchJobManager(self.client)
-        self.Job = copy.deepycopy(models.Job)  # Deepcopy
+        self.Job = copy.deepcopy(models.Job)  # Deepcopy
         self.Job.objects = models.JobManager(self.client)
-        self.TransferItem = copy.deepycopy(models.TransferItem)  # Deepcopy
+        self.TransferItem = copy.deepcopy(models.TransferItem)  # Deepcopy
         self.TransferItem.objects = models.TransferItemManager(self.client)
-        self.Session = copy.deepycopy(models.Session)  # Deepcopy
+        self.Session = copy.deepcopy(models.Session)  # Deepcopy
         self.Session.objects = models.SessionManager(self.client)
-        self.EventLog = copy.deepycopy(models.EventLog)  # Deepcopy
+        self.EventLog = copy.deepcopy(models.EventLog)  # Deepcopy
         self.EventLog.objects = models.EventLogManager(self.client)
 
     def on_start(self) -> None:
         name = "premade_site"
         path = "/projects/premade_site"
         self.premade_site = self.Site.objects.create(hostname=name, path=path)
+        class_path = "premade_app"
+        parameters = {"foo": {"required": False}, "bar": {"required": False}}
         self.premade_app = self.App.objects.create(
-            site_id=self.premade_site.id,
-            class_path="premade.app",
-            parameters={
-                "foo": 3,
-                "bar": 4,
-            },
+            site_id=self.premade_site.id, class_path=class_path, parameters=parameters
         )
 
     def on_stop(self) -> None:
