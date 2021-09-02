@@ -1,4 +1,6 @@
 from pathlib import Path
+import logging
+from uuid import uuid4
 import os
 import copy
 import random
@@ -11,6 +13,8 @@ from locust.event import EventHook  # type: ignore
 
 from balsam._api import models
 from balsam.client import OAuthRequestsClient
+
+logger = logging.getLogger(__name__)
 
 TEST_TOKENS_FILE = os.environ.get("BALSAM_TEST_TOKENS", "test-tokens.txt")
 if not Path(TEST_TOKENS_FILE).is_file():
@@ -41,8 +45,10 @@ class LocustBalsamClient(OAuthRequestsClient):
             request_meta["response"] = super().request(url, http_method, **kwargs)
         except Exception as e:
             request_meta["exception"] = e
-        request_meta["response_time"] = (time.perf_counter() - start_time) * 1000
-        self._request_event.fire(**request_meta)  # This is what makes the request actually get logged in Locust
+            raise
+        finally:
+            request_meta["response_time"] = (time.perf_counter() - start_time) * 1000
+            self._request_event.fire(**request_meta)  # This is what makes the request actually get logged in Locust
         return request_meta["response"]
 
 
@@ -50,9 +56,7 @@ class BalsamUser(User):  # type: ignore
     def __init__(self, environment: Environment) -> None:
         super().__init__(environment)
         self.client = LocustBalsamClient("https://balsam-dev.alcf.anl.gov/", environment.events.request)
-        self.Site = copy.deepcopy(
-            models.Site
-        )  # Use DeepCopy; otherwise multiple threads will use the same "Site" client!
+        self.Site = copy.deepcopy(models.Site)
         self.Site.objects = models.SiteManager(self.client)
         self.App = copy.deepcopy(models.App)  # Deepcopy
         self.App.objects = models.AppManager(self.client)
@@ -68,7 +72,15 @@ class BalsamUser(User):  # type: ignore
         self.EventLog.objects = models.EventLogManager(self.client)
 
     def on_start(self) -> None:
-        name = "premade_site"
+        # Clean up old Sites prior to testing
+        for site in self.Site.objects.all():
+            logger.debug(f"Deleting old site: {site}")
+            site.delete()
+            assert site.id is None
+        logger.debug("OK I should have deleted all my sites by now!")
+        failed_to_delete = list(self.Site.objects.all())
+        assert len(failed_to_delete) == 0
+        name = f"test-site{uuid4()}"
         path = Path("/projects/premade_site")
         self.premade_site = self.Site.objects.create(hostname=name, path=path)
         assert self.premade_site.id is not None
@@ -79,13 +91,15 @@ class BalsamUser(User):  # type: ignore
         )
 
     def on_stop(self) -> None:
-        self.Site.objects.all().delete()
+        # Clean up Sites after testing
+        for site in self.Site.objects.all():
+            site.delete()
 
     @task(1)
     def site_create(self) -> None:
         num_sites = len(self.Site.objects.all())
-        name = "site_%08d" % num_sites
-        path = "/projects/foo/%08d" % num_sites
+        name = f"site_{num_sites}"
+        path = f"/projects/foo/{uuid4()}"
         self.Site.objects.create(hostname=name, path=path)
 
     @task(5)
@@ -95,7 +109,7 @@ class BalsamUser(User):  # type: ignore
     @task(3)
     def app_create(self):
         site = self.premade_site
-        num_apps = len(self.Site.objects.filter(id=site.id))
+        num_apps = len(self.App.objects.filter(site_id=site.id))
         class_path = f"foo.bar_{num_apps:08d}"
         parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
         self.App.objects.create(
@@ -112,7 +126,7 @@ class BalsamUser(User):  # type: ignore
     def job_create(self) -> None:
         app = self.premade_app
 
-        parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
+        parameters = {"foo": "yes", "bar": "maybe"}
         job_num = len(self.Job.objects.all())
         self.Job.objects.create("test/run_%08d" % job_num, app_id=app.id, parameters=parameters)
 
@@ -129,24 +143,24 @@ class BalsamUser(User):  # type: ignore
         site = self.premade_site
         app = self.premade_app
         # create a bunch of jobs:
-        jobs = []
-        parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
+        parameters = {"foo": "yes", "bar": "maybe"}
         batch_id = str(int(time.time()))
         # create between 1 and 100 jobs
-        for i in range(random.choice(range(128, 512))):
-            jobs.append(
-                self.Job.objects.create(
-                    f"batchjob_{batch_id}/run_{i:08d}",
-                    app_id=app.id,
-                    parameters=parameters,
-                    tags={"batch_id": batch_id},
-                )
+        jobs = [
+            self.Job(
+                f"batchjob_{batch_id}/run_{i:08d}",
+                app_id=app.id,
+                parameters=parameters,
+                tags={"batch_id": batch_id},
             )
+            for i in range(random.choice(range(128, 512)))
+        ]
+        jobs = self.Job.objects.bulk_create(jobs)
 
         # move jobs to PREPROCESSED state
         for job in jobs:
             job.state = "PREPROCESSED"
-            job.save()
+        self.Job.objects.bulk_update(jobs)
 
         # create batch job
         simulated_nodes = 128
@@ -180,7 +194,7 @@ class BalsamUser(User):  # type: ignore
             # change jobs to running state
             for job in jobs[start:end]:
                 job.state = "RUNNING"
-                job.save()
+            self.Job.objects.bulk_update(jobs[start:end])
 
             # session heartbeat
             sess.tick()
@@ -190,7 +204,7 @@ class BalsamUser(User):  # type: ignore
             # change jobs to done or error state
             for job in jobs[start:end]:
                 job.state = "RUN_DONE" if random.random() < 0.95 else "RUN_ERROR"
-                job.save()
+            self.Job.objects.bulk_update(jobs[start:end])
 
             # session heartbeat
             sess.tick()
