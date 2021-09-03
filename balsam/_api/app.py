@@ -255,8 +255,35 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             cls.site = cls.site.id
         return cls.site
 
-    @classmethod
-    def load_app_class(cls, apps_dir: Union[Path, str], class_path: str) -> Type["ApplicationDefinition"]:
+    @staticmethod
+    def load_apps(site: Union[int, str, Site]) -> "Dict[int, Type[ApplicationDefinition]]":
+        if ApplicationDefinition._client is None:
+            raise AttributeError("Client has not been set: call _set_client prior to this method")
+        App = ApplicationDefinition._client.App
+
+        lookup: Dict[str, Union[str, int]]
+        if isinstance(site, int):
+            lookup = {"site_id": site}
+        elif isinstance(site, str):
+            lookup = {"site_name": site}
+        elif isinstance(site, Site):
+            assert site.id is not None
+            lookup = {"site_id": site.id}
+        else:
+            raise ValueError("site must be an int, str, or Site object.")
+
+        api_apps = App.objects.filter(**lookup)  # type: ignore
+        apps_by_name = {}
+        for app in api_apps:
+            assert app.id is not None
+            apps_by_name[app.name] = ApplicationDefinition.from_serialized(
+                id=app.id,
+                serialized_class=app.serialized_class,
+            )
+        return apps_by_name
+
+    @staticmethod
+    def load_app(apps_dir: Union[Path, str], class_path: str) -> Type["ApplicationDefinition"]:
         """
         Load the ApplicationDefinition subclass located in directory apps_dir
         """
