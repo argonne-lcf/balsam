@@ -32,7 +32,7 @@ class SiteQuery:
 class AppQuery:
     site_id: List[int] = Query(None, description="Only return Apps associated with the Site IDs in this list.")
     id: List[int] = Query(None, description="Only return Apps with IDs in this list.")
-    class_path: str = Query(None, description="Only return Apps matching this dotted class path (module.ClassName)")
+    name: str = Query(None, description="Only return Apps matching this dotted class path (module.ClassName)")
     site_path: str = Query(None, description="Only return Apps from Sites having paths containing this substring.")
 
     def apply_filters(self, qs: "orm.Query[App]") -> "orm.Query[App]":
@@ -40,8 +40,8 @@ class AppQuery:
             qs = qs.filter(App.site_id.in_(self.site_id))
         if self.id:
             qs = qs.filter(App.id.in_(self.id))
-        if self.class_path is not None:
-            qs = qs.filter(App.class_path == self.class_path)
+        if self.name is not None:
+            qs = qs.filter(App.name == self.name)
         if self.site_path:
             qs = qs.filter(Site.path.like(f"%{self.site_path}%"))
         return qs

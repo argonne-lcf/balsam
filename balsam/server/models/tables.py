@@ -109,7 +109,6 @@ class App(Base):
     description = Column(Text)
     parameters: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
     transfers: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
-    last_modified = Column(Float, default=0.0)
     serialized_class = Column(Text)
     source_code = Column(Text)
 

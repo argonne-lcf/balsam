@@ -52,24 +52,11 @@ def update_states_by_query(
     return updated_jobs, events
 
 
-def validate_parameters(job: models.Job) -> None:
-    param_dict: Dict[str, Any] = job.app.parameters
-    allowed_params = set(param_dict.keys())
-    required_params = {p for p in allowed_params if param_dict[p]["required"]}
-    job_params = set(cast(Dict[str, str], job.parameters).keys())
-    extraneous_params = job_params.difference(allowed_params)
-    missing_params = required_params.difference(job_params)
-    if extraneous_params:
-        raise ValidationError(f"Job has the following extraneous parameters: {extraneous_params}")
-    if missing_params:
-        raise ValidationError(f"Job has the following missing parameters: {missing_params}")
-
-
 def populate_transfers(db_job: models.Job, job_spec: schemas.JobCreate) -> List[models.TransferItem]:
     for transfer_name, transfer_spec in job_spec.transfers.items():
         transfer_slot = db_job.app.transfers.get(transfer_name)
         if transfer_slot is None:
-            raise ValidationError(f"App {db_job.app.class_path} has no Transfer slot named {transfer_name}")
+            raise ValidationError(f"App {db_job.app.name} has no Transfer slot named {transfer_name}")
         direction, local_path = transfer_slot["direction"], transfer_slot["local_path"]
         recursive = transfer_slot["recursive"]
         assert direction in ["in", "out"]
@@ -150,7 +137,6 @@ def bulk_create(
         db_job = models.Job(**jsonable_encoder(job_spec.dict(exclude={"parent_ids", "transfers"})))
         db.add(db_job)
         db_job.app = apps[job_spec.app_id]
-        validate_parameters(db_job)
 
         assert isinstance(db_job.parents, list)
         db_job.parents.extend(parents[id] for id in job_spec.parent_ids)
