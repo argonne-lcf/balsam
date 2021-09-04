@@ -4,8 +4,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, DefaultDict, List
 
+from balsam._api import ApplicationDefinition
 from balsam.schemas import JobState
-from balsam.site import ApplicationDefinition
 
 from .service_base import BalsamService
 

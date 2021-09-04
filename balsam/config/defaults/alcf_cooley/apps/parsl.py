@@ -1,4 +1,4 @@
-from balsam.site import ApplicationDefinition
+from balsam.api import ApplicationDefinition
 
 
 class BashRunner(ApplicationDefinition):

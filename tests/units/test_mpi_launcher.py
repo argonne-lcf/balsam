@@ -3,9 +3,9 @@ from datetime import datetime
 import pytest
 
 from balsam._api.models import Job
+from balsam.api import ApplicationDefinition
 from balsam.platform.app_run import MPICHRun
 from balsam.platform.compute_node import ThetaGPUNode
-from balsam.site import ApplicationDefinition
 from balsam.site.launcher._mpi_mode import Launcher
 from balsam.site.launcher.node_manager import NodeManager
 

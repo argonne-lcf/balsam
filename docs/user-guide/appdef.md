@@ -29,7 +29,7 @@ parameter and Balsam will take care of building the command line.
 
 ```python
 # apps/test.py
-from balsam.site import ApplicationDefinition
+from balsam.api import ApplicationDefinition
 
 class Sleeper(ApplicationDefinition):
     """

@@ -7,8 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterator, Optional, Type, Union
 
+from balsam._api import ApplicationDefinition
 from balsam.schemas import JobState
-from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobSource
+from balsam.site import BulkStatusUpdater, FixedDepthJobSource
 from balsam.util import Process, SigHandler
 
 if TYPE_CHECKING:
@@ -107,6 +108,7 @@ class ProcessingService(object):
         num_workers: int = 5,
     ) -> None:
         self.site_id = site_id
+        ApplicationDefinition._set_client(client)
         app_cache = {
             app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
             for app in client.App.objects.filter(site_id=self.site_id)

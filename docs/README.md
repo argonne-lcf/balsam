@@ -22,7 +22,7 @@ $ balsam site init my-site
 **Declare HPC Apps and execution lifecycle hooks.**
 
 ```python
-from balsam.site import ApplicationDefinition
+from balsam.api import ApplicationDefinition
 
 class Hello(ApplicationDefinition):
     command_template = "echo hello {{ name }}"

@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Type
 
 import zmq
 
+from balsam._api import ApplicationDefinition
 from balsam.config import SiteConfig
 from balsam.schemas import JobState
-from balsam.site import ApplicationDefinition, BulkStatusUpdater, FixedDepthJobSource
+from balsam.site import BulkStatusUpdater, FixedDepthJobSource
 from balsam.site.launcher.util import countdown_timer_min
 from balsam.util import SigHandler
 

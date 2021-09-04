@@ -516,7 +516,7 @@ data from its parents before executing:
 
 ```python hl_lines="9-10"
 from balsam.api import site_config
-from balsam.site import ApplicationDefinition
+from balsam.api import ApplicationDefinition
 
 class MyApp(ApplicationDefinition):
     # ...other class attrs

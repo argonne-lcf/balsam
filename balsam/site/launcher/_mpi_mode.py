@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Uni
 
 import click
 
+from balsam._api import ApplicationDefinition
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
 from balsam.schemas import JobState
-from balsam.site import ApplicationDefinition, BulkStatusUpdater, SynchronousJobSource
+from balsam.site import BulkStatusUpdater, SynchronousJobSource
 from balsam.site.launcher.node_manager import NodeManager
 from balsam.site.launcher.util import countdown_timer_min
 from balsam.util import SigHandler
@@ -224,6 +225,7 @@ def main(
     nodes = [node for node in node_cls.get_job_nodelist() if node.node_id in node_ids_list]
     node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
 
+    ApplicationDefinition._set_client(site_config.client)
     App = site_config.client.App
     app_cache = {
         app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
