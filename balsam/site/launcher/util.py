@@ -1,10 +1,11 @@
 import logging
 import time
+from types import TracebackType
 from typing import Iterator
+
 import dill  # type: ignore
 from six import reraise
 from tblib import Traceback  # type: ignore
-from types import TracebackType
 
 logger = logging.getLogger(__name__)
 

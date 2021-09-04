@@ -1,18 +1,17 @@
-from functools import lru_cache
-import logging
 import inspect
+import logging
 import os
 import re
 import shlex
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type, Union, cast, Callable
 from enum import Enum
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union, cast
 
 import jinja2
 import jinja2.meta
 
-from balsam.schemas import JobState, serialize, deserialize, get_source
 from balsam._api.models import Site
+from balsam.schemas import JobState, deserialize, get_source, serialize
 
 if TYPE_CHECKING:
     from balsam._api.models import App, Job

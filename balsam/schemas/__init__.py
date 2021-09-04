@@ -1,4 +1,3 @@
-from .serializer import serialize, deserialize, get_source
 from .apps import AppCreate, AppOut, AppParameter, AppUpdate, PaginatedAppsOut, TransferSlot
 from .batchjob import (
     BatchJobBulkUpdate,
@@ -16,7 +15,6 @@ from .batchjob import (
 )
 from .job import (
     RUNNABLE_STATES,
-    ClientJobCreate,
     JobBulkUpdate,
     JobCreate,
     JobOrdering,
@@ -27,6 +25,7 @@ from .job import (
     PaginatedJobsOut,
 )
 from .logevent import EventOrdering, LogEventOut, PaginatedLogEventOut
+from .serializer import deserialize, get_source, serialize
 from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
 from .transfer import (
@@ -67,7 +66,6 @@ __all__ = [
     "PaginatedSessionsOut",
     "SessionAcquire",
     "JobCreate",
-    "ClientJobCreate",
     "JobUpdate",
     "JobBulkUpdate",
     "PaginatedJobsOut",

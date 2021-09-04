@@ -1,12 +1,13 @@
-from typing import List, Type, Dict, Any, Tuple
-import dill  # type: ignore
-import json
 import base64
+import json
 import sys
+from typing import Any, Dict, List, Tuple, Type
 
-from balsam.site.app import ApplicationDefinition, is_appdef
+import dill  # type: ignore
+
 from balsam._api.models import Job
 from balsam.schemas import serialize
+from balsam.site.app import ApplicationDefinition, is_appdef
 
 
 def unpack_chunks(num_app_chunks: int, chunks: List[str]) -> Tuple[Type[ApplicationDefinition], Job]:
