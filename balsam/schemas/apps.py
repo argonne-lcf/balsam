@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
+MAX_APP_SERIALIZED_SIZE = 262_144
+
 
 class AppParameter(BaseModel):
     required: bool
@@ -75,6 +77,12 @@ class AppBase(BaseModel):
     def is_valid_class_name(cls, v: str) -> str:
         if not v.isidentifier():
             raise ValueError(f"{v} is not a valid class name")
+        return v
+
+    @validator("serialized_class")
+    def max_class_len(cls, v: str) -> str:
+        if len(v) > MAX_APP_SERIALIZED_SIZE:
+            raise AssertionError(f"Serialized App cannot be larger than {MAX_APP_SERIALIZED_SIZE}")
         return v
 
 

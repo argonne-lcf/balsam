@@ -1,16 +1,29 @@
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 
 from balsam import schemas
 
+from .app import ApplicationDefinition
 from .manager import Manager
 from .model import CreatableBalsamModel, Field, NonCreatableBalsamModel
 
 if TYPE_CHECKING:
-    from balsam._api.models import App, BatchJob, EventLog, Job, Session, Site, TransferItem  # noqa: F401
+    from balsam._api.models import (  # noqa: F401
+        App,
+        BatchJob,
+        EventLog,
+        Job,
+        JobManager,
+        JobQuery,
+        Session,
+        Site,
+        TransferItem,
+    )
     from balsam.client import RESTClient
 
 JobState = schemas.JobState
+JobTransferItem = schemas.JobTransferItem
 RUNNABLE_STATES = schemas.RUNNABLE_STATES
 logger = logging.getLogger(__name__)
 
@@ -95,10 +108,80 @@ class BatchJobManagerBase(Manager["BatchJob"]):
     _bulk_update_enabled = True
 
 
+InputAppType = Union[int, str, ApplicationDefinition]
+
+
 class JobBase(CreatableBalsamModel):
     _create_model_cls = schemas.JobCreate
     _update_model_cls = schemas.JobUpdate
     _read_model_cls = schemas.JobOut
+
+    _app_name_cache: Dict[Tuple[Optional[str], str], ApplicationDefinition] = {}
+    _app_id_cache: Dict[int, ApplicationDefinition] = {}
+    objects: "JobManager"
+    app_id: Field[int]
+    workdir: Field[Path]
+    parent_ids: Field[Set[int]]
+
+    def __init__(self, app: InputAppType, site_name: Optional[str] = None, **kwargs: Any) -> None:
+        app_id = self._resolve_app_id(app, site_name)
+        super().__init__(**kwargs, app_id=app_id)
+
+    @classmethod
+    def _fetch_app_by_name(cls, app_name: str, site_name: Optional[str]) -> ApplicationDefinition:
+        app_key = (site_name, app_name)
+        if app_key not in cls._app_name_cache:
+            AppManager = cls.objects._client.App.objects
+            logger.debug(f"App Cache miss: fetching app {app_key}")
+            app = AppManager.get(site_name=site_name, name=app_name)
+            assert app.id is not None
+            cls._app_name_cache[app_key] = app
+            cls._app_id_cache[app.id] = app
+        return cls._app_name_cache[app_key]
+
+    @classmethod
+    def _fetch_app_by_id(cls, app_id: int) -> ApplicationDefinition:
+        if app_id not in cls._app_id_cache:
+            AppManager = cls.objects._client.App.objects
+            logger.debug(f"App Cache miss: fetching app {app_id}")
+            app = AppManager.get(id=app_id)
+            cls._app_id_cache[app_id] = app
+        return cls._app_id_cache[app_id]
+
+    @classmethod
+    def _resolve_app_id(cls, app: Union[str, int, ApplicationDefinition], site_name: Optional[str]) -> int:
+        if isinstance(app, int):
+            app_id = app
+        elif isinstance(app, str):
+            app = cls._fetch_app_by_name(app, site_name)
+            assert app.id is not None
+            app_id = app.id
+        else:
+            if app.__app_id__ is None:
+                raise ValueError(
+                    f"Cannot resolve ID from ApplicationDefinition {app}: __app_id__ is None. You need to app.sync() prior to creating Jobs with this app."
+                )
+            app_id = app.__app_id__
+            cls._app_id_cache[app_id] = app
+        return app_id
+
+    @property
+    def app(self) -> ApplicationDefinition:
+        if self.app_id is None:
+            raise ValueError("Cannot fetch by app ID; is None")
+        return self._fetch_app_by_id(self.app_id)
+
+    @property
+    def site_id(self) -> int:
+        if self.app_id is None:
+            raise ValueError("Cannot fetch by app ID; is None")
+        return self._fetch_app_by_id(self.app_id).site_id
+
+    def resolve_workdir(self, data_path: Path) -> Path:
+        return data_path.joinpath(self.workdir)
+
+    def parent_query(self) -> "JobQuery":
+        return self.objects.filter(id=list(self.parent_ids))
 
 
 class JobManagerBase(Manager["Job"]):

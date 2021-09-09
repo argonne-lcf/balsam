@@ -230,6 +230,8 @@ def field_to_dict(field: ModelField, schema: Type[BaseModel]) -> FieldDict:
 
     assert annotation is not None
     annotation = annotation.replace("NoneType", "None")
+    no_constructor = field.field_info.extra.get("no_constructor", False)
+    no_descriptor = field.field_info.extra.get("no_descriptor", False)
     return {
         "name": field.name,
         "required": field.required,
@@ -238,6 +240,8 @@ def field_to_dict(field: ModelField, schema: Type[BaseModel]) -> FieldDict:
         "schema_default": field_default,  # default attribute on the Pydantic ModelField
         "default_create": default_create,  # default value for __init__ kwargs
         "optional_create": default_create is None,  # whether to use Optional[] annotation in __init__
+        "no_constructor": no_constructor,
+        "no_descriptor": no_descriptor,
     }
 
 
@@ -295,7 +299,6 @@ def order_by_typename(filterset: object) -> Optional[str]:
     assert issubclass(order_enum, Enum)
     typename = qual_path(order_enum)
     return typename
-    return f"order_param: Optional[{typename}] = None"
 
 
 def get_model_fields(model_base: Type[BalsamModel]) -> Tuple[FieldDict, FieldDict, FieldDict]:
@@ -312,10 +315,15 @@ def get_model_fields(model_base: Type[BalsamModel]) -> Tuple[FieldDict, FieldDic
 def qual_path(obj: type) -> str:
     if obj is None:
         return "None"
-    mod, name = str(obj.__module__), str(obj.__name__)
-    if mod == "builtins":
-        return name
-    return f"{mod}.{name}"
+    mod = str(obj.__module__)
+    try:
+        name = str(obj.__name__)
+    except AttributeError:
+        return str(obj)
+    else:
+        if mod == "builtins":
+            return name
+        return f"{mod}.{name}"
 
 
 def make_help_text(fields: FieldDict) -> List[str]:
@@ -342,15 +350,17 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: 
     base_name = qual_path(model_base)
 
     create_fields, update_fields, read_fields = get_model_fields(model_base)
-    create_kwargs = model_create_signature(create_fields) if create_fields else None
+    constructor_fields = {k: v for k, v in create_fields.items() if not v["no_constructor"]}
+    create_kwargs = model_create_signature(constructor_fields) if create_fields else None
     update_kwargs = update_signature(update_fields) if update_fields else None
     filter_kwargs = filter_signature(filterset)
     order_by_type = order_by_typename(filterset)
 
-    model_create_help = make_help_text(create_fields)
+    model_create_help = make_help_text(constructor_fields)
     model_update_help = make_help_text(update_fields)
     model_filter_help = make_help_text(filterset.__dataclass_fields__)  # type: ignore
     fields = {**create_fields, **update_fields, **read_fields}
+    fields = {k: v for k, v in fields.items() if not v["no_descriptor"]}
     for field in fields:
         # A read-only field can be None if the model is creatable (e.g. not created yet, id is None)
         if field in read_fields and field not in create_fields and model_base._create_model_cls is not None:

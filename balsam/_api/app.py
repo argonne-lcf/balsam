@@ -4,24 +4,19 @@ import os
 import re
 import shlex
 from enum import Enum
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import jinja2
 import jinja2.meta
 
-from balsam._api.models import Site
 from balsam.schemas import JobState, deserialize, get_source, serialize
 
 if TYPE_CHECKING:
-    from balsam._api.models import App, Job
     from balsam.client import RESTClient
-    from balsam.config import SiteConfig
 
-ModTimeDict = Dict[str, float]
-AppClassDict = Dict[str, List[Type["ApplicationDefinition"]]]
+    from .models import App, Job, Site
+
 PARAM_PATTERN = re.compile(r"{{(.*?)}}")
-
 logger = logging.getLogger(__name__)
 
 
@@ -94,7 +89,6 @@ class AppType(str, Enum):
 
 
 class ApplicationDefinitionMeta(type):
-    _loaded_apps: Dict[Tuple[str, str], Type["ApplicationDefinition"]]
     environment_variables: Dict[str, str]
     command_template: str
     parameters: Dict[str, Any]
@@ -147,16 +141,17 @@ class ApplicationDefinitionMeta(type):
         return cls
 
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "ApplicationDefinitionMeta":
-        if "site" not in attrs or not isinstance(attrs["site"], (str, int, Site)):
-            raise AttributeError(
-                f"ApplicationDefinition {name} must contain the `site` attribute, set to a site id, name, or Site object"
-            )
-
-        if "parameters" not in attrs:
-            attrs["parameters"] = {}
         cls = super().__new__(mcls, name, bases, attrs)
         if not bases:
             return cls
+
+        if "parameters" not in attrs:
+            attrs["parameters"] = {}
+
+        if "site" not in attrs:
+            raise AttributeError(
+                f"ApplicationDefinition {name} must contain the `site` attribute, set to a site id, name, or Site object"
+            )
 
         has_command_template = "command_template" in attrs and isinstance(attrs["command_template"], str)
         has_run_function = "run" in attrs and callable(attrs["run"])
@@ -179,7 +174,6 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     class ModuleLoadError(Exception):
         pass
 
-    _loaded_apps: Dict[Tuple[str, str], Type["ApplicationDefinition"]] = {}
     environment_variables: Dict[str, str] = {}
     command_template: str
     parameters: Dict[str, Any] = {}
@@ -187,19 +181,26 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     cleanup_files: List[str] = []
     _default_params: Dict[str, str]
     run: Optional[Callable[..., Any]] = None
-    site: Union[int, str, Site]
-    _client: Optional[RESTClient] = None
+    site: Union[int, str, "Site"]
+    _site_id: Optional[int] = None
+    _client: Optional["RESTClient"] = None
+    _app_type: AppType
     __app_id__: Optional[int] = None
 
     @staticmethod
-    def _set_client(client: RESTClient) -> None:
+    def _set_client(client: "RESTClient") -> None:
         ApplicationDefinition._client = client
 
     def __init__(self, job: "Job") -> None:
         self.job = job
 
     def get_arg_str(self) -> str:
-        return self._render_command({**self._default_params, **self.job.parameters})
+        if self._app_type == AppType.SHELL_CMD:
+            return self._render_shell_command()
+        elif self._app_type == AppType.PY_FUNC:
+            return self._render_pyrunner_command()
+        else:
+            raise TypeError(f"Invalid _app_type: {self._app_type}")
 
     def get_environ_vars(self) -> Dict[str, str]:
         envs = os.environ.copy()
@@ -209,7 +210,11 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             envs["OMP_NUM_THREADS"] = str(self.job.threads_per_rank)
         return envs
 
-    def _render_command(self, arg_dict: Dict[str, str]) -> str:
+    def _render_pyrunner_command(self) -> str:
+        payload = ""
+        return f"python -m balsam.site.launcher.python_runner {payload}"
+
+    def _render_shell_command(self) -> str:
         """
         Args:
             - arg_dict: value for each required parameter
@@ -218,6 +223,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             Use shlex.split() to split the result into args list.
             Do *NOT* use string.join on the split list: unsafe!
         """
+        arg_dict = {**self._default_params, **self.job.parameters}
         diff = set(self.parameters.keys()).difference(arg_dict.keys())
         if diff:
             raise ValueError(f"Missing required args: {diff} (only got: {arg_dict})")
@@ -242,22 +248,30 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
 
     @classmethod
     def resolve_site_id(cls) -> int:
-        if isinstance(cls.site, str):
+        from balsam._api.models import Site
+
+        if cls._site_id is not None:
+            return cls._site_id
+        elif isinstance(cls.site, str):
             if cls._client is None:
                 raise AttributeError("Client has not been set: call _set_client prior to this method")
             site = cls._client.Site.objects.get(name=cls.site)
             assert site.id is not None
-            cls.site = site.id
+            cls._site_id = site.id
         elif isinstance(cls.site, Site):
             if cls.site.id is None:
                 raise ValueError(f"{cls.__name__}.site does not have an ID set: {cls.site}")
-            cls.site = cls.site.id
-        return cls.site
+            cls._site_id = cls.site.id
+        else:
+            cls._site_id = cls.site
+        return cls._site_id
 
     @staticmethod
-    def load_apps(site: Union[int, str, Site]) -> "Dict[int, Type[ApplicationDefinition]]":
+    def load_apps(site: Union[int, str, "Site"]) -> "Dict[str, Type[ApplicationDefinition]]":
         if ApplicationDefinition._client is None:
             raise AttributeError("Client has not been set: call _set_client prior to this method")
+        from balsam._api.models import Site
+
         App = ApplicationDefinition._client.App
 
         lookup: Dict[str, Union[str, int]]
@@ -280,30 +294,6 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
                 serialized_class=app.serialized_class,
             )
         return apps_by_name
-
-    @staticmethod
-    def load_app(apps_dir: Union[Path, str], class_path: str) -> Type["ApplicationDefinition"]:
-        """
-        Load the ApplicationDefinition subclass located in directory apps_dir
-        """
-        key = (str(apps_dir), str(class_path))
-        if key in cls._loaded_apps:
-            return cls._loaded_apps[key]
-
-        apps_dir = Path(apps_dir)
-
-        filename, class_name = split_class_path(class_path)
-        fpath = apps_dir.joinpath(filename + ".py")
-        module = load_module(fpath)
-
-        app_class = getattr(module, class_name, None)
-        if app_class is None:
-            raise AttributeError(f"Loaded module at {fpath}, but it does not contain the class {class_name}")
-        if not issubclass(app_class, cls):
-            raise TypeError(f"{class_path} must subclass {cls.__name__}")
-
-        cls._loaded_apps[key] = app_class
-        return cast(Type[ApplicationDefinition], app_class)
 
     @classmethod
     def sync(cls, rename_from: Optional[str] = None) -> None:

@@ -1,9 +1,16 @@
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, root_validator, validator
+
+from .serializer import serialize
+
+# Set limits to keep queries performant *and* respect the constraints
+# of maximum `argv` size that can be passed into a subprocess
+# (We can get away with ~1.5MB payload delivered via 128K chunksize args)
+MAX_SERIALIZED_PARAMS_SIZE = 512_000
 
 
 class JobTransferItem(BaseModel):
@@ -56,7 +63,9 @@ RUNNABLE_STATES = {JobState.preprocessed, JobState.restart_ready}
 class JobBase(BaseModel):
     workdir: Path = Field(..., example="test_jobs/test1", description="Job path relative to site data/ folder.")
     tags: Dict[str, str] = Field({}, example={"system": "H2O"}, description="Custom key:value string tags.")
-    serialized_parameters: str = Field("", description="Encoded parameters dict")
+    serialized_parameters: str = Field(
+        "", description="Encoded parameters dict", no_constructor=True, no_descriptor=True
+    )
     data: Dict[str, Any] = Field({}, example={"energy": -0.5}, description="Arbitrary JSON-able data dictionary.")
     return_code: Optional[int] = Field(None, example=0, description="Return code from last execution of this Job.")
 
@@ -83,9 +92,41 @@ class JobBase(BaseModel):
             raise ValueError("Cannot use absolute path")
         return v
 
+    @validator("serialized_parameters")
+    def max_params_size(cls, v: str) -> str:
+        if len(v) > MAX_SERIALIZED_PARAMS_SIZE:
+            raise AssertionError(f"serialized_parameters cannot be larger than {MAX_SERIALIZED_PARAMS_SIZE}")
+        return v
+
 
 class JobCreate(JobBase):
-    app_id: int = Field(..., example=3, description="App ID")
+    class Config:
+        validate_assignment = True
+
+    # This will generate a Job() constructor signature with `app` and `site_name`
+    # kwargs. Neither kwarg is exported to the backend. Instead, the required `app_id`
+    # must be resolved in the Job __init__.
+    app: Union[int, str] = Field(
+        ..., example="MyApp", description="App name, ID, or class.", no_export=True, no_descriptor=True
+    )
+    site_name: Optional[str] = Field(
+        None,
+        example="my-site",
+        description="Site name, to disambiguate app defined at multiple Sites.",
+        no_export=True,
+        no_descriptor=True,
+    )
+    app_id: int = Field(..., example=3, description="App ID", no_constructor=True)
+
+    # Add `parameters` to the constructor, but manage them with a custom getter/setter on
+    # JobBase:
+    parameters: Dict[str, Any] = Field(
+        {},
+        example={"name": "world"},
+        description="Parameters passed to App at runtime.",
+        no_descriptor=True,
+        no_export=True,
+    )
     parent_ids: Set[int] = Field(set(), example={2, 3}, description="Set of parent Job IDs (dependencies).")
     transfers: Dict[str, JobTransferItem] = Field(
         {},
@@ -98,6 +139,37 @@ class JobCreate(JobBase):
         description="TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.",
     )
 
+    @root_validator(pre=True)
+    def serialize_parameters(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        params = values.get("parameters", {})
+        values["serialized_parameters"] = serialize(params)
+        return values
+
+    @validator("transfers", pre=True)
+    def resolve_transfer_strings(
+        cls, transfers: Dict[str, Union[str, JobTransferItem]]
+    ) -> Dict[str, JobTransferItem]:
+        result = {}
+        for k, v in transfers.items():
+            if isinstance(v, str):
+                loc, path = v.split(":", 1)
+                result[k] = JobTransferItem(location_alias=loc, path=path)
+            else:
+                result[k] = v
+        return result
+
+    def dict(self, **kwargs: Any) -> Dict[str, Any]:
+        # Overriden to avoid sending "no_export" fields over the wire
+        exclude_fields = {f for f, v in JobCreate.__fields__.items() if v.field_info.extra.get("no_export")}
+        if "exclude" not in kwargs:
+            kwargs["exclude"] = exclude_fields
+        elif isinstance(kwargs["exclude"], set):
+            kwargs["exclude"].update(exclude_fields)
+        else:
+            for key in exclude_fields:
+                kwargs["exclude"][key] = ...
+        return super().dict(**kwargs)
+
 
 class JobUpdate(JobBase):
     workdir: Path = Field(None, example="test_jobs/test1", description="Job path relative to the site data/ folder")
@@ -106,9 +178,21 @@ class JobUpdate(JobBase):
     state_timestamp: datetime = Field(None, description="Time (UTC) at which Job state change occured")
     state_data: Dict[str, Any] = Field({}, description="Arbitrary associated state change data for logging")
     pending_file_cleanup: bool = Field(None, description="Whether job remains to have workdir cleaned.")
-    serialized_parameters: str = Field(None, description="Encoded parameters dict")
-    serialized_return_value: str = Field(None, description="Encoded return value")
-    serialized_exception: str = Field(None, description="Encoded wrapped Exception")
+    serialized_parameters: str = Field(None, description="Encoded parameters dict", no_descriptor=True)
+    serialized_return_value: str = Field(None, description="Encoded return value", no_descriptor=True)
+    serialized_exception: str = Field(None, description="Encoded wrapped Exception", no_descriptor=True)
+
+    @validator("serialized_return_value")
+    def max_retval_size(cls, v: str) -> str:
+        if len(v) > MAX_SERIALIZED_PARAMS_SIZE:
+            raise AssertionError(f"serialized_return_value cannot be larger than {MAX_SERIALIZED_PARAMS_SIZE}")
+        return v
+
+    @validator("serialized_exception")
+    def max_except_size(cls, v: str) -> str:
+        if len(v) > MAX_SERIALIZED_PARAMS_SIZE:
+            raise AssertionError(f"serialized_except cannot be larger than {MAX_SERIALIZED_PARAMS_SIZE}")
+        return v
 
 
 class JobBulkUpdate(JobUpdate):
@@ -123,9 +207,9 @@ class JobOut(JobBase):
     last_update: datetime = Field(...)
     state: JobState = Field(..., example="JOB_FINISHED")
     pending_file_cleanup: bool = Field(..., description="Whether job remains to have workdir cleaned.")
-    serialized_parameters: str = Field(..., description="Encoded parameters dict")
-    serialized_return_value: str = Field(..., description="Encoded return value")
-    serialized_exception: str = Field(..., description="Encoded wrapped Exception")
+    serialized_parameters: str = Field(..., description="Encoded parameters dict", no_descriptor=True)
+    serialized_return_value: str = Field(..., description="Encoded return value", no_descriptor=True)
+    serialized_exception: str = Field(..., description="Encoded wrapped Exception", no_descriptor=True)
 
     class Config:
         orm_mode = True

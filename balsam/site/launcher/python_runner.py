@@ -5,9 +5,9 @@ from typing import Any, Dict, List, Tuple, Type
 
 import dill  # type: ignore
 
+from balsam._api.app import ApplicationDefinition, is_appdef
 from balsam._api.models import Job
 from balsam.schemas import serialize
-from balsam.site.app import ApplicationDefinition, is_appdef
 
 
 def unpack_chunks(num_app_chunks: int, chunks: List[str]) -> Tuple[Type[ApplicationDefinition], Job]:
@@ -21,11 +21,11 @@ def unpack_chunks(num_app_chunks: int, chunks: List[str]) -> Tuple[Type[Applicat
 
 
 def log_exception(exc: Exception) -> None:
-    print("BALSAM-EXCEPTION", serialize())
+    print("BALSAM-EXCEPTION", serialize(exc))
 
 
 def log_result(ret_val: Any) -> None:
-    pass
+    print("BALSAM-RETURN-VALUE", serialize(ret_val))
 
 
 def main(num_app_chunks: int, chunks: List[str]) -> None:
@@ -36,6 +36,7 @@ def main(num_app_chunks: int, chunks: List[str]) -> None:
         return_value = app.run(**params)
     except Exception as exc:
         log_exception(sys.exc_info())
+        raise exc
     else:
         log_result(return_value)
 

@@ -1,10 +1,8 @@
 import socket
-from pathlib import Path
 
 import click
 import yaml
 
-from balsam._api import ApplicationDefinition
 from balsam.config import ClientSettings
 from balsam.site.app import sync_apps
 

@@ -77,7 +77,13 @@ class BalsamModelMeta(type):
             attrs["_read_model_cls"],
         ]:
             if model_cls is not None:
-                field_names.update(model_cls.__fields__)
+                field_names.update(
+                    {
+                        name
+                        for name, field in model_cls.__fields__.items()
+                        if not field.field_info.extra.get("no_descriptor")
+                    }
+                )
         for field_name in field_names:
             if field_name in attrs:
                 attrs[field_name].name = field_name

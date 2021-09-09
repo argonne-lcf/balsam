@@ -2,8 +2,7 @@ import logging
 
 from balsam._api import models
 from balsam._api.app import ApplicationDefinition
-from balsam._api.job import Job
-from balsam._api.models import App as _APIApp, BatchJob, EventLog, Job as _APIJob, Session, Site, TransferItem
+from balsam._api.models import App as _APIApp, BatchJob, EventLog, Job, Session, Site, TransferItem
 from balsam.config import ClientSettings, SiteConfig
 from balsam.schemas import (
     AppParameter,
@@ -26,7 +25,7 @@ else:
     Site.objects = models.SiteManager(client)
     _APIApp.objects = models.AppManager(client)
     BatchJob.objects = models.BatchJobManager(client)
-    _APIJob.objects = models.JobManager(client)
+    Job.objects = models.JobManager(client)
     TransferItem.objects = models.TransferItemManager(client)
     Session.objects = models.SessionManager(client)
     EventLog.objects = models.EventLogManager(client)

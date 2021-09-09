@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev 4c0bc49]
+# [git rev 7eb38fc]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -273,18 +273,20 @@ class AppQuery(Query[App]):
         self,
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
-        class_path: Optional[str] = None,
+        name: Optional[str] = None,
         site_path: Optional[str] = None,
+        site_name: Optional[str] = None,
     ) -> App:
         """
         Retrieve exactly one App. Raises App.DoesNotExist
         if no items were found, or App.MultipleObjectsReturned if
         more than one item matched the query.
 
-        site_id:    Only return Apps associated with the Site IDs in this list.
-        id:         Only return Apps with IDs in this list.
-        class_path: Only return Apps matching this dotted class path (module.ClassName)
-        site_path:  Only return Apps from Sites having paths containing this substring.
+        site_id:   Only return Apps associated with the Site IDs in this list.
+        id:        Only return Apps with IDs in this list.
+        name:      Only return Apps having an ApplicationDefinition with this class name.
+        site_path: Only return Apps from Sites having paths containing this substring.
+        site_name: Only return Apps from the Site with this unique name.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._get(**kwargs)
@@ -293,18 +295,20 @@ class AppQuery(Query[App]):
         self,
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
-        class_path: Optional[str] = None,
+        name: Optional[str] = None,
         site_path: Optional[str] = None,
+        site_name: Optional[str] = None,
     ) -> "AppQuery":
         """
         Retrieve exactly one App. Raises App.DoesNotExist
         if no items were found, or App.MultipleObjectsReturned if
         more than one item matched the query.
 
-        site_id:    Only return Apps associated with the Site IDs in this list.
-        id:         Only return Apps with IDs in this list.
-        class_path: Only return Apps matching this dotted class path (module.ClassName)
-        site_path:  Only return Apps from Sites having paths containing this substring.
+        site_id:   Only return Apps associated with the Site IDs in this list.
+        id:        Only return Apps with IDs in this list.
+        name:      Only return Apps having an ApplicationDefinition with this class name.
+        site_path: Only return Apps from Sites having paths containing this substring.
+        site_name: Only return Apps from the Site with this unique name.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return self._filter(**kwargs)
@@ -377,18 +381,20 @@ class AppManager(balsam._api.bases.AppManagerBase):
         self,
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
-        class_path: Optional[str] = None,
+        name: Optional[str] = None,
         site_path: Optional[str] = None,
+        site_name: Optional[str] = None,
     ) -> App:
         """
         Retrieve exactly one App. Raises App.DoesNotExist
         if no items were found, or App.MultipleObjectsReturned if
         more than one item matched the query.
 
-        site_id:    Only return Apps associated with the Site IDs in this list.
-        id:         Only return Apps with IDs in this list.
-        class_path: Only return Apps matching this dotted class path (module.ClassName)
-        site_path:  Only return Apps from Sites having paths containing this substring.
+        site_id:   Only return Apps associated with the Site IDs in this list.
+        id:        Only return Apps with IDs in this list.
+        name:      Only return Apps having an ApplicationDefinition with this class name.
+        site_path: Only return Apps from Sites having paths containing this substring.
+        site_name: Only return Apps from the Site with this unique name.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return AppQuery(manager=self).get(**kwargs)
@@ -397,16 +403,18 @@ class AppManager(balsam._api.bases.AppManagerBase):
         self,
         site_id: Union[typing.List[int], int, None] = None,
         id: Union[typing.List[int], int, None] = None,
-        class_path: Optional[str] = None,
+        name: Optional[str] = None,
         site_path: Optional[str] = None,
+        site_name: Optional[str] = None,
     ) -> "AppQuery":
         """
         Returns a App Query returning items matching the filter criteria.
 
-        site_id:    Only return Apps associated with the Site IDs in this list.
-        id:         Only return Apps with IDs in this list.
-        class_path: Only return Apps matching this dotted class path (module.ClassName)
-        site_path:  Only return Apps from Sites having paths containing this substring.
+        site_id:   Only return Apps associated with the Site IDs in this list.
+        id:        Only return Apps with IDs in this list.
+        name:      Only return Apps having an ApplicationDefinition with this class name.
+        site_path: Only return Apps from Sites having paths containing this substring.
+        site_name: Only return Apps from the Site with this unique name.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return AppQuery(manager=self).filter(**kwargs)
@@ -420,7 +428,6 @@ class Job(balsam._api.bases.JobBase):
 
     workdir = Field[pathlib.Path]()
     tags = Field[typing.Dict[str, str]]()
-    serialized_parameters = Field[str]()
     data = Field[typing.Dict[str, typing.Any]]()
     return_code = Field[Optional[int]]()
     num_nodes = Field[int]()
@@ -439,17 +446,14 @@ class Job(balsam._api.bases.JobBase):
     state_timestamp = Field[Optional[datetime.datetime]]()
     state_data = Field[Optional[typing.Dict[str, typing.Any]]]()
     pending_file_cleanup = Field[Optional[bool]]()
-    serialized_return_value = Field[Optional[str]]()
-    serialized_exception = Field[Optional[str]]()
     id = Field[Optional[int]]()
     last_update = Field[Optional[datetime.datetime]]()
 
     def __init__(
         self,
         workdir: pathlib.Path,
-        app_id: int,
+        app: typing.Union[int, str],
         tags: Optional[typing.Dict[str, str]] = None,
-        serialized_parameters: str = "",
         data: Optional[typing.Dict[str, typing.Any]] = None,
         return_code: Optional[int] = None,
         num_nodes: int = 1,
@@ -460,6 +464,8 @@ class Job(balsam._api.bases.JobBase):
         gpus_per_rank: float = 0,
         node_packing_count: int = 1,
         wall_time_min: int = 0,
+        site_name: Optional[str] = None,
+        parameters: Optional[typing.Dict[str, typing.Any]] = None,
         parent_ids: typing.Set[int] = set(),
         transfers: Optional[typing.Dict[str, balsam.schemas.job.JobTransferItem]] = None,
         **kwargs: Any,
@@ -468,22 +474,23 @@ class Job(balsam._api.bases.JobBase):
         Construct a new Job object.  You must eventually call the save() method or
         pass a Job list into Job.objects.bulk_create().
 
-        workdir:               Job path relative to site data/ folder.
-        tags:                  Custom key:value string tags.
-        serialized_parameters: Encoded parameters dict
-        data:                  Arbitrary JSON-able data dictionary.
-        return_code:           Return code from last execution of this Job.
-        num_nodes:             Number of compute nodes needed.
-        ranks_per_node:        Number of MPI processes per node.
-        threads_per_rank:      Logical threads per process.
-        threads_per_core:      Logical threads per CPU core.
-        launch_params:         Optional pass-through parameters to MPI application launcher.
-        gpus_per_rank:         Number of GPUs per process.
-        node_packing_count:    Maximum number of concurrent runs per node.
-        wall_time_min:         Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
-        app_id:                App ID
-        parent_ids:            Set of parent Job IDs (dependencies).
-        transfers:             TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
+        workdir:            Job path relative to site data/ folder.
+        tags:               Custom key:value string tags.
+        data:               Arbitrary JSON-able data dictionary.
+        return_code:        Return code from last execution of this Job.
+        num_nodes:          Number of compute nodes needed.
+        ranks_per_node:     Number of MPI processes per node.
+        threads_per_rank:   Logical threads per process.
+        threads_per_core:   Logical threads per CPU core.
+        launch_params:      Optional pass-through parameters to MPI application launcher.
+        gpus_per_rank:      Number of GPUs per process.
+        node_packing_count: Maximum number of concurrent runs per node.
+        wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
+        app:                App name, ID, or class.
+        site_name:          Site name, to disambiguate app defined at multiple Sites.
+        parameters:         Parameters passed to App at runtime.
+        parent_ids:         Set of parent Job IDs (dependencies).
+        transfers:          TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
         """
         _kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         _kwargs.update(kwargs)
@@ -632,9 +639,8 @@ class JobManager(balsam._api.bases.JobManagerBase):
     def create(
         self,
         workdir: pathlib.Path,
-        app_id: int,
+        app: typing.Union[int, str],
         tags: Optional[typing.Dict[str, str]] = None,
-        serialized_parameters: str = "",
         data: Optional[typing.Dict[str, typing.Any]] = None,
         return_code: Optional[int] = None,
         num_nodes: int = 1,
@@ -645,28 +651,31 @@ class JobManager(balsam._api.bases.JobManagerBase):
         gpus_per_rank: float = 0,
         node_packing_count: int = 1,
         wall_time_min: int = 0,
+        site_name: Optional[str] = None,
+        parameters: Optional[typing.Dict[str, typing.Any]] = None,
         parent_ids: typing.Set[int] = set(),
         transfers: Optional[typing.Dict[str, balsam.schemas.job.JobTransferItem]] = None,
     ) -> Job:
         """
         Create a new Job object and save it to the API in one step.
 
-        workdir:               Job path relative to site data/ folder.
-        tags:                  Custom key:value string tags.
-        serialized_parameters: Encoded parameters dict
-        data:                  Arbitrary JSON-able data dictionary.
-        return_code:           Return code from last execution of this Job.
-        num_nodes:             Number of compute nodes needed.
-        ranks_per_node:        Number of MPI processes per node.
-        threads_per_rank:      Logical threads per process.
-        threads_per_core:      Logical threads per CPU core.
-        launch_params:         Optional pass-through parameters to MPI application launcher.
-        gpus_per_rank:         Number of GPUs per process.
-        node_packing_count:    Maximum number of concurrent runs per node.
-        wall_time_min:         Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
-        app_id:                App ID
-        parent_ids:            Set of parent Job IDs (dependencies).
-        transfers:             TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
+        workdir:            Job path relative to site data/ folder.
+        tags:               Custom key:value string tags.
+        data:               Arbitrary JSON-able data dictionary.
+        return_code:        Return code from last execution of this Job.
+        num_nodes:          Number of compute nodes needed.
+        ranks_per_node:     Number of MPI processes per node.
+        threads_per_rank:   Logical threads per process.
+        threads_per_core:   Logical threads per CPU core.
+        launch_params:      Optional pass-through parameters to MPI application launcher.
+        gpus_per_rank:      Number of GPUs per process.
+        node_packing_count: Maximum number of concurrent runs per node.
+        wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
+        app:                App name, ID, or class.
+        site_name:          Site name, to disambiguate app defined at multiple Sites.
+        parameters:         Parameters passed to App at runtime.
+        parent_ids:         Set of parent Job IDs (dependencies).
+        transfers:          TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
         """
         kwargs = {k: v for k, v in locals().items() if k not in ["self", "__class__"] and v is not None}
         return super()._create(**kwargs)
