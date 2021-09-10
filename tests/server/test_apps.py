@@ -16,9 +16,9 @@ def test_created_app_in_list_view(auth_client):
 def test_filter_apps_by_site(auth_client):
     site1 = create_site(auth_client, name="site1", path="/site/1")
     site2 = create_site(auth_client, name="site2", path="/site/2")
-    create_app(auth_client, site1["id"], class_path="demo.SayHelloA")
-    create_app(auth_client, site1["id"], class_path="demo.SayHelloB")
-    create_app(auth_client, site2["id"], class_path="demo.SayHelloC")
+    create_app(auth_client, site1["id"], name="SayHelloA")
+    create_app(auth_client, site1["id"], name="SayHelloB")
+    create_app(auth_client, site2["id"], name="SayHelloC")
 
     assert len(auth_client.get("/apps", site_id=site1["id"])["results"]) == 2
     assert len(auth_client.get("/apps", site_id=site2["id"])["results"]) == 1
@@ -27,23 +27,23 @@ def test_filter_apps_by_site(auth_client):
 def test_cannot_create_duplicate(auth_client):
     site1 = create_site(auth_client)
     site2 = create_site(auth_client, name="otherhost")
-    create_app(auth_client, site_id=site1["id"], class_path="Foo.bar")
-    create_app(auth_client, site_id=site2["id"], class_path="Foo.bar")
+    create_app(auth_client, site_id=site1["id"], name="bar")
+    create_app(auth_client, site_id=site2["id"], name="bar")
     create_app(
         auth_client,
         site_id=site1["id"],
-        class_path="Foo.bar",
+        name="bar",
         check=status.HTTP_400_BAD_REQUEST,
     )
 
 
 def test_cannot_update_duplicate(auth_client):
     site = create_site(auth_client)
-    create_app(auth_client, site_id=site["id"], class_path="a.A")
-    app2 = create_app(auth_client, site_id=site["id"], class_path="a.B")
-    auth_client.put(f"apps/{app2['id']}", class_path="a.C")
-    auth_client.put(f"apps/{app2['id']}", class_path="a.A", check=status.HTTP_400_BAD_REQUEST)
-    assert auth_client.get(f"apps/{app2['id']}")["class_path"] == "a.C"
+    create_app(auth_client, site_id=site["id"], name="A")
+    app2 = create_app(auth_client, site_id=site["id"], name="B")
+    auth_client.put(f"apps/{app2['id']}", name="C")
+    auth_client.put(f"apps/{app2['id']}", name="A", check=status.HTTP_400_BAD_REQUEST)
+    assert auth_client.get(f"apps/{app2['id']}")["name"] == "C"
 
 
 def test_delete_app(auth_client):
@@ -51,7 +51,7 @@ def test_delete_app(auth_client):
     assert len(auth_client.get("/apps")["results"]) == 0
     create_app(auth_client, site_id=site["id"])
     assert len(auth_client.get("/apps")["results"]) == 1
-    app2 = create_app(auth_client, site_id=site["id"], class_path="app2.app")
+    app2 = create_app(auth_client, site_id=site["id"], name="app")
     assert len(auth_client.get("/apps")["results"]) == 2
 
     auth_client.delete(f"/apps/{app2['id']}")

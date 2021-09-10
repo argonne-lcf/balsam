@@ -89,9 +89,9 @@ complex and useful workflow components.
 Balsam Apps are uniquely identified by:
 
 1. The `Site` that they belong to
-2. Their `class_path`, written as `module_name.CLASS_NAME` 
+2. Their `ApplicationDefinition` class `__name__`
 
-For instance, the `Sleeper` application we defined above in `test.py` has a `class_path` of `test.Sleeper`. We use this to uniquely identify each `ApplicationDefinition` class later on.
+For instance, the `Sleeper` application we defined above in `test.py` has a `name` of `Sleeper`. We use this to uniquely identify each `ApplicationDefinition` class later on.
 
 ### The Description
 

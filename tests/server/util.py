@@ -89,7 +89,7 @@ def create_site(
 def create_app(
     client,
     site_id,
-    class_path="demo.SayHello",
+    name="SayHello",
     check=status.HTTP_201_CREATED,
     parameters=None,
     transfers=None,
@@ -111,7 +111,9 @@ def create_app(
     return client.post(
         "/apps/",
         site_id=site_id,
-        class_path=class_path,
+        name=name,
+        serialized_class="txt",
+        source_code="txt",
         parameters=parameters,
         transfers=transfers,
         check=check,

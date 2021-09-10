@@ -19,7 +19,6 @@ from balsam.client import BasicAuthRequestsClient, urls
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home, site_builder
 from balsam.server import models
-from balsam.site.app import sync_apps
 from balsam.util import postgres as pg
 
 from .test_platform import PLATFORMS, get_platform, get_test_api_url, get_test_db_url, get_test_dir, get_test_log_dir
@@ -235,7 +234,7 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
             settings_template_path=TEST_DEFAULTS_DIR / "settings.yml.j2",
         )
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
-        sync_apps(site_config)
+        raise NotImplementedError("You need to sync the Apps here somehow")
         yield site_config
         shutil.copytree(
             site_path.as_posix(),

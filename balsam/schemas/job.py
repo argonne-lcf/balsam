@@ -145,10 +145,19 @@ class JobCreate(JobBase):
         values["serialized_parameters"] = serialize(params)
         return values
 
+    @root_validator(pre=True)
+    def set_app_from_id(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        app_id = values.get("app_id")
+        if app_id:
+            values["app"] = app_id
+        return values
+
     @validator("transfers", pre=True)
     def resolve_transfer_strings(
         cls, transfers: Dict[str, Union[str, JobTransferItem]]
     ) -> Dict[str, JobTransferItem]:
+        if not isinstance(transfers, dict):
+            raise AssertionError("transfers must be of type dict")
         result = {}
         for k, v in transfers.items():
             if isinstance(v, str):

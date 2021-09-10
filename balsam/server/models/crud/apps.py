@@ -35,7 +35,7 @@ def flush_or_400(db: Session) -> None:
     except IntegrityError as e:
         if "duplicate key value" in str(e):
             db.rollback()
-            raise ValidationError("An app with this site_id and class_path already exists")
+            raise ValidationError("An app with this site_id and name already exists")
         else:
             raise
 

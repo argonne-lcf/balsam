@@ -443,6 +443,3 @@ class SiteConfig:
             site.save()
             diff_str = "\n".join(f"{k}={diff[k][0]} --> {diff[k][1]}" for k in diff)
             logger.info(f"Updated Site parameters:\n{diff_str}")
-
-    def fetch_apps(self) -> Dict[str, "App"]:
-        return {app.class_path: app for app in self.client.App.objects.filter(site_id=self.site_id)}

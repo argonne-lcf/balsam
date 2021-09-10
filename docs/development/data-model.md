@@ -167,8 +167,8 @@ Generally, Balsam will need two types of Auth to function:
 | `site`        | Foreign Key to `Site` instance containing this App                                                                                      |
 | `name`        | Short name identifying the app.                                                                                                         |
 | `description` | Text description (useful in generating Web forms)                                                                                       |
-| `class_path`  | Name of `ApplicationDefinition` class in the format: `{module_name}.{class_name}`                                                       |
-| `parameters`  | Command line template parameters. A dict of dicts with the structure: `{name: {required: bool, default: str, help: str}}`               |
+| `name`  | Name of `ApplicationDefinition` class |
+| `parameters`  | Command line template or function parameters. A dict of dicts with the structure: `{name: {required: bool, default: str, help: str}}`               |
 | `transfers`   | A dict of stage-in/stage-out slots with the structure: `{name: {required: bool, direction: ["in"|"out"], target_path: str, help: str}}` |
 
 The `App` model is used to merely *index* the `ApplicationDefinition` classes

@@ -109,8 +109,8 @@ class App(Base):
     description = Column(Text)
     parameters: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
     transfers: Dict[str, Any] = Column(JSON, default=dict)  # type: ignore
-    serialized_class = Column(Text)
-    source_code = Column(Text)
+    serialized_class = Column(Text, default="")
+    source_code = Column(Text, default="")
 
     site = orm.relationship(Site, back_populates="apps")
     jobs = orm.relationship("Job", back_populates="app", cascade="all, delete-orphan", passive_deletes=True)
@@ -156,9 +156,9 @@ class Job(Base):
         nullable=True,
         default=None,
     )
-    serialized_parameters = Column(Text)
-    serialized_return_value = Column(Text)
-    serialized_exception = Column(Text)
+    serialized_parameters = Column(Text, default="")
+    serialized_return_value = Column(Text, default="")
+    serialized_exception = Column(Text, default="")
     batch_job_id = Column(Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True)
     state = Column(String(32), index=True)
     last_update = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
