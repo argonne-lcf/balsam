@@ -1,35 +1,17 @@
-import socket
-
 import click
 import yaml
 
 from balsam.config import ClientSettings
-from balsam.site.app import sync_apps
 
-from .utils import check_killable, filter_by_sites, kill_site, load_site_config, start_site
+from .utils import filter_by_sites
 
 
 @click.group()
 def app() -> None:
     """
-    Sync and manage Balsam applications
+    Manage Balsam applications
     """
     pass
-
-
-@app.command()
-def sync() -> None:
-    """
-    Sync local ApplicationDefinitions with Balsam
-    """
-    cf = load_site_config()
-    sync_apps(cf)
-    kill_pid = check_killable(cf)
-    if kill_pid is not None:
-        click.echo(f"Restarting Site {cf.site_path}")
-        kill_site(cf, kill_pid)
-        proc = start_site(cf.site_path)
-        click.echo(f"Restarted Balsam site daemon [pid {proc.pid}] on {socket.gethostname()}")
 
 
 @app.command()
@@ -55,9 +37,8 @@ def ls(site_selector: str, verbose: bool) -> None:
         print(*reprs, sep="\n----\n")
     else:
         sites = {site.id: site for site in client.Site.objects.all()}
-        click.echo(f"{'ID':>5s}   {'ClassPath':>18s}   {'Site':<20s}")
+        click.echo(f"{'ID':>5s}   {'Name':>18s}   {'Site':<20s}")
         apps = sorted(list(qs), key=lambda app: app.site_id)
         for a in apps:
             site = sites[a.site_id]
-            site_str = f"{site.name}"
-            click.echo(f"{a.id:>5d}   {a.class_path:>18s}   {site_str:<20s}")
+            click.echo(f"{a.id:>5d}   {a.name:>18s}   {site.name:<20s}")
