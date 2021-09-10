@@ -1,8 +1,9 @@
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union
 
 from balsam import schemas
+from balsam.schemas import JobState, deserialize, serialize
 
 from .app import ApplicationDefinition
 from .manager import Manager
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
     )
     from balsam.client import RESTClient
 
-JobState = schemas.JobState
 JobTransferItem = schemas.JobTransferItem
 RUNNABLE_STATES = schemas.RUNNABLE_STATES
 logger = logging.getLogger(__name__)
@@ -108,74 +108,104 @@ class BatchJobManagerBase(Manager["BatchJob"]):
     _bulk_update_enabled = True
 
 
-InputAppType = Union[int, str, ApplicationDefinition]
+AppDefType = Type[ApplicationDefinition]
+InputAppType = Union[int, str, AppDefType]
 
 
 class JobBase(CreatableBalsamModel):
+    _create_model: Optional[schemas.JobCreate]
+    _update_model: Optional[schemas.JobUpdate]
+    _read_model: Optional[schemas.JobOut]
     _create_model_cls = schemas.JobCreate
     _update_model_cls = schemas.JobUpdate
     _read_model_cls = schemas.JobOut
 
-    _app_name_cache: Dict[Tuple[Optional[str], str], ApplicationDefinition] = {}
-    _app_id_cache: Dict[int, ApplicationDefinition] = {}
     objects: "JobManager"
     app_id: Field[int]
     workdir: Field[Path]
     parent_ids: Field[Set[int]]
+    state: Field[Optional[JobState]]
+
+    class NoResult(ValueError):
+        pass
 
     def __init__(self, app: InputAppType, site_name: Optional[str] = None, **kwargs: Any) -> None:
         app_id = self._resolve_app_id(app, site_name)
         super().__init__(**kwargs, app_id=app_id)
 
     @classmethod
-    def _fetch_app_by_name(cls, app_name: str, site_name: Optional[str]) -> ApplicationDefinition:
-        app_key = (site_name, app_name)
-        if app_key not in cls._app_name_cache:
-            AppManager = cls.objects._client.App.objects
-            logger.debug(f"App Cache miss: fetching app {app_key}")
-            app = AppManager.get(site_name=site_name, name=app_name)
-            assert app.id is not None
-            cls._app_name_cache[app_key] = app
-            cls._app_id_cache[app.id] = app
-        return cls._app_name_cache[app_key]
-
-    @classmethod
-    def _fetch_app_by_id(cls, app_id: int) -> ApplicationDefinition:
-        if app_id not in cls._app_id_cache:
-            AppManager = cls.objects._client.App.objects
-            logger.debug(f"App Cache miss: fetching app {app_id}")
-            app = AppManager.get(id=app_id)
-            cls._app_id_cache[app_id] = app
-        return cls._app_id_cache[app_id]
-
-    @classmethod
-    def _resolve_app_id(cls, app: Union[str, int, ApplicationDefinition], site_name: Optional[str]) -> int:
+    def _resolve_app_id(cls, app: InputAppType, site_name: Optional[str]) -> int:
         if isinstance(app, int):
             app_id = app
         elif isinstance(app, str):
-            app = cls._fetch_app_by_name(app, site_name)
-            assert app.id is not None
-            app_id = app.id
+            app = ApplicationDefinition.load_by_name(app, site_name)
+            assert app.__app_id__ is not None
+            app_id = app.__app_id__
         else:
             if app.__app_id__ is None:
                 raise ValueError(
                     f"Cannot resolve ID from ApplicationDefinition {app}: __app_id__ is None. You need to app.sync() prior to creating Jobs with this app."
                 )
             app_id = app.__app_id__
-            cls._app_id_cache[app_id] = app
         return app_id
 
     @property
-    def app(self) -> ApplicationDefinition:
+    def app(self) -> AppDefType:
         if self.app_id is None:
             raise ValueError("Cannot fetch by app ID; is None")
-        return self._fetch_app_by_id(self.app_id)
+        return ApplicationDefinition.load_by_id(self.app_id)
 
     @property
     def site_id(self) -> int:
         if self.app_id is None:
             raise ValueError("Cannot fetch by app ID; is None")
-        return self._fetch_app_by_id(self.app_id).site_id
+        app_def = ApplicationDefinition.load_by_id(self.app_id)
+        assert app_def._site_id is not None
+        return app_def._site_id
+
+    def get_parameters(self) -> Dict[str, Any]:
+        if self._state == "clean":
+            assert self._read_model is not None
+            ser = self._read_model.serialized_parameters
+        elif self._state == "creating":
+            assert self._create_model is not None
+            ser = self._create_model.serialized_parameters
+        else:
+            if "serialized_parameters" in self._dirty_fields:
+                assert self._update_model is not None
+                ser = self._update_model.serialized_parameters
+            else:
+                assert self._read_model is not None
+                ser = self._read_model.serialized_parameters
+        params: Dict[str, Any] = deserialize(ser)
+        if not isinstance(params, dict):
+            raise ValueError(f"Deserialized Job parameters are of type {type(params)}; must be dict.")
+        return params
+
+    def set_parameters(self, value: Dict[str, Any]) -> None:
+        serialized = serialize(value)
+        if self._state == "creating":
+            assert self._create_model is not None
+            self._create_model.serialized_parameters = serialized
+        else:
+            if self._update_model is None:
+                self._update_model = self._update_model_cls()
+            self._update_model.serialized_parameters = serialized
+            self._dirty_fields.add("serialized_parameters")
+            self._state = "dirty"
+
+    def result_nowait(self) -> Any:
+        if self._read_model is None:
+            raise ValueError("Job data not yet loaded from API")
+        s_ret = self._read_model.serialized_return_value
+        s_exc = self._read_model.serialized_exception
+        if s_ret:
+            return deserialize(s_ret)
+        elif s_exc:
+            exc_wrapper = deserialize(s_exc)
+            exc_wrapper.reraise()
+        else:
+            raise JobBase.NoResult("No return value or exception has been reported")
 
     def resolve_workdir(self, data_path: Path) -> Path:
         return data_path.joinpath(self.workdir)

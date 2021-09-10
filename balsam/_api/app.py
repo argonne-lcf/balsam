@@ -1,3 +1,4 @@
+from pathlib import Path
 import inspect
 import logging
 import os
@@ -13,7 +14,6 @@ from balsam.schemas import JobState, deserialize, get_source, serialize
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient
-
     from .models import App, Job, Site
 
 PARAM_PATTERN = re.compile(r"{{(.*?)}}")
@@ -97,10 +97,23 @@ class ApplicationDefinitionMeta(type):
     _default_params: Dict[str, str]
     _app_type: AppType
     run: Optional[Callable[..., Any]]
+    _client: Optional["RESTClient"]
 
     @property
     def source_code(cls) -> str:
         return get_source(cls)
+
+    @property
+    def _Site(cls) -> Type["Site"]:
+        if cls._client is None:
+            raise AttributeError(f"Client has not been set: call {cls.__name__}._set_client prior to this method")
+        return cls._client.Site
+
+    @property
+    def _App(cls) -> Type["App"]:
+        if cls._client is None:
+            raise AttributeError(f"Client has not been set: call {cls.__name__}._set_client prior to this method")
+        return cls._client.App
 
     def _setup_shell_app(cls) -> "ApplicationDefinitionMeta":
         cls._app_type = AppType.SHELL_CMD
@@ -170,6 +183,9 @@ class ApplicationDefinitionMeta(type):
             )
 
 
+AppDefType = Type["ApplicationDefinition"]
+
+
 class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     class ModuleLoadError(Exception):
         pass
@@ -186,6 +202,8 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     _client: Optional["RESTClient"] = None
     _app_type: AppType
     __app_id__: Optional[int] = None
+    _app_name_cache: Dict[Tuple[Optional[str], str], AppDefType] = {}
+    _app_id_cache: Dict[int, AppDefType] = {}
 
     @staticmethod
     def _set_client(client: "RESTClient") -> None:
@@ -223,7 +241,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             Use shlex.split() to split the result into args list.
             Do *NOT* use string.join on the split list: unsafe!
         """
-        arg_dict = {**self._default_params, **self.job.parameters}
+        arg_dict = {**self._default_params, **self.job.get_parameters()}
         diff = set(self.parameters.keys()).difference(arg_dict.keys())
         if diff:
             raise ValueError(f"Missing required args: {diff} (only got: {arg_dict})")
@@ -232,6 +250,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         return jinja2.Template(self.command_template).render(sanitized_args)
 
     def preprocess(self) -> None:
+        self.job.state
         self.job.state = JobState.preprocessed
 
     def postprocess(self) -> None:
@@ -253,9 +272,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         if cls._site_id is not None:
             return cls._site_id
         elif isinstance(cls.site, str):
-            if cls._client is None:
-                raise AttributeError("Client has not been set: call _set_client prior to this method")
-            site = cls._client.Site.objects.get(name=cls.site)
+            site = cls._Site.objects.get(name=cls.site)
             assert site.id is not None
             cls._site_id = site.id
         elif isinstance(cls.site, Site):
@@ -267,47 +284,60 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         return cls._site_id
 
     @staticmethod
-    def load_apps(site: Union[int, str, "Site"]) -> "Dict[str, Type[ApplicationDefinition]]":
-        if ApplicationDefinition._client is None:
-            raise AttributeError("Client has not been set: call _set_client prior to this method")
-        from balsam._api.models import Site
-
-        App = ApplicationDefinition._client.App
+    def load_by_site(site: Union[int, str, "Site"]) -> Dict[str, AppDefType]:
+        AppModel: "Type[App]" = ApplicationDefinition._App
 
         lookup: Dict[str, Union[str, int]]
         if isinstance(site, int):
             lookup = {"site_id": site}
         elif isinstance(site, str):
             lookup = {"site_name": site}
-        elif isinstance(site, Site):
+        elif isinstance(site, ApplicationDefinition._Site):
             assert site.id is not None
             lookup = {"site_id": site.id}
         else:
             raise ValueError("site must be an int, str, or Site object.")
 
-        api_apps = App.objects.filter(**lookup)  # type: ignore
+        api_apps = AppModel.objects.filter(**lookup)  # type: ignore
         apps_by_name = {}
         for app in api_apps:
+            apps_by_name[app.name] = ApplicationDefinition.from_serialized(app)
             assert app.id is not None
-            apps_by_name[app.name] = ApplicationDefinition.from_serialized(
-                id=app.id,
-                serialized_class=app.serialized_class,
-            )
+            ApplicationDefinition._app_id_cache[app.id] = apps_by_name[app.name]
         return apps_by_name
 
     @classmethod
-    def sync(cls, rename_from: Optional[str] = None) -> None:
-        if cls._client is None:
-            raise AttributeError("Client has not been set: call _set_client prior to this method")
+    def load_by_name(cls, app_name: str, site_name: Optional[str]) -> AppDefType:
+        app_key = (site_name, app_name)
+        if app_key not in cls._app_name_cache:
+            logger.debug(f"App Cache miss: fetching app {app_key}")
+            app: "App" = cls._App.objects.get(site_name=site_name, name=app_name)
+            assert app.id is not None
+            app_def = cls.from_serialized(app)
+            cls._app_name_cache[app_key] = app_def
+            cls._app_id_cache[app.id] = app_def
+        return cls._app_name_cache[app_key]
 
+    @classmethod
+    def load_by_id(cls, app_id: int) -> AppDefType:
+        if app_id not in cls._app_id_cache:
+            logger.debug(f"App Cache miss: fetching app {app_id}")
+            api_app: "App" = cls._App.objects.get(id=app_id)
+            app_def = cls.from_serialized(api_app)
+            cls._app_id_cache[app_id] = app_def
+        return cls._app_id_cache[app_id]
+
+    @classmethod
+    def sync(cls, rename_from: Optional[str] = None) -> None:
         app_dict = cls.to_dict()
         existing_app: Optional[App] = None
+        AppModel: Type["App"] = cls._App
         if rename_from:
-            existing_app = cls._client.App.objects.get(site_id=app_dict["site_id"], name=rename_from)
+            existing_app = AppModel.objects.get(site_id=app_dict["site_id"], name=rename_from)
             logger.info(f"Renaming App(id={existing_app.id}): {rename_from} -> {app_dict['name']}")
         else:
             try:
-                existing_app = cls._client.App.objects.get(site_id=app_dict["site_id"], name=app_dict["name"])
+                existing_app = AppModel.objects.get(site_id=app_dict["site_id"], name=app_dict["name"])
                 logger.info(f"Updating App(id={existing_app.id}, name={app_dict['name']})")
             except App.DoesNotExist:
                 pass
@@ -317,14 +347,69 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
                 setattr(existing_app, k, v)
             existing_app.save()
             cls.__app_id__ = existing_app.id
+            assert existing_app.id is not None
+            cls._app_id_cache[existing_app.id] = cls
         else:
-            new_app = cls._client.App.objects.create(**app_dict)
+            new_app = AppModel.objects.create(**app_dict)
             logger.info(f"Created new App(id={new_app.id}, name={app_dict['name']})")
             cls.__app_id__ = new_app.id
+            assert new_app.id is not None
+            cls._app_id_cache[new_app.id] = cls
 
     @classmethod
-    def submit(cls):
-        pass
+    def submit(
+        cls,
+        workdir: Path,
+        tags: Optional[Dict[str, str]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        return_code: Optional[int] = None,
+        num_nodes: int = 1,
+        ranks_per_node: int = 1,
+        threads_per_rank: int = 1,
+        threads_per_core: int = 1,
+        launch_params: Optional[Dict[str, str]] = None,
+        gpus_per_rank: float = 0,
+        node_packing_count: int = 1,
+        wall_time_min: int = 0,
+        parent_ids: Set[int] = set(),
+        transfers: Optional[Dict[str, str]] = None,
+        save: bool = True,
+        **app_params: Any,
+    ) -> "Job":
+        """
+        Construct a new Job object.  If save=True (default), the Job
+        will be saved to the API automatically.  Use save=False to create
+        in-memory Jobs only, which can then be created in bulk by passing
+        into Job.objects.bulk_create().
+
+        workdir:            Job path relative to site data/ folder.
+        tags:               Custom key:value string tags.
+        data:               Arbitrary JSON-able data dictionary.
+        return_code:        Return code from last execution of this Job.
+        num_nodes:          Number of compute nodes needed.
+        ranks_per_node:     Number of MPI processes per node.
+        threads_per_rank:   Logical threads per process.
+        threads_per_core:   Logical threads per CPU core.
+        launch_params:      Optional pass-through parameters to MPI application launcher.
+        gpus_per_rank:      Number of GPUs per process.
+        node_packing_count: Maximum number of concurrent runs per node.
+        wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
+        parent_ids:         Set of parent Job IDs (dependencies).
+        transfers:          TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.
+        save:               Whether to save the Job to the API immediately.
+        **app_params:       Parameters passed to App at runtime.
+        """
+        if cls.__app_id__ is None:
+            cls.sync()
+        assert cls.__app_id__ is not None
+        assert cls._client is not None
+        job_kwargs = {k: v for k, v in locals().items() if k not in ["cls", "__class__"] and v is not None}
+        job_kwargs["parameters"] = app_params
+        job_kwargs["app"] = cls.__app_id__
+        job = cls._client.Job(**job_kwargs)
+        if save:
+            job.save()
+        return job
 
     @classmethod
     def to_dict(cls) -> Dict[str, Any]:
@@ -339,9 +424,13 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         )
 
     @staticmethod
-    def from_serialized(id: int, serialized_class: str) -> "Type[ApplicationDefinition]":
-        cls: Type[ApplicationDefinition] = deserialize(serialized_class)
+    def from_serialized(app: "App") -> AppDefType:
+        if app.id is None:
+            raise ValueError("Cannot deserialize App with id=None")
+
+        cls: AppDefType = deserialize(app.serialized_class)
         if not is_appdef(cls):
             raise TypeError(f"Deserialized {cls.__name__} is not an ApplicationDefinition subclass")
-        cls.__app_id__ = id
+
+        cls.__app_id__ = app.id
         return cls

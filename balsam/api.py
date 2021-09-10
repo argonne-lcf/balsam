@@ -20,7 +20,7 @@ try:
     client = ClientSettings.load_from_file().build_client()
 except Exception as exc:
     client = None  # type: ignore
-    logger.debug(f"balsam.api failed to auto-load Client:\n{exc}")
+    logger.warning(f"balsam.api failed to auto-load Client:\n{exc}")
 else:
     Site.objects = models.SiteManager(client)
     _APIApp.objects = models.AppManager(client)
@@ -29,6 +29,7 @@ else:
     TransferItem.objects = models.TransferItemManager(client)
     Session.objects = models.SessionManager(client)
     EventLog.objects = models.EventLogManager(client)
+    ApplicationDefinition._set_client(client)
 try:
     site_config = SiteConfig()
 except Exception as exc:
