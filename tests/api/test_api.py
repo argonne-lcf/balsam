@@ -4,7 +4,82 @@ from uuid import uuid4
 
 import pytest
 
+from balsam._api.app import ApplicationDefinition
 from balsam.schemas import TransferItemState
+
+GeomOpt = None
+AppA = None
+AppB = None
+AppC = None
+AppPy = None
+
+
+@pytest.fixture(scope="function")
+def appdef(client):
+    global GeomOpt
+
+    class GeomOpt(ApplicationDefinition):
+        site = 0
+        command_template = "/path/nwchem-runner {{ method }} {{ geometry }}"
+        parameters = {
+            "geometry": {"required": True},
+            "method": {"required": False, "default": "HF"},
+        }
+
+    GeomOpt._set_client(client)
+    return GeomOpt
+
+
+@pytest.fixture(scope="function")
+def appdef_a(client):
+    global AppA
+
+    class AppA(ApplicationDefinition):
+        site = 0
+        command_template = "echo hello"
+
+    AppA._set_client(client)
+    return AppA
+
+
+@pytest.fixture(scope="function")
+def appdef_b(client):
+    global AppB
+
+    class AppB(ApplicationDefinition):
+        site = 0
+        command_template = "echo hello"
+
+    AppB._set_client(client)
+    return AppB
+
+
+@pytest.fixture(scope="function")
+def appdef_c(client):
+    global AppC
+
+    class AppC(ApplicationDefinition):
+        site = 0
+        command_template = "echo hello"
+
+    AppC._set_client(client)
+    return AppC
+
+
+@pytest.fixture(scope="function")
+def appdef_py(client):
+    global AppPy
+
+    class AppPy(ApplicationDefinition):
+        """Adds two numbers"""
+
+        site = 0
+
+        def run(self, x: int, y: int) -> int:
+            return x + y
+
+    AppPy._set_client(client)
+    return AppPy
 
 
 class TestSite:
@@ -119,42 +194,45 @@ class TestSite:
 
 
 class TestApps:
-    def test_create_and_list(self, client):
+    def test_create_and_list(self, client, appdef):
         App = client.App
         Site = client.Site
         assert len(App.objects.all()) == 0
 
-        site = Site.objects.create(name="theta", path="/projects/foo")
-        App.objects.create(
-            site_id=site.id,
-            class_path="nwchem.GeomOpt",
-            parameters={
-                "geometry": {"required": True},
-                "method": {"required": False, "default": "HF"},
-            },
-        )
+        mysite = Site.objects.create(name="theta", path="/projects/foo")
+        GeomOpt = appdef
+        GeomOpt.site = mysite
+        assert GeomOpt.__app_id__ is None
+        GeomOpt.sync()
         assert len(App.objects.all()) == 1
+        assert GeomOpt.__app_id__ is not None
 
-    def test_get_by_id(self, client):
+    def test_get_by_id(self, client, appdef):
         App = client.App
         Site = client.Site
         site = Site.objects.create(name="theta", path="/projects/foo")
-        new_app = App(
-            site_id=site.id,
-            class_path="nwchem.GeomOpt",
-            parameters={"geometry": {"required": True}},
-        )
-        new_app.save()
-        assert App.objects.get(id=new_app.id) == new_app
+        GeomOpt = appdef
+        GeomOpt.site = site
+        GeomOpt.sync()
+        assert App.objects.get(id=GeomOpt.__app_id__).name == "GeomOpt"
 
-    def test_filter_by_site_id(self, client):
+    def test_filter_by_site_id(self, client, appdef_a, appdef_b, appdef_c):
         App = client.App
         Site = client.Site
         site1 = Site.objects.create(name="theta", path="/projects/foo")
         site2 = Site.objects.create(name="summit", path="/projects/bar")
-        App.objects.create(site_id=site1.id, class_path="app.one", parameters={})
-        App.objects.create(site_id=site1.id, class_path="app.two", parameters={})
-        App.objects.create(site_id=site2.id, class_path="app.three", parameters={})
+
+        A = appdef_a
+        B = appdef_b
+        C = appdef_c
+
+        A.site = site1.id
+        A.sync()
+        B.site = site1.id
+        B.sync()
+        C.site = site2.id
+        C.sync()
+
         assert App.objects.filter(site_id=site1.id).count() == 2
         assert App.objects.filter(site_id=site2.id).count() == 1
 
@@ -162,7 +240,9 @@ class TestApps:
         App = client.App
         Site = client.Site
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one", parameters={})
+        app = App.objects.create(
+            site_id=site.id, name="OneApp", parameters={}, serialized_class="txt", source_code="txt"
+        )
         assert app.parameters == {}
         app.parameters = {"foo": {"required": "True"}}
         app.save()
@@ -170,6 +250,22 @@ class TestApps:
         assert App.objects.all().count() == 1
         retrieved = App.objects.get(id=app.id)
         assert "foo" in retrieved.parameters.keys()
+
+    def test_deserializes(self, client, appdef_py):
+        Site = client.Site
+        site = Site.objects.create(name="theta", path="/projects/foo")
+        AppPy = appdef_py
+        AppPy.site = site
+        AppPy.sync()
+
+        loaded_app = client.App.objects.get(name="AppPy")
+        assert "Adds two numbers" in loaded_app.description
+        assert "return x + y" in loaded_app.source_code
+
+        loaded_appdef = ApplicationDefinition.from_serialized(loaded_app)
+
+        assert loaded_appdef.__app_id__ == AppPy.__app_id__
+        assert loaded_appdef.run(None, 5, 4) == 9
 
 
 class TestJobs:
@@ -182,8 +278,10 @@ class TestJobs:
         site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
-            class_path="app.one",
+            name="one",
             parameters={"geometry": {"required": True}},
+            serialized_class="txt",
+            source_code="txt",
         )
 
         job = Job("test/run1", app_id=app.id, parameters={"geometry": "test.xyz"}, ranks_per_node=64)
@@ -192,22 +290,33 @@ class TestJobs:
         assert job.id is not None
         assert job.state == "STAGED_IN"
 
-    def test_create_using_app_name(self, client):
-        App = client.App
+    def test_create_using_app_name(self, client, appdef):
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(
-            site_id=site.id,
-            class_path="app.one",
-            parameters={"geometry": {"required": True}},
-        )
+        GeomOpt = appdef
+        GeomOpt.site = site
+        GeomOpt.sync()
 
-        job = Job("test/run1", app_name="app.one", parameters={"geometry": "test.xyz"}, ranks_per_node=64)
+        job = Job("test/run1", app_id="GeomOpt", parameters={"geometry": "test.xyz"}, ranks_per_node=64)
         assert job.id is None
         job.save()
         assert job.id is not None
-        assert job.app_id == app.id
+        assert job.app_id == GeomOpt.__app_id__
+        assert job.state == "STAGED_IN"
+
+    def test_create_using_app_submit_method(self, client, appdef):
+        Site = client.Site
+        Job = client.Job
+        site = Site.objects.create(name="theta", path="/projects/foo")
+        GeomOpt = appdef
+        GeomOpt.site = site
+        GeomOpt.sync()
+
+        job = GeomOpt.submit(workdir="test/35", geometry="h2o.xyz")
+        assert job.id is not None
+        assert job.get_parameters() == {"geometry": "h2o.xyz"}
+        assert job.app_id == GeomOpt.__app_id__
         assert job.state == "STAGED_IN"
 
     def test_set_and_fetch_data(self, client):
@@ -215,7 +324,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
 
         job = Job.objects.create("test/run1", app_id=app.id)
         assert job.id is not None
@@ -230,7 +339,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         job = Job.objects.create("test/run1", app_id=app.id, data={"foo": 1234}, num_nodes=1)
 
         # Correct way to update a mutable field:
@@ -252,7 +361,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         jobs = [Job(f"test/{i}", app_id=app.id) for i in range(8)]
         random.shuffle(jobs)
         Job.objects.bulk_create(jobs)
@@ -275,7 +384,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         jobs = [Job(f"test/{i}", app_id=app.id) for i in range(10)]
 
         jobs = Job.objects.bulk_create(jobs)
@@ -306,7 +415,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         parent = Job("test/parent", app_id=app.id)
         parent.save()
         child = Job("test/child", app_id=app.id, parent_ids=[parent.id])
@@ -324,8 +433,10 @@ class TestJobs:
         site = Site.objects.create(name="theta", path="/projects/foo")
         app = App.objects.create(
             site_id=site.id,
-            class_path="app.one",
+            name="one",
             parameters={"geometry": {"required": False, "default": "inp.xyz"}},
+            serialized_class="txt",
+            source_code="txt",
         )
         job = Job("test/test", app_id=app.id, ranks_per_node=64)
         job.save()
@@ -343,7 +454,7 @@ class TestJobs:
         Job = client.Job
         EventLog = client.EventLog
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         job = Job("test/test", app_id=app.id)
         job.save()
         history = EventLog.objects.filter(job_id=job.id)
@@ -366,7 +477,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="One", serialized_class="txt", source_code="txt")
         jobs = [Job(f"test/{i}", app_id=app.id) for i in range(3)]
         Job.objects.bulk_create(jobs)
         assert Job.objects.count() == 3
@@ -378,7 +489,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         jobs = [Job(f"test/{i}", app_id=app.id, tags={"foo": i, "bar": i * 2}) for i in range(3)]
         Job.objects.bulk_create(jobs)
         assert Job.objects.count() == 3
@@ -393,7 +504,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
 
         foo_jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(3)]
         foo_jobs = Job.objects.bulk_create(foo_jobs)
@@ -410,7 +521,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
         jobs[2].state = "PREPROCESSED"
@@ -424,7 +535,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs.append(Job("bar/99", app_id=app.id))
         jobs = Job.objects.bulk_create(jobs)
@@ -440,8 +551,8 @@ class TestJobs:
         Job = client.Job
         site1 = Site.objects.create(name="theta1", path="/projects/foo")
         site2 = Site.objects.create(name="theta2", path="/projects/bar")
-        app1 = App.objects.create(site_id=site1.id, class_path="app.one")
-        app2 = App.objects.create(site_id=site2.id, class_path="app.one")
+        app1 = App.objects.create(site_id=site1.id, name="one", serialized_class="txt", source_code="txt")
+        app2 = App.objects.create(site_id=site2.id, name="one", serialized_class="txt", source_code="txt")
 
         jobs = [Job(f"foo/{i}", app_id=app1.id) for i in range(2)] + [
             Job(f"foo/{i}", app_id=app2.id) for i in range(2)
@@ -453,49 +564,40 @@ class TestJobs:
         assert Job.objects.filter(site_id=site2.id).count() == 2
         assert Job.objects.all().count() == 4
 
-    def test_create_by_name_and_site_path(self, client):
+    def test_create_by_name_and_site_path(self, client, appdef_a, appdef_b):
         App = client.App
         Site = client.Site
         Job = client.Job
-        site1 = Site.objects.create(name="theta1", path="/projects/foo")
-        site2 = Site.objects.create(name="theta2", path="/projects/bar")
-        app1 = App.objects.create(site_id=site1.id, class_path="app.one")
-        app2 = App.objects.create(site_id=site2.id, class_path="app.one")
 
-        job1 = Job("test/1", app_name="app.one", site_path="foo")
+        site1 = Site.objects.create(name="theta1", path="/projects/foo")
+        AppA = appdef_a
+        AppA.site = site1
+        AppA.sync()
+
+        site2 = Site.objects.create(name="theta2", path="/projects/bar")
+        AppB = appdef_b
+        AppB.site = site2
+        AppB.sync()
+
+        job1 = Job("test/1", app_id="AppA", site_name="theta1")
         job1.save()
         assert job1.id is not None
-        assert job1.app_id == app1.id
+        assert job1.app_id == AppA.__app_id__
 
-        job2 = Job("test/2", app_name="app.one", site_path="bar")
+        job2 = Job("test/2", app_id="AppB", site_name="theta2")
         job2.save()
         assert job2.id is not None
-        assert job2.app_id == app2.id
+        assert job2.app_id == AppB.__app_id__
 
-    def test_filter_by_parameters(self, client):
-        App = client.App
-        Site = client.Site
-        Job = client.Job
-        site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(
-            site_id=site.id,
-            class_path="app.one",
-            parameters={"geometry": {"required": True}},
-        )
-        jobs = [Job(f"foo/{i}", app_id=app.id, parameters={"geometry": f"{i}.xyz"}) for i in range(4)]
-        jobs.append(Job("bar/2", app_id=app.id, parameters={"geometry": "xy:32.xyz"}))
-        jobs = Job.objects.bulk_create(jobs)
-
-        assert Job.objects.filter(parameters="geometry:4.xyz").count() == 0
-        assert Job.objects.filter(parameters="geometry:3.xyz").count() == 1
-        assert Job.objects.filter(parameters="geometry:xy:32.xyz").count() == 1
+        with pytest.raises(App.DoesNotExist):
+            job3 = Job("test/2", app_id="AppB", site_name="theta3")
 
     def test_filter_by_state(self, client):
         App = client.App
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
 
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
@@ -512,7 +614,7 @@ class TestJobs:
         Site = client.Site
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
 
         jobs = [Job(f"foo/{i}", app_id=app.id) for i in range(4)]
         jobs = Job.objects.bulk_create(jobs)
@@ -537,7 +639,7 @@ class TestTransfers:
         )
         app = client.App.objects.create(
             site_id=site.id,
-            class_path="app.one",
+            name="one",
             transfers={
                 "input_data": {
                     "required": True,
@@ -550,6 +652,8 @@ class TestTransfers:
                     "local_path": "results.json",
                 },
             },
+            serialized_class="txt",
+            source_code="txt",
         )
         return app
 
@@ -675,7 +779,7 @@ class TestEvents:
         App = client.App
         Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         before_creation = datetime.utcnow()
 
         j1 = Job.objects.create(workdir="foo/1", app_id=app.id)
@@ -893,7 +997,7 @@ class TestBatchJobs:
         Job = client.Job
         Session = client.Session
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
 
         batch_job = BatchJob.objects.create(
             site_id=site.id,
@@ -931,7 +1035,7 @@ class TestSessions:
         Site = client.Site
         App = client.App
         site = Site.objects.create(name="theta", path="/projects/foo")
-        app = App.objects.create(site_id=site.id, class_path="app.one")
+        app = App.objects.create(site_id=site.id, name="one", serialized_class="txt", source_code="txt")
         return site, app
 
     def job(self, client, name, app, args={}, **kwargs):
@@ -979,7 +1083,7 @@ class TestSessions:
 
     def test_acquire_by_app_ids(self, client):
         site, app1 = self.create_site_app(client)
-        app2 = client.App.objects.create(site_id=site.id, class_path="app.two")
+        app2 = client.App.objects.create(site_id=site.id, name="two", serialized_class="txt", source_code="txt")
         self.create_jobs(client, app1, num_jobs=5)
         self.create_jobs(client, app2, num_jobs=5)
         sess = self.create_sess(client, site)

@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev cff3015]
+# [git rev c3dddd1]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -452,7 +452,7 @@ class Job(balsam._api.bases.JobBase):
     def __init__(
         self,
         workdir: pathlib.Path,
-        app: typing.Union[int, str],
+        app_id: typing.Union[int, str],
         tags: Optional[typing.Dict[str, str]] = None,
         data: Optional[typing.Dict[str, typing.Any]] = None,
         return_code: Optional[int] = None,
@@ -486,7 +486,7 @@ class Job(balsam._api.bases.JobBase):
         gpus_per_rank:      Number of GPUs per process.
         node_packing_count: Maximum number of concurrent runs per node.
         wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
-        app:                App name, ID, or class.
+        app_id:             App name, ID, or class
         site_name:          Site name, to disambiguate app defined at multiple Sites.
         parameters:         Parameters passed to App at runtime.
         parent_ids:         Set of parent Job IDs (dependencies).
@@ -639,7 +639,7 @@ class JobManager(balsam._api.bases.JobManagerBase):
     def create(
         self,
         workdir: pathlib.Path,
-        app: typing.Union[int, str],
+        app_id: typing.Union[int, str],
         tags: Optional[typing.Dict[str, str]] = None,
         data: Optional[typing.Dict[str, typing.Any]] = None,
         return_code: Optional[int] = None,
@@ -671,7 +671,7 @@ class JobManager(balsam._api.bases.JobManagerBase):
         gpus_per_rank:      Number of GPUs per process.
         node_packing_count: Maximum number of concurrent runs per node.
         wall_time_min:      Optional estimate of Job runtime. All else being equal, longer Jobs tend to run first.
-        app:                App name, ID, or class.
+        app_id:             App name, ID, or class
         site_name:          Site name, to disambiguate app defined at multiple Sites.
         parameters:         Parameters passed to App at runtime.
         parent_ids:         Set of parent Job IDs (dependencies).

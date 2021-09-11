@@ -22,7 +22,7 @@ def get_source(obj: Any) -> str:
 
 
 def _serialize(obj: Any) -> str:
-    dump: bytes = dill.dumps(obj, recurse=True)
+    dump: bytes = dill.dumps(obj)
     return base64.b64encode(dump).decode("utf-8")
 
 

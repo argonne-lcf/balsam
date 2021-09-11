@@ -37,7 +37,7 @@ def read(job_id: int, db: orm.Session = Depends(get_session), user: schemas.User
 
 @router.post("/", response_model=List[schemas.JobOut], status_code=status.HTTP_201_CREATED)
 def bulk_create(
-    jobs: List[schemas.JobCreate], db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+    jobs: List[schemas.ServerJobCreate], db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> List[schemas.JobOut]:
     """Create a list of Jobs."""
     new_jobs, new_events, new_transfers = crud.jobs.bulk_create(db, owner=user, job_specs=jobs)

@@ -139,7 +139,7 @@ class BalsamModel(metaclass=BalsamModelMeta):
             self.__class__.objects._do_update(self)
         elif self._state == "creating":
             assert self._create_model is not None
-            created = self.__class__.objects._create(**self._create_model.dict())
+            created = self.__class__.objects._create(instance=self)
             assert created._read_model is not None
             self._refresh_from_dict(created._read_model.dict())
             self._create_model = None

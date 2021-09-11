@@ -52,7 +52,7 @@ def update_states_by_query(
     return updated_jobs, events
 
 
-def populate_transfers(db_job: models.Job, job_spec: schemas.JobCreate) -> List[models.TransferItem]:
+def populate_transfers(db_job: models.Job, job_spec: schemas.ServerJobCreate) -> List[models.TransferItem]:
     for transfer_name, transfer_spec in job_spec.transfers.items():
         transfer_slot = db_job.app.transfers.get(transfer_name)
         if transfer_slot is None:
@@ -105,7 +105,7 @@ def fetch(
 
 
 def bulk_create(
-    db: Session, owner: schemas.UserOut, job_specs: List[schemas.JobCreate]
+    db: Session, owner: schemas.UserOut, job_specs: List[schemas.ServerJobCreate]
 ) -> Tuple[List[models.Job], List[models.LogEvent], List[models.TransferItem]]:
     now = datetime.utcnow()
     app_ids = set(job.app_id for job in job_specs)

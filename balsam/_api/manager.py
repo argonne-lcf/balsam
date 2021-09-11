@@ -35,9 +35,10 @@ class Manager(Generic[T]):
     def first(self) -> T:
         return self.all().first()
 
-    def _create(self, **data: Any) -> T:
-        # We want to pass through the BalsamModel constructor for validation
-        instance = self._model_class(**data)
+    def _create(self, instance: Optional[T] = None, **data: Any) -> T:
+        # Pass raw dict through the BalsamModel constructor for validation
+        if instance is None:
+            instance = self._model_class(**data)
         if self._bulk_create_enabled:
             created_list = self.bulk_create([instance])
             created = created_list[0]

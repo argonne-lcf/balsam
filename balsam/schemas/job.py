@@ -103,12 +103,9 @@ class JobCreate(JobBase):
     class Config:
         validate_assignment = True
 
-    # This will generate a Job() constructor signature with `app` and `site_name`
-    # kwargs. Neither kwarg is exported to the backend. Instead, the required `app_id`
-    # must be resolved in the Job __init__.
-    app: Union[int, str] = Field(
-        ..., example="MyApp", description="App name, ID, or class.", no_export=True, no_descriptor=True
-    )
+    # This will generate a Job() constructor signature with `app_id` and `site_name`
+    # kwargs. These are used to resolve the integer `app_id` sent to backend.
+    app_id: Union[int, str] = Field(..., example=3, description="App name, ID, or class")
     site_name: Optional[str] = Field(
         None,
         example="my-site",
@@ -116,7 +113,6 @@ class JobCreate(JobBase):
         no_export=True,
         no_descriptor=True,
     )
-    app_id: int = Field(..., example=3, description="App ID", no_constructor=True)
 
     # Add `parameters` to the constructor, but manage them with a custom getter/setter on
     # JobBase:
@@ -145,13 +141,6 @@ class JobCreate(JobBase):
         values["serialized_parameters"] = serialize(params)
         return values
 
-    @root_validator(pre=True)
-    def set_app_from_id(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        app_id = values.get("app_id")
-        if app_id:
-            values["app"] = app_id
-        return values
-
     @validator("transfers", pre=True)
     def resolve_transfer_strings(
         cls, transfers: Dict[str, Union[str, JobTransferItem]]
@@ -178,6 +167,20 @@ class JobCreate(JobBase):
             for key in exclude_fields:
                 kwargs["exclude"][key] = ...
         return super().dict(**kwargs)
+
+class ServerJobCreate(JobBase):
+    app_id: int = Field(..., example=3, description="App ID")
+    parent_ids: Set[int] = Field(set(), example={2, 3}, description="Set of parent Job IDs (dependencies).")
+    transfers: Dict[str, JobTransferItem] = Field(
+        {},
+        example={
+            "input_file": {
+                "location_alias": "MyCluster",
+                "path": "/path/to/input.dat",
+            }
+        },
+        description="TransferItem dictionary. One key:JobTransferItem pair for each slot defined on the App.",
+    )
 
 
 class JobUpdate(JobBase):

@@ -129,8 +129,8 @@ class JobBase(CreatableBalsamModel):
     class NoResult(ValueError):
         pass
 
-    def __init__(self, app: InputAppType, site_name: Optional[str] = None, **kwargs: Any) -> None:
-        app_id = self._resolve_app_id(app, site_name)
+    def __init__(self, app_id: InputAppType, site_name: Optional[str] = None, **kwargs: Any) -> None:
+        app_id = self._resolve_app_id(app_id, site_name)
         super().__init__(**kwargs, app_id=app_id)
 
     @classmethod

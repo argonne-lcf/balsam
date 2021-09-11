@@ -1,10 +1,10 @@
-from pathlib import Path
 import inspect
 import logging
 import os
 import re
 import shlex
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import jinja2
@@ -14,6 +14,7 @@ from balsam.schemas import JobState, deserialize, get_source, serialize
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient
+
     from .models import App, Job, Site
 
 PARAM_PATTERN = re.compile(r"{{(.*?)}}")
@@ -147,6 +148,7 @@ class ApplicationDefinitionMeta(type):
         if "self" not in signature.parameters:
             raise TypeError(f"ApplicationDefinition {cls.__name__}.run{signature} is missing the `self` argument")
 
+        cls.parameters = {}
         for param_name, param in signature.parameters.items():
             if param_name == "self":
                 continue
@@ -339,7 +341,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             try:
                 existing_app = AppModel.objects.get(site_id=app_dict["site_id"], name=app_dict["name"])
                 logger.info(f"Updating App(id={existing_app.id}, name={app_dict['name']})")
-            except App.DoesNotExist:
+            except AppModel.DoesNotExist:
                 pass
 
         if existing_app:
@@ -405,7 +407,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         assert cls._client is not None
         job_kwargs = {k: v for k, v in locals().items() if k not in ["cls", "__class__"] and v is not None}
         job_kwargs["parameters"] = app_params
-        job_kwargs["app"] = cls.__app_id__
+        job_kwargs["app_id"] = cls.__app_id__
         job = cls._client.Job(**job_kwargs)
         if save:
             job.save()
