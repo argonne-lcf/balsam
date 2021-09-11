@@ -1,46 +1,55 @@
-import base64
 import json
 import sys
 from typing import Any, Dict, List, Tuple, Type
 
-import dill  # type: ignore
-
 from balsam._api.app import ApplicationDefinition, is_appdef
-from balsam._api.models import Job
-from balsam.schemas import serialize
+from balsam._api.models import Job, App
+from balsam.schemas import serialize, RemoteExceptionWrapper
 
 
-def unpack_chunks(num_app_chunks: int, chunks: List[str]) -> Tuple[Type[ApplicationDefinition], Job]:
+def unpack_chunks(
+    app_id: int, num_app_chunks: int, chunks: List[str]
+) -> Tuple[Type[ApplicationDefinition], Job, Dict[str, Any]]:
+    # sys.argv contains the serialized ApplicationDefinition and app_id (not the JSON app representation)
     app_encoded = "".join(chunks[:num_app_chunks])
+    app = App(_api_data=True, id=app_id, site_id=0, name="AppName", serialized_class=app_encoded, source_code="")
+    app_def = ApplicationDefinition.from_serialized(app)
+    if not is_appdef(app_def):
+        raise ValueError(f"{app_def} is not an ApplicationDefinition; type is {type(app_def)}")
+
+    # sys.argv contains the full JSON representation of the Job:
     job_encoded = "".join(chunks[num_app_chunks:])
-    app_cls: Type[ApplicationDefinition] = dill.loads(base64.b64decode(app_encoded))
     job_dict: Dict[str, Any] = json.loads(job_encoded)
     job = Job._from_api(job_dict)
-    assert is_appdef(app_cls)
-    return app_cls, job
+    params = job.get_parameters()
+
+    return app_def, job, params
 
 
-def log_exception(exc: Exception) -> None:
-    print("BALSAM-EXCEPTION", serialize(exc))
+def log_exception(exc: RemoteExceptionWrapper) -> None:
+    print("BALSAM-EXCEPTION", serialize(exc), flush=True)
 
 
 def log_result(ret_val: Any) -> None:
-    print("BALSAM-RETURN-VALUE", serialize(ret_val))
+    print("BALSAM-RETURN-VALUE", serialize(ret_val), flush=True)
 
 
-def main(num_app_chunks: int, chunks: List[str]) -> None:
-    app_cls, job = unpack_chunks(num_app_chunks, chunks)
-    app = app_cls(job)
+def main(app_id: int, num_app_chunks: int, chunks: List[str]) -> None:
     try:
-        params = job.unpack_parameters()
+        app_cls, job, params = unpack_chunks(app_id, num_app_chunks, chunks)
+        app = app_cls(job)
+        if not callable(app.run):
+            raise AttributeError(f"ApplicationDefinition {app_cls} does not have a run() function")
         return_value = app.run(**params)
-    except Exception as exc:
-        log_exception(sys.exc_info())
-        raise exc
-    else:
         log_result(return_value)
+    except Exception:
+        exc = RemoteExceptionWrapper(*sys.exc_info())
+        log_exception(exc)
+        raise
 
 
 if __name__ == "__main__":
-    num_app_chunks = int(sys.argv[1])
-    main(num_app_chunks, sys.argv[2:])
+    # python -m balsam.site.launcher.python_runner APP_ID NUM_APP_CHUNKS [APP_B64_CHUNKS] [JOB_JSON_CHUNKS]
+    app_id = int(sys.argv[1])
+    num_app_chunks = int(sys.argv[2])
+    main(app_id, num_app_chunks, sys.argv[3:])

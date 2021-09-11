@@ -26,7 +26,7 @@ from .job import (
     PaginatedJobsOut,
 )
 from .logevent import EventOrdering, LogEventOut, PaginatedLogEventOut
-from .serializer import deserialize, get_source, serialize
+from .serializer import deserialize, get_source, serialize, RemoteExceptionWrapper
 from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
 from .transfer import (
@@ -90,5 +90,6 @@ __all__ = [
     "SchedulerJobStatus",
     "serialize",
     "deserialize",
+    "RemoteExceptionWrapper",
     "get_source",
 ]

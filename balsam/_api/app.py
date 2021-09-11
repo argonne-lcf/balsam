@@ -60,6 +60,12 @@ def check_extraneous_parameters(detected_params: Set[str], dict_params: Set[str]
         )
 
 
+def chunk_str(s: str, chunksize: int) -> List[str]:
+    num_chunks = len(s) // chunksize
+    chunks = [s[i * chunksize : (i + 1) * chunksize] for i in range(num_chunks + 1)]
+    return chunks
+
+
 def metadata_from_signature(param: inspect.Parameter) -> Dict[str, Any]:
     if param.annotation:
         if hasattr(param.annotation, "__name__"):
@@ -192,6 +198,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     class ModuleLoadError(Exception):
         pass
 
+    ARG_CHUNK_SIZE: int = 128_000
     environment_variables: Dict[str, str] = {}
     command_template: str
     parameters: Dict[str, Any] = {}
@@ -206,6 +213,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     __app_id__: Optional[int] = None
     _app_name_cache: Dict[Tuple[Optional[str], str], AppDefType] = {}
     _app_id_cache: Dict[int, AppDefType] = {}
+    _serialized_class: Optional[str] = None
 
     @staticmethod
     def _set_client(client: "RESTClient") -> None:
@@ -231,8 +239,20 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         return envs
 
     def _render_pyrunner_command(self) -> str:
-        payload = ""
-        return f"python -m balsam.site.launcher.python_runner {payload}"
+        assert self.__app_id__ is not None
+        assert self.job._read_model is not None
+        assert self._serialized_class is not None
+        app_id = int(self.__app_id__)
+
+        app_payload = self._serialized_class
+        app_chunks = chunk_str(app_payload, self.ARG_CHUNK_SIZE)
+        num_app_chunks = len(app_chunks)
+
+        job_payload = self.job._read_model.json()
+        job_chunks = chunk_str(job_payload, self.ARG_CHUNK_SIZE)
+
+        args = f"{app_id} {num_app_chunks} {' '.join(app_chunks)} {' '.join(job_chunks)}"
+        return f"python -m balsam.site.launcher.python_runner {args}"
 
     def _render_shell_command(self) -> str:
         """
@@ -415,10 +435,12 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
 
     @classmethod
     def to_dict(cls) -> Dict[str, Any]:
+        serialized_class = serialize(cls)
+        cls._serialized_class = serialized_class
         return dict(
             site_id=cls.resolve_site_id(),
             name=cls.__name__,
-            serialized_class=serialize(cls),
+            serialized_class=serialized_class,
             source_code=cls.source_code,
             description=(cls.__doc__ or "").strip(),
             parameters=cls.parameters,
@@ -435,4 +457,5 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
             raise TypeError(f"Deserialized {cls.__name__} is not an ApplicationDefinition subclass")
 
         cls.__app_id__ = app.id
+        cls._serialized_class = app.serialized_class
         return cls
