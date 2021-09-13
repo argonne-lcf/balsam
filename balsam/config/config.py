@@ -20,7 +20,6 @@ from balsam.schemas import AllowedQueue
 from balsam.util import config_file_logging
 
 if TYPE_CHECKING:
-    from balsam._api.models import App  # noqa: F401
     from balsam.site.service.service_base import BalsamService
 
 logger = logging.getLogger(__name__)

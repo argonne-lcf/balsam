@@ -180,7 +180,7 @@ def create(
 
     job = client.Job(
         workdir=Path(workdir),
-        app=app.id,
+        app_id=app.id,
         tags=tags,
         parameters=parameters_dict,
         num_nodes=num_nodes,

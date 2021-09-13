@@ -168,6 +168,7 @@ class JobCreate(JobBase):
                 kwargs["exclude"][key] = ...
         return super().dict(**kwargs)
 
+
 class ServerJobCreate(JobBase):
     app_id: int = Field(..., example=3, description="App ID")
     parent_ids: Set[int] = Field(set(), example={2, 3}, description="Set of parent Job IDs (dependencies).")

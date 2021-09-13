@@ -307,7 +307,6 @@ class TestJobs:
 
     def test_create_using_app_submit_method(self, client, appdef):
         Site = client.Site
-        Job = client.Job
         site = Site.objects.create(name="theta", path="/projects/foo")
         GeomOpt = appdef
         GeomOpt.site = site
@@ -590,7 +589,7 @@ class TestJobs:
         assert job2.app_id == AppB.__app_id__
 
         with pytest.raises(App.DoesNotExist):
-            job3 = Job("test/2", app_id="AppB", site_name="theta3")
+            Job("test/2", app_id="AppB", site_name="theta3")
 
     def test_filter_by_state(self, client):
         App = client.App

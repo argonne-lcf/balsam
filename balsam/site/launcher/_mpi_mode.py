@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Uni
 
 import click
 
-from balsam._api import ApplicationDefinition
+from balsam._api.app import ApplicationDefinition
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
 from balsam.schemas import JobState
@@ -226,11 +226,10 @@ def main(
     node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
 
     ApplicationDefinition._set_client(site_config.client)
-    App = site_config.client.App
     app_cache = {
-        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
-        for app in App.objects.filter(site_id=site_config.site_id)
-        if app.id is not None
+        app.__app_id__: app
+        for app in ApplicationDefinition.load_by_site(site_config.site_id).values()
+        if app.__app_id__ is not None
     }
 
     scheduler_id = node_cls.get_scheduler_id()

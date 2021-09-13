@@ -7,8 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterator, Optional, Type, Union
 
-from balsam._api import ApplicationDefinition
-from balsam.schemas import JobState
+from balsam._api.app import ApplicationDefinition, AppType
+from balsam.schemas import JobState, JobUpdate
 from balsam.site import BulkStatusUpdater, FixedDepthJobSource
 from balsam.util import Process, SigHandler
 
@@ -63,6 +63,45 @@ def transition(app: ApplicationDefinition) -> None:
         }
 
 
+def read_pyapp_result(app: ApplicationDefinition) -> None:
+    if app._app_type != AppType.PY_FUNC:
+        return
+    if app.job.state not in (JobState.run_done, JobState.run_error):
+        return
+    if not Path("job.out").is_file():
+        logger.warning(f"Missing job.out in {Path.cwd()}")
+        return
+
+    return_line = None
+    except_line = None
+    ret_marker = "BALSAM-RETURN-VALUE"
+    exc_marker = "BALSAM-EXCEPTION"
+    with open("job.out") as fp:
+        for line in fp:
+            if ret_marker in line:
+                return_line = line
+                break
+            elif exc_marker in line:
+                except_line = line
+                break
+
+    if app.job._update_model is None:
+        app.job._update_model = JobUpdate()
+
+    if return_line:
+        return_line = return_line[return_line.find(ret_marker) :]
+        payload = return_line.split(None, 1)[1]
+        app.job._update_model.serialized_return_value = payload
+        app.job._update_model.serialized_exception = ""
+        logger.debug(f"Set serialized_return_value for Job in {app.job.workdir}")
+    elif except_line:
+        except_line = except_line[except_line.find(exc_marker) :]
+        payload = except_line.split(None, 1)[1]
+        app.job._update_model.serialized_exception = payload
+        app.job._update_model.serialized_return_value = ""
+        logger.debug(f"Set serialized_exception for Job in {app.job.workdir}")
+
+
 def run_worker(
     job_source: "FixedDepthJobSource",
     status_updater: "BulkStatusUpdater",
@@ -83,6 +122,7 @@ def run_worker(
             workdir = data_path.joinpath(app.job.workdir)
             with job_context(workdir, "balsam.log"):
                 transition(app)
+                read_pyapp_result(app)
 
             update_data = job._update_model.dict(exclude_unset=True) if job._update_model else {}
             update_data["id"] = job.id
@@ -109,10 +149,7 @@ class ProcessingService(object):
     ) -> None:
         self.site_id = site_id
         ApplicationDefinition._set_client(client)
-        app_cache = {
-            app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
-            for app in client.App.objects.filter(site_id=self.site_id)
-        }
+        app_cache = {app.__app_id__: app for app in ApplicationDefinition.load_by_site(self.site_id).values()}
         self.job_source = FixedDepthJobSource(
             client=client,
             site_id=site_id,

@@ -4,7 +4,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, DefaultDict, List
 
-from balsam._api import ApplicationDefinition
+from balsam._api.app import ApplicationDefinition
 from balsam.schemas import JobState
 
 from .service_base import BalsamService
@@ -30,10 +30,8 @@ class FileCleanerService(BalsamService):
         self.site_id = site_id
         self.data_path = data_path
         self.cleanup_batch_size = cleanup_batch_size
-        self.app_cache = {
-            app.id: ApplicationDefinition.load_app_class(apps_path, app.class_path)
-            for app in self.client.App.objects.filter(site_id=self.site_id)
-        }
+        ApplicationDefinition._set_client(client)
+        self.app_cache = {app.__app_id__: app for app in ApplicationDefinition.load_by_site(self.site_id).values()}
 
     def remove_files(self, jobs: List["Job"], cleanup_file_patterns: List[str]) -> None:
         globs = itertools.chain(

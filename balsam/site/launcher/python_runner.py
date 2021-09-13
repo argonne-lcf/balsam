@@ -3,8 +3,8 @@ import sys
 from typing import Any, Dict, List, Tuple, Type
 
 from balsam._api.app import ApplicationDefinition, is_appdef
-from balsam._api.models import Job, App
-from balsam.schemas import serialize, RemoteExceptionWrapper
+from balsam._api.models import App, Job
+from balsam.schemas import RemoteExceptionWrapper, serialize
 
 
 def unpack_chunks(

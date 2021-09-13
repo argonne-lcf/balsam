@@ -107,7 +107,7 @@ class TestSingleNodeMPIMode:
         """
         3 hello world jobs run to completion
         """
-        app = client.App.objects.get(class_path="hello.Hello")
+        app = client.App.objects.get(name="Hello")
         assert app.id is not None
         jobs: List[Job] = []
         for i in range(num_jobs):

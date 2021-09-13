@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Type
 
 import zmq
 
-from balsam._api import ApplicationDefinition
+from balsam._api.app import ApplicationDefinition
 from balsam.config import SiteConfig
 from balsam.schemas import JobState
 from balsam.site import BulkStatusUpdater, FixedDepthJobSource
@@ -193,11 +193,11 @@ def master_main(wall_time_min: int, master_port: int, log_filename: str, num_wor
     site_config.enable_logging("serial_mode", filename=log_filename + ".master")
     logger.debug("Launching master")
 
-    App = site_config.client.App
+    ApplicationDefinition._set_client(site_config.client)
     app_cache = {
-        app.id: ApplicationDefinition.load_app_class(site_config.apps_path, app.class_path)
-        for app in App.objects.filter(site_id=site_config.site_id)
-        if app.id is not None
+        app.__app_id__: app
+        for app in ApplicationDefinition.load_by_site(site_config.site_id).values()
+        if app.__app_id__ is not None
     }
 
     launch_settings = site_config.settings.launcher
