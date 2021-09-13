@@ -63,6 +63,7 @@ def check_extraneous_parameters(detected_params: Set[str], dict_params: Set[str]
 def chunk_str(s: str, chunksize: int) -> List[str]:
     num_chunks = len(s) // chunksize
     chunks = [s[i * chunksize : (i + 1) * chunksize] for i in range(num_chunks + 1)]
+    chunks = [shlex.quote(chunk) for chunk in chunks]
     return chunks
 
 

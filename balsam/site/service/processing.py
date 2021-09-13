@@ -41,7 +41,7 @@ def job_context(workdir: Path, stdout_filename: str) -> Iterator[None]:
         sys.stderr = old_stderr
 
 
-def transition(app: ApplicationDefinition) -> None:
+def transition_state(app: ApplicationDefinition) -> None:
     assert app.job.state is not None
     transition_func = {
         JobState.staged_in: app.preprocess,
@@ -66,11 +66,11 @@ def transition(app: ApplicationDefinition) -> None:
 def read_pyapp_result(app: ApplicationDefinition) -> None:
     if app._app_type != AppType.PY_FUNC:
         return
-    if app.job.state not in (JobState.run_done, JobState.run_error):
-        return
     if not Path("job.out").is_file():
         logger.warning(f"Missing job.out in {Path.cwd()}")
         return
+
+    logger.debug(f"Scanning {app.job.workdir / 'job.out'} for python app result")
 
     return_line = None
     except_line = None
@@ -121,8 +121,10 @@ def run_worker(
             app = app_cls(job)
             workdir = data_path.joinpath(app.job.workdir)
             with job_context(workdir, "balsam.log"):
-                transition(app)
-                read_pyapp_result(app)
+                # Check job.state before running state transition:
+                if job.state in (JobState.run_done, JobState.run_error):
+                    read_pyapp_result(app)
+                transition_state(app)
 
             update_data = job._update_model.dict(exclude_unset=True) if job._update_model else {}
             update_data["id"] = job.id
