@@ -7,6 +7,22 @@ from balsam._api.models import App, Job
 from balsam.schemas import RemoteExceptionWrapper, serialize
 
 
+def is_mpi_rank_nonzero() -> bool:
+    """Return True only if MPI is loaded and rank is >= 1"""
+    MPI = None
+    if "mpi4py" in sys.modules:
+        MPI = getattr(sys.modules["mpi4py"], "MPI", None)
+
+    if MPI is None:
+        return False
+
+    try:
+        return MPI.COMM_WORLD.Get_rank() > 0  # type: ignore
+    except Exception as exc:
+        print(f"WARNING Get_rank() failed: {exc}")
+        return False
+
+
 def unpack_chunks(
     app_id: int, num_app_chunks: int, chunks: List[str]
 ) -> Tuple[Type[ApplicationDefinition], Job, Dict[str, Any]]:
@@ -27,10 +43,14 @@ def unpack_chunks(
 
 
 def log_exception(exc: RemoteExceptionWrapper) -> None:
+    if is_mpi_rank_nonzero():
+        return
     print("BALSAM-EXCEPTION", serialize(exc), flush=True)
 
 
 def log_result(ret_val: Any) -> None:
+    if is_mpi_rank_nonzero():
+        return
     print("BALSAM-RETURN-VALUE", serialize(ret_val), flush=True)
 
 

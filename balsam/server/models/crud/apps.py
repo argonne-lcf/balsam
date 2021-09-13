@@ -58,7 +58,7 @@ def update(db: Session, owner: schemas.UserOut, app_id: int, update_data: Dict[s
     app_in_db = cast(models.App, qs.one())
     if "site_id" in update_data:
         update_data["site_id"] = (
-            db.query(models.Site.id).filter_by(id=update_data["site_id"], owner_id=owner.id).one()
+            db.query(models.Site.id).filter_by(id=update_data["site_id"], owner_id=owner.id).one()[0]
         )
     for k, v in update_data.items():
         setattr(app_in_db, k, v)
