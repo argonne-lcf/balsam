@@ -163,12 +163,10 @@ class ApplicationDefinitionMeta(type):
         return cls
 
     def __new__(mcls, name: str, bases: Tuple[Any, ...], attrs: Dict[str, Any]) -> "ApplicationDefinitionMeta":
+        attrs["parameters"] = attrs.pop("parameters", {}).copy()
         cls = super().__new__(mcls, name, bases, attrs)
         if not bases:
             return cls
-
-        if "parameters" not in attrs:
-            attrs["parameters"] = {}
 
         if "site" not in attrs:
             raise AttributeError(
@@ -330,7 +328,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         return apps_by_name
 
     @classmethod
-    def load_by_name(cls, app_name: str, site_name: Optional[str]) -> AppDefType:
+    def load_by_name(cls, app_name: str, site_name: Optional[str] = None) -> AppDefType:
         app_key = (site_name, app_name)
         if app_key not in cls._app_name_cache:
             logger.debug(f"App Cache miss: fetching app {app_key}")
