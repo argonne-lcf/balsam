@@ -27,7 +27,6 @@ class Launcher:
     def __init__(
         self,
         data_dir: Path,
-        app_cache: Dict[int, Type[ApplicationDefinition]],
         idle_ttl_sec: int,
         app_run: Type["AppRun"],
         node_manager: NodeManager,
@@ -39,7 +38,6 @@ class Launcher:
         max_concurrent_runs: int,
     ) -> None:
         self.data_dir = data_dir
-        self.app_cache = app_cache
         self.idle_ttl_sec = idle_ttl_sec
         self.error_tail_num_lines = error_tail_num_lines
         self.app_run = app_run
@@ -77,7 +75,7 @@ class Launcher:
             self.idle_time = None
 
     def start_job(self, job: "Job") -> "AppRun":
-        app_cls = self.app_cache[job.app_id]
+        app_cls = ApplicationDefinition.load_by_id(job.app_id)
         app = app_cls(job)
         workdir = self.data_dir.joinpath(app.job.workdir)
 
@@ -226,11 +224,7 @@ def main(
     node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
 
     ApplicationDefinition._set_client(site_config.client)
-    app_cache = {
-        app.__app_id__: app
-        for app in ApplicationDefinition.load_by_site(site_config.site_id).values()
-        if app.__app_id__ is not None
-    }
+    ApplicationDefinition.load_by_site(site_config.site_id)  # Warms the cache
 
     scheduler_id = node_cls.get_scheduler_id()
     job_source = SynchronousJobSource(
@@ -239,13 +233,11 @@ def main(
         filter_tags=filter_tags_dict,
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
-        app_ids={app_id for app_id in app_cache if app_id is not None},
     )
     status_updater = BulkStatusUpdater(site_config.client)
 
     launcher = Launcher(
         data_dir=site_config.data_path,
-        app_cache=app_cache,
         idle_ttl_sec=launch_settings.idle_ttl_sec,
         delay_sec=launch_settings.delay_sec,
         app_run=launch_settings.mpi_app_launcher,

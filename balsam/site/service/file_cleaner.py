@@ -31,7 +31,7 @@ class FileCleanerService(BalsamService):
         self.data_path = data_path
         self.cleanup_batch_size = cleanup_batch_size
         ApplicationDefinition._set_client(client)
-        self.app_cache = {app.__app_id__: app for app in ApplicationDefinition.load_by_site(self.site_id).values()}
+        ApplicationDefinition.load_by_site(self.site_id)  # Warms the cache
 
     def remove_files(self, jobs: List["Job"], cleanup_file_patterns: List[str]) -> None:
         globs = itertools.chain(
@@ -55,7 +55,8 @@ class FileCleanerService(BalsamService):
             jobs_by_appid[job.app_id].append(job)
 
         for appid, jobs in jobs_by_appid.items():
-            cleanup_file_patterns = self.app_cache[appid].cleanup_files
+            app_cls = ApplicationDefinition.load_by_id(appid)
+            cleanup_file_patterns = app_cls.cleanup_files
             self.remove_files(jobs, cleanup_file_patterns)
             for job in jobs:
                 job.pending_file_cleanup = False

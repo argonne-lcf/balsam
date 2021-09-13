@@ -3,7 +3,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Type
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set
 
 import zmq
 
@@ -26,7 +26,6 @@ class Master:
         self,
         job_source: FixedDepthJobSource,
         status_updater: BulkStatusUpdater,
-        app_cache: Dict[int, Type[ApplicationDefinition]],
         wall_time_min: int,
         master_port: int,
         data_dir: Path,
@@ -35,7 +34,6 @@ class Master:
     ) -> None:
         self.job_source = job_source
         self.status_updater = status_updater
-        self.app_cache = app_cache
         self.data_dir = data_dir
         self.remaining_timer = countdown_timer_min(wall_time_min, delay_sec=0)
         self.idle_ttl_sec = idle_ttl_sec
@@ -53,7 +51,7 @@ class Master:
         logger.debug("Job source/status updater created")
 
     def job_to_dict(self, job: "Job") -> Dict[str, Any]:
-        app_cls = self.app_cache[job.app_id]
+        app_cls = ApplicationDefinition.load_by_id(job.app_id)
         app = app_cls(job)
         workdir = self.data_dir.joinpath(app.job.workdir).as_posix()
 
@@ -194,11 +192,7 @@ def master_main(wall_time_min: int, master_port: int, log_filename: str, num_wor
     logger.debug("Launching master")
 
     ApplicationDefinition._set_client(site_config.client)
-    app_cache = {
-        app.__app_id__: app
-        for app in ApplicationDefinition.load_by_site(site_config.site_id).values()
-        if app.__app_id__ is not None
-    }
+    ApplicationDefinition.load_by_site(site_config.site_id)  # Warm the cache
 
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node
@@ -212,14 +206,12 @@ def master_main(wall_time_min: int, master_port: int, log_filename: str, num_wor
         scheduler_id=scheduler_id,
         serial_only=True,
         max_nodes_per_job=1,
-        app_ids={app_id for app_id in app_cache if app_id is not None},
     )
     status_updater = BulkStatusUpdater(site_config.client)
 
     master = Master(
         job_source=job_source,
         status_updater=status_updater,
-        app_cache=app_cache,
         wall_time_min=wall_time_min,
         master_port=int(master_port),
         data_dir=site_config.data_path,

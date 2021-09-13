@@ -5,7 +5,7 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, Optional, Type, Union
+from typing import TYPE_CHECKING, Dict, Iterator, Optional, Union
 
 from balsam._api.app import ApplicationDefinition, AppType
 from balsam.schemas import JobState, JobUpdate
@@ -105,10 +105,11 @@ def read_pyapp_result(app: ApplicationDefinition) -> None:
 def run_worker(
     job_source: "FixedDepthJobSource",
     status_updater: "BulkStatusUpdater",
-    app_cache: Dict[int, Type[ApplicationDefinition]],
     data_path: PathLike,
 ) -> None:
     sig_handler = SigHandler()
+    if ApplicationDefinition._client is not None:
+        ApplicationDefinition._client.close_session()
     data_path = Path(data_path).resolve()
 
     while not sig_handler.is_set():
@@ -117,7 +118,7 @@ def run_worker(
         except queue.Empty:
             continue
         else:
-            app_cls = app_cache[job.app_id]
+            app_cls = ApplicationDefinition.load_by_id(job.app_id)
             app = app_cls(job)
             workdir = data_path.joinpath(app.job.workdir)
             with job_context(workdir, "balsam.log"):
@@ -151,14 +152,13 @@ class ProcessingService(object):
     ) -> None:
         self.site_id = site_id
         ApplicationDefinition._set_client(client)
-        app_cache = {app.__app_id__: app for app in ApplicationDefinition.load_by_site(self.site_id).values()}
+        ApplicationDefinition.load_by_site(self.site_id)  # Warms the cache
         self.job_source = FixedDepthJobSource(
             client=client,
             site_id=site_id,
             prefetch_depth=prefetch_depth,
             filter_tags=filter_tags,
             states={"STAGED_IN", "RUN_DONE", "RUN_ERROR", "RUN_TIMEOUT"},
-            app_ids={app_id for app_id in app_cache if app_id is not None},
         )
         self.status_updater = BulkStatusUpdater(client)
 
@@ -168,7 +168,6 @@ class ProcessingService(object):
                 args=(
                     self.job_source,
                     self.status_updater,
-                    app_cache,
                     data_path,
                 ),
             )

@@ -15,10 +15,12 @@ import pytest
 import requests
 
 import balsam.server
+from balsam._api.app import ApplicationDefinition
 from balsam.client import BasicAuthRequestsClient, urls
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home, site_builder
 from balsam.server import models
+from balsam.share.demo import Adder, Hello
 from balsam.util import postgres as pg
 
 from .test_platform import PLATFORMS, get_platform, get_test_api_url, get_test_db_url, get_test_dir, get_test_log_dir
@@ -234,7 +236,13 @@ def balsam_site_config(persistent_client: BasicAuthRequestsClient, test_log_dir:
             settings_template_path=TEST_DEFAULTS_DIR / "settings.yml.j2",
         )
         os.environ["BALSAM_SITE_PATH"] = str(site_path)
-        raise NotImplementedError("You need to sync the Apps here somehow")
+
+        # Set up Apps for the test site:
+        ApplicationDefinition._set_client(persistent_client)
+        Hello.site = site_config.site_id
+        Adder.site = site_config.site_id
+        Hello.sync()
+        Adder.sync()
         yield site_config
         shutil.copytree(
             site_path.as_posix(),

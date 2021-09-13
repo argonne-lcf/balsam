@@ -5,6 +5,7 @@ from typing import Any, Iterable, List
 
 import pytest
 
+from balsam._api.app import ApplicationDefinition
 from balsam._api.models import BatchJob, EventLog, Job
 from balsam.client import RESTClient
 from balsam.config import SiteConfig
@@ -101,19 +102,19 @@ def poll_until_state(
 
 
 @pytest.mark.usefixtures("live_launcher")
-class TestSingleNodeMPIMode:
+class TestSingleNode:
     @pytest.mark.parametrize("num_jobs", [3])
     def test_multi_job(self, balsam_site_config: SiteConfig, num_jobs: int, client: RESTClient) -> None:
         """
         3 hello world jobs run to completion
         """
-        app = client.App.objects.get(name="Hello")
-        assert app.id is not None
+        Hello = ApplicationDefinition.load_by_name("Hello")
+        assert Hello.__app_id__ is not None
         jobs: List[Job] = []
         for i in range(num_jobs):
             job = client.Job.objects.create(
-                Path(f"bar/{i}"),
-                app_id=app.id,
+                workdir=Path(f"bar/{i}"),
+                app_id=Hello,
                 parameters={"name": f"world{i}!"},
                 node_packing_count=2,
             )
@@ -131,6 +132,32 @@ class TestSingleNodeMPIMode:
             ], f"Job state: {job.state}\n{list(EventLog.objects.filter(job_id=job.id))}"
             stdout = job.resolve_workdir(balsam_site_config.data_path).joinpath("job.out").read_text()
             assert f"world{i}" in stdout
+
+    @pytest.mark.parametrize("num_jobs", [3])
+    def test_py_jobs(self, balsam_site_config: SiteConfig, num_jobs: int, client: RESTClient) -> None:
+        Adder = ApplicationDefinition.load_by_name("Adder")
+
+        inputs = [(1, 1), (2, 2), (7, 3), (3, "hello")]
+        jobs = [
+            Adder.submit(
+                workdir=Path(f"test/{i}"),
+                x=inp[0],
+                y=inp[1],
+            )
+            for i, inp in enumerate(inputs)
+        ]
+
+        print("Start polling for jobs to reach JOB_FINISHED at", datetime.now())
+        poll_until_state(jobs[:3], "JOB_FINISHED", timeout=300.0)
+        print("Polling jobs DONE at", datetime.now())
+        poll_until_state(jobs[3:], "FAILED", timeout=10.0)
+
+        assert jobs[0].result_nowait() == 1 + 1
+        assert jobs[1].result_nowait() == 2 + 2
+        assert jobs[2].result_nowait() == 7 + 3
+
+        with pytest.raises(TypeError, match="unsupported operand type"):
+            jobs[3].result_nowait()
 
 
 @pytest.mark.alcf_theta
