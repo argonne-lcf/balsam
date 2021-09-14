@@ -11,6 +11,7 @@ from balsam.site.launcher.node_manager import NodeManager
 
 
 class HelloWorld(ApplicationDefinition):
+    site = 0
     command_template = "echo Hello, {{name}}"
     parameters = {}
 
@@ -26,7 +27,6 @@ def launcher(mocker, tmp_path):
     nodes = [ThetaGPUNode(nid, "thetagpu{nid:02d}") for nid in range(1, 12)]
     node_manager = NodeManager(nodes, allow_node_packing=True)
 
-    app_cache = {1: HelloWorld}
     mock_job_source.get_jobs.return_value = [
         Job(
             _api_data=True,
@@ -34,6 +34,9 @@ def launcher(mocker, tmp_path):
             workdir=f"test/{i}",
             app_id=1,
             state="PREPROCESSED",
+            serialized_parameters="",
+            serialized_exception="",
+            serialized_return_value="",
             last_update=datetime.utcnow(),
             pending_file_cleanup=True,
         )
@@ -46,14 +49,12 @@ def launcher(mocker, tmp_path):
         filter_tags={},
         max_wall_time_min=60,
         scheduler_id=25,
-        app_ids={app_id for app_id in app_cache if app_id is not None},
     )
     status_updater = mock_status_updater(client)
     return Launcher(
         data_dir=tmp_path,
         idle_ttl_sec=10,
         delay_sec=0.01,
-        app_cache=app_cache,
         app_run=MPICHRun,
         node_manager=node_manager,
         job_source=job_source,
