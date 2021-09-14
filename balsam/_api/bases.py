@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union
 
 from balsam import schemas
-from balsam.schemas import JobState, deserialize, serialize
+from balsam.schemas import JobState, deserialize, serialize, raise_from_serialized
 
 from .app import ApplicationDefinition
 from .manager import Manager
@@ -202,8 +202,7 @@ class JobBase(CreatableBalsamModel):
         if s_ret:
             return deserialize(s_ret)
         elif s_exc:
-            exc_wrapper = deserialize(s_exc)
-            exc_wrapper.reraise()
+            raise_from_serialized(s_exc)
         else:
             raise JobBase.NoResult("No return value or exception has been reported")
 

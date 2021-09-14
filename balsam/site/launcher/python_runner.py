@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple, Type
 
 from balsam._api.app import ApplicationDefinition, is_appdef
 from balsam._api.models import App, Job
-from balsam.schemas import RemoteExceptionWrapper, serialize
+from balsam.schemas import serialize_exception, serialize
 
 
 def is_mpi_rank_nonzero() -> bool:
@@ -42,10 +42,10 @@ def unpack_chunks(
     return app_def, job, params
 
 
-def log_exception(exc: RemoteExceptionWrapper) -> None:
+def log_exception(exc: Exception) -> None:
     if is_mpi_rank_nonzero():
         return
-    print("BALSAM-EXCEPTION", serialize(exc), flush=True)
+    print("BALSAM-EXCEPTION", serialize_exception(exc), flush=True)
 
 
 def log_result(ret_val: Any) -> None:
@@ -62,8 +62,7 @@ def main(app_id: int, num_app_chunks: int, chunks: List[str]) -> None:
             raise AttributeError(f"ApplicationDefinition {app_cls} does not have a run() function")
         return_value = app.run(**params)
         log_result(return_value)
-    except Exception:
-        exc = RemoteExceptionWrapper(*sys.exc_info())
+    except Exception as exc:
         log_exception(exc)
         raise
 
