@@ -26,7 +26,16 @@ from .job import (
     ServerJobCreate,
 )
 from .logevent import EventOrdering, LogEventOut, PaginatedLogEventOut
-from .serializer import serialize_exception, raise_from_serialized, deserialize, get_source, serialize
+from .serializer import (
+    serialize_exception,
+    raise_from_serialized,
+    deserialize,
+    get_source,
+    serialize,
+    SerializeError,
+    DeserializeError,
+    EmptyPayload,
+)
 from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
 from .transfer import (
@@ -93,4 +102,7 @@ __all__ = [
     "serialize_exception",
     "raise_from_serialized",
     "get_source",
+    "SerializeError",
+    "DeserializeError",
+    "EmptyPayload",
 ]

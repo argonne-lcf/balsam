@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tupl
 import jinja2
 import jinja2.meta
 
-from balsam.schemas import JobState, deserialize, get_source, serialize
+from balsam.schemas import JobState, deserialize, get_source, serialize, SerializeError
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient
@@ -434,7 +434,11 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
 
     @classmethod
     def to_dict(cls) -> Dict[str, Any]:
-        serialized_class = serialize(cls)
+        try:
+            serialized_class = serialize(cls)
+        except SerializeError as exc:
+            logger.error(f"Please fix {cls.__name__}: can't serialize class due to: {exc}")
+            raise
         cls._serialized_class = serialized_class
         return dict(
             site_id=cls.resolve_site_id(),

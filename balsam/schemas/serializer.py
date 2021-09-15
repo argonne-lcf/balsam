@@ -14,6 +14,14 @@ class EmptyPayload(ValueError):
     pass
 
 
+class SerializeError(ValueError):
+    pass
+
+
+class DeserializeError(ValueError):
+    pass
+
+
 def get_source(obj: Any) -> str:
     source: str = dill.source.getsource(obj, lstrip=True)
     return source
@@ -29,17 +37,25 @@ _cached_serialize = lru_cache(256)(_serialize)
 
 def serialize(obj: Any) -> str:
     try:
-        return _cached_serialize(obj)
-    except TypeError:
-        return _serialize(obj)
+        try:
+            return _cached_serialize(obj)
+        except TypeError:
+            return _serialize(obj)
+    except Exception as exc:
+        logger.exception(f"Failed to serialize {obj}")
+        raise SerializeError(str(exc))
 
 
 @lru_cache(256)
 def deserialize(payload: str) -> Any:
     if not payload:
         raise EmptyPayload
-    decoded = base64.b64decode(payload)
-    return dill.loads(decoded)
+    try:
+        decoded = base64.b64decode(payload)
+        return dill.loads(decoded)
+    except Exception as exc:
+        logger.exception("Failed to deserialize")
+        raise DeserializeError(str(exc))
 
 
 # See RemoteExceptionWrapper in parsl.apps.errors
