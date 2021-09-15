@@ -9,11 +9,16 @@ class EigenCorr(ApplicationDefinition):
     users provide `h5_in`, `imm_in`, and `h5_out` transfer items.
     """
 
-    corr_exe = "/global/project/projectdirs/m3512/turam/xpcs-eigen/build/corr"
+    site = 0
+    corr_exe = "/ccs/home/turam/dev/aps/xpcs-eigen/build/corr"
     command_template = f"{corr_exe} inp.h5 -imm inp.imm"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
+
+    def shell_preamble(self):
+        return ["module load hdf5", "module load gcc/10.2.0"]
+
     parameters = {}
     cleanup_files = ["*.hdf", "*.imm", "*.h5"]
     transfers = {

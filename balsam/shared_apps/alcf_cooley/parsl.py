@@ -6,10 +6,8 @@ class BashRunner(ApplicationDefinition):
     Parsl Bash Runner. Place this file in your site directory under apps/ directory.
     """
 
-    environment_variables = {}
+    site = 0
     command_template = "/bin/bash -c {{ command }}"
-    parameters = {}
-    transfers = {}
 
     def preprocess(self):
         print("COMMAND:", self.command_template)
@@ -38,6 +36,7 @@ class AppRunner(ApplicationDefinition):
     Parsl App Runner. Place this file in your site directory under apps/ directory.
     """
 
+    site = 0
     environment_variables = {}
     command_template = "singularity exec --bind {{ workdir }}:/work --bind .:/app {{ image }} {{ command }}"
     parameters = {}

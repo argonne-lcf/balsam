@@ -20,7 +20,7 @@ from balsam.client import BasicAuthRequestsClient, urls
 from balsam.cmdline.utils import start_site
 from balsam.config import ClientSettings, SiteConfig, balsam_home, site_builder
 from balsam.server import models
-from balsam.share.demo import Adder, Hello
+from balsam.shared_apps.demo import Adder, Hello
 from balsam.util import postgres as pg
 
 from .test_platform import PLATFORMS, get_platform, get_test_api_url, get_test_db_url, get_test_dir, get_test_log_dir
