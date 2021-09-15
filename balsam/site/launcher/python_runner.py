@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple, Type
 
 from balsam._api.app import ApplicationDefinition, is_appdef
 from balsam._api.models import App, Job
-from balsam.schemas import serialize_exception, serialize
+from balsam.schemas import serialize_exception, serialize, SerializeError
 
 
 def is_mpi_rank_nonzero() -> bool:
@@ -45,7 +45,14 @@ def unpack_chunks(
 def log_exception(exc: Exception) -> None:
     if is_mpi_rank_nonzero():
         return
-    print("BALSAM-EXCEPTION", serialize_exception(exc), flush=True)
+
+    try:
+        serialized_exception = serialize_exception(exc)
+    except SerializeError as ser_exc:
+        print(f"Warning: failed to serialize the original exception that occured: {exc}")
+        print(f"This was the exception-serialization error: {ser_exc}")
+    else:
+        print("BALSAM-EXCEPTION", serialized_exception, flush=True)
 
 
 def log_result(ret_val: Any) -> None:

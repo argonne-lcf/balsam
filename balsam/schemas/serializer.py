@@ -71,7 +71,14 @@ def serialize_exception(exc: Exception) -> str:
 def raise_from_serialized(payload: str) -> None:
     exc: Exception
     tb: Optional[Traceback]
-    exc, tb = deserialize(payload)
+
+    try:
+        exc, tb = deserialize(payload)
+    except DeserializeError as deser_exc:
+        logger.error(f"An exception was transmitted, but it could not be unpacked here due to: {deser_exc}")
+        logger.error("You may find the original error in the job.out file of the Job's working directory")
+        raise
+
     if tb is not None:
         raise exc.with_traceback(tb.as_traceback())
     else:
