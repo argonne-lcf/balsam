@@ -10,7 +10,7 @@ import click
 from balsam._api.app import ApplicationDefinition
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
-from balsam.schemas import JobState, DeserializeError
+from balsam.schemas import DeserializeError, JobState
 from balsam.site import BulkStatusUpdater, SynchronousJobSource
 from balsam.site.launcher.node_manager import NodeManager
 from balsam.site.launcher.util import countdown_timer_min

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tupl
 import jinja2
 import jinja2.meta
 
-from balsam.schemas import JobState, deserialize, get_source, serialize, SerializeError, DeserializeError
+from balsam.schemas import DeserializeError, JobState, SerializeError, deserialize, get_source, serialize
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient

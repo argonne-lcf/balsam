@@ -5,16 +5,16 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, Optional, Union, Any
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Union
 
 from balsam._api.app import ApplicationDefinition, AppType
-from balsam.schemas import JobState, JobUpdate, DeserializeError
+from balsam.schemas import DeserializeError, JobState, JobUpdate
 from balsam.site import BulkStatusUpdater, FixedDepthJobSource
 from balsam.util import Process, SigHandler
 
 if TYPE_CHECKING:
-    from balsam.client import RESTClient
     from balsam._api.models import Job
+    from balsam.client import RESTClient
 
 logger = logging.getLogger(__name__)
 PathLike = Union[str, Path]

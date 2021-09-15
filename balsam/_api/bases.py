@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union
 
 from balsam import schemas
-from balsam.schemas import JobState, deserialize, serialize, raise_from_serialized
+from balsam.schemas import JobState, deserialize, raise_from_serialized, serialize
 
 from .app import ApplicationDefinition
 from .manager import Manager

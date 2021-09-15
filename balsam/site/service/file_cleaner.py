@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, DefaultDict, List
 
 from balsam._api.app import ApplicationDefinition
-from balsam.schemas import JobState, DeserializeError
+from balsam.schemas import DeserializeError, JobState
 
 from .service_base import BalsamService
 

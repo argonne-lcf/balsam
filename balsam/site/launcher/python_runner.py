@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple, Type
 
 from balsam._api.app import ApplicationDefinition, is_appdef
 from balsam._api.models import App, Job
-from balsam.schemas import serialize_exception, serialize, SerializeError
+from balsam.schemas import SerializeError, serialize, serialize_exception
 
 
 def is_mpi_rank_nonzero() -> bool:

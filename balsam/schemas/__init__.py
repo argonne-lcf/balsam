@@ -27,14 +27,14 @@ from .job import (
 )
 from .logevent import EventOrdering, LogEventOut, PaginatedLogEventOut
 from .serializer import (
-    serialize_exception,
-    raise_from_serialized,
-    deserialize,
-    get_source,
-    serialize,
-    SerializeError,
     DeserializeError,
     EmptyPayload,
+    SerializeError,
+    deserialize,
+    get_source,
+    raise_from_serialized,
+    serialize,
+    serialize_exception,
 )
 from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
