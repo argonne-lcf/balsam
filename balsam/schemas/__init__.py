@@ -14,6 +14,7 @@ from .batchjob import (
     SchedulerJobStatus,
 )
 from .job import (
+    DONE_STATES,
     RUNNABLE_STATES,
     JobBulkUpdate,
     JobCreate,
@@ -85,6 +86,7 @@ __all__ = [
     "JobOrdering",
     "JobTransferItem",
     "RUNNABLE_STATES",
+    "DONE_STATES",
     "TransferItemOut",
     "PaginatedTransferItemOut",
     "TransferItemUpdate",

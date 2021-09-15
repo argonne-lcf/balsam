@@ -1,6 +1,8 @@
+import concurrent.futures
 import logging
+import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Literal, NamedTuple, Optional, Set, Type, Union
 
 from balsam import schemas
 from balsam.schemas import JobState, deserialize, raise_from_serialized, serialize
@@ -25,6 +27,8 @@ if TYPE_CHECKING:
 
 JobTransferItem = schemas.JobTransferItem
 RUNNABLE_STATES = schemas.RUNNABLE_STATES
+DONE_STATES = schemas.DONE_STATES
+
 logger = logging.getLogger(__name__)
 
 
@@ -151,12 +155,18 @@ class JobBase(CreatableBalsamModel):
 
     @property
     def app(self) -> AppDefType:
+        """
+        Fetch the ApplicationDefinition class associated with this Job.
+        """
         if self.app_id is None:
             raise ValueError("Cannot fetch by app ID; is None")
         return ApplicationDefinition.load_by_id(self.app_id)
 
     @property
     def site_id(self) -> int:
+        """
+        Fetch the Site ID associated with Job
+        """
         if self.app_id is None:
             raise ValueError("Cannot fetch by app ID; is None")
         app_def = ApplicationDefinition.load_by_id(self.app_id)
@@ -164,6 +174,9 @@ class JobBase(CreatableBalsamModel):
         return app_def._site_id
 
     def get_parameters(self) -> Dict[str, Any]:
+        """
+        Unpack and return the Job parameters dictionary
+        """
         if self._state == "clean":
             assert self._read_model is not None
             ser = self._read_model.serialized_parameters
@@ -183,6 +196,9 @@ class JobBase(CreatableBalsamModel):
         return params
 
     def set_parameters(self, value: Dict[str, Any]) -> None:
+        """
+        Set the Job parameters dictionary
+        """
         serialized = serialize(value)
         if self._state == "creating":
             assert self._create_model is not None
@@ -195,6 +211,10 @@ class JobBase(CreatableBalsamModel):
             self._state = "dirty"
 
     def result_nowait(self) -> Any:
+        """
+        Unpack and return the Job result, or re-raise the exception.
+        Raises `Job.NoResult` if there is no return value or exception yet.
+        """
         if self._read_model is None:
             raise ValueError("Job data not yet loaded from API")
         s_ret = self._read_model.serialized_return_value
@@ -206,11 +226,41 @@ class JobBase(CreatableBalsamModel):
         else:
             raise JobBase.NoResult("No return value or exception has been reported")
 
+    def result(self, timeout: Optional[float] = None) -> Any:
+        """
+        Unpack and return the Job result, or re-raise the exception.
+        Blocks for `timeout` sec and raises `concurrent.futures.TimeoutError` if there is no return value or exception yet.
+        """
+        wait_for: List["Job"] = [self]  # type: ignore
+        res = self.objects.wait(wait_for, timeout=timeout)
+        if res.done:
+            return self.result_nowait()
+        else:
+            raise concurrent.futures.TimeoutError(f"Job is still {self.state} after {timeout} sec timeout")
+
+    def done(self) -> bool:
+        """
+        Refresh the Job and return True if it has completed processing (either "JOB_FINISHED" or "FAILED" state.)
+        """
+        self.refresh_from_db()
+        return self.state in [JobState.job_finished, JobState.failed]
+
     def resolve_workdir(self, data_path: Path) -> Path:
         return data_path.joinpath(self.workdir)
 
     def parent_query(self) -> "JobQuery":
+        """
+        Returns a JobQuery for the parents of this Job.
+        """
         return self.objects.filter(id=list(self.parent_ids))
+
+
+class JobWaitResult(NamedTuple):
+    done: List["Job"]
+    not_done: List["Job"]
+
+
+ReturnWhen = Union[Literal["ALL_COMPLETED"], Literal["FIRST_COMPLETED"]]
 
 
 class JobManagerBase(Manager["Job"]):
@@ -218,6 +268,96 @@ class JobManagerBase(Manager["Job"]):
     _bulk_create_enabled = True
     _bulk_update_enabled = True
     _bulk_delete_enabled = True
+
+    def bulk_refresh(self, jobs: List["Job"]) -> None:
+        """
+        Refresh the list of Jobs from the latest database state
+        """
+        job_manager: "JobManager" = self  # type: ignore
+        jobs_by_id = {job.id: job for job in jobs if job.id is not None}
+        fetched = job_manager.filter(id=list(jobs_by_id.keys()))
+        for api_job in fetched:
+            assert api_job.id is not None and api_job._read_model is not None
+            jobs_by_id[api_job.id]._refresh_from_dict(api_job._read_model.dict())
+
+    def wait(
+        self,
+        jobs: List["Job"],
+        timeout: Optional[float] = None,
+        poll_interval: float = 1.0,
+        return_when: ReturnWhen = "ALL_COMPLETED",
+    ) -> JobWaitResult:
+        """
+        Block and periodically refresh jobs, until either all have completed
+        (the default) or any have completed (return_when="FIRST_COMPLETED").
+        Also returns after `timeout` seconds.  Rather than raising a Timeout
+        error, returns a named tuple containing `done` and `not_done` Job lists.
+        """
+
+        start = time.time()
+        done_jobs: List["Job"] = []
+        not_done_jobs: List["Job"] = []
+
+        for job in jobs:
+            if job.state in DONE_STATES:
+                done_jobs.append(job)
+            else:
+                not_done_jobs.append(job)
+
+        def should_exit() -> bool:
+            timed_out = (time.time() - start > timeout) if timeout is not None else False
+            if return_when == "ALL_COMPLETED":
+                return timed_out or len(not_done_jobs) == 0
+            else:
+                return timed_out or len(done_jobs) > 0
+
+        while not should_exit():
+            time.sleep(poll_interval)
+            self.bulk_refresh(not_done_jobs)
+            finished = [job for job in not_done_jobs if job.state in DONE_STATES]
+            not_done_jobs[:] = [job for job in not_done_jobs if job.state not in DONE_STATES]
+            done_jobs.extend(finished)
+
+        return JobWaitResult(done=done_jobs, not_done=not_done_jobs)
+
+    def as_completed(
+        self,
+        jobs: List["Job"],
+        timeout: Optional[float] = None,
+        poll_interval: float = 1.0,
+    ) -> Iterator["Job"]:
+        """
+        Returns an iterator over the Job instances as they complete.  Raises a
+        `concurrent.futures.TimeoutError` if __next__() is called and the result
+        isn’t available after timeout seconds from the original call to
+        as_completed().
+        """
+
+        start = time.time()
+        pending_jobs: List["Job"] = []
+
+        for job in jobs:
+            if job.state in DONE_STATES:
+                yield job
+            else:
+                pending_jobs.append(job)
+
+        def should_exit() -> bool:
+            timed_out = (time.time() - start > timeout) if timeout is not None else False
+            return timed_out or not pending_jobs
+
+        while not should_exit():
+            time.sleep(poll_interval)
+            self.bulk_refresh(pending_jobs)
+            for job in pending_jobs:
+                if job.state in DONE_STATES:
+                    yield job
+            pending_jobs[:] = [job for job in pending_jobs if job.state not in DONE_STATES]
+
+        if pending_jobs:
+            raise concurrent.futures.TimeoutError(
+                f"{len(pending_jobs)} Jobs are still pending after {timeout} sec timeout."
+            )
 
 
 class SessionBase(CreatableBalsamModel):

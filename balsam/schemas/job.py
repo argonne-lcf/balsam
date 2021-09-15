@@ -58,6 +58,7 @@ class JobOrdering(str, Enum):
 
 
 RUNNABLE_STATES = {JobState.preprocessed, JobState.restart_ready}
+DONE_STATES = {JobState.job_finished, JobState.failed}
 
 
 class JobBase(BaseModel):
