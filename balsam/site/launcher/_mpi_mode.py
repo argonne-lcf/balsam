@@ -3,14 +3,14 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Union
 
 import click
 
 from balsam._api.app import ApplicationDefinition
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
-from balsam.schemas import JobState
+from balsam.schemas import JobState, DeserializeError
 from balsam.site import BulkStatusUpdater, SynchronousJobSource
 from balsam.site.launcher.node_manager import NodeManager
 from balsam.site.launcher.util import countdown_timer_min
@@ -74,7 +74,7 @@ class Launcher:
         else:
             self.idle_time = None
 
-    def start_job(self, job: "Job") -> "AppRun":
+    def create_run(self, job: "Job") -> "AppRun":
         app_cls = ApplicationDefinition.load_by_id(job.app_id)
         app = app_cls(job)
         workdir = self.data_dir.joinpath(app.job.workdir)
@@ -101,14 +101,14 @@ class Launcher:
         )
         return run
 
-    def launch_runs(self) -> None:
+    def acquire_jobs(self) -> List["Job"]:
         max_nodes_per_job = self.node_manager.count_empty_nodes()
         max_aggregate_nodes = self.node_manager.aggregate_free_nodes()
         max_num_to_acquire = max(0, self.max_concurrent_runs - len(self.active_runs))
         if not self.node_manager.allow_node_packing:
             max_num_to_acquire = min(max_num_to_acquire, int(max_aggregate_nodes))
         if max_aggregate_nodes < 0.01:
-            return
+            return []
 
         acquired = self.job_source.get_jobs(
             max_num_jobs=max_num_to_acquire,
@@ -121,16 +121,34 @@ class Launcher:
                 f"requested up to {max_num_to_acquire} jobs [node packing allowed: {self.node_manager.allow_node_packing}]; "
                 f"Acquired {len(acquired)} jobs."
             )
+        return acquired
+
+    def launch_runs(self) -> None:
+        acquired = self.acquire_jobs()
         for job in acquired:
-            run = self.start_job(job)
-            run.start()
-            self.status_updater.put(
-                cast(int, job.id),  # acquired jobs will not have None id
-                state=JobState.running,
-                state_timestamp=datetime.utcnow(),
-                state_data={"num_nodes": float(job.num_nodes) / job.node_packing_count},
-            )
-            self.active_runs[cast(int, job.id)] = run
+            assert job.id is not None
+            try:
+                run = self.create_run(job)
+            except DeserializeError as exc:
+                logger.exception(f"Failed to deserialize for Job(id={job.id}, workdir={job.workdir}): {exc}")
+                self.status_updater.put(
+                    job.id,
+                    state=JobState.failed,
+                    state_timestamp=datetime.utcnow(),
+                    state_data={
+                        "message": "An exception occured while loading the app or parameters",
+                        "exception": str(exc),
+                    },
+                )
+            else:
+                run.start()
+                self.status_updater.put(
+                    job.id,
+                    state=JobState.running,
+                    state_timestamp=datetime.utcnow(),
+                    state_data={"num_nodes": float(job.num_nodes) / job.node_packing_count},
+                )
+                self.active_runs[job.id] = run
 
     def check_run(self, run: "AppRun") -> Dict[str, Any]:
         retcode = run.poll()
@@ -224,7 +242,14 @@ def main(
     node_manager = NodeManager(nodes, allow_node_packing=launch_settings.mpirun_allows_node_packing)
 
     ApplicationDefinition._set_client(site_config.client)
-    ApplicationDefinition.load_by_site(site_config.site_id)  # Warms the cache
+    try:
+        ApplicationDefinition.load_by_site(site_config.site_id)  # Warms the cache
+    except DeserializeError as exc:
+        logger.warning(
+            f"At least one App registered at this Site failed to deserialize: {exc}. "
+            "Jobs running with this App will FAIL.  Please fix the App classes and/or the "
+            "Balsam Site environment, and double check that the Apps can load OK."
+        )
 
     scheduler_id = node_cls.get_scheduler_id()
     job_source = SynchronousJobSource(

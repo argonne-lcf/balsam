@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tupl
 import jinja2
 import jinja2.meta
 
-from balsam.schemas import JobState, deserialize, get_source, serialize, SerializeError
+from balsam.schemas import JobState, deserialize, get_source, serialize, SerializeError, DeserializeError
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient
@@ -455,7 +455,10 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         if app.id is None:
             raise ValueError("Cannot deserialize App with id=None")
 
-        cls: AppDefType = deserialize(app.serialized_class)
+        try:
+            cls: AppDefType = deserialize(app.serialized_class)
+        except DeserializeError as exc:
+            raise DeserializeError(f"Failed to deserialize App(id={app.id}, name={app.name}): {exc}") from exc
         if not is_appdef(cls):
             raise TypeError(f"Deserialized {cls.__name__} is not an ApplicationDefinition subclass")
 

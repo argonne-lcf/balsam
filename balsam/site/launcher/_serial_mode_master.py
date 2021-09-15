@@ -3,13 +3,13 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, List, Tuple
 
 import zmq
 
 from balsam._api.app import ApplicationDefinition
 from balsam.config import SiteConfig
-from balsam.schemas import JobState
+from balsam.schemas import JobState, DeserializeError
 from balsam.site import BulkStatusUpdater, FixedDepthJobSource
 from balsam.site.launcher.util import countdown_timer_min
 from balsam.util import SigHandler
@@ -73,45 +73,63 @@ class Master:
             gpus_per_rank=job.gpus_per_rank,
         )
 
+    def update_job_states(
+        self, done_ids: List[int], error_logs: List[Tuple[int, int, str]], started_ids: List[int]
+    ) -> None:
+        now = datetime.utcnow()
+
+        for id in done_ids:
+            self.status_updater.put(id, JobState.run_done, state_timestamp=now)
+
+        for (id, retcode, tail) in error_logs:
+            self.status_updater.put(
+                id, JobState.run_error, state_timestamp=now, state_data={"returncode": retcode, "error": tail}
+            )
+
+        for id in started_ids:
+            self.status_updater.put(
+                id, JobState.running, state_timestamp=now, state_data={"num_nodes": self.occupancies.pop(id, 1.0)}
+            )
+
+    def acquire_jobs(self, max_jobs: int) -> List[Dict[str, Any]]:
+        next_jobs = self.job_source.get_jobs(max_jobs)
+        new_job_specs = []
+        for job in next_jobs:
+            assert job.id is not None
+            try:
+                spec = self.job_to_dict(job)
+            except DeserializeError as exc:
+                logger.exception(f"Failed to deserialize for Job(id={job.id}, workdir={job.workdir}): {exc}")
+                self.status_updater.put(
+                    job.id,
+                    state=JobState.failed,
+                    state_timestamp=datetime.utcnow(),
+                    state_data={
+                        "message": "An exception occured while loading the app or parameters",
+                        "exception": str(exc),
+                    },
+                )
+            else:
+                new_job_specs.append(spec)
+        return new_job_specs
+
     def handle_request(self) -> None:
         msg = self.socket.recv_json()
-        now = datetime.utcnow()
-        finished_ids = set()
-        for id in msg["done"]:
-            self.status_updater.put(
-                id,
-                JobState.run_done,
-                state_timestamp=now,
-            )
-            finished_ids.add(id)
-        for (id, retcode, tail) in msg["error"]:
-            self.status_updater.put(
-                id,
-                JobState.run_error,
-                state_timestamp=now,
-                state_data={
-                    "returncode": retcode,
-                    "error": tail,
-                },
-            )
-            finished_ids.add(id)
-        for id in msg["started"]:
-            self.status_updater.put(
-                id,
-                JobState.running,
-                state_timestamp=now,
-                state_data={"num_nodes": self.occupancies.pop(id, 1.0)},
-            )
-            self.active_ids.add(id)
 
+        done_ids: List[int] = msg["done"]
+        error_logs: List[Tuple[int, int, str]] = msg["error"]
+        started_ids: List[int] = msg["started"]
+        self.update_job_states(done_ids, error_logs, started_ids)
+
+        finished_ids = set(done_ids) | set(log[0] for log in error_logs)
+        self.active_ids |= set(started_ids)
         self.active_ids -= finished_ids
 
         src = msg["source"]
-        max_jobs = msg["request_num_jobs"]
+        max_jobs: int = msg["request_num_jobs"]
         logger.debug(f"Worker {src} requested {max_jobs} jobs")
+        new_job_specs = self.acquire_jobs(max_jobs)
 
-        next_jobs = self.job_source.get_jobs(max_jobs)
-        new_job_specs = [self.job_to_dict(job) for job in next_jobs]
         self.socket.send_json({"new_jobs": new_job_specs})
         if new_job_specs:
             logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
@@ -192,7 +210,14 @@ def master_main(wall_time_min: int, master_port: int, log_filename: str, num_wor
     logger.debug("Launching master")
 
     ApplicationDefinition._set_client(site_config.client)
-    ApplicationDefinition.load_by_site(site_config.site_id)  # Warm the cache
+    try:
+        ApplicationDefinition.load_by_site(site_config.site_id)  # Warms the cache
+    except DeserializeError as exc:
+        logger.warning(
+            f"At least one App registered at this Site failed to deserialize: {exc}. "
+            "Jobs running with this App will FAIL.  Please fix the App classes and/or the "
+            "Balsam Site environment, and double check that the Apps can load OK."
+        )
 
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node

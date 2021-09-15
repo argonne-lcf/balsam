@@ -43,7 +43,7 @@ def serialize(obj: Any) -> str:
             return _serialize(obj)
     except Exception as exc:
         logger.exception(f"Failed to serialize {obj}")
-        raise SerializeError(str(exc))
+        raise SerializeError(str(exc)) from exc
 
 
 @lru_cache(256)
@@ -55,7 +55,7 @@ def deserialize(payload: str) -> Any:
         return dill.loads(decoded)
     except Exception as exc:
         logger.exception("Failed to deserialize")
-        raise DeserializeError(str(exc))
+        raise DeserializeError(str(exc)) from exc
 
 
 # See RemoteExceptionWrapper in parsl.apps.errors

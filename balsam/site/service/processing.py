@@ -5,15 +5,16 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Dict, Iterator, Optional, Union, Any
 
 from balsam._api.app import ApplicationDefinition, AppType
-from balsam.schemas import JobState, JobUpdate
+from balsam.schemas import JobState, JobUpdate, DeserializeError
 from balsam.site import BulkStatusUpdater, FixedDepthJobSource
 from balsam.util import Process, SigHandler
 
 if TYPE_CHECKING:
     from balsam.client import RESTClient
+    from balsam._api.models import Job
 
 logger = logging.getLogger(__name__)
 PathLike = Union[str, Path]
@@ -102,6 +103,44 @@ def read_pyapp_result(app: ApplicationDefinition) -> None:
         logger.debug(f"Set serialized_exception for Job in {app.job.workdir}")
 
 
+def run_lifecycle_hook(app: ApplicationDefinition) -> Dict[str, Any]:
+    # Check job.state BEFORE running state transition:
+    job = app.job
+    if job.state in (JobState.run_done, JobState.run_error):
+        read_pyapp_result(app)
+    transition_state(app)
+
+    update_data = job._update_model.dict(exclude_unset=True) if job._update_model else {}
+    update_data["id"] = job.id
+    update_data["state"] = job.state
+    update_data["state_timestamp"] = datetime.utcnow()
+    update_data["state_data"] = job.state_data
+    return update_data
+
+
+def handle_job(job: "Job", data_path: Path) -> Dict[str, Any]:
+    try:
+        app_cls = ApplicationDefinition.load_by_id(job.app_id)
+    except DeserializeError as exc:
+        logger.exception(f"Failed to load app {job.app_id} for Job(id={job.id}, workdir={job.workdir}).")
+        job.state = JobState.failed
+        return {
+            "id": job.id,
+            "state": JobState.failed,
+            "state_timestamp": datetime.utcnow(),
+            "state_data": {
+                "message": f"An exception occured while loading the App {job.app_id}",
+                "exception": str(exc),
+            },
+        }
+
+    app = app_cls(job)
+    workdir = job.resolve_workdir(data_path)
+    with job_context(workdir, "balsam.log"):
+        update_data = run_lifecycle_hook(app)
+    return update_data
+
+
 def run_worker(
     job_source: "FixedDepthJobSource",
     status_updater: "BulkStatusUpdater",
@@ -118,24 +157,10 @@ def run_worker(
         except queue.Empty:
             continue
         else:
-            app_cls = ApplicationDefinition.load_by_id(job.app_id)
-            app = app_cls(job)
-            workdir = data_path.joinpath(app.job.workdir)
-            with job_context(workdir, "balsam.log"):
-                # Check job.state before running state transition:
-                if job.state in (JobState.run_done, JobState.run_error):
-                    read_pyapp_result(app)
-                transition_state(app)
-
-            update_data = job._update_model.dict(exclude_unset=True) if job._update_model else {}
-            update_data["id"] = job.id
-            update_data["state"] = job.state
-            update_data["state_timestamp"] = datetime.utcnow()
-            update_data["state_data"] = job.state_data
-
-            assert job.id is not None and job.state is not None
+            update_data = handle_job(job, data_path)
             status_updater.put(**update_data)
             logger.debug(f"Job {job.id} advanced to {job.state}")
+
     logger.info("Signal: ProcessingWorker exit")
 
 
@@ -152,7 +177,14 @@ class ProcessingService(object):
     ) -> None:
         self.site_id = site_id
         ApplicationDefinition._set_client(client)
-        ApplicationDefinition.load_by_site(self.site_id)  # Warms the cache
+        try:
+            ApplicationDefinition.load_by_site(self.site_id)  # Warms the cache
+        except DeserializeError as exc:
+            logger.warning(
+                f"At least one App registered at this Site failed to deserialize: {exc}. "
+                "Jobs running with this App will FAIL.  Please fix the App classes and/or the "
+                "Balsam Site environment, and double check that the Apps can load OK."
+            )
         self.job_source = FixedDepthJobSource(
             client=client,
             site_id=site_id,
