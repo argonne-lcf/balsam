@@ -78,6 +78,11 @@ class Master:
         msg = self.socket.recv_json()
         now = datetime.utcnow()
         finished_ids = set()
+
+        if not self.status_updater.is_alive():
+            logger.error("StatusUpdater is DOWN.  Aborting job!")
+            self.sig_handler.set()
+
         for id in msg["done"]:
             self.status_updater.put(
                 id,
