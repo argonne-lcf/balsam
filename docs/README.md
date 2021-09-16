@@ -25,13 +25,14 @@ $ balsam site init my-site
 from balsam.api import ApplicationDefinition
 
 class Hello(ApplicationDefinition):
+    site = "my-site"
     command_template = "echo hello {{ name }}"
 
     def handle_timeout(self):
         self.job.state = "RESTART_READY"
 ```
 
-**Run Apps from anywhere, using the unified Balsam service.**
+**Run Apps from anywhere, thanks to the unified Balsam service.**
 
 ```python
 # On any machine with internet access...
@@ -39,8 +40,8 @@ from balsam.api import Job, BatchJob
 
 # Create Jobs:
 job = Job.objects.create(
-    site_path="my-site",
-    app_name="demo.Hello",
+    site_name="my-site",
+    app_id="Hello",
     workdir="test/say-hello",
     parameters={"name": "world!"},
 )
@@ -51,10 +52,40 @@ BatchJob.objects.create(
     num_nodes=1,
     wall_time_min=10,
     job_mode="serial",
-    project="datascience",
-    queue="debug-cache-quad",
+    project="local",
+    queue="local",
 )
 ```
+
+**Define and run Python Apps on heterogeneous resources, from a single session.**
+
+```python
+import numpy as np
+
+class MyApp(ApplicationDefinition):
+    site = "theta-gpu"
+
+    def run(self, vec):
+        from mpi4py import MPI
+        rank = MPI.COMM_WORLD.Get_rank()
+        print("Hello from rank", rank)
+        return np.linalg.norm(vec)
+
+jobs = [
+    MyApp.submit(
+        workdir=f"test/{i}", 
+        vec=np.random.rand(3), 
+        ranks_per_node=4,
+        gpus_per_rank=0,
+    )
+    for i in range(10)
+]
+
+for job in Job.objects.as_completed(jobs):
+   print(job.workdir, job.result())
+```
+
+
 
 ## Features
 
