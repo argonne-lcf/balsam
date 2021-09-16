@@ -8,6 +8,9 @@ from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
 
+import warnings
+warnings.filterwarnings("ignore")
+
 from . import urls
 from .rest_base_client import RESTClient
 
@@ -39,7 +42,7 @@ class RequestsClient(RESTClient):
         return cls(api_root=base_url)
 
     def __init__(
-        self, api_root: str, connect_timeout: float = 3.1, read_timeout: float = 120.0, retry_count: int = 3
+        self, api_root: str, connect_timeout: float = 30.1, read_timeout: float = 120.0, retry_count: int = 10
     ) -> None:
         self.api_root = api_root
         self.connect_timeout = connect_timeout
@@ -100,7 +103,7 @@ class RequestsClient(RESTClient):
                 logger.warning(f"Attempt Retry of Timed-out request {http_method} {absolute_url}")
                 self.backoff(exc)
             except requests.ConnectionError as exc:
-                logger.warning(f"Attempt retry of connection: {exc}")
+                logger.warning(f"Attempt retry ({self._attempt} of {self.retry_count}) of connection: {exc}")
                 self.backoff(exc)
             else:
                 try:
