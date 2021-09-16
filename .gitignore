@@ -13,6 +13,7 @@ __pycache__
 !.github
 !.vscode/
 !.dockerignore
+test-tokens.txt
 
 pytest-logs/
 balsam-logs/
