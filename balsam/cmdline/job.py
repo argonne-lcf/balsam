@@ -204,6 +204,8 @@ def create(
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
 @click.option("-s", "--state", type=str, callback=validate_state)
 @click.option("-ns", "--exclude-state", type=str, callback=validate_state)
+@click.option("--id", type=str)
+@click.option("--by-state", type=bool, default=False, is_flag=True)
 @click.option("-w", "--workdir", type=str)
 @click.option("--site", "site_selector", default="")
 @click.option("-v", "--verbose", is_flag=True)
@@ -211,6 +213,8 @@ def ls(
     tags: List[str],
     state: Optional[JobState],
     exclude_state: Optional[JobState],
+    id: Optional[int],
+    by_state: Optional[bool],
     workdir: Optional[str],
     verbose: bool,
     site_selector: str,
@@ -229,6 +233,14 @@ def ls(
     3) Select Jobs by their state
 
         balsam job ls --state JOB_FINISHED --tag system=H2O
+
+    4) Summarize Jobs by their state
+
+        balsam job ls --by-state [--tag system=H20]
+
+    5) Select a specific job by ID
+
+        balsam job ls --id [id]
     """
     client = load_client()
     job_qs = filter_by_sites(client.Job.objects.all(), site_selector)
@@ -240,33 +252,47 @@ def ls(
         job_qs = job_qs.filter(state__ne=exclude_state)
     if workdir:
         job_qs = job_qs.filter(workdir__contains=workdir)
+    if id:
+        job_qs = job_qs.filter(id=[id])
 
     result = list(job_qs)
     if not result:
         return
 
-    if verbose:
-        for j in result:
-            click.echo(yaml.dump(j.display_dict(), sort_keys=False, indent=4))
-            click.echo("---\n")
+    if not by_state:
+        if verbose:
+            for j in result:
+                click.echo(yaml.dump(j.display_dict(), sort_keys=False, indent=4))
+                click.echo("---\n")
+        else:
+            sites = {s.id: s for s in client.Site.objects.all()}
+            apps = {a.id: a for a in client.App.objects.all()}
+            data = []
+            for j in result:
+                app = apps[j.app_id]
+                site = sites[app.site_id]
+                assert j.state is not None
+                jdict = {
+                    "ID": j.id,
+                    "Site": f"{site.name}:{site.path.name}",
+                    "App": app.class_path,
+                    "Workdir": j.workdir.as_posix(),
+                    "State": j.state.value,
+                    "Tags": j.tags,
+                }
+                data.append(jdict)
+            table_print(data)
     else:
-        sites = {s.id: s for s in client.Site.objects.all()}
-        apps = {a.id: a for a in client.App.objects.all()}
-        data = []
-        for j in result:
-            app = apps[j.app_id]
-            site = sites[app.site_id]
-            assert j.state is not None
-            jdict = {
-                "ID": j.id,
-                "Site": f"{site.name}",
-                "App": app.class_path,
-                "Workdir": j.workdir.as_posix(),
-                "State": j.state.value,
-                "Tags": j.tags,
-            }
-            data.append(jdict)
-        table_print(data)
+        state_data: List[Dict[str, Any]] = []
+        # job_qs
+        for state in JobState:
+            state_count = job_qs.filter(state=state).count()
+            assert state_count is not None
+            if state_count > 0 or verbose:
+                state_dict = {"State": state.value, "Count": state_count}
+                state_data.append(state_dict)
+
+        table_print(state_data)
 
 
 @job.command()
