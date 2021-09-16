@@ -8,9 +8,6 @@ from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
 
-import warnings
-warnings.filterwarnings("ignore")
-
 from . import urls
 from .rest_base_client import RESTClient
 
