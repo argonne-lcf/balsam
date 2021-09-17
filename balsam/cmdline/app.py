@@ -42,3 +42,23 @@ def ls(site_selector: str, verbose: bool) -> None:
         for a in apps:
             site = sites[a.site_id]
             click.echo(f"{a.id:>5d}   {a.name:>18s}   {site.name:<20s}")
+
+
+@app.command()
+@click.option("-n", "--name", required=True)
+@click.option("-s", "--site", "site_selector", default="")
+def rm(site_selector: str, name: str) -> None:
+    client = ClientSettings.load_from_file().build_client()
+    qs = client.App.objects.all()
+    qs = filter_by_sites(qs, site_selector)
+
+    resolved_app = qs.get(name=name)
+    resolved_id = resolved_app.id
+    appstr = f"App(id={resolved_id}, name={resolved_app.name})"
+    job_count = client.Job.objects.filter(app_id=resolved_id).count()
+    if job_count == 0:
+        resolved_app.delete()
+        click.echo(f"Deleted {appstr}: there were no associated jobs.")
+    elif click.confirm(f"Really Delete {appstr}?? There are {job_count} Jobs that will be ERASED!"):
+        resolved_app.delete()
+        click.echo(f"Deleted App {resolved_id} ({name})")

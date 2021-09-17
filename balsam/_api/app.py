@@ -301,6 +301,10 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
                 raise ValueError(f"{cls.__name__}.site does not have an ID set: {cls.site}")
             cls._site_id = cls.site.id
         else:
+            if not isinstance(cls.site, int):
+                raise ValueError(
+                    f"{cls.__name__}.site must be a string, integer, or Site object. Got: {type(cls.site)}"
+                )
             cls._site_id = cls.site
         return cls._site_id
 
