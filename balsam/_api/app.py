@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shlex
+import sys
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
@@ -250,8 +251,9 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         job_payload = self.job._read_model.json()
         job_chunks = chunk_str(job_payload, self.ARG_CHUNK_SIZE)
 
+        python = sys.executable
         args = f"{app_id} {num_app_chunks} {' '.join(app_chunks)} {' '.join(job_chunks)}"
-        return f"python -m balsam.site.launcher.python_runner {args}"
+        return f"{python} -m balsam.site.launcher.python_runner {args}"
 
     def _render_shell_command(self) -> str:
         """
