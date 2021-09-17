@@ -56,7 +56,9 @@ def transition_state(app: ApplicationDefinition) -> None:
         sys.stdout.write(f"#BALSAM {msg}\n")
         transition_func()
     except Exception as exc:
-        logger.exception(f"An exception occured in {transition_func}: marking Job {app.job.id} FAILED")
+        msg = f"An exception occured in {transition_func}: marking Job {app.job.id} FAILED"
+        sys.stdout.write(msg + f"\n{exc}")
+        logger.exception(msg)
         app.job.state = JobState.failed
         app.job.state_data = {
             "message": f"An exception occured in {transition_func}",
