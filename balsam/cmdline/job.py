@@ -9,7 +9,7 @@ from balsam.schemas import JobState, JobTransferItem
 from .utils import filter_by_sites, load_client, table_print, validate_tags
 
 if TYPE_CHECKING:
-    from balsam._api.models import App, AppQuery
+    from balsam._api.models import App, AppQuery, JobQuery
     from balsam.client import RESTClient  # noqa: F401
 
 
@@ -200,6 +200,45 @@ def create(
         click.echo(f"Added Job id={job.id}")
 
 
+def count_by_state(job_qs: "JobQuery", verbose: bool) -> None:
+    state_data: List[Dict[str, Any]] = []
+    # job_qs
+    for state in JobState:
+        state_count = job_qs.filter(state=state).count()
+        assert state_count is not None
+        if state_count > 0 or verbose:
+            state_dict = {"State": state.value, "Count": state_count}
+            state_data.append(state_dict)
+
+    table_print(state_data)
+
+
+def list_verbose(job_qs: "JobQuery") -> None:
+    for job in job_qs:
+        click.echo(yaml.dump(job.display_dict(), sort_keys=False, indent=4))
+        click.echo("---\n")
+
+
+def list_table(job_qs: "JobQuery", client: "RESTClient") -> None:
+    sites = {s.id: s for s in client.Site.objects.all()}
+    apps = {a.id: a for a in client.App.objects.all()}
+    data = []
+    for j in job_qs:
+        app = apps[j.app_id]
+        site = sites[app.site_id]
+        assert j.state is not None
+        jdict = {
+            "ID": j.id,
+            "Site": f"{site.name}",
+            "App": app.name,
+            "Workdir": j.workdir.as_posix(),
+            "State": j.state.value,
+            "Tags": j.tags,
+        }
+        data.append(jdict)
+    table_print(data)
+
+
 @job.command()
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
 @click.option("-s", "--state", type=str, callback=validate_state)
@@ -255,44 +294,12 @@ def ls(
     if id:
         job_qs = job_qs.filter(id=[id])
 
-    result = list(job_qs)
-    if not result:
-        return
-
-    if not by_state:
-        if verbose:
-            for j in result:
-                click.echo(yaml.dump(j.display_dict(), sort_keys=False, indent=4))
-                click.echo("---\n")
-        else:
-            sites = {s.id: s for s in client.Site.objects.all()}
-            apps = {a.id: a for a in client.App.objects.all()}
-            data = []
-            for j in result:
-                app = apps[j.app_id]
-                site = sites[app.site_id]
-                assert j.state is not None
-                jdict = {
-                    "ID": j.id,
-                    "Site": f"{site.name}",
-                    "App": app.name,
-                    "Workdir": j.workdir.as_posix(),
-                    "State": j.state.value,
-                    "Tags": j.tags,
-                }
-                data.append(jdict)
-            table_print(data)
+    if by_state:
+        count_by_state(job_qs, verbose)
+    elif verbose:
+        list_verbose(job_qs)
     else:
-        state_data: List[Dict[str, Any]] = []
-        # job_qs
-        for state in JobState:
-            state_count = job_qs.filter(state=state).count()
-            assert state_count is not None
-            if state_count > 0 or verbose:
-                state_dict = {"State": state.value, "Count": state_count}
-                state_data.append(state_dict)
-
-        table_print(state_data)
+        list_table(job_qs, client)
 
 
 @job.command()
