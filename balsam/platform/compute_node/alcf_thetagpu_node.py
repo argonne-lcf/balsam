@@ -28,10 +28,15 @@ class ThetaGPUNode(ComputeNode):
         splitter = "," if "," in data else None
         hostnames = data.split(splitter)
         hostnames = [h.strip() for h in hostnames if h.strip()]
-        node_ids = [int(hostname[-2:]) for hostname in hostnames]
+        node_ids: Union[List[str], List[int]]
+        try:
+            node_ids = [int(hostname[-2:]) for hostname in hostnames]
+        except ValueError:
+            node_ids = hostnames[:]
         node_list = []
         for nid, hostname in zip(node_ids, hostnames):
             gpu_ids = cls.discover_gpu_list(hostname)
+            assert isinstance(nid, str) or isinstance(nid, int)
             node_list.append(cls(nid, hostname, gpu_ids=gpu_ids))
         return node_list
 
