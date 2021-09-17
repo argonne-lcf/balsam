@@ -39,7 +39,7 @@ def make_token(username: str) -> None:
                 "token_expiry": expiry,
                 "connect_timeout": 6.2,
                 "read_timeout": 120.0,
-                "retry_count": 3,
+                "retry_count": 10,
             }
         )
     )

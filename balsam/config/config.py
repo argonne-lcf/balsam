@@ -59,9 +59,9 @@ class ClientSettings(BaseSettings):
     client_class: Type[RequestsClient] = Field("balsam.client.BasicAuthRequestsClient")
     token: Optional[str] = None
     token_expiry: Optional[datetime] = None
-    connect_timeout: float = 3.1
+    connect_timeout: float = 6.2
     read_timeout: float = 120.0
-    retry_count: int = 3
+    retry_count: int = 10
 
     @validator("client_class", pre=True, always=True)
     def load_client_class(cls, v: str) -> Type[RequestsClient]:
@@ -183,7 +183,7 @@ class TransferSettings(BaseSettings):
 
 
 class LauncherSettings(BaseSettings):
-    idle_ttl_sec: int = 10
+    idle_ttl_sec: int = 60
     delay_sec: int = 1
     error_tail_num_lines: int = 10
     max_concurrent_mpiruns: int = 1000
