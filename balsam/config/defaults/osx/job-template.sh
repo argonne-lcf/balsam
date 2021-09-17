@@ -9,7 +9,7 @@ echo "num_nodes: {{num_nodes}}"
 echo "wall_time_min: {{wall_time_min}}"
 echo "job_mode: {{job_mode}}"
 
-echo "filter_tags:" 
+echo "filter_tags:"
 {% for k, v in filter_tags.items() %} --tag {{k}}={{v}} {% endfor %}
 
 {% if optional_params.get("shout") == "yes" %}
@@ -22,7 +22,7 @@ export BALSAM_SITE_PATH={{balsam_site_path}}
 cd $BALSAM_SITE_PATH
 
 echo "Starting balsam launcher at $(date)"
-{{launcher_cmd}} -j {{job_mode}} -t {{wall_time_min}}  \
+{{launcher_cmd}} -j {{job_mode}} -t {{wall_time_min - 2}}  \
 {% for k, v in filter_tags.items() %} --tag {{k}}={{v}} {% endfor %} \
 {{partitions}}
 echo "Balsam launcher done at $(date)"

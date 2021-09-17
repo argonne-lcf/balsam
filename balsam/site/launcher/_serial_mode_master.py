@@ -39,6 +39,7 @@ class Master:
         self.idle_ttl_sec = idle_ttl_sec
         self.idle_time: Optional[float] = None
         self.active_ids: Set[int] = set()
+        self.num_outstanding_jobs: int = 0
         self.occupancies: Dict[int, float] = {}
         self.num_workers = num_workers
         self.master_port = master_port
@@ -124,6 +125,7 @@ class Master:
         finished_ids = set(done_ids) | set(log[0] for log in error_logs)
         self.active_ids |= set(started_ids)
         self.active_ids -= finished_ids
+        self.num_outstanding_jobs -= len(finished_ids)
 
         src = msg["source"]
         max_jobs: int = msg["request_num_jobs"]
@@ -131,11 +133,16 @@ class Master:
         new_job_specs = self.acquire_jobs(max_jobs)
 
         self.socket.send_json({"new_jobs": new_job_specs})
+        self.num_outstanding_jobs += len(new_job_specs)
         if new_job_specs:
             logger.debug(f"Sent {len(new_job_specs)} new jobs to {src}")
 
     def idle_check(self) -> None:
-        if not self.active_ids:
+        if not self.status_updater.is_alive():
+            logger.error("StatusUpdater is DOWN.  Aborting job!")
+            self.sig_handler.set()
+
+        if not self.num_outstanding_jobs:
             if self.idle_time is None:
                 self.idle_time = time.time()
             if time.time() - self.idle_time > self.idle_ttl_sec:

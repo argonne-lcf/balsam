@@ -20,9 +20,9 @@ class BasicAuthRequestsClient(RequestsClient):
         password: Optional[str] = None,
         token: Optional[str] = None,
         token_expiry: Optional[datetime] = None,
-        connect_timeout: float = 3.1,
+        connect_timeout: float = 6.2,
         read_timeout: float = 120.0,
-        retry_count: int = 3,
+        retry_count: int = 10,
     ) -> None:
         super().__init__(
             api_root,
