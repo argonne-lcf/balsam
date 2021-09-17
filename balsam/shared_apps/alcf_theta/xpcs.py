@@ -1,4 +1,4 @@
-from balsam.site import ApplicationDefinition
+from balsam.api import ApplicationDefinition
 
 
 class EigenCorr(ApplicationDefinition):
@@ -9,6 +9,7 @@ class EigenCorr(ApplicationDefinition):
     users provide `h5_in`, `imm_in`, and `h5_out` transfer items.
     """
 
+    site = 0
     corr_exe = "/projects/datascience/aps/software/xpcs-eigen2/build/corr"
     command_template = f"{corr_exe} inp.h5 -imm inp.imm"
     environment_variables = {

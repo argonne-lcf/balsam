@@ -14,8 +14,8 @@ from .batchjob import (
     SchedulerJobStatus,
 )
 from .job import (
+    DONE_STATES,
     RUNNABLE_STATES,
-    ClientJobCreate,
     JobBulkUpdate,
     JobCreate,
     JobOrdering,
@@ -24,8 +24,19 @@ from .job import (
     JobTransferItem,
     JobUpdate,
     PaginatedJobsOut,
+    ServerJobCreate,
 )
 from .logevent import EventOrdering, LogEventOut, PaginatedLogEventOut
+from .serializer import (
+    DeserializeError,
+    EmptyPayload,
+    SerializeError,
+    deserialize,
+    get_source,
+    raise_from_serialized,
+    serialize,
+    serialize_exception,
+)
 from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
 from .transfer import (
@@ -66,7 +77,7 @@ __all__ = [
     "PaginatedSessionsOut",
     "SessionAcquire",
     "JobCreate",
-    "ClientJobCreate",
+    "ServerJobCreate",
     "JobUpdate",
     "JobBulkUpdate",
     "PaginatedJobsOut",
@@ -75,6 +86,7 @@ __all__ = [
     "JobOrdering",
     "JobTransferItem",
     "RUNNABLE_STATES",
+    "DONE_STATES",
     "TransferItemOut",
     "PaginatedTransferItemOut",
     "TransferItemUpdate",
@@ -87,4 +99,12 @@ __all__ = [
     "SchedulerBackfillWindow",
     "SchedulerJobLog",
     "SchedulerJobStatus",
+    "serialize",
+    "deserialize",
+    "serialize_exception",
+    "raise_from_serialized",
+    "get_source",
+    "SerializeError",
+    "DeserializeError",
+    "EmptyPayload",
 ]

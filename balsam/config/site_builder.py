@@ -107,10 +107,6 @@ def new_site_setup(
         cf = SiteConfig(site_path=site_path, settings=settings)
         for path in [cf.log_path, cf.job_path, cf.data_path]:
             path.mkdir(exist_ok=False)
-        shutil.copytree(
-            src=default_site_path.joinpath("apps"),
-            dst=cf.apps_path,
-        )
         cf.job_path.chmod(0o700)
         if settings.scheduler is not None:
             job_template_path = settings.scheduler.job_template_path

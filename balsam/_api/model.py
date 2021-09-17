@@ -77,7 +77,13 @@ class BalsamModelMeta(type):
             attrs["_read_model_cls"],
         ]:
             if model_cls is not None:
-                field_names.update(model_cls.__fields__)
+                field_names.update(
+                    {
+                        name
+                        for name, field in model_cls.__fields__.items()
+                        if not field.field_info.extra.get("no_descriptor")
+                    }
+                )
         for field_name in field_names:
             if field_name in attrs:
                 attrs[field_name].name = field_name
@@ -133,7 +139,7 @@ class BalsamModel(metaclass=BalsamModelMeta):
             self.__class__.objects._do_update(self)
         elif self._state == "creating":
             assert self._create_model is not None
-            created = self.__class__.objects._create(**self._create_model.dict())
+            created = self.__class__.objects._create(instance=self)
             assert created._read_model is not None
             self._refresh_from_dict(created._read_model.dict())
             self._create_model = None

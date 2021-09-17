@@ -65,8 +65,9 @@ def test_deleting_site_removes_associated_apps(auth_client):
     auth_client.post(
         "/apps/",
         site_id=site["id"],
-        name="hello world",
-        class_path="demo.SayHello",
+        name="HelloWorld",
+        serialized_class="txt",
+        source_code="txt",
         parameters={"name": {"required": True}, "N": {"required": False, "default": 1}},
     )
     assert len(auth_client.get("/apps/")["results"]) == 1

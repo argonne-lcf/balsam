@@ -35,7 +35,7 @@ def fetch_app(app_qs: "AppQuery", app_str: str) -> "App":
     if app_str.isdigit():
         lookup = {"id": int(app_str)}
     else:
-        lookup = {"class_path": app_str}
+        lookup = {"name": app_str}
     try:
         app = app_qs.get(**lookup)
     except App.DoesNotExist:
@@ -61,14 +61,14 @@ def validate_parameters(parameters: List[str], app: "App") -> Dict[str, str]:
     return params
 
 
-def validate_transfers(transfer_args: List[str], app: "App") -> Dict[str, Union[str, JobTransferItem]]:
+def validate_transfers(transfer_args: List[str], app: "App") -> Dict[str, JobTransferItem]:
     transfers = validate_tags(None, None, transfer_args)
     all_transfers = set(app.transfers.keys())
     required_transfers = {k for k in all_transfers if app.transfers[k].required}
     provided = set(transfers.keys())
     validate_set(all_transfers, required_transfers, provided)
 
-    transfers_by_name: Dict[str, Union[str, JobTransferItem]] = {}
+    transfers_by_name: Dict[str, JobTransferItem] = {}
     for name in transfers:
         try:
             loc, path = transfers[name].split(":")
@@ -274,8 +274,8 @@ def ls(
                 assert j.state is not None
                 jdict = {
                     "ID": j.id,
-                    "Site": f"{site.name}:{site.path.name}",
-                    "App": app.class_path,
+                    "Site": f"{site.name}",
+                    "App": app.name,
                     "Workdir": j.workdir.as_posix(),
                     "State": j.state.value,
                     "Tags": j.tags,

@@ -69,7 +69,7 @@ class in a Python file located in the `apps/` folder inside your Site.
 The simplest `ApplicationDefinition` is just a declaration of the application command line, with any adjustable parameters enclosed in double-curly braces:
 
 ```python
-from balsam.site import ApplicationDefinition
+from balsam.api import ApplicationDefinition
 
 class Hello(ApplicationDefinition):
     command_template = "echo Hello, {{ name }}!"

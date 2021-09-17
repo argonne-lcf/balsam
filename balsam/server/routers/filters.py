@@ -32,18 +32,21 @@ class SiteQuery:
 class AppQuery:
     site_id: List[int] = Query(None, description="Only return Apps associated with the Site IDs in this list.")
     id: List[int] = Query(None, description="Only return Apps with IDs in this list.")
-    class_path: str = Query(None, description="Only return Apps matching this dotted class path (module.ClassName)")
+    name: str = Query(None, description="Only return Apps having an ApplicationDefinition with this class name.")
     site_path: str = Query(None, description="Only return Apps from Sites having paths containing this substring.")
+    site_name: str = Query(None, description="Only return Apps from the Site with this unique name.")
 
     def apply_filters(self, qs: "orm.Query[App]") -> "orm.Query[App]":
         if self.site_id:
             qs = qs.filter(App.site_id.in_(self.site_id))
         if self.id:
             qs = qs.filter(App.id.in_(self.id))
-        if self.class_path is not None:
-            qs = qs.filter(App.class_path == self.class_path)
+        if self.name is not None:
+            qs = qs.filter(App.name == self.name)
         if self.site_path:
             qs = qs.filter(Site.path.like(f"%{self.site_path}%"))
+        if self.site_name:
+            qs = qs.filter(Site.name == self.site_name)
         return qs
 
 
@@ -122,9 +125,6 @@ class JobQuery:
     state__ne: schemas.JobState = Query(None, description="Only return jobs with states not equal to this state.")
     state: Set[schemas.JobState] = Query(None, description="Only return jobs in this set of states.")
     tags: List[str] = Query(None, description="Only return jobs containing these tags (list of KEY:VALUE strings)")
-    parameters: List[str] = Query(
-        None, description="Only return jobs having these App command parameters (list of KEY:VALUE strings)"
-    )
     pending_file_cleanup: bool = Query(None, description="Only return jobs which have not yet had workdir cleaned.")
     ordering: schemas.JobOrdering = Query(None, description="Order Jobs by this field.")
 
@@ -153,9 +153,6 @@ class JobQuery:
         if self.tags:
             tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)  # type: ignore
             qs = qs.filter(Job.tags.contains(tags_dict))  # type: ignore
-        if self.parameters:
-            params_dict: Dict[str, str] = dict(p.split(":", 1) for p in self.parameters if ":" in p)  # type: ignore
-            qs = qs.filter(Job.parameters.contains(params_dict))  # type: ignore
         if self.pending_file_cleanup:
             qs = qs.filter(Job.pending_file_cleanup)
         if self.ordering:

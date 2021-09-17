@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
+MAX_APP_SERIALIZED_SIZE = 262_144
+
 
 class AppParameter(BaseModel):
     required: bool
@@ -42,10 +44,10 @@ class TransferSlot(BaseModel):
 
 class AppBase(BaseModel):
     site_id: int = Field(..., example=3, description="Site id at which this App is registered")
+    name: str = Field(..., example="NWChemGeomOpt", description="Python AppDef class name")
+    serialized_class: str = Field(..., description="Base64-encoded ApplicationDefinition payload")
+    source_code: str = Field(..., description="App-introspected source code")
     description: str = Field("", example="NWChem7 geometry optimizer", description="The App class docstring")
-    class_path: str = Field(
-        ..., example="nwchem7.GeomOpt", description="Python class path (module.ClassName) of this App"
-    )
     parameters: Dict[str, AppParameter] = Field(
         {},
         example={
@@ -70,12 +72,17 @@ class AppBase(BaseModel):
         },
         description="Allowed transfer slots in the App",
     )
-    last_modified: Optional[float] = Field(None, description="Local timestamp since App module file last changed")
 
-    @validator("class_path")
-    def is_class_path(cls, v: str) -> str:
-        if not all(s.isidentifier() for s in v.split(".")):
-            raise ValueError(f"{v} is not a valid class path")
+    @validator("name")
+    def is_valid_class_name(cls, v: str) -> str:
+        if not v.isidentifier():
+            raise ValueError(f"{v} is not a valid class name")
+        return v
+
+    @validator("serialized_class")
+    def max_class_len(cls, v: str) -> str:
+        if len(v) > MAX_APP_SERIALIZED_SIZE:
+            raise AssertionError(f"Serialized App cannot be larger than {MAX_APP_SERIALIZED_SIZE}")
         return v
 
 
@@ -85,9 +92,9 @@ class AppCreate(AppBase):
 
 class AppUpdate(AppBase):
     site_id: int = Field(None, example=3, description="Site id at which this App is registered")
-    class_path: str = Field(
-        None, example="nwchem7.GeomOpt", description="Python class path (module.ClassName) of this App"
-    )
+    name: str = Field(None, example="NWChem7GeomOpt", description="Python AppDef class name")
+    serialized_class: str = Field(None, description="Base64-encoded ApplicationDefinition payload")
+    source_code: str = Field(None, description="App-introspected source code")
 
 
 class AppOut(AppBase):

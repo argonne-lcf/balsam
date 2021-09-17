@@ -7,7 +7,6 @@ from typing import Optional, Union
 import click
 
 from balsam.config import ClientSettings, InvalidSettings, Settings, SiteConfig, site_builder
-from balsam.site.app import sync_apps
 from balsam.util import globus_auth
 
 from .utils import (
@@ -90,7 +89,7 @@ def init(site_path: Union[str, Path], name: str) -> None:
     selected_path = inquirer.prompt([site_prompt])["path"]
 
     try:
-        cf = site_builder.new_site_setup(
+        site_builder.new_site_setup(
             site_path=site_path,
             default_site_path=selected_path,
             default_site_conf=path_conf_map[selected_path],
@@ -100,7 +99,6 @@ def init(site_path: Union[str, Path], name: str) -> None:
         click.echo(str(exc))
         sys.exit(1)
     click.echo(f"New Balsam site set up at {site_path}")
-    sync_apps(cf)
 
 
 @site.command()

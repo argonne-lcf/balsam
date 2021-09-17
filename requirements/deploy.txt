@@ -25,4 +25,6 @@ psutil==5.8.0
 globus-sdk==2.0.1
 configobj==5.0.6
 pyzmq==22.2.1
+dill==0.3.4
+tblib==1.7.0
 -e .

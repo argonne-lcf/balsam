@@ -27,7 +27,7 @@ def site(auth_client):
 
 @pytest.fixture(scope="function")
 def app(auth_client, site):
-    return create_app(auth_client, site_id=site["id"], class_path="DemoApp.hello")
+    return create_app(auth_client, site_id=site["id"], name="Hello")
 
 
 @pytest.fixture(scope="function")
@@ -153,16 +153,6 @@ def test_add_jobs(auth_client, job_dict):
         assertHistory(auth_client, job, "CREATED", "READY")
 
 
-def test_bad_job_parameters_refused(auth_client, job_dict):
-    jobs = [job_dict(parameters={})]
-    response = auth_client.bulk_post("/jobs/", jobs, check=status.HTTP_400_BAD_REQUEST)
-    assert "missing parameters" in str(response)
-
-    jobs = [job_dict(parameters={"name": "foo", "name2": "bar"})]
-    response = auth_client.bulk_post("/jobs/", jobs, check=status.HTTP_400_BAD_REQUEST)
-    assert "extraneous parameters" in str(response)
-
-
 def test_child_with_two_parents_state_update(auth_client, job_dict):
     resp = auth_client.bulk_post("/jobs/", [job_dict()])
     parent1 = resp[0]
@@ -202,12 +192,12 @@ def test_parent_with_two_children_state_update(auth_client, job_dict):
 
 def test_add_job_without_transfers_is_STAGED_IN(auth_client, job_dict):
     """Ready and bound to backend"""
-    job = auth_client.bulk_post("/jobs/", [job_dict(transfers=[])])[0]
+    job = auth_client.bulk_post("/jobs/", [job_dict(transfers={})])[0]
     assert job["state"] == "STAGED_IN"
 
 
 def test_bulk_put(auth_client, job_dict):
-    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers={}) for _ in range(10)])
     for job in jobs:
         assert job["state"] == "STAGED_IN"
     ids = [j["id"] for j in jobs]
@@ -217,7 +207,7 @@ def test_bulk_put(auth_client, job_dict):
 
 
 def test_bulk_patch(auth_client, job_dict):
-    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers={}) for _ in range(10)])
     for job in jobs:
         assert job["state"] == "STAGED_IN"
     ids = [j["id"] for j in jobs]
@@ -228,7 +218,7 @@ def test_bulk_patch(auth_client, job_dict):
 
 def test_acquire_for_launch(auth_client, job_dict, create_session):
     """Jobs become associated with BatchJob"""
-    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers={}) for _ in range(10)])
     for job in jobs:
         assert job["state"] == "STAGED_IN"
         assert job["batch_job_id"] is None
@@ -272,7 +262,7 @@ def test_acquire_for_launch(auth_client, job_dict, create_session):
 
 
 def test_update_to_running_does_not_release_lock(auth_client, job_dict, create_session, db_session):
-    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers=[]) for _ in range(10)])
+    jobs = auth_client.bulk_post("/jobs/", [job_dict(transfers={}) for _ in range(10)])
 
     # Mark jobs PREPROCESSED
     ids = [j["id"] for j in jobs]
