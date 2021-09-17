@@ -2,7 +2,7 @@ import concurrent.futures
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Literal, NamedTuple, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, NamedTuple, Optional, Set, Type, Union
 
 from balsam import schemas
 from balsam.schemas import JobState, deserialize, raise_from_serialized, serialize
@@ -260,9 +260,6 @@ class JobWaitResult(NamedTuple):
     not_done: List["Job"]
 
 
-ReturnWhen = Union[Literal["ALL_COMPLETED"], Literal["FIRST_COMPLETED"]]
-
-
 class JobManagerBase(Manager["Job"]):
     _api_path = "jobs/"
     _bulk_create_enabled = True
@@ -285,7 +282,7 @@ class JobManagerBase(Manager["Job"]):
         jobs: List["Job"],
         timeout: Optional[float] = None,
         poll_interval: float = 1.0,
-        return_when: ReturnWhen = "ALL_COMPLETED",
+        return_when: str = "ALL_COMPLETED",
     ) -> JobWaitResult:
         """
         Block and periodically refresh jobs, until either all have completed
