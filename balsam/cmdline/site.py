@@ -175,7 +175,7 @@ def ls(verbose: bool) -> None:
             click.echo(str(site))
             click.echo("---\n")
     else:
-        click.echo(f"{'ID':>5s}   {'Name':>14s}   {'Path':<40s}   {'Active':<4s}")
+        click.echo(f"{'ID':<5s}   {'Name':<26s}   {'Path':<40s}   {'Active':<4s}")
         for s in qs:
             assert s.path is not None
             assert s.last_refresh is not None
@@ -183,7 +183,7 @@ def ls(verbose: bool) -> None:
             if len(pathstr) > 37:
                 pathstr = "..." + pathstr[-37:]
             active = "Yes" if is_site_active(s) else "No"
-            click.echo(f"{s.id:>5d}   {s.name:>14}   {pathstr:<40}   {active:<4}")
+            click.echo(f"{s.id:<5d}   {s.name:<26}   {pathstr:<40}   {active:<4}")
 
 
 @site.command()
