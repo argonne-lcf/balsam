@@ -1,0 +1,14 @@
+# Copy this file to /etc/systemd/system/monitor.service (or similar name)
+# Run sudo systemctl daemon-reload; sudo systemctl enable monitor.service; sudo systemctl start monitor.service
+
+[Unit]
+Description=Psutil System Monitoring
+After=multi-user.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/home/msalim/soft/bin/python3 /home/msalim/sys-monitoring/monitor.py
+
+[Install]
+WantedBy=multi-user.target

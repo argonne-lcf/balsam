@@ -1,0 +1,14 @@
+# Copy this file to /etc/systemd/system/db_snapshot.service (or similar name)
+# Run sudo systemctl daemon-reload; sudo systemctl enable db_snapshot.service; sudo systemctl start db_snapshot.service
+
+[Unit]
+Description=Periodic Balsam DB backup
+After=multi-user.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/home/msalim/soft/bin/python3 /home/msalim/sys-monitoring/db_snapshot.py
+
+[Install]
+WantedBy=multi-user.target
