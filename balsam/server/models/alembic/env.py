@@ -1,6 +1,6 @@
 import logging
 
-from alembic import context  # type: ignore
+from alembic import context
 
 from balsam.server import settings
 from balsam.server.models import Base, get_engine
