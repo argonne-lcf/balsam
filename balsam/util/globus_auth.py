@@ -1,13 +1,22 @@
-# type: ignore
 import os
 import random
 import time
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 import click
 import globus_sdk
-from configobj import ConfigObj
-from globus_sdk import RefreshTokenAuthorizer, TransferClient
-from globus_sdk.exc import AuthAPIError, NetworkError
+from configobj import ConfigObj  # type: ignore
+from globus_sdk import (
+    ConfidentialAppAuthClient,
+    GlobusHTTPResponse,
+    NativeAppAuthClient,
+    OAuthTokenResponse,
+    RefreshTokenAuthorizer,
+    TransferClient,
+)
+from globus_sdk.exc import GlobusAPIError, NetworkError
+
+EitherAuthClient = Union[ConfidentialAppAuthClient, NativeAppAuthClient]
 
 CLIENT_ID_OPTNAME = "client_id"
 CLIENT_SECRET_OPTNAME = "client_secret"
@@ -25,6 +34,8 @@ SCOPES = (
     "urn:globus:auth:scope:transfer.api.globus.org:all"
 )
 
+T = TypeVar("T")
+
 
 class RetryingTransferClient(TransferClient):
     """
@@ -33,11 +44,11 @@ class RetryingTransferClient(TransferClient):
 
     default_retries = 10
 
-    def __init__(self, tries=None, *args, **kwargs):
+    def __init__(self, tries: Optional[int] = None, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.tries = tries or self.default_retries
 
-    def retry(self, f, *args, **kwargs):
+    def retry(self, f: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """
         Retries the given function self.tries times on NetworkErros
         """
@@ -51,32 +62,32 @@ class RetryingTransferClient(TransferClient):
         return f(*args, **kwargs)
 
     # get and put should always be safe to retry
-    def get(self, *args, **kwargs):
+    def get(self, *args: Any, **kwargs: Any) -> GlobusHTTPResponse:
         return self.retry(super().get, *args, **kwargs)
 
-    def put(self, *args, **kwargs):
+    def put(self, *args: Any, **kwargs: Any) -> GlobusHTTPResponse:
         return self.retry(super().put, *args, **kwargs)
 
     # task submission is safe, as the data contains a unique submission-id
-    def submit_transfer(self, *args, **kwargs):
+    def submit_transfer(self, *args: Any, **kwargs: Any) -> GlobusHTTPResponse:
         return self.retry(super().submit_transfer, *args, **kwargs)
 
-    def submit_delete(self, *args, **kwargs):
+    def submit_delete(self, *args: Any, **kwargs: Any) -> GlobusHTTPResponse:
         return self.retry(super().submit_delete, *args, **kwargs)
 
 
-def _update_tokens(token_response):
+def _update_tokens(token_response: OAuthTokenResponse) -> None:
     tokens = token_response.by_resource_server["transfer.api.globus.org"]
     set_transfer_tokens(tokens["access_token"], tokens["refresh_token"], tokens["expires_at_seconds"])
 
 
-def set_transfer_tokens(access_token, refresh_token, expires_at) -> None:
+def set_transfer_tokens(access_token: str, refresh_token: str, expires_at: str) -> None:
     write_option(TRANSFER_AT_OPTNAME, access_token)
     write_option(TRANSFER_RT_OPTNAME, refresh_token)
     write_option(TRANSFER_AT_EXPIRES_OPTNAME, expires_at)
 
 
-def get_config_obj(system=False, file_error=False):
+def get_config_obj(system: bool = False, file_error: bool = False) -> ConfigObj:
     if system:
         path = "/etc/globus.cfg"
     else:
@@ -93,7 +104,7 @@ def get_config_obj(system=False, file_error=False):
     return conf
 
 
-def lookup_option(option, section="cli", environment=None):
+def lookup_option(option: str, section: str = "cli", environment: Optional[str] = None) -> Any:
     conf = get_config_obj()
     try:
         if environment:
@@ -104,7 +115,7 @@ def lookup_option(option, section="cli", environment=None):
         return None
 
 
-def write_option(option, value, section="cli", system=False):
+def write_option(option: str, value: Any, section: str = "cli", system: bool = False) -> None:
     """
     Write an option to disk -- doesn't handle config reloading
     """
@@ -124,7 +135,7 @@ def write_option(option, value, section="cli", system=False):
     conf.write()
 
 
-def get_transfer_tokens():
+def get_transfer_tokens() -> Dict[str, Any]:
     expires = lookup_option(TRANSFER_AT_EXPIRES_OPTNAME)
     if expires is not None:
         expires = int(expires)
@@ -136,12 +147,12 @@ def get_transfer_tokens():
     }
 
 
-def internal_native_client():
+def internal_native_client() -> NativeAppAuthClient:
     template_id = lookup_option(TEMPLATE_ID_OPTNAME) or DEFAULT_TEMPLATE_ID
-    return globus_sdk.NativeAppAuthClient(template_id)
+    return NativeAppAuthClient(template_id)
 
 
-def internal_auth_client(requires_instance=False, force_new_client=False):
+def internal_auth_client(requires_instance: bool = False, force_new_client: bool = False) -> EitherAuthClient:
     """
     Looks up the values for this CLI's Instance Client in config
 
@@ -161,20 +172,20 @@ def internal_auth_client(requires_instance=False, force_new_client=False):
 
     # if we are forcing a new client, delete any existing client
     if force_new_client and existing:
-        existing_client = globus_sdk.ConfidentialAppAuthClient(client_id, client_secret)
+        existing_client = ConfidentialAppAuthClient(client_id, client_secret)
         try:
             existing_client.delete(f"/v2/api/clients/{client_id}")
 
         # if the client secret has been invalidated or the client has
         # already been removed, we continue on
-        except globus_sdk.exc.AuthAPIError:
+        except globus_sdk.exc.GlobusAPIError:
             pass
 
     # if we require a new client to be made
     if force_new_client or (requires_instance and not existing):
         # register a new instance client with auth
         body = {"client": {"template_id": template_id, "name": "Globus CLI"}}
-        res = template_client.post("/v2/api/clients", json_body=body)
+        res = template_client.post("/v2/api/clients", data=body)
 
         # get values and write to config
         credential_data = res["included"]["client_credential"]
@@ -183,11 +194,11 @@ def internal_auth_client(requires_instance=False, force_new_client=False):
         write_option(CLIENT_ID_OPTNAME, client_id)
         write_option(CLIENT_SECRET_OPTNAME, client_secret)
 
-        return globus_sdk.ConfidentialAppAuthClient(client_id, client_secret, app_name="Globus CLI")
+        return ConfidentialAppAuthClient(client_id, client_secret, app_name="Globus CLI")
 
     # if we already have a client, just return it
     elif existing:
-        return globus_sdk.ConfidentialAppAuthClient(client_id, client_secret, app_name="Globus CLI")
+        return ConfidentialAppAuthClient(client_id, client_secret, app_name="Globus CLI")
 
     # fall-back to a native client to not break old logins
     # TOOD: eventually remove this behavior
@@ -195,7 +206,7 @@ def internal_auth_client(requires_instance=False, force_new_client=False):
         return template_client
 
 
-def get_client():
+def get_client() -> RetryingTransferClient:
     tokens = get_transfer_tokens()
     authorizer = None
 
@@ -204,27 +215,27 @@ def get_client():
         authorizer = RefreshTokenAuthorizer(
             tokens["refresh_token"],
             internal_auth_client(),
-            tokens["access_token"],
-            tokens["access_token_expires"],
+            access_token=tokens["access_token"],
+            expires_at=tokens["access_token_expires"],
             on_refresh=_update_tokens,
         )
 
     return RetryingTransferClient(authorizer=authorizer, app_name="Globus CLI v2.1.0")
 
 
-def exchange_code_and_store_config(auth_client, auth_code):
+def exchange_code_and_store_config(auth_client: EitherAuthClient, auth_code: str) -> None:
     """
     Finishes auth flow after code is gotten from command line or local server.
     Exchanges code for tokens and gets user info from auth.
     Stores tokens and user info in config.
     """
     # do a token exchange with the given code
-    tkn = auth_client.oauth2_exchange_code_for_tokens(auth_code)
-    tkn = tkn.by_resource_server
+    tkn_response = auth_client.oauth2_exchange_code_for_tokens(auth_code)
+    tkn = tkn_response.by_resource_server
 
-    store_queue = []
+    store_queue: List[Tuple[str, str, bool]] = []
 
-    def _enqueue(optname, newval, revoke=True):
+    def _enqueue(optname: str, newval: str, revoke: bool = True) -> None:
         store_queue.append((optname, newval, revoke))
 
     # extract access tokens from final response
@@ -256,7 +267,7 @@ def exchange_code_and_store_config(auth_client, auth_code):
         write_option(optname, newval)
 
 
-def do_link_auth_flow(session_params=None, force_new_client=False):
+def do_link_auth_flow(session_params: Optional[Dict[str, Any]] = None, force_new_client: bool = False) -> bool:
     """
     Prompts the user with a link to authenticate with globus auth
     and authorize the CLI to act on their behalf.
@@ -281,7 +292,7 @@ def do_link_auth_flow(session_params=None, force_new_client=False):
         "{0}:\n{1}\n{2}\n{1}\n".format(
             linkprompt,
             "-" * len(linkprompt),
-            auth_client.oauth2_get_authorize_url(additional_params=additional_params),
+            auth_client.oauth2_get_authorize_url(),
         )
     )
 
@@ -293,7 +304,7 @@ def do_link_auth_flow(session_params=None, force_new_client=False):
     return True
 
 
-def check_logged_in():
+def check_logged_in() -> bool:
     # first, try to get the refresh tokens from config
     # we can skip the access tokens and their expiration times as those are not
     # strictly necessary
@@ -314,9 +325,9 @@ def check_logged_in():
             if not res["active"]:
                 return False
 
-    # if the instance client is invalid, an AuthAPIError will be raised
+    # if the instance client is invalid, an GlobusAPIError will be raised
     # we then force a new client to be created before continuing
-    except AuthAPIError:
+    except GlobusAPIError:
         return False
 
     return True
