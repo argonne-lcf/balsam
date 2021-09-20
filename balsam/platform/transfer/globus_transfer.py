@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import List, Sequence, Tuple, Union
 from uuid import UUID
 
-from globus_sdk import TransferData  # type: ignore
-from globus_sdk.exc import GlobusConnectionError, TransferAPIError  # type: ignore
+from globus_sdk import TransferData
+from globus_sdk.exc import GlobusAPIError, GlobusConnectionError
 
-from balsam.util.globus_auth import get_client  # type: ignore
+from balsam.util.globus_auth import get_client
 
 from .transfer import TaskInfo, TransferInterface, TransferRetryableError, TransferSubmitError
 
@@ -21,31 +21,29 @@ SrcDestRecursive = Tuple[PathLike, PathLike, bool]
 
 def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch: Sequence[SrcDestRecursive]) -> str:
     client = get_client()
-    notify_opts = {
-        "notify_on_succeeded": False,
-        "notify_on_failed": False,
-        "notify_on_inactive": False,
-    }
     transfer_data = TransferData(
         client,
         src_endpoint,
         dest_endpoint,
         label="",
         sync_level="size",
-        verify_checksum=False,
+        verify_checksum=True,
         preserve_timestamp=False,
         encrypt_data=True,
         submission_id=None,
         delete_destination_extra=False,
         deadline=None,
-        skip_activation_check=False,
-        **notify_opts,
+        additional_fields=dict(
+            notify_on_succeeded=False,
+            notify_on_failed=False,
+            notify_on_inactive=False,
+        ),
     )
     for src, dest, recurse in batch:
         transfer_data.add_item(str(src), str(dest), recursive=recurse)
     try:
         res = client.submit_transfer(transfer_data)
-    except TransferAPIError as exc:
+    except GlobusAPIError as exc:
         raise TransferSubmitError(str(exc))
     task_id = res.get("task_id", None)
     if task_id is None:

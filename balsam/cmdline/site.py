@@ -220,10 +220,10 @@ def globus_login() -> None:
     calls for you, and gets the OAuth2 tokens needed to use those permissions.
     """
     # if not forcing, stop if user already logged in
-    if globus_auth.check_logged_in():  # type: ignore
+    if globus_auth.check_logged_in():
         click.echo("You are already logged in!")
         return
 
-    globus_auth.do_link_auth_flow(force_new_client=True)  # type: ignore
+    globus_auth.do_link_auth_flow(force_new_client=True)
 
     click.echo("You have successfully logged in to the Globus CLI!")
