@@ -127,8 +127,8 @@ def configure_balsam_server_from_dsn(dsn: str) -> None:
 
 
 def run_alembic_migrations(dsn: str, downgrade: Any = None) -> None:
-    from alembic import command  # type: ignore
-    from alembic.config import Config  # type: ignore
+    from alembic import command
+    from alembic.config import Config
 
     import balsam.server.models.alembic as alembic
 
