@@ -160,7 +160,7 @@ class JobCreate(JobBase):
     def dict(self, **kwargs: Any) -> Dict[str, Any]:
         # Overriden to avoid sending "no_export" fields over the wire
         exclude_fields = {f for f, v in JobCreate.__fields__.items() if v.field_info.extra.get("no_export")}
-        if "exclude" not in kwargs:
+        if kwargs.get("exclude") is None:
             kwargs["exclude"] = exclude_fields
         elif isinstance(kwargs["exclude"], set):
             kwargs["exclude"].update(exclude_fields)
