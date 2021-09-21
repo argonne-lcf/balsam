@@ -9,7 +9,7 @@ Balsam requires Python3.7+ and is tested on Linux and MacOS.
 Within any suitable Python environment, Balsam can be installed using `pip`:
 
 ```bash
-# Use --pre to get the Balsam0.6 pre-release
+# Use --pre to get the Balsam pre-release
 $ pip install --pre balsam-flow 
 ```
 

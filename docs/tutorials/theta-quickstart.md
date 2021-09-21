@@ -1,16 +1,15 @@
 # Getting started
 
-This tutorial gets you up and running with a new Balsam Site quickly.
-Although the examples refer to the Theta-KNL system a few times, Balsam is
-highly platform-agnostic, and you can follow along easily on any of the currently
-supported systems:
+This tutorial gets you up and running with a new Balsam Site quickly.  Since
+Balsam is highly platform-agnostic, you can follow along by choosing from any of
+the available default configs:
 
+- A local MacOS or Linux system
 - Theta-KNL
 - Theta-GPU
 - Cooley
 - Cori (Haswell or KNL partitions)
 - Summit
-- A local MacOS or Linux system
 
 ## Install
 
@@ -24,7 +23,7 @@ $ pip install --pre balsam-flow
 
 ## Log In 
 
-Now that the `balsam` command line tool is installed, you need to log in. 
+Now that `balsam` is installed, you need to log in. 
 Logging in fetches an access token that is used to identify you 
 in all future API interactions, until the token expires and you have to log in again.
 
@@ -40,119 +39,96 @@ Once you are logged in, you can create a Balsam Site for job execution, or send 
 
 All Balsam workflows are namespaced under **Sites**: self-contained project
 spaces belonging to individual users. You can use Balsam to manage
-Sites across one or several HPC systems from a single command line interface (or Python script).
+Sites across one or several HPC systems from a single command line session (or Python program).
+This is one of the key strengths of Balsam: the usage looks exactly the same
+whether you're running locally or managing jobs across multiple remote supercomputer Sites.
 
-Let's start by creating a Balsam site in a folder named `./my-site`:
+Let's start by creating a Balsam Site in a folder named `./my-site`:
 
 ```bash
 $ balsam site init ./my-site
 # Select the default configuration for Theta-KNL
 ```
 
-The directory `my-site/` will be created and preconfigured for Theta-KNL.
-You can always check the `balsam site ls` command to list your Sites.
+You will be prompted to select a default Site configuration and to enter a
+**unique name** for your Site.  The directory `my-site/` will then be created
+and preconfigured for the chosen platform.  You can list your Sites with the `balsam
+site ls` command.
 
 ```bash
 $ balsam site ls
 
    ID             Name   Path                               Active
-   21      thetalogin4   .../projects/datascience/my-site   No 
+   21       theta-demo   .../projects/datascience/my-site   No 
 ```
 
-## Set up your Apps
-
-To run an application in Balsam, you must submit a **Job** that refers to a
-specific **App** registered at one of your Sites.  Every Site has its own
-colllection of Balsam Apps. A Balsam App is simply declared by writing an `ApplicationDefinition`
-class in a Python file located in the `apps/` folder inside your Site.
-
-The simplest `ApplicationDefinition` is just a declaration of the application command line, with any adjustable parameters enclosed in double-curly braces:
-
-```python
-from balsam.api import ApplicationDefinition
-
-class Hello(ApplicationDefinition):
-    command_template = "echo Hello, {{ name }}!"
-```
-
-In fact, you'll find this "Hello, world" example already written in the `apps/demo.py` file of your new Site!   Feel free to add more `ApplicationDefinitions` to `demo.py`, or create additional Python files with their own `ApplicationDefinitions`.  Whenever your Apps change, just run:
-
-```bash
-$ balsam app sync
-```
-
-Your can use the CLI to get a listing of all Apps defined across all your Sites:
-
-```bash
-$ balsam app ls --site=all
-
-   ID            ClassPath   Site                
-   56           demo.Hello   thetalogin4:.../projects/datascience/my-site
-```
-
-
-## Add Jobs
-
-To create a Balsam Job from the CLI, you must provide the app name and working directory,
-along with any parameters required by the command template:
-```bash
-$ balsam job create --app demo.Hello --workdir test/1 --param name="world"
-```
-
-There are many additional CLI options in job creation, which can be summarized with `balsam job create --help`.
-More often, when you need to create a large number of related Jobs, the Python API is 
-the best option:
-
-```python
-from balsam.api import Job
- 
-for i in range(10):
-    Job.objects.create(
-        site_path="my-site",
-        app_name="demo.Hello",
-        workdir=f"test-api/{i}", 
-        parameters={"name": f"world {i}"},
-        node_packing_count=10,
-    )
-```
-
-Your jobs can be viewed from the CLI:
-```
-$ balsam job ls
-
-ID       Site                  App          Workdir   State       Tags  
-267280   thetalogin4:my-site   demo.Hello   test/2    STAGED_IN   {}    
-267279   thetalogin4:my-site   demo.Hello   test/1    STAGED_IN   {} 
-```
-
-## Running the Site
-
-Thus far, we've only interacted with the Balsam web service via the CLI or Python.
-So how does anything actually run on the HPC system?
-To start, **you have to turn the Site on**:
+In order to actually run anything at the Site, **you have to enter the Site
+directory and start it** with `balsam site start`.  This command launches
+a persistent background agent which uses your access token to sync with the
+Balsam service and orchestrate the workflows locally.
 
 ```bash
 $ cd my-site
 $ balsam site start
 ```
 
-With this command, the Site runs an agent on your behalf.  The agent runs
-persistently in the background, using
-your access token to sync with the
-Balsam backend and orchestrate workflows locally. 
 
-You may need to restart the Site when the system is rebooted or otherwise goes down
-for maintenance.  You can always stop the Site yourself:
+## Set up your Apps
 
-```bash
-$ balsam site stop
+Every Site has its own collection of Balsam **Apps**, which define the runnable
+applications at that Site.   A Balsam App is declared by writing an `ApplicationDefinition`
+class and running the `sync()` method from a Python program or interactive session.
+The simplest `ApplicationDefinition` is basically a declaration of a shell
+command, with any adjustable parameters enclosed in double-curly braces:
+
+```python
+from balsam.api import ApplicationDefinition
+
+class Hello(ApplicationDefinition):
+    site = "theta-demo"
+    command_template = "echo Hello, {{ say_hello_to }}!"
+
+Hello.sync()
 ```
 
-## Queueing a BatchJob
+By setting `site = "theta-demo"` and running `Hello.sync()`, we register an App
+named `Hello` under the named Site.  In addition to shell commands, we
+can define Apps that invoke a Python `run()` function on a compute node:
+
+```python
+class VecNorm(ApplicationDefinition):
+    site = "theta-demo"
+
+    def run(self, vec):
+        return sum(x**2 for x in vec)**0.5
+
+VecNorm.sync()
+```
+
+After running the `sync()` methods for these Apps, they are serialized and
+stored in the Balsam database.  We can then load and re-use these Apps when
+submitting Jobs from other Python programs. 
+
+
+## Add Jobs
+
+With these App classes in hand, we can now submit some jobs from the Python SDK.
+Let's create a Job for both the `Hello` and `VecNorm` apps:  all we need is to 
+pass a working directory and any necessary parameters for each:
+
+```python
+hello = Hello.submit(workdir="demo/hello", say_hello_to="world")
+norm = VecNorm.submit(workdir="demo/norm", vec=[3, 4])
+```
+
+Notice how shell command parameters (for `Hello`) and Python function parameters
+(for `VecNorm`) are treated on the same footing.  
+
+
+## Make it run
 
 A key concept in Balsam is that **Jobs** only specify *what* to run, and you must
 create **BatchJobs** to provision the resources that actually *execute* your jobs.
-
 This way, your workflow definitions are neatly separated from the
 concern of what allocation they run on.  You create a collection of Jobs first,
 and then many of these Jobs can run inside one (or more) BatchJobs.
@@ -160,14 +136,35 @@ and then many of these Jobs can run inside one (or more) BatchJobs.
 BatchJobs will *automatically* run as many Jobs as they can at their Site.  You can simply
 queue up one or several BatchJobs and let them divide and conquer your workload. 
 
-```bash
-# Substitute -q QUEUE and -A ALLOCATION for your project:
-$ balsam queue submit -q debug-cache-quad -A datascience -n 1 -t 10 -j mpi 
+```python
+BatchJob.objects.create(
+    site_id=hello_job.site_id,
+    num_nodes=1,
+    wall_time_min=10,
+    job_mode="mpi",
+    queue="local",  # Use the appropriate batch queue, or `local`
+    project="local",  # Use the appropriate allocation, or `local`
+)
 ```
 
-After running this command, the Site agent will soon detect the new BatchJob, and 
-*synchronize* the local state by making a pilot job submission to the local resource manager (e.g. via `qsub`). 
-You can verify that the allocation was actually created by checking with the local resource manager (e.g.  `qstat`) or by checking with Balsam:
+After running this command, the Site agent will fetch the new BatchJob and
+perform the necessary pilot job submission with the local resource manager (e.g.
+via `qsub`).  The `hello` and `norm` Jobs will run in the `workdirs` specified
+above, located relative to the Site's `data/` directory.  You will find the
+"Hello world" job output in a `job.out` file therein.  
+
+For Python `run()` applications, the created `Jobs` can be treated similar to
+[`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+instances, where the `result()` method delivers the return value (or re-raises
+the Exception) from a `run()` invocation.
+
+```python
+assert norm.result() == 5.0  # (3**2 + 4**2)**0.5
+```
+
+When creating BatchJobs, you can verify that the allocation was actually created
+by checking with the local resource manager (e.g.  `qstat`) or by checking with
+Balsam:
 
 ```bash
 $ balsam queue ls
@@ -179,10 +176,76 @@ When the BatchJob starts, an MPI mode launcher pilot job will run your jobs. You
 $ balsam job ls
 
 ID       Site                  App          Workdir   State          Tags  
-267280   thetalogin4:my-site   demo.Hello   test/2    JOB_FINISHED   {}    
-267279   thetalogin4:my-site   demo.Hello   test/1    JOB_FINISHED   {} 
+267280   thetalogin4:my-site   Hello        test/2    JOB_FINISHED   {}    
+267279   thetalogin4:my-site   Hello        test/1    JOB_FINISHED   {} 
 ```
 
-Each job runs in the `workdir` that we specified, located relative to the Site's
-`data/` directory.  You will find the "Hello world" job outputs in `job.out`
-files therein.
+
+
+## A complete Python example
+
+Now let's combine the Python snippets from above to show a
+self-contained example of Balsam SDK usage:
+
+```python
+from balsam.api import ApplicationDefinition, BatchJob, Job
+
+class VecNorm(ApplicationDefinition):
+    site = "my-local-site"
+
+    def run(self, vec):
+        return sum(x**2 for x in vec)**0.5
+
+jobs = [
+    VecNorm.submit(workdir="test/1", vec=[3, 4]),
+    VecNorm.submit(workdir="test/2", vec=[6, 8]),
+]
+
+BatchJob.objects.create(
+    site_id=jobs[0].site_id,
+    num_nodes=1,
+    wall_time_min=10,
+    job_mode="mpi",
+    queue="local",
+    project="local",
+)
+
+for job in Job.objects.as_completed(jobs):
+    print(job.workdir, job.result())
+```
+
+## Submitting Jobs from the command line
+
+You can check the Apps registered at a given Site, or across
+all Sites, from the command line:
+
+```bash
+$ balsam app ls --site=all
+
+   ID                 Name   Site
+  286                Hello   laptop
+  287              VecNorm   laptop
+```
+
+To create a Balsam Job from the CLI, you must identify the App on the command
+line:
+
+```bash
+$ balsam job create --site=laptop --app Hello --workdir demo/hello2 --param say_hello_to="world2" 
+```
+
+There are many additional CLI options in job creation, which can be summarized with `balsam job create --help`.  You will usually create jobs using Python, but the CLI remains useful for monitoring workflow status:
+
+```
+$ balsam job ls
+
+ID       Site     App        Workdir          State          Tags
+501649   laptop   Hello      test/1           PREPROCESSED   {}
+501650   laptop   Hello      test/2           STAGED_IN      {}
+```
+
+BatchJobs can be submitted from the CLI, with parameters that mimic a standard scheduler interface:
+```bash
+# Substitute -q QUEUE and -A ALLOCATION for your project:
+$ balsam queue submit -q debug-cache-quad -A datascience -n 1 -t 10 -j mpi 
+```

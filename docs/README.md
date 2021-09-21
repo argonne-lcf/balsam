@@ -25,7 +25,7 @@ $ balsam site init my-site
 from balsam.api import ApplicationDefinition
 
 class Hello(ApplicationDefinition):
-    site = "my-site"
+    site = "my-laptop"
     command_template = "echo hello {{ name }}"
 
     def handle_timeout(self):
@@ -40,7 +40,7 @@ from balsam.api import Job, BatchJob
 
 # Create Jobs:
 job = Job.objects.create(
-    site_name="my-site",
+    site_name="my-laptop",
     app_id="Hello",
     workdir="test/say-hello",
     parameters={"name": "world!"},

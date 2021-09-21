@@ -14,15 +14,26 @@ $ balsam login
 ## Creating a site
 
 To initialize a Balsam site, we use the CLI to select an appropriate **default configuration**
-for the current system.  Balsam creates a new Site directory and registers it with the REST API.
+for the current system.  Balsam creates a new Site directory and registers it with the REST API.  In order to use the Site, we must also start the agent process with `balsam site start`.
 
 ```bash
 $ balsam site init SITE-PATH
+$ cd SITE-PATH
+$ balsam site start
 ```
 
 The Site is populated with several folders and a bootstrapped configuration file `settings.yml`.
 
 ![site-init](../img/balsam-init.gif)
+
+You may need to restart the Site when the system is rebooted or otherwise goes down
+for maintenance.  You can always stop and restart the Site yourself:
+
+```bash
+$ balsam site stop
+$ balsam site start
+```
+
 
 ## The Site directory
 
