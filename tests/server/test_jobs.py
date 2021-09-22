@@ -851,23 +851,6 @@ def test_can_traverse_dag(auth_client, linear_dag):
     child_of_B = auth_client.get("/jobs", parent_id=B["id"])
     assert child_of_B["results"][0]["id"] == C["id"]
 
-
-def test_delete_recursively_deletes_children(auth_client, linear_dag, db_session):
-    A, B, C = linear_dag
-    assert db_session.query(models.Job).count() == 3
-    auth_client.delete(f"/jobs/{A['id']}")
-    db_session.expire_all()
-    assert db_session.query(models.Job).count() == 0
-
-
-def test_delete_recursively_deletes_children2(auth_client, linear_dag, db_session):
-    A, B, C = linear_dag
-    assert db_session.query(models.Job).count() == 3
-    auth_client.delete(f"/jobs/{B['id']}")
-    db_session.expire_all()
-    assert db_session.query(models.Job).count() == 1
-
-
 def test_cannot_acquire_with_another_lock_id(auth_client, create_session, job_dict, fastapi_user_test_client):
     """Passing a lock id that belongs to another user results in acquire() error"""
     # self.user (via self.client) has 10 jobs

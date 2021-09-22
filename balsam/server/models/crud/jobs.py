@@ -1,6 +1,6 @@
 from datetime import datetime
 from logging import getLogger
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
@@ -16,12 +16,12 @@ from balsam.server.utils import Paginator
 logger = getLogger(__name__)
 
 
-def owned_job_query(db: Session, owner: schemas.UserOut, with_parents: bool = False) -> "Query[models.Job]":
-    qs: "Query[models.Job]"
+def owned_job_query(
+    db: Session, owner: schemas.UserOut, with_parents: bool = False, id_only: bool = False
+) -> "Query[models.Job]":
+    qs: "Query[models.Job]" = db.query(models.Job.id) if id_only else db.query(models.Job)
     if with_parents:
-        qs = db.query(models.Job).options(orm.selectinload(models.Job.parents).load_only(models.Job.id))  # type: ignore
-    else:
-        qs = db.query(models.Job)
+        qs = qs.options(orm.selectinload(models.Job.parents).load_only(models.Job.id))  # type: ignore
     qs = qs.join(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
     return qs
 
@@ -325,37 +325,21 @@ def update_query(
     return _update_jobs(db, update_jobs, patch_dicts)
 
 
-def _select_children(db: Session, ids: Iterable[int]) -> List[int]:
-    qs = db.query(models.Job).filter(models.Job.id.in_(ids))
-    qs = qs.options(  # type: ignore
-        orm.load_only(models.Job.id),
-        orm.selectinload(models.Job.children).load_only(models.Job.id),
-    )
-    jobs = qs.all()
-    selected_ids = [job.id for job in jobs]
-    child_ids = [child.id for job in jobs for child in cast(Iterable[models.Job], job.children)]
-    if child_ids:
-        selected_ids.extend(_select_children(db, child_ids))
-    return selected_ids
-
-
 def delete_query(
     db: Session,
     owner: schemas.UserOut,
     filterset: Optional[JobQuery] = None,
     job_id: Optional[int] = None,
-) -> Set[int]:
-    qs = owned_job_query(db, owner)
+) -> int:
+    qs = owned_job_query(db, owner, id_only=True)
     if job_id is not None:
         qs = qs.filter(models.Job.id == job_id)
         qs.one()
     else:
         assert filterset is not None
         qs = filterset.apply_filters(qs)
-    qs = qs.filter(models.Job.session_id.is_(None)).with_for_update(of=models.Job)  # type: ignore
-    ids: List[int] = [job.id for job in qs.options(orm.load_only(models.Job.id))]  # type: ignore
-    delete_ids = set(_select_children(db, ids))
-    logger.debug(f"Deleting {len(delete_ids)} jobs")
-    db.query(models.Job).filter(models.Job.id.in_(delete_ids)).delete(synchronize_session=False)
+    qs = qs.filter(models.Job.session_id.is_(None)).with_for_update(of=models.Job, skip_locked=True)  # type: ignore
+    num_deleted = db.query(models.Job).filter(models.Job.id.in_(qs)).delete(synchronize_session=False)
     db.flush()
-    return delete_ids
+    logger.debug(f"Deleted {num_deleted} jobs")
+    return num_deleted

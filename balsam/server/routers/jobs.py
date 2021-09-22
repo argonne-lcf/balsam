@@ -128,6 +128,5 @@ def query_delete(
     db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth), q: JobQuery = Depends(JobQuery)
 ) -> None:
     """Delete all jobs selected by the query."""
-    deleted_ids = crud.jobs.delete_query(db, owner=user, filterset=q)
+    crud.jobs.delete_query(db, owner=user, filterset=q)
     db.commit()
-    pubsub.publish(user.id, "bulk-delete", "job", {"ids": deleted_ids})
