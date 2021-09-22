@@ -851,6 +851,7 @@ def test_can_traverse_dag(auth_client, linear_dag):
     child_of_B = auth_client.get("/jobs", parent_id=B["id"])
     assert child_of_B["results"][0]["id"] == C["id"]
 
+
 def test_cannot_acquire_with_another_lock_id(auth_client, create_session, job_dict, fastapi_user_test_client):
     """Passing a lock id that belongs to another user results in acquire() error"""
     # self.user (via self.client) has 10 jobs
