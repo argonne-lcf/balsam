@@ -7,7 +7,7 @@ gunicorn==20.1.0
 PyJWT==2.1.0
 passlib[bcrypt]==1.7.4
 alembic==1.7.3
-SQLAlchemy==1.4.23
+SQLAlchemy==1.4.25
 aredis==1.1.8
 redis==3.5.3
 
