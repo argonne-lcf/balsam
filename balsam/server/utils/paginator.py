@@ -2,6 +2,7 @@ from typing import Generic, Optional, TypeVar
 
 from fastapi import Query as APIQuery
 from sqlalchemy.orm import Query as SQLQuery
+from sqlalchemy.sql import Select
 
 T = TypeVar("T")
 
@@ -19,6 +20,11 @@ class Paginator(Generic[T]):
         if self.limit is not None:
             return iterable[self.offset : self.offset + self.limit]  # type: ignore
         return iterable[self.offset :]  # type:ignore
+
+    def paginate_core(self, stmt: "Select") -> "Select":
+        if self.limit is not None:
+            stmt = stmt.limit(self.limit)
+        return stmt.offset(self.offset)
 
     def __new__(
         cls,

@@ -4,7 +4,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import case, func, literal_column, orm
+from sqlalchemy import case, func, literal_column, orm, select, Column
+from sqlalchemy.sql import Select
 from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
@@ -16,19 +17,16 @@ from balsam.server.utils import Paginator
 logger = getLogger(__name__)
 
 
-def owned_job_query(
-    db: Session, owner: schemas.UserOut, with_parents: bool = False, id_only: bool = False
-) -> "Query[models.Job]":
-    qs: "Query[models.Job]" = db.query(models.Job.id) if id_only else db.query(models.Job)
-    if with_parents:
-        qs = qs.options(orm.selectinload(models.Job.parents).load_only(models.Job.id))  # type: ignore
-    qs = qs.join(models.App).join(models.Site).filter(models.Site.owner_id == owner.id)  # type: ignore
-    return qs
-
-
-def set_parent_ids(jobs: Iterable[models.Job]) -> None:
-    for job in jobs:
-        job.parent_ids = [p.id for p in cast(Iterable[models.Job], job.parents)]
+def owned_job_selector(owner: schemas.UserOut, columns: Optional[List[Column[Any]]] = None) -> Select:
+    if columns is None:
+        stmt = select(models.Job.__table__)  # type: ignore[arg-type]
+    else:
+        stmt = select(columns)
+    return (  # type: ignore
+        stmt.join(models.App.__table__, models.Job.app_id == models.App.id)
+        .join(models.Site.__table__, models.App.site_id == models.Site.id)
+        .where(models.Site.owner_id == owner.id)
+    )
 
 
 def update_states_by_query(
@@ -89,19 +87,19 @@ def fetch(
     job_id: Optional[int] = None,
     filterset: Optional[JobQuery] = None,
 ) -> "Tuple[int, Union[List[models.Job], Query[models.Job]]]":
-    qs = owned_job_query(db, owner, with_parents=True)
+    stmt = owned_job_selector(owner)
     if job_id is not None:
-        qs = qs.filter(models.Job.id == job_id)
+        stmt = stmt.where(models.Job.id == job_id)
     if filterset:
-        qs = filterset.apply_filters(qs)
+        stmt = filterset.apply_filters(stmt)
     if paginator is None:
-        job = qs.one()
-        set_parent_ids([job])
+        job = db.execute(stmt).one()
         return 1, [job]
-    count = qs.group_by(models.Job.id).count()
-    jobs = paginator.paginate(qs)
-    set_parent_ids(jobs)
-    return count, jobs
+    count_q = stmt.with_only_columns([func.count(models.Job.id)]).order_by(None)
+    count = db.execute(count_q).scalar()
+    stmt = paginator.paginate_core(stmt)
+    job_rows = [dict(j) for j in db.execute(stmt).mappings()]
+    return count, job_rows
 
 
 def bulk_create(
@@ -125,8 +123,10 @@ def bulk_create(
             detail="Could not find one or more Apps. Double check app_id fields.",
         )
 
-    parents = {job.id: job for job in owned_job_query(db, owner).filter(models.Job.id.in_(parent_ids)).all()}
-    if len(parents) < len(parent_ids):
+    parent_selector = owned_job_selector(owner, columns=[models.Job.id, models.Job.state])
+    parent_selector = parent_selector.where(models.Job.id.in_(parent_ids))
+    parent_states_by_id = {parent.id: parent.state for parent in db.execute(parent_selector)}
+    if len(parent_states_by_id) < len(parent_ids):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Could not find one or more Jobs set as parents. Double check parent_ids fields.",
@@ -134,14 +134,13 @@ def bulk_create(
 
     created_jobs, created_transfers, created_events = [], [], []
     for job_spec in job_specs:
-        db_job = models.Job(**jsonable_encoder(job_spec.dict(exclude={"parent_ids", "transfers"})))
+        db_job = models.Job(**jsonable_encoder(job_spec.dict(exclude={"transfers"})))
         db.add(db_job)
         db_job.app = apps[job_spec.app_id]
 
-        assert isinstance(db_job.parents, list)
-        db_job.parents.extend(parents[id] for id in job_spec.parent_ids)
         populate_transfers(db_job, job_spec)
-        if any(job.state != JobState.job_finished for job in db_job.parents):
+        has_unfinished_parents = any(parent_states_by_id[id] != JobState.job_finished for id in job_spec.parent_ids)
+        if has_unfinished_parents:
             db_job.state = JobState.awaiting_parents
         else:
             if any(tr.direction == "in" for tr in db_job.transfer_items) > 0:
@@ -159,7 +158,6 @@ def bulk_create(
         created_events.append(event)
         created_transfers.extend(db_job.transfer_items)
 
-    set_parent_ids(created_jobs)
     db.flush()
     logger.debug(f"Bulk-created {len(created_jobs)} jobs")
     return created_jobs, created_events, created_transfers
@@ -300,7 +298,6 @@ def _update_jobs(
     db.flush()
     update_jobs.extend(updated_children)
     new_events.extend(child_events)
-    set_parent_ids(update_jobs)
     return update_jobs, new_events
 
 

@@ -4,6 +4,7 @@ from typing import Dict, List, Set, Tuple, cast
 
 from fastapi import Query
 from sqlalchemy import orm
+from sqlalchemy.sql import Select
 
 from balsam import schemas
 from balsam.server.models import App, BatchJob, Job, LogEvent, Session, Site, TransferItem
@@ -128,33 +129,33 @@ class JobQuery:
     pending_file_cleanup: bool = Query(None, description="Only return jobs which have not yet had workdir cleaned.")
     ordering: schemas.JobOrdering = Query(None, description="Order Jobs by this field.")
 
-    def apply_filters(self, qs: "orm.Query[Job]") -> "orm.Query[Job]":  # noqa: C901
+    def apply_filters(self, qs: "Select") -> "Select":  # noqa: C901
         if self.id:
-            qs = qs.filter(Job.id.in_(self.id))
+            qs = qs.where(Job.id.in_(self.id))
         if self.parent_id:
-            qs = qs.filter(Job.parent_ids.overlap(self.parent_id))  # type: ignore[attr-defined]
+            qs = qs.where(Job.parent_ids.overlap(self.parent_id))  # type: ignore[attr-defined]
         if self.app_id:
-            qs = qs.filter(Job.app_id == self.app_id)
+            qs = qs.where(Job.app_id == self.app_id)
         if self.site_id:
-            qs = qs.filter(Site.id.in_(self.site_id))
+            qs = qs.where(Site.id.in_(self.site_id))
         if self.batch_job_id:
-            qs: "orm.Query[Job]" = qs.join(BatchJob)  # type: ignore
-            qs = qs.filter(BatchJob.id == self.batch_job_id)
+            qs = qs.join(BatchJob.__table__)  # type: ignore
+            qs = qs.where(BatchJob.id == self.batch_job_id)
         if self.last_update_before:
-            qs = qs.filter(Job.last_update <= self.last_update_before)
+            qs = qs.where(Job.last_update <= self.last_update_before)
         if self.last_update_after:
-            qs = qs.filter(Job.last_update >= self.last_update_after)
+            qs = qs.where(Job.last_update >= self.last_update_after)
         if self.workdir__contains:
-            qs = qs.filter(Job.workdir.like(f"%{self.workdir__contains}%"))
+            qs = qs.where(Job.workdir.like(f"%{self.workdir__contains}%"))
         if self.state__ne:
-            qs = qs.filter(Job.state != self.state__ne)
+            qs = qs.where(Job.state != self.state__ne)
         if self.state:
-            qs = qs.filter(Job.state.in_(self.state))
+            qs = qs.where(Job.state.in_(self.state))
         if self.tags:
             tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)  # type: ignore
-            qs = qs.filter(Job.tags.contains(tags_dict))  # type: ignore
+            qs = qs.where(Job.tags.contains(tags_dict))  # type: ignore
         if self.pending_file_cleanup:
-            qs = qs.filter(Job.pending_file_cleanup)
+            qs = qs.where(Job.pending_file_cleanup)
         if self.ordering:
             desc = self.ordering.startswith("-")
             order_col = getattr(Job, self.ordering.lstrip("-"))

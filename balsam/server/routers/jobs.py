@@ -2,6 +2,9 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, status
+
+import orjson
+from starlette.responses import Response
 from sqlalchemy import orm
 
 from balsam import schemas
@@ -16,7 +19,7 @@ router = APIRouter()
 auth = settings.auth.get_auth_method()
 
 
-@router.get("/", response_model=schemas.PaginatedJobsOut)
+@router.get("/", response_class=Response)
 def list(
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
@@ -25,7 +28,7 @@ def list(
 ) -> Dict[str, Any]:
     """List the user's Jobs."""
     count, jobs = crud.jobs.fetch(db, owner=user, paginator=paginator, filterset=q)
-    return {"count": count, "results": jobs}
+    return Response(content=orjson.dumps({"count": count, "results": jobs}), media_type="application/json")
 
 
 @router.get("/{job_id}", response_model=schemas.JobOut)

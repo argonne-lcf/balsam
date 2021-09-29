@@ -9,7 +9,7 @@ from balsam import schemas
 from balsam.server import ValidationError, models
 from balsam.server.routers.filters import SessionQuery
 
-from .jobs import set_parent_ids, update_states_by_query
+from .jobs import update_states_by_query
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,6 @@ def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> Tuple[List[mod
             state="RUN_TIMEOUT",
             data="Session expired: lost contact with launcher",
         )
-        set_parent_ids(jobs)
         expired_jobs.extend(jobs)
         expiry_events.extend(events)
     sess_ids = [sess.id for sess in expired_sessions]
