@@ -1,5 +1,5 @@
 from .base import Base, create_tables, get_engine, get_session
-from .tables import App, BatchJob, Job, LogEvent, Session, Site, TransferItem, User, job_deps
+from .tables import App, BatchJob, Job, LogEvent, Session, Site, TransferItem, User
 
 __all__ = [
     "Base",
@@ -14,5 +14,4 @@ __all__ = [
     "Site",
     "TransferItem",
     "User",
-    "job_deps",
 ]

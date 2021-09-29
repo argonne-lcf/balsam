@@ -132,7 +132,7 @@ class JobQuery:
         if self.id:
             qs = qs.filter(Job.id.in_(self.id))
         if self.parent_id:
-            qs = qs.filter(Job.parents.any(Job.id.in_(self.parent_id)))
+            qs = qs.filter(Job.parent_ids.overlap(self.parent_id))  # type: ignore[attr-defined]
         if self.app_id:
             qs = qs.filter(Job.app_id == self.app_id)
         if self.site_id:

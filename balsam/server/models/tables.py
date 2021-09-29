@@ -116,25 +116,6 @@ class App(Base):
     jobs = orm.relationship("Job", back_populates="app", cascade="all, delete-orphan", passive_deletes=True)
 
 
-# Junction table
-job_deps = Table(
-    "job_deps",
-    Base.metadata,
-    Column(
-        "parent_id",
-        ForeignKey("jobs.id", ondelete="CASCADE"),
-        index=True,
-        primary_key=True,
-    ),
-    Column(
-        "child_id",
-        ForeignKey("jobs.id", ondelete="CASCADE"),
-        index=True,
-        primary_key=True,
-    ),
-)
-
-
 class Job(Base):
     __tablename__ = "jobs"
 
@@ -165,23 +146,7 @@ class Job(Base):
     data = Column(JSON)
     return_code = Column(Integer)
     pending_file_cleanup = Column(Boolean, default=True)
-
-    parents = orm.relationship(
-        "Job",
-        secondary=job_deps,
-        primaryjoin=(id == job_deps.c.child_id),
-        secondaryjoin=(id == job_deps.c.parent_id),
-        back_populates="children",
-    )
-    parent_ids: Optional[List[int]]
-    children = orm.relationship(
-        "Job",
-        secondary=job_deps,
-        primaryjoin=(id == job_deps.c.parent_id),
-        secondaryjoin=(id == job_deps.c.child_id),
-        back_populates="parents",
-        lazy="raise",
-    )
+    parent_ids = Column(pg.ARRAY(Integer, dimensions=1), default=[], nullable=False)
 
     num_nodes = Column(Integer)
     ranks_per_node = Column(Integer)
