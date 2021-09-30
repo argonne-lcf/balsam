@@ -23,7 +23,7 @@ def owned_job_selector(owner: schemas.UserOut, columns: Optional[List[Column[Any
     else:
         stmt = select(columns)
     return (  # type: ignore
-        stmt.join(models.App.__table__, models.Job.app_id == models.App.id)
+        stmt.join(models.App.__table__, models.Job.app_id == models.App.id)  # type: ignore
         .join(models.Site.__table__, models.App.site_id == models.Site.id)
         .where(models.Site.owner_id == owner.id)
     )
@@ -86,7 +86,7 @@ def fetch(
     paginator: Optional[Paginator[models.Job]] = None,
     job_id: Optional[int] = None,
     filterset: Optional[JobQuery] = None,
-) -> "Tuple[int, Union[List[models.Job], Query[models.Job]]]":
+) -> "Tuple[int, List[Dict[str, Any]]]":
     stmt = owned_job_selector(owner)
     if job_id is not None:
         stmt = stmt.where(models.Job.id == job_id)

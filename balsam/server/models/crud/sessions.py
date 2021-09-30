@@ -1,15 +1,15 @@
 import logging
-import math
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 
-from sqlalchemy import orm
+from sqlalchemy import orm, Float, func
+from sqlalchemy.sql import update, select, cast, Select
 
 from balsam import schemas
 from balsam.server import ValidationError, models
 from balsam.server.routers.filters import SessionQuery
 
-from .jobs import update_states_by_query
+from .jobs import owned_job_selector, update_states_by_query
 
 logger = logging.getLogger(__name__)
 
@@ -83,73 +83,91 @@ def create(
     return created_session, expired_jobs, expiry_events
 
 
+def _acquire_jobs(db: orm.Session, job_q: Select, session: models.Session) -> List[Dict[str, Any]]:
+    acquired_jobs = [{str(key): value for key, value in job.items()} for job in db.execute(job_q).mappings()]
+    acquired_ids = [job["id"] for job in acquired_jobs]
+
+    stmt = update(models.Job.__table__).where(models.Job.id.in_(acquired_ids)).values(session_id=session.id)
+
+    # Do not overwrite job.batch_job_id with a Session that has no batch_job_id:
+    if session.batch_job_id is not None:
+        stmt = stmt.values(batch_job_id=session.batch_job_id)
+
+    db.execute(stmt)
+    db.flush()
+    logger.debug(f"Acquired {len(acquired_jobs)} jobs")
+    return acquired_jobs
+
+
+def _footprint_func() -> Any:
+    footprint = cast(models.Job.num_nodes, Float) / cast(models.Job.node_packing_count, Float)
+    return (
+        func.sum(footprint)
+        .over(
+            order_by=(
+                models.Job.num_nodes.asc(),
+                models.Job.node_packing_count.desc(),
+                models.Job.wall_time_min.desc(),
+                models.Job.id.asc(),
+            )
+        )
+        .label("aggregate_footprint")
+    )
+
+
 def acquire(
     db: Session, owner: schemas.UserOut, session_id: int, spec: schemas.SessionAcquire
-) -> Tuple[List[models.Job], List[models.Job], List[models.LogEvent]]:
-    expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
+) -> List[Dict[str, Any]]:
+
     session = (owned_session_query(db, owner).filter(models.Session.id == session_id)).one()
     session.heartbeat = datetime.utcnow()
 
-    qs = db.query(models.Job).join(models.App)  # type: ignore
-    qs = qs.options(orm.selectinload(models.Job.parents).load_only(models.Job.id))
-    qs = qs.filter(models.App.site_id == session.site_id)  # At site
-    qs = qs.filter(models.Job.session_id.is_(None))  # type: ignore # Unlocked
-
-    if spec.app_ids:
-        qs = qs.filter(models.Job.app_id.in_(spec.app_ids))
-
-    qs = qs.filter(models.Job.state.in_(spec.states))  # Matching states
     logger.debug(f"Acquire: filtering for jobs with states: {spec.states}")
 
-    qs = qs.filter(models.Job.tags.contains(spec.filter_tags))  # type: ignore # Matching tags
-    if spec.max_wall_time_min:
-        qs = qs.filter(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
-
-    if spec.max_nodes_per_job:
-        qs = qs.filter(models.Job.num_nodes <= spec.max_nodes_per_job)
-    if spec.serial_only:
-        qs = qs.filter(models.Job.num_nodes == 1, models.Job.ranks_per_node == 1)
-    qs = qs.with_for_update(of=models.Job, skip_locked=True)
-    qs = qs.order_by(
-        models.Job.num_nodes.desc(),
-        models.Job.node_packing_count,
-        models.Job.wall_time_min.desc(),
+    # Select unlocked jobs at this Site matching the state / tags criteria
+    job_q = (
+        owned_job_selector(owner)
+        .where(models.App.site_id == session.site_id)
+        .where(models.Job.session_id.is_(None))  # type: ignore
+        .where(models.Job.state.in_(spec.states))
+        .where(models.Job.tags.contains(spec.filter_tags))  # type: ignore
     )
 
-    if spec.max_aggregate_nodes is not None:
-        aggregate_nodes = spec.max_aggregate_nodes + 0.001
-    else:
-        aggregate_nodes = math.inf
-    jobs = list(qs[: spec.max_num_jobs])
-    idx = 0
-    acquired_jobs = []
+    if spec.app_ids:
+        job_q = job_q.where(models.Job.app_id.in_(spec.app_ids))
 
-    while idx < len(jobs) and aggregate_nodes > 0.002:
-        job = jobs[idx]
-        job_footprint = job.num_nodes / job.node_packing_count
-        if job_footprint <= aggregate_nodes:
-            acquired_jobs.append(job)
-            aggregate_nodes -= job_footprint
-            idx += 1
-        else:
-            idx = next(
-                (
-                    i
-                    for (i, job) in enumerate(jobs[idx:], idx)
-                    if job.num_nodes / job.node_packing_count <= aggregate_nodes
-                ),
-                len(jobs),
-            )
+    if spec.max_wall_time_min:
+        job_q = job_q.where(models.Job.wall_time_min <= spec.max_wall_time_min)  # By time
 
-    for job in acquired_jobs:
-        job.session_id = session.id
-        # Do not overwrite job.batch_job_id with a Session that has no batch_job_id:
-        if session.batch_job_id is not None:
-            job.batch_job_id = session.batch_job_id
-        job.parent_ids = [parent.id for parent in job.parents]
-    db.flush()
-    logger.debug(f"Acquired {len(acquired_jobs)} jobs")
-    return acquired_jobs, expired_jobs, expiry_events
+    if spec.max_nodes_per_job:
+        job_q = job_q.where(models.Job.num_nodes <= spec.max_nodes_per_job)
+
+    if spec.serial_only:
+        job_q = job_q.where(models.Job.num_nodes == 1).where(models.Job.ranks_per_node == 1)
+
+    # This is the branch taken by Processing and Serial Mode Launcher:
+    if spec.max_aggregate_nodes is None:
+        # NO footprint calculation; NO ordering is needed!
+        job_q = job_q.limit(spec.max_num_jobs).with_for_update(of=models.Job.__table__, skip_locked=True)
+        return _acquire_jobs(db, job_q, session)
+
+    # MPI Mode Launcher will take this path:
+    lock_ids_q = (
+        job_q.with_only_columns([models.Job.id])
+        .order_by(
+            models.Job.num_nodes.asc(),
+            models.Job.node_packing_count.desc(),
+            models.Job.wall_time_min.desc(),
+        )
+        .limit(spec.max_num_jobs)
+        .with_for_update(of=models.Job.__table__, skip_locked=True)
+    )
+    locked_ids = db.execute(lock_ids_q).scalars().all()
+
+    subq = select(models.Job.__table__, _footprint_func()).where(models.Job.id.in_(locked_ids)).subquery()  # type: ignore
+    cols = [c for c in subq.c if c.name not in ["aggregate_footprint", "session_id"]]
+    job_q = select(cols).where(subq.c.aggregate_footprint <= spec.max_aggregate_nodes)
+    return _acquire_jobs(db, job_q, session)
 
 
 def tick(

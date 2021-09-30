@@ -1,11 +1,12 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import ORJSONResponse
 from sqlalchemy import orm
 
 from balsam import schemas
 from balsam.server import settings
-from balsam.server.models import Job, crud, get_session
+from balsam.server.models import crud, get_session
 from balsam.server.pubsub import pubsub
 
 from .filters import SessionQuery
@@ -43,23 +44,17 @@ def create(
     return result
 
 
-@router.post("/{session_id}", response_model=List[schemas.JobOut])
+@router.post("/{session_id}", response_class=ORJSONResponse)
 def acquire(
     session_id: int,
     spec: schemas.SessionAcquire,
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
-) -> List[Job]:
+) -> ORJSONResponse:
     """Acquire Jobs using the given session_id."""
-    acquired_jobs, expired_jobs, expiry_events = crud.sessions.acquire(
-        db, owner=user, session_id=session_id, spec=spec
-    )
-    result_jobs = [schemas.JobOut.from_orm(job) for job in expired_jobs]
-    result_events = [schemas.LogEventOut.from_orm(e) for e in expiry_events]
+    acquired_jobs = crud.sessions.acquire(db, owner=user, session_id=session_id, spec=spec)
     db.commit()
-    pubsub.publish(user.id, "bulk-update", "job", result_jobs)
-    pubsub.publish(user.id, "bulk-create", "event", result_events)
-    return acquired_jobs
+    return ORJSONResponse(content=acquired_jobs)
 
 
 @router.put("/{session_id}")

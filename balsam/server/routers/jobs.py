@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import List
 
 from fastapi import APIRouter, Depends, status
 
@@ -25,7 +25,7 @@ def list(
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[Job] = Depends(Paginator),
     q: JobQuery = Depends(JobQuery),
-) -> Dict[str, Any]:
+) -> Response:
     """List the user's Jobs."""
     count, jobs = crud.jobs.fetch(db, owner=user, paginator=paginator, filterset=q)
     return Response(content=orjson.dumps({"count": count, "results": jobs}), media_type="application/json")
