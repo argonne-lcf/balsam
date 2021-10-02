@@ -207,6 +207,7 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
     _default_params: Dict[str, str]
     run: Optional[Callable[..., Any]] = None
     site: Union[int, str, "Site"]
+    python_exe: str = sys.executable
     _site_id: Optional[int] = None
     _client: Optional["RESTClient"] = None
     _app_type: AppType
@@ -251,9 +252,8 @@ class ApplicationDefinition(metaclass=ApplicationDefinitionMeta):
         job_payload = self.job._read_model.json()
         job_chunks = chunk_str(job_payload, self.ARG_CHUNK_SIZE)
 
-        python = sys.executable
         args = f"{app_id} {num_app_chunks} {' '.join(app_chunks)} {' '.join(job_chunks)}"
-        return f"{python} -m balsam.site.launcher.python_runner {args}"
+        return f"{self.python_exe} -m balsam.site.launcher.python_runner {args}"
 
     def _render_shell_command(self) -> str:
         """
