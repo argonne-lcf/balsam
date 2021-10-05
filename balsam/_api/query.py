@@ -132,7 +132,6 @@ class Query(Iterable[T]):
         self._result_cache = instances
 
     def _filter(self: "U", **kwargs: Any) -> "U":
-        # TODO: kwargs should expand to the set of filterable model fields
         if self._is_sliced:
             raise AttributeError("Cannot filter a sliced Query")
         clone = self._clone()
@@ -146,7 +145,6 @@ class Query(Iterable[T]):
         return clone
 
     def _order_by(self: "U", field: Optional[str]) -> "U":
-        # TODO: should validate that only order-able fields are accepted
         if self._is_sliced:
             raise AttributeError("Cannot re-order a sliced Query")
         clone = self._clone()
@@ -156,7 +154,6 @@ class Query(Iterable[T]):
     # Methods that do not return a Query
     # **********************************
     def _get(self, **kwargs: Any) -> T:
-        # TODO: kwargs should expand to the set of filterable model fields
         clone: Query[T] = self._filter(**kwargs)
         clone._fetch_cache()
         assert clone._result_cache is not None
@@ -181,7 +178,6 @@ class Query(Iterable[T]):
         return self._count
 
     def _update(self, **kwargs: Any) -> List[T]:
-        # TODO: kwargs should expand to a set of allowed update_fields
         if self._empty:
             return []
         return self._manager._do_bulk_update_query(patch=kwargs, filters=self._filters)

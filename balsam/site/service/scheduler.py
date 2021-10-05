@@ -166,7 +166,6 @@ class SchedulerService(BalsamService):
 
     def update_site_info(self, scheduler_jobs: Dict[int, SchedulerJobStatus]) -> None:
         """Update on Site from nodelist & qstat"""
-        # TODO: Periodically update Site nodelist; queues from here:
         site = self.client.Site.objects.get(id=self.site_id)
         try:
             site.backfill_windows = self.scheduler.get_backfill_windows()

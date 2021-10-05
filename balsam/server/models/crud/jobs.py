@@ -1,15 +1,16 @@
 from datetime import datetime
 from logging import getLogger
+from itertools import chain
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import case, func, literal_column, orm, select, Column
+from sqlalchemy import case, func, literal_column, orm, select, insert, Column
 from sqlalchemy.sql import Select
 from sqlalchemy.orm import Query, Session
 
 from balsam import schemas
-from balsam.schemas.job import JobState
+from balsam.schemas.job import JobState, JobTransferItem
 from balsam.server import ValidationError, models
 from balsam.server.routers.filters import JobQuery
 from balsam.server.utils import Paginator
@@ -50,11 +51,12 @@ def update_states_by_query(
     return updated_jobs, events
 
 
-def populate_transfers(db_job: models.Job, job_spec: schemas.ServerJobCreate) -> List[models.TransferItem]:
-    for transfer_name, transfer_spec in job_spec.transfers.items():
-        transfer_slot = db_job.app.transfers.get(transfer_name)
+def populate_transfers(app: models.App, transfers: Dict[str, JobTransferItem]) -> List[Dict[str, Any]]:
+    transfer_items = []
+    for transfer_name, transfer_spec in transfers.items():
+        transfer_slot = app.transfers.get(transfer_name)
         if transfer_slot is None:
-            raise ValidationError(f"App {db_job.app.name} has no Transfer slot named {transfer_name}")
+            raise ValidationError(f"App {app.name} has no Transfer slot named {transfer_name}")
         direction, local_path = transfer_slot["direction"], transfer_slot["local_path"]
         recursive = transfer_slot["recursive"]
         assert direction in ["in", "out"]
@@ -62,11 +64,11 @@ def populate_transfers(db_job: models.Job, job_spec: schemas.ServerJobCreate) ->
             transfer_spec.location_alias,
             transfer_spec.path.as_posix(),
         )
-        url = db_job.app.site.transfer_locations.get(location_alias)
+        url = app.site.transfer_locations.get(location_alias)
         if url is None:
             raise ValidationError(f"Site has no Transfer URL named {location_alias}")
 
-        transfer_item = models.TransferItem(
+        transfer_item = dict(
             direction=direction,
             local_path=local_path,
             remote_path=remote_path,
@@ -76,8 +78,8 @@ def populate_transfers(db_job: models.Job, job_spec: schemas.ServerJobCreate) ->
             task_id="",
             transfer_info={},
         )
-        db_job.transfer_items.append(transfer_item)
-    return db_job.transfer_items
+        transfer_items.append(transfer_item)
+    return transfer_items
 
 
 def fetch(
@@ -104,7 +106,7 @@ def fetch(
 
 def bulk_create(
     db: Session, owner: schemas.UserOut, job_specs: List[schemas.ServerJobCreate]
-) -> Tuple[List[models.Job], List[models.LogEvent], List[models.TransferItem]]:
+) -> List[Dict[str, Any]]:
     now = datetime.utcnow()
     app_ids = set(job.app_id for job in job_specs)
     parent_ids = set(pid for job in job_specs for pid in job.parent_ids)
@@ -123,44 +125,70 @@ def bulk_create(
             detail="Could not find one or more Apps. Double check app_id fields.",
         )
 
-    parent_selector = owned_job_selector(owner, columns=[models.Job.id, models.Job.state])
-    parent_selector = parent_selector.where(models.Job.id.in_(parent_ids))
-    parent_states_by_id = {parent.id: parent.state for parent in db.execute(parent_selector)}
+    if parent_ids:
+        parent_selector = owned_job_selector(owner, columns=[models.Job.id, models.Job.state])
+        parent_selector = parent_selector.where(models.Job.id.in_(parent_ids))
+        parent_states_by_id = {parent.id: parent.state for parent in db.execute(parent_selector)}
+    else:
+        parent_states_by_id = {}
+
     if len(parent_states_by_id) < len(parent_ids):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Could not find one or more Jobs set as parents. Double check parent_ids fields.",
         )
 
-    created_jobs, created_transfers, created_events = [], [], []
+    job_dicts: List[Dict[str, Any]] = []
+    job_transfer_lists: List[List[Dict[str, Any]]] = []
+
+    # Initial Job States depend on parents and any stage-in transfer items
     for job_spec in job_specs:
-        db_job = models.Job(**jsonable_encoder(job_spec.dict(exclude={"transfers"})))
-        db.add(db_job)
-        db_job.app = apps[job_spec.app_id]
+        job_transfers = populate_transfers(apps[job_spec.app_id], job_spec.transfers)
 
-        populate_transfers(db_job, job_spec)
-        has_unfinished_parents = any(parent_states_by_id[id] != JobState.job_finished for id in job_spec.parent_ids)
-        if has_unfinished_parents:
-            db_job.state = JobState.awaiting_parents
+        if any(parent_states_by_id[pid] != JobState.job_finished for pid in job_spec.parent_ids):
+            state = JobState.awaiting_parents
+        elif any(tr["direction"] == "in" for tr in job_transfers):
+            state = JobState.ready
         else:
-            if any(tr.direction == "in" for tr in db_job.transfer_items) > 0:
-                db_job.state = JobState.ready
-            else:
-                db_job.state = JobState.staged_in
+            state = JobState.staged_in
 
-        event = models.LogEvent(
-            job=db_job,
+        job_dict = jsonable_encoder(job_spec.dict(exclude={"transfers"}))
+        job_dict["state"] = state
+
+        job_dicts.append(job_dict)
+        job_transfer_lists.append(job_transfers)
+
+    # Bulk create jobs, RETURNING ids array and setting ids on job dicts
+    stmt = insert(models.Job.__table__).returning(models.Job.__table__)
+    created_jobs = [dict(j) for j in db.execute(stmt, job_dicts).mappings()]
+
+    # TODO: There is no guarantee that created_jobs matches the order of
+    # job_dicts and job_transfer_lists.  So, we need to impose another
+    # unique field (like workdir) to map ID to transfer
+    for job_dict, job_transfers in zip(created_jobs, job_transfer_lists):
+        for transfer_dict in job_transfers:
+            transfer_dict["job_id"] = job_dict["id"]
+
+    # Bulk create transfer items
+    transfers_flat_list = list(chain(*job_transfer_lists))
+    if transfers_flat_list:
+        db.execute(insert(models.TransferItem.__table__), chain(*job_transfer_lists))
+
+    # Bulk create events
+    events = [
+        dict(
+            job_id=job["id"],
             timestamp=now,
             from_state=JobState.created,
-            to_state=db_job.state,
+            to_state=job["state"],
+            data={},
         )
-        created_jobs.append(db_job)
-        created_events.append(event)
-        created_transfers.extend(db_job.transfer_items)
+        for job in created_jobs
+    ]
+    db.execute(insert(models.LogEvent.__table__), events)
 
-    db.flush()
-    logger.debug(f"Bulk-created {len(created_jobs)} jobs")
-    return created_jobs, created_events, created_transfers
+    logger.debug(f"Bulk-created {len(job_dicts)} jobs")
+    return created_jobs
 
 
 def _update_state(

@@ -72,7 +72,6 @@ class Manager(Generic[T]):
         Perform a bulk patch of instances from the modified `instances` list and set of
         `update_fields`. Modifies the instances list in-place and returns None.
         """
-        # TODO: validate update_fields
         if not self._bulk_update_enabled:
             raise NotImplementedError("The {self._model_class.__name__} API does not offer bulk_update")
 
