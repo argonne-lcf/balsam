@@ -115,9 +115,8 @@ class GlobusTransferInterface(TransferInterface):
     def _poll_tasks(task_ids: Sequence[str]) -> List[TaskInfo]:
         client = get_client()
         filter_values = {"task_id": ",".join(map(str, task_ids))}
-        filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())
         try:
-            task_list = list(client.task_list(num_results=None, filter=filter_str))
+            task_list = list(client.task_list(limit=None, query_params=filter_values))
         except GlobusConnectionError as exc:
             raise TransferRetryableError(f"GlobusConnectionError in client.task_list: {exc}")
         result = []
