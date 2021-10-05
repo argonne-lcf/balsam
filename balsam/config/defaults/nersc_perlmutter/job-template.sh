@@ -4,7 +4,6 @@
 #SBATCH --qos={{ queue }}
 #SBATCH --account={{ project }}
 #SBATCH --constraint=gpu
-#SBATCH --gpus-per-node=4
 {% if optional_params.get("reservation") %}#SBATCH --reservation={{optional_params["reservation"]}} {% endif %}
 
 

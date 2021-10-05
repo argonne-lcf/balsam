@@ -38,7 +38,7 @@ class PerlmutterGPUNode(ComputeNode):
             else:
                 node_ids.append(lo)
 
-        return [cls(node_id, f"nid{node_id:05d}") for node_id in node_ids]
+        return [cls(node_id, f"nid{node_id:06d}") for node_id in node_ids]
 
     @staticmethod
     def get_scheduler_id() -> Optional[int]:
