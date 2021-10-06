@@ -16,6 +16,12 @@ class PerlmutterGPURun(SubprocessAppRun):
             network_args = ["--gres=craynetwork:0"]
         else:
             network_args = []
+
+        if self._gpus_per_rank > 0:
+            gpu_args = ["--gpus-per-task", self._gpus_per_rank]
+        else:
+            gpu_args = []
+
         args = [
             "srun",
             *network_args,
@@ -23,6 +29,7 @@ class PerlmutterGPURun(SubprocessAppRun):
             self.get_num_ranks(),
             "--ntasks-per-node",
             self._ranks_per_node,
+            *gpu_args,
             "--nodelist",
             ",".join(node_ids),
             "--nodes",
