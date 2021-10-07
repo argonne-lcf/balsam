@@ -122,6 +122,7 @@ class GlobusTransferInterface(TransferInterface):
         result = []
         for d in task_list:
             state = GlobusTransferInterface._state_map(d["status"])
+            logger.debug(f"Mapping Globus task {d} to TransferItem state: {state}")
             info = {}
             if d.get("fatal_error"):
                 info["error"] = d["fatal_error"]
