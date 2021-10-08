@@ -36,6 +36,8 @@ class PerlmutterGPURun(SubprocessAppRun):
             num_nodes,
             "--cpus-per-task",
             self.get_cpus_per_rank(),
+            "--mem=40G",
+            "--overlap",
             self._cmdline,
         ]
         return " ".join(str(arg) for arg in args)
