@@ -1,13 +1,27 @@
 version: "3.9"
 
 services:
-  gunicorn:
-    container_name: gunicorn
+  nginx: 
+    image: nginx:latest
+    container_name: nginx
+    depends_on:
+      - gunicorn1
+      - gunicorn2
+    volumes:
+      - ./conf/nginx.conf:/etc/nginx/nginx.conf
+      - ./conf/mime.types:/etc/nginx/conf/mime.types
+      - ./logs:/etc/nginx/logs
+    ports:
+      - 80:80
+      - 443:443
+
+  gunicorn1:
+    container_name: gunicorn1
     build: .
     image: masalim2/balsam
     restart: always
     ports:
-      - ${SERVER_PORT}:${SERVER_PORT}
+      - 8001:8001
     depends_on:
       postgres:
         condition: service_healthy
@@ -17,7 +31,31 @@ services:
     # Vars in ".env" specifically are also usable in the compose file as ${VAR}
     env_file: ".env"
     environment:
-      SERVER_PORT: ${SERVER_PORT}
+      SERVER_PORT: 8001
+      BALSAM_LOG_DIR: ${BALSAM_LOG_DIR}
+    volumes:
+      - "${BALSAM_LOG_DIR}:/balsam/log"
+      - "./balsam:/balsam/balsam:ro"
+      - "./tests:/balsam/tests:ro"
+      - "${PWD}/${GUNICORN_CONFIG_FILE}:/balsam/gunicorn.conf.py:ro" # Must be abs path
+
+  gunicorn2:
+    container_name: gunicorn2
+    build: .
+    image: masalim2/balsam
+    restart: always
+    ports:
+      - 8002:8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    # Vars in env_file are exported to the containers
+    # Vars in ".env" specifically are also usable in the compose file as ${VAR}
+    env_file: ".env"
+    environment:
+      SERVER_PORT: 8002
       BALSAM_LOG_DIR: ${BALSAM_LOG_DIR}
     volumes:
       - "${BALSAM_LOG_DIR}:/balsam/log"
@@ -36,7 +74,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: balsam
     volumes:
-      - "pgdata:/var/lib/postgresql/data"
+      - "balsamdata:/var/lib/postgresql/data"
     command: "-c log_min_duration_statement=0"
     logging:
       options:
@@ -57,4 +95,4 @@ services:
       - 6379:6379
 
 volumes:
-  pgdata:
+  balsamdata:
