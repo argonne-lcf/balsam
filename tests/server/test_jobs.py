@@ -743,6 +743,36 @@ def test_finished_transfer_updates_job_state(auth_client, job_dict):
     assert job["state"] == "STAGED_IN"
 
 
+def test_bulk_create_transfer_items(auth_client, job_dict):
+    job_a = job_dict(
+        workdir="test/a",
+        transfers={"hello-input": {"location_alias": "MyCluster", "path": "/path/to/inputA.dat"}},
+    )
+    job_b = job_dict(
+        workdir="test/b",
+        transfers={"hello-input": {"location_alias": "MyCluster", "path": "/path/to/inputB.dat"}},
+    )
+    job_c = job_dict(
+        workdir="test/c",
+        transfers={"hello-input": {"location_alias": "MyCluster", "path": "/path/to/inputC.dat"}},
+    )
+    created = auth_client.bulk_post(
+        "/jobs/",
+        [job_b, job_a, job_c],
+    )
+
+    transfer_items = auth_client.get("/transfers")["results"]
+    assert len(transfer_items) == 3
+
+    for transfer_item in transfer_items:
+        job_id = transfer_item["job_id"]
+        job = [j for j in created if j.id == job_id][0]
+        letter = job["workdir"][-1].upper()
+        assert letter in "ABC"
+        remote_path = transfer_item["remote_path"]
+        assert remote_path == f"/path/to/input{letter}.dat"
+
+
 # Viewing State History
 def test_aggregated_state_history(auth_client, job_dict):
     auth_client.bulk_post("/jobs/", [job_dict() for _ in range(10)])

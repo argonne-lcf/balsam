@@ -4,7 +4,6 @@ from itertools import chain
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from fastapi import HTTPException, status
-from fastapi.encoders import jsonable_encoder
 from sqlalchemy import case, func, literal_column, orm, select, insert, Column
 from sqlalchemy.sql import Select
 from sqlalchemy.orm import Query, Session
@@ -108,9 +107,8 @@ def bulk_create(
     db: Session, owner: schemas.UserOut, job_specs: List[schemas.ServerJobCreate]
 ) -> List[Dict[str, Any]]:
     now = datetime.utcnow()
-    app_ids = set(job.app_id for job in job_specs)
-    parent_ids = set(pid for job in job_specs for pid in job.parent_ids)
 
+    app_ids = set(job.app_id for job in job_specs)
     apps: Dict[int, models.App] = {
         app.id: app
         for app in db.query(models.App)
@@ -125,6 +123,7 @@ def bulk_create(
             detail="Could not find one or more Apps. Double check app_id fields.",
         )
 
+    parent_ids = set(pid for job in job_specs for pid in job.parent_ids)
     if parent_ids:
         parent_selector = owned_job_selector(owner, columns=[models.Job.id, models.Job.state])
         parent_selector = parent_selector.where(models.Job.id.in_(parent_ids))
@@ -138,10 +137,25 @@ def bulk_create(
             detail="Could not find one or more Jobs set as parents. Double check parent_ids fields.",
         )
 
-    job_dicts: List[Dict[str, Any]] = []
-    job_transfer_lists: List[List[Dict[str, Any]]] = []
+    workdirs = set(job.workdir for job in job_specs)
+    if len(workdirs) < len(job_specs):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workdirs must be unique for each call to bulk-create Jobs.",
+        )
+
+    JobDict = Dict[str, Any]
+    TransferList = List[Dict[str, Any]]
+    jobs_by_workdir: Dict[str, JobDict] = {}
+    transfer_lists_by_workdir: Dict[str, TransferList] = {}
 
     # Initial Job States depend on parents and any stage-in transfer items
+    defaults = {
+        "last_update": now,
+        "pending_file_cleanup": True,
+        "serialized_return_value": "",
+        "serialized_exception": "",
+    }
     for job_spec in job_specs:
         job_transfers = populate_transfers(apps[job_spec.app_id], job_spec.transfers)
 
@@ -152,27 +166,32 @@ def bulk_create(
         else:
             state = JobState.staged_in
 
-        job_dict = jsonable_encoder(job_spec.dict(exclude={"transfers"}))
-        job_dict["state"] = state
+        # TODO: Removed jsonable_encoder for performance; what's needed to make the job_dict
+        # SQLAlchemy safe?
+        job_dict = job_spec.dict(exclude={"transfers", "workdir", "parent_ids"})
+        workdir = job_spec.workdir.as_posix()
+        job_dict.update(
+            **defaults,
+            state=state,
+            workdir=workdir,
+            parent_ids=list(job_spec.parent_ids),
+        )
 
-        job_dicts.append(job_dict)
-        job_transfer_lists.append(job_transfers)
+        jobs_by_workdir[workdir] = job_dict
+        transfer_lists_by_workdir[workdir] = job_transfers
 
     # Bulk create jobs, RETURNING ids array and setting ids on job dicts
-    stmt = insert(models.Job.__table__).returning(models.Job.__table__)
-    created_jobs = [dict(j) for j in db.execute(stmt, job_dicts).mappings()]
+    stmt = insert(models.Job.__table__).returning(models.Job.workdir, models.Job.id)
+    for res in db.execute(stmt, list(jobs_by_workdir.values())):
+        jobs_by_workdir[res.workdir]["id"] = res.id
 
-    # TODO: There is no guarantee that created_jobs matches the order of
-    # job_dicts and job_transfer_lists.  So, we need to impose another
-    # unique field (like workdir) to map ID to transfer
-    for job_dict, job_transfers in zip(created_jobs, job_transfer_lists):
-        for transfer_dict in job_transfers:
-            transfer_dict["job_id"] = job_dict["id"]
+        for transfer_dict in transfer_lists_by_workdir[res.workdir]:
+            transfer_dict["job_id"] = res.id
 
     # Bulk create transfer items
-    transfers_flat_list = list(chain(*job_transfer_lists))
+    transfers_flat_list = list(chain(*transfer_lists_by_workdir.values()))
     if transfers_flat_list:
-        db.execute(insert(models.TransferItem.__table__), chain(*job_transfer_lists))
+        db.execute(insert(models.TransferItem.__table__), transfers_flat_list)
 
     # Bulk create events
     events = [
@@ -183,12 +202,12 @@ def bulk_create(
             to_state=job["state"],
             data={},
         )
-        for job in created_jobs
+        for job in jobs_by_workdir.values()
     ]
     db.execute(insert(models.LogEvent.__table__), events)
 
-    logger.debug(f"Bulk-created {len(job_dicts)} jobs")
-    return created_jobs
+    logger.debug(f"Bulk-created {len(jobs_by_workdir)} jobs")
+    return list(jobs_by_workdir.values())
 
 
 def _update_state(

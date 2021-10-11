@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, status
 
 import orjson
 from starlette.responses import Response
+from fastapi.responses import ORJSONResponse
 from sqlalchemy import orm
 
 from balsam import schemas
@@ -38,22 +39,16 @@ def read(job_id: int, db: orm.Session = Depends(get_session), user: schemas.User
     return jobs[0]
 
 
-@router.post("/", response_model=List[schemas.JobOut], status_code=status.HTTP_201_CREATED)
+@router.post("/", response_class=ORJSONResponse, status_code=status.HTTP_201_CREATED)
 def bulk_create(
     jobs: List[schemas.ServerJobCreate], db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
-) -> List[schemas.JobOut]:
+) -> ORJSONResponse:
     """Create a list of Jobs."""
-    new_jobs, new_events, new_transfers = crud.jobs.bulk_create(db, owner=user, job_specs=jobs)
-
-    result_jobs = [schemas.JobOut.from_orm(job) for job in new_jobs]
-    result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
-    result_transfers = [schemas.TransferItemOut.from_orm(t) for t in new_transfers]
-
+    new_jobs = crud.jobs.bulk_create(db, owner=user, job_specs=jobs)
     db.commit()
-    pubsub.publish(user.id, "bulk-create", "job", result_jobs)
-    pubsub.publish(user.id, "bulk-create", "event", result_events)
-    pubsub.publish(user.id, "bulk-create", "transfer-item", result_transfers)
-    return result_jobs
+    # TODO: Pubsub.publish using jsonable_encoder: killing performance for many jobs
+    # If re-integrating pubsub, need to root out fastapi.jsonable_encoder.
+    return ORJSONResponse(content=new_jobs)
 
 
 @router.patch("/", response_model=List[schemas.JobOut])
