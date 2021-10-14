@@ -1,6 +1,7 @@
 from .app_run import AppRun, LocalAppRun
 from .mpich import MPICHRun
 from .openmpi import OpenMPIRun
+from .perlmutter import PerlmutterGPURun
 from .slurm import SlurmRun
 from .summit import SummitJsrun
 from .theta import ThetaAprun
@@ -15,4 +16,5 @@ __all__ = [
     "ThetaGPURun",
     "MPICHRun",
     "SummitJsrun",
+    "PerlmutterGPURun",
 ]

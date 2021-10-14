@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple, Type
 
 from balsam._api.app import ApplicationDefinition, is_appdef
 from balsam._api.models import App, Job
+from balsam.config import SiteConfig
 from balsam.schemas import SerializeError, serialize, serialize_exception
 
 
@@ -62,9 +63,11 @@ def log_result(ret_val: Any) -> None:
 
 
 def main(app_id: int, num_app_chunks: int, chunks: List[str]) -> None:
+    site_config = SiteConfig()
     try:
         app_cls, job, params = unpack_chunks(app_id, num_app_chunks, chunks)
         app = app_cls(job)
+        app._set_client(site_config.client)
         if not callable(app.run):
             raise AttributeError(f"ApplicationDefinition {app_cls} does not have a run() function")
         return_value = app.run(**params)

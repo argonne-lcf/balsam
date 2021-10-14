@@ -168,13 +168,16 @@ class TransferService(BalsamService):
         in_flight = TransferItem.objects.filter(
             site_id=self.site_id, state={TransferItemState.active, TransferItemState.inactive}
         )
+        logger.debug(f"In-flight TransferItems: {[(item.id, item.state, item.task_id) for item in in_flight]}")
 
         task_map = self.build_task_map(in_flight)
+        logger.debug(f"Task Map: {task_map}")
         task_ids: List[str] = list(task_map.keys())
         num_active_tasks = len(task_map)
 
         try:
             tasks = TransferInterface.poll_tasks(task_ids)
+            logger.debug(f"Polled Active Transfer Tasks: {task_map}")
         except TransferRetryableError as exc:
             logger.error(f"Non-fatal error in poll_tasks: {exc}")
             return
