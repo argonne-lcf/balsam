@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple
 
-from sqlalchemy import orm, Float, func
-from sqlalchemy.sql import update, select, cast, Select
+from sqlalchemy import Float, func, orm
+from sqlalchemy.sql import Select, cast, select, update
 
 from balsam import schemas
 from balsam.server import ValidationError, models
@@ -14,8 +14,8 @@ from .jobs import owned_job_selector, update_states_by_query
 logger = logging.getLogger(__name__)
 
 SESSION_EXPIRE_PERIOD = timedelta(minutes=5)
-SESSION_SWEEP_PERIOD = timedelta(minutes=3)
-_sweep_time: Optional[datetime] = None
+SESSION_SWEEP_PERIOD = timedelta(minutes=1)
+latest_sweep_time: Dict[int, datetime] = {}
 Session = orm.Session
 Query = orm.Query
 
@@ -31,37 +31,42 @@ def fetch(db: Session, owner: schemas.UserOut, filterset: SessionQuery) -> Tuple
     return count, result
 
 
-def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> Tuple[List[models.Job], List[models.LogEvent]]:
-    global _sweep_time
-    now = datetime.utcnow()
-    if _sweep_time is not None and now < _sweep_time + SESSION_SWEEP_PERIOD:
-        return [], []
-    _sweep_time = now
-    expiry_time = now - SESSION_EXPIRE_PERIOD
-    expired_sessions = owned_session_query(db, owner).filter(models.Session.heartbeat <= expiry_time).all()
+def _timeout_jobs(session: models.Session) -> None:
+    zombies = session.jobs.filter(models.Job.state == "RUNNING")
+    num_timedout = update_states_by_query(
+        zombies,
+        state="RUN_TIMEOUT",
+        data="Session expired: job was stuck in RUNNING state",
+    )
+    logger.info(f"Timed out {num_timedout} running jobs in expired session {session.id}")
 
-    expired_jobs, expiry_events = [], []
-    for session in expired_sessions:
-        zombies = session.jobs.filter(models.Job.state == "RUNNING")
-        jobs, events = update_states_by_query(
-            zombies,
-            state="RUN_TIMEOUT",
-            data="Session expired: lost contact with launcher",
-        )
-        expired_jobs.extend(jobs)
-        expiry_events.extend(events)
+
+def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> None:
+    now = datetime.utcnow()
+
+    last_sweep = latest_sweep_time.get(owner.id)
+    if last_sweep is not None and now < last_sweep + SESSION_SWEEP_PERIOD:
+        return
+
+    latest_sweep_time[owner.id] = now
+    expiry_time = now - SESSION_EXPIRE_PERIOD
+
+    expired_sessions = owned_session_query(db, owner).filter(models.Session.heartbeat <= expiry_time).all()
     sess_ids = [sess.id for sess in expired_sessions]
+
+    finished_launcher_sessions = owned_session_query(db, owner).join(models.BatchJob).filter(models.BatchJob.state == "finished").all()  # type: ignore
+    expired_sessions.extend(sess for sess in finished_launcher_sessions if sess.id not in sess_ids)
+    sess_ids = [sess.id for sess in expired_sessions]
+
+    for session in expired_sessions:
+        _timeout_jobs(session)
+
     db.query(models.Session).filter(models.Session.id.in_(sess_ids)).delete(synchronize_session=False)
     db.flush()
-    if expired_sessions:
-        logger.info(f"Deleting stale sessions: {[s.id for s in expired_sessions]}")
-    return expired_jobs, expiry_events
 
 
-def create(
-    db: Session, owner: schemas.UserOut, session: schemas.SessionCreate
-) -> Tuple[models.Session, List[models.Job], List[models.LogEvent]]:
-    expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
+def create(db: Session, owner: schemas.UserOut, session: schemas.SessionCreate) -> models.Session:
+    _clear_stale_sessions(db, owner)
 
     site_id = (
         db.query(models.Site.id).filter(models.Site.owner_id == owner.id, models.Site.id == session.site_id).scalar()  # type: ignore
@@ -80,7 +85,7 @@ def create(
     created_session = models.Session(**session.dict())
     db.add(created_session)
     db.flush()
-    return created_session, expired_jobs, expiry_events
+    return created_session
 
 
 def _acquire_jobs(db: orm.Session, job_q: Select, session: models.Session) -> List[Dict[str, Any]]:
@@ -92,6 +97,9 @@ def _acquire_jobs(db: orm.Session, job_q: Select, session: models.Session) -> Li
     # Do not overwrite job.batch_job_id with a Session that has no batch_job_id:
     if session.batch_job_id is not None:
         stmt = stmt.values(batch_job_id=session.batch_job_id)
+        for job in acquired_jobs:
+            job["batch_job_id"] = session.batch_job_id
+            job["session_id"] = session.id
 
     db.execute(stmt)
     db.flush()
@@ -170,19 +178,22 @@ def acquire(
     return _acquire_jobs(db, job_q, session)
 
 
-def tick(
-    db: Session, owner: schemas.UserOut, session_id: int
-) -> Tuple[datetime, List[models.Job], List[models.LogEvent]]:
-    expired_jobs, expiry_events = _clear_stale_sessions(db, owner)
+def tick(db: Session, owner: schemas.UserOut, session_id: int) -> datetime:
     in_db = owned_session_query(db, owner).filter(models.Session.id == session_id).one()
     ts = datetime.utcnow()
     in_db.heartbeat = ts
     db.flush()
-    return ts, expired_jobs, expiry_events
+
+    # Clear after updating heartbeat, to avoid clearing self
+    _clear_stale_sessions(db, owner)
+    return ts
 
 
 def delete(db: Session, owner: schemas.UserOut, session_id: int) -> None:
     qs = owned_session_query(db, owner).filter(models.Session.id == session_id)
-    qs.one()
-    db.query(models.Session).filter(models.Session.id == session_id).delete()
+    session = qs.one()
+
+    _timeout_jobs(session)
+
+    db.query(models.Session).filter(models.Session.id == session_id).delete(synchronize_session=False)
     db.flush()

@@ -1,12 +1,11 @@
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, Depends, status
-
 import orjson
-from starlette.responses import Response
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import ORJSONResponse
 from sqlalchemy import orm
+from starlette.responses import Response
 
 from balsam import schemas
 from balsam.server import ValidationError, settings
@@ -32,11 +31,13 @@ def list(
     return Response(content=orjson.dumps({"count": count, "results": jobs}), media_type="application/json")
 
 
-@router.get("/{job_id}", response_model=schemas.JobOut)
-def read(job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> Job:
+@router.get("/{job_id}", response_class=ORJSONResponse)
+def read(
+    job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+) -> ORJSONResponse:
     """Get a Job by id."""
     count, jobs = crud.jobs.fetch(db, owner=user, job_id=job_id)
-    return jobs[0]
+    return ORJSONResponse(content=jobs[0])
 
 
 @router.post("/", response_class=ORJSONResponse, status_code=status.HTTP_201_CREATED)
@@ -48,69 +49,51 @@ def bulk_create(
     db.commit()
     # TODO: Pubsub.publish using jsonable_encoder: killing performance for many jobs
     # If re-integrating pubsub, need to root out fastapi.jsonable_encoder.
-    return ORJSONResponse(content=new_jobs)
+    return ORJSONResponse(content=new_jobs, status_code=status.HTTP_201_CREATED)
 
 
-@router.patch("/", response_model=List[schemas.JobOut])
+@router.patch("/")
 def bulk_update(
     jobs: List[schemas.JobBulkUpdate],
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
-) -> List[schemas.JobOut]:
+) -> int:
     """Update a list of Jobs"""
     now = datetime.utcnow()
     patch_dicts = {job.id: {**job.dict(exclude_unset=True, exclude={"id"}), "last_update": now} for job in jobs}
     if len(jobs) > len(patch_dicts):
         raise ValidationError("Duplicate Job ID keys provided")
-    updated_jobs, new_events = crud.jobs.bulk_update(db, owner=user, patch_dicts=patch_dicts)
-
-    result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
-    result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
+    num_updated = crud.jobs.bulk_update(db, owner=user, patch_dicts=patch_dicts)
     db.commit()
-
-    pubsub.publish(user.id, "bulk-update", "job", result_jobs)
-    pubsub.publish(user.id, "bulk-create", "event", result_events)
-    return result_jobs
+    return num_updated
 
 
-@router.put("/", response_model=List[schemas.JobOut])
+@router.put("/")
 def query_update(
     update_fields: schemas.JobUpdate,
     db: orm.Session = Depends(get_session),
     user: schemas.UserOut = Depends(auth),
     q: JobQuery = Depends(JobQuery),
-) -> List[schemas.JobOut]:
+) -> int:
     """Apply the same update to all Jobs selected by the query."""
     data = update_fields.dict(exclude_unset=True)
     data["last_update"] = datetime.utcnow()
-    updated_jobs, new_events = crud.jobs.update_query(db, owner=user, update_data=data, filterset=q)
-
-    result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
-    result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
+    num_updated = crud.jobs.update_query(db, owner=user, update_data=data, filterset=q)
     db.commit()
-
-    pubsub.publish(user.id, "bulk-update", "job", result_jobs)
-    pubsub.publish(user.id, "bulk-create", "event", result_events)
-    return result_jobs
+    return num_updated
 
 
-@router.put("/{job_id}", response_model=schemas.JobOut)
+@router.put("/{job_id}")
 def update(
     job_id: int, job: schemas.JobUpdate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
-) -> schemas.JobOut:
+) -> int:
     """Update a Job by id."""
     data = job.dict(exclude_unset=True)
     data["last_update"] = datetime.utcnow()
     patch = {job_id: data}
-    updated_jobs, new_events = crud.jobs.bulk_update(db, owner=user, patch_dicts=patch)
-
-    result_jobs = [schemas.JobOut.from_orm(job) for job in updated_jobs]
-    result_events = [schemas.LogEventOut.from_orm(e) for e in new_events]
-
+    num_updated = crud.jobs.bulk_update(db, owner=user, patch_dicts=patch)
     db.commit()
-    pubsub.publish(user.id, "bulk-update", "job", result_jobs)
-    pubsub.publish(user.id, "bulk-create", "event", result_events)
-    return result_jobs[0]
+    return num_updated
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -124,7 +107,8 @@ def delete(job_id: int, db: orm.Session = Depends(get_session), user: schemas.Us
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 def query_delete(
     db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth), q: JobQuery = Depends(JobQuery)
-) -> None:
+) -> int:
     """Delete all jobs selected by the query."""
-    crud.jobs.delete_query(db, owner=user, filterset=q)
+    num_deleted = crud.jobs.delete_query(db, owner=user, filterset=q)
     db.commit()
+    return num_deleted

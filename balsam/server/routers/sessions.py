@@ -31,16 +31,9 @@ def create(
     session: schemas.SessionCreate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> schemas.SessionOut:
     """Create a new Session for acquiring Jobs to process."""
-    created_session, expired_jobs, expiry_events = crud.sessions.create(db, owner=user, session=session)
+    created_session = crud.sessions.create(db, owner=user, session=session)
     result = schemas.SessionOut.from_orm(created_session)
-
-    result_jobs = [schemas.JobOut.from_orm(job) for job in expired_jobs]
-    result_events = [schemas.LogEventOut.from_orm(e) for e in expiry_events]
     db.commit()
-
-    pubsub.publish(user.id, "create", "session", result)
-    pubsub.publish(user.id, "bulk-update", "job", result_jobs)
-    pubsub.publish(user.id, "bulk-create", "event", result_events)
     return result
 
 
@@ -60,14 +53,8 @@ def acquire(
 @router.put("/{session_id}")
 def tick(session_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
     """Send a heartbeat to extend the given Session by id."""
-    ts, expired_jobs, events = crud.sessions.tick(db, owner=user, session_id=session_id)
-    result = {"id": session_id, "heartbeat": ts}
-    pubsub.publish(user.id, "update", "session", result)
-    result_jobs = [schemas.JobOut.from_orm(job) for job in expired_jobs]
-    result_events = [schemas.LogEventOut.from_orm(e) for e in events]
+    crud.sessions.tick(db, owner=user, session_id=session_id)
     db.commit()
-    pubsub.publish(user.id, "bulk-update", "job", result_jobs)
-    pubsub.publish(user.id, "bulk-create", "event", result_events)
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

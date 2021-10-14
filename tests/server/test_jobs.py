@@ -32,9 +32,11 @@ def app(auth_client, site):
 
 @pytest.fixture(scope="function")
 def job_dict(app):
+    WORKDIR_COUNTER = 0
+
     def _job_dict(
         app_id=None,
-        workdir="test/1",
+        workdir=None,
         tags={},
         transfers={"hello-input": {"location_alias": "MyCluster", "path": "/path/to/input.dat"}},
         parameters={"name": "world", "N": 4},
@@ -50,6 +52,10 @@ def job_dict(app):
         node_packing_count=1,
         wall_time_min=0,
     ):
+        nonlocal WORKDIR_COUNTER
+        if workdir is None:
+            workdir = f"test/{WORKDIR_COUNTER:04d}"
+            WORKDIR_COUNTER += 1
         if app_id is None:
             app_id = app["id"]
         return dict(
@@ -201,8 +207,10 @@ def test_bulk_put(auth_client, job_dict):
     for job in jobs:
         assert job["state"] == "STAGED_IN"
     ids = [j["id"] for j in jobs]
-    jobs = auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=ids)
-    for job in jobs:
+    count = auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=ids)
+    assert count == 10
+    updated_jobs = auth_client.get("/jobs/", id=ids)
+    for job in updated_jobs["results"]:
         assert job["state"] == "PREPROCESSED"
 
 
@@ -211,8 +219,10 @@ def test_bulk_patch(auth_client, job_dict):
     for job in jobs:
         assert job["state"] == "STAGED_IN"
     ids = [j["id"] for j in jobs]
-    jobs = auth_client.bulk_patch("/jobs/", [{"id": id, "state": "PREPROCESSED"} for id in ids])
-    for job in jobs:
+    count = auth_client.bulk_patch("/jobs/", [{"id": id, "state": "PREPROCESSED"} for id in ids])
+    assert count == 10
+    updated_jobs = auth_client.get("/jobs/", id=ids)
+    for job in updated_jobs["results"]:
         assert job["state"] == "PREPROCESSED"
 
 
@@ -296,10 +306,12 @@ def test_update_to_running_does_not_release_lock(auth_client, job_dict, create_s
         }
         for j, ts in zip(acquired, run_start_times)
     ]
-    jobs = auth_client.bulk_patch("/jobs/", updates)
+    num_updated = auth_client.bulk_patch("/jobs/", updates)
+    assert num_updated == len(updates)
 
     # The jobs are associated to batchjob and have the expected history:
-    for job in jobs:
+    jobs = auth_client.get("/jobs/", ids=ids)
+    for job in jobs["results"]:
         assert job["batch_job_id"] == session.batch_job_id
         assertHistory(auth_client, job, "CREATED", "STAGED_IN", "PREPROCESSED", "RUNNING")
 
@@ -354,6 +366,41 @@ def test_acquire_for_launch_with_node_constraints(auth_client, job_dict, create_
     )
     assert len(acquired) == 6
     assert all(1 <= job["num_nodes"] <= 8 for job in acquired)
+
+
+def test_acquire_with_max_aggregate_footprint(auth_client, job_dict, create_session):
+    # Enough jobs to fill 4*2 + 8 * 1/8 = 9 nodes
+    jobs = [
+        *[job_dict(num_nodes=2, ranks_per_node=1, node_packing_count=1) for _ in range(4)],
+        *[job_dict(num_nodes=1, ranks_per_node=1, node_packing_count=8) for _ in range(8)],
+    ]
+    jobs = auth_client.bulk_post("/jobs/", jobs)
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"}, id=[j["id"] for j in jobs])
+    session = create_session()
+
+    # Acquire: 8 small + 2 large jobs (10 total)
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        filter_tags={},
+        max_num_jobs=100,
+        max_nodes_per_job=32,
+        max_aggregate_nodes=5,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 10
+    assert len([j for j in acquired if j["num_nodes"] == 2]) == 2
+    assert len([j for j in acquired if j["num_nodes"] == 1]) == 8
+
+    # 2 remain
+    acquired = auth_client.post(
+        f"/sessions/{session.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=100,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    assert len(acquired) == 2
 
 
 def test_acquire_by_tags(auth_client, job_dict, create_session):
@@ -678,6 +725,102 @@ def test_delete_session_frees_lock_on_all_jobs(auth_client, job_dict, create_ses
     assert db_session.query(models.Job).filter_by(session_id=session2.id).count() == 5
 
 
+def test_delete_session_reverts_running_job_state(auth_client, job_dict, create_session, db_session):
+    session1 = create_session()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(7)])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+
+    # Session1 acquires all jobs
+    auth_client.post(
+        f"/sessions/{session1.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=10,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    auth_client.bulk_put("/jobs/", {"state": "RUNNING"})
+
+    assert (
+        db_session.query(models.Job)
+        .filter(models.Job.session_id == session1.id, models.Job.state == "RUNNING")
+        .count()
+        == 7
+    )
+
+    # Session1 is deleted, leaving its jobs unlocked
+    auth_client.delete(f"/sessions/{session1.id}")
+    db_session.expire_all()
+    unlocked = db_session.query(models.Job).filter(models.Job.session_id.is_(None))
+    assert unlocked.count() == 7
+    for job in unlocked:
+        assert job.state == "RUN_TIMEOUT"
+
+
+def test_finished_batchjob_clears_stale_session(
+    auth_client, job_dict, create_session, db_session, fast_session_expiry
+):
+    session_launcher, session_site = create_session(), create_session()
+    auth_client.bulk_post("/jobs/", [job_dict() for _ in range(5)])
+    auth_client.bulk_put("/jobs/", {"state": "PREPROCESSED"})
+
+    # A BatchJob is submitted
+    batch_job = auth_client.post(
+        "/batch-jobs/",
+        site_id=session_launcher.site_id,
+        project="datascience",
+        queue="default",
+        num_nodes=8,
+        wall_time_min=60,
+        job_mode="mpi",
+        optional_params={},
+        filter_tags={},
+    )
+    bj_id = batch_job["id"]
+
+    # BatchJob starts
+    auth_client.put(
+        f"batch-jobs/{bj_id}",
+        state="running",
+        check=status.HTTP_200_OK,
+    )
+
+    # Launcher JobSource creates session & acquires all jobs
+    auth_client.post(
+        f"/sessions/{session_launcher.id}",
+        max_wall_time_min=40,
+        filter_tags={},
+        max_num_jobs=5,
+        max_nodes_per_job=8,
+        check=status.HTTP_200_OK,
+    )
+    auth_client.bulk_put("/jobs/", {"state": "RUNNING"})
+    job_q = db_session.query(models.Job).filter(
+        models.Job.state == "RUNNING", models.Job.session_id == session_launcher.id
+    )
+    assert job_q.count() == 5
+
+    # User `qdels` the launcher; it doesn't shut down gracefully
+    # The jobs are stuck RUNNING and the session is not deleted normally
+    # But the scheduler service (on login node) soon updates the BatchJob to `finished`
+    auth_client.put(
+        f"batch-jobs/{bj_id}",
+        state="finished",
+        check=status.HTTP_200_OK,
+    )
+
+    # The Site session ticks; this ends up clearing the finished launcher session
+    time.sleep(FAST_EXPIRATION_PERIOD + 0.02)
+    auth_client.put(f"/sessions/{session_site.id}")
+
+    # Now the jobs should all be RUN_TIMEOUT and unlocked
+    db_session.expire_all()
+    unlocked_and_timedout = db_session.query(models.Job).filter(
+        models.Job.session_id.is_(None), models.Job.state == "RUN_TIMEOUT"
+    )
+    assert unlocked_and_timedout.count() == 5
+
+
 def test_update_transfer_item(auth_client, job_dict, db_session):
     """Can update state, status_message, task_id"""
     job = auth_client.bulk_post(
@@ -742,6 +885,14 @@ def test_finished_transfer_updates_job_state(auth_client, job_dict):
     job = auth_client.get(f"/jobs/{job['id']}")
     assert job["state"] == "STAGED_IN"
 
+    # The EventLog also got registered correctly:
+    log_event = auth_client.get("/events/", job_id=job["id"], to_state="STAGED_IN")
+    assert (
+        log_event["count"] == 1
+        and log_event["results"][0]["from_state"] == "READY"
+        and log_event["results"][0]["to_state"] == "STAGED_IN"
+    )
+
 
 def test_bulk_create_transfer_items(auth_client, job_dict):
     job_a = job_dict(
@@ -766,7 +917,7 @@ def test_bulk_create_transfer_items(auth_client, job_dict):
 
     for transfer_item in transfer_items:
         job_id = transfer_item["job_id"]
-        job = [j for j in created if j.id == job_id][0]
+        job = [j for j in created if j["id"] == job_id][0]
         letter = job["workdir"][-1].upper()
         assert letter in "ABC"
         remote_path = transfer_item["remote_path"]
@@ -1009,26 +1160,30 @@ def test_postprocessed_job_with_stage_outs(site, auth_client, job_dict):
     assert job1["state"] == "READY"
     assert job2["state"] == "STAGED_IN"
 
-    job1 = auth_client.put(f"/jobs/{job1['id']}", state="POSTPROCESSED")
+    auth_client.put(f"/jobs/{job1['id']}", state="POSTPROCESSED")
+    job1 = auth_client.get(f"/jobs/{job1['id']}")
     assert job1["state"] == "POSTPROCESSED"
-    job1 = auth_client.put(f"/jobs/{job1['id']}", state="STAGED_OUT")
+
+    auth_client.put(f"/jobs/{job1['id']}", state="STAGED_OUT")
+    job1 = auth_client.get(f"/jobs/{job1['id']}")
     assert job1["state"] == "JOB_FINISHED"
 
-    job2 = auth_client.put(f"/jobs/{job2['id']}", state="POSTPROCESSED")
+    auth_client.put(f"/jobs/{job2['id']}", state="POSTPROCESSED")
+    job2 = auth_client.get(f"/jobs/{job2['id']}")
     assert job2["state"] == "POSTPROCESSED"
-    job2 = auth_client.put(f"/jobs/{job2['id']}", state="STAGED_OUT")
+
+    auth_client.put(f"/jobs/{job2['id']}", state="STAGED_OUT")
+    job2 = auth_client.get(f"/jobs/{job2['id']}")
     assert job2["state"] == "JOB_FINISHED"
 
 
-def test_reset_job_with_finished_parents(auth_client, linear_dag):
+def test_job_ready_when_parent_finished(auth_client, linear_dag):
     A, B, C = linear_dag
     assert B["state"] == "AWAITING_PARENTS"
 
-    A = auth_client.put(f"jobs/{A['id']}", state="POSTPROCESSED")
+    auth_client.put(f"jobs/{A['id']}", state="POSTPROCESSED")
+    A = auth_client.get(f"jobs/{A['id']}")
     assert A["state"] == "JOB_FINISHED"
 
     B = auth_client.get(f"jobs/{B['id']}")
-    assert B["state"] == "READY"
-    B = auth_client.put(f"jobs/{B['id']}", state="FAILED")
-    B = auth_client.put(f"jobs/{B['id']}", state="RESET")
     assert B["state"] == "READY"
