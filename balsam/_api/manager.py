@@ -1,6 +1,6 @@
 import logging
 from math import ceil
-from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 from .model import BalsamModel
 from .query import Query
@@ -87,6 +87,10 @@ class Manager(Generic[T]):
 
         logger.debug(f"Performing bulk-update to {self._api_path}\n{patch_list}")
         response_data = self._client.bulk_patch(self._api_path, patch_list)
+        if isinstance(response_data, int):
+            logger.info(f"Updated {response_data} items: data was not updated in place.")
+            return
+
         response_map = {item["id"]: item for item in response_data}
         logger.debug(f"bulk-update response map: {response_map}")
         # Use response_map to update instances in-place
@@ -180,13 +184,16 @@ class Manager(Generic[T]):
             self._api_path + f"{instance.id}",
             **update_data,
         )
-        instance._refresh_from_dict(response_data)
+        if isinstance(response_data, dict):
+            instance._refresh_from_dict(response_data)
 
-    def _do_bulk_update_query(self, patch: Dict[str, Any], filters: Dict[str, Any]) -> List[T]:
+    def _do_bulk_update_query(self, patch: Dict[str, Any], filters: Dict[str, Any]) -> Union[int, List[T]]:
         if not self._bulk_update_enabled:
             raise NotImplementedError(f"The {self._model_class.__name__} API does not offer bulk updates")
         query_params = self._build_query_params(filters)
         response_data = self._client.bulk_put(self._api_path, patch, **query_params)
+        if isinstance(response_data, int):
+            return response_data
         instances = [self._model_class._from_api(dat) for dat in response_data]
         return instances
 
@@ -195,8 +202,11 @@ class Manager(Generic[T]):
         if instance._read_model is not None:
             instance._read_model.id = None  # type: ignore
 
-    def _do_bulk_delete(self, filters: Dict[str, Any]) -> None:
+    def _do_bulk_delete(self, filters: Dict[str, Any]) -> Union[int, None]:
         if not self._bulk_delete_enabled:
             raise NotImplementedError(f"The {self._model_class.__name__} API does not offer bulk deletes")
         query_params = self._build_query_params(filters)
-        self._client.bulk_delete(self._api_path, **query_params)
+        response = self._client.bulk_delete(self._api_path, **query_params)
+        if isinstance(response, int):
+            return response
+        return None

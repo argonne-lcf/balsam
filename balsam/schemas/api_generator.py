@@ -109,7 +109,7 @@ class {{query_name}}(Query[{{model_name}}]):
         {% for line in model_update_kwargs %}
         {{line}},
         {% endfor %}
-    ) -> List[{{model_name}}]:
+    ) -> Union[int, List[{{model_name}}]]:
         '''
         Updates all items selected by this query with the given values.
 

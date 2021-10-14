@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev 4b3ff11]
+# [git rev 59d6fe6]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -123,7 +123,7 @@ class SiteQuery(Query[Site]):
         allowed_projects: Optional[typing.List[str]] = None,
         allowed_queues: Optional[typing.Dict[str, balsam.schemas.site.AllowedQueue]] = None,
         transfer_locations: Optional[typing.Dict[str, pydantic.networks.AnyUrl]] = None,
-    ) -> List[Site]:
+    ) -> Union[int, List[Site]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -322,7 +322,7 @@ class AppQuery(Query[App]):
         description: Optional[str] = None,
         parameters: Optional[typing.Dict[str, balsam.schemas.apps.AppParameter]] = None,
         transfers: Optional[typing.Dict[str, balsam.schemas.apps.TransferSlot]] = None,
-    ) -> List[App]:
+    ) -> Union[int, List[App]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -592,7 +592,7 @@ class JobQuery(Query[Job]):
         pending_file_cleanup: Optional[bool] = None,
         serialized_return_value: Optional[str] = None,
         serialized_exception: Optional[str] = None,
-    ) -> List[Job]:
+    ) -> Union[int, List[Job]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -883,7 +883,7 @@ class BatchJobQuery(Query[BatchJob]):
         status_info: Optional[typing.Dict[str, str]] = None,
         start_time: Optional[datetime.datetime] = None,
         end_time: Optional[datetime.datetime] = None,
-    ) -> List[BatchJob]:
+    ) -> Union[int, List[BatchJob]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -1204,7 +1204,7 @@ class TransferItemQuery(Query[TransferItem]):
         state: Optional[balsam.schemas.transfer.TransferItemState] = None,
         task_id: Optional[str] = None,
         transfer_info: Optional[typing.Dict[str, typing.Any]] = None,
-    ) -> List[TransferItem]:
+    ) -> Union[int, List[TransferItem]]:
         """
         Updates all items selected by this query with the given values.
 

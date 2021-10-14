@@ -177,12 +177,12 @@ class Query(Iterable[T]):
             self._count = _count
         return self._count
 
-    def _update(self, **kwargs: Any) -> List[T]:
+    def _update(self, **kwargs: Any) -> Union[int, List[T]]:
         if self._empty:
             return []
         return self._manager._do_bulk_update_query(patch=kwargs, filters=self._filters)
 
-    def delete(self) -> None:
+    def delete(self) -> Union[int, None]:
         if self._empty:
-            return
+            return None
         return self._manager._do_bulk_delete(filters=self._filters)
