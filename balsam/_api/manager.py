@@ -186,6 +186,9 @@ class Manager(Generic[T]):
         )
         if isinstance(response_data, dict):
             instance._refresh_from_dict(response_data)
+        elif instance._read_model is not None:
+            instance._read_model = instance._read_model.copy(update=update_data)
+            instance._set_clean()
 
     def _do_bulk_update_query(self, patch: Dict[str, Any], filters: Dict[str, Any]) -> Union[int, List[T]]:
         if not self._bulk_update_enabled:

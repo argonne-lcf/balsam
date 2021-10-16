@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -389,7 +389,7 @@ class TestJobs:
         jobs = Job.objects.bulk_create(jobs)
         assert all(job.state == "STAGED_IN" for job in jobs)
 
-        preproc_time = datetime.utcnow()
+        preproc_time = datetime.now(timezone.utc)
         for job in jobs:
             job.state = "PREPROCESSED"
             job.state_data = {"message": "Skipped Preprocessing Step"}
@@ -397,17 +397,13 @@ class TestJobs:
 
         Job.objects.bulk_update(jobs)
 
-        # Jobs were updated in-place:
-        for job in jobs:
+        # Jobs appear updated in fresh query:
+        for job in Job.objects.all():
             assert job._state == "clean"
             assert job.state == "PREPROCESSED"
             assert job.last_update > preproc_time
             assert job.state_data is None
             assert job.state_timestamp is None
-
-        # Jobs also updated in fresh query:
-        for job in Job.objects.all():
-            assert job.state == "PREPROCESSED"
 
     def test_children_read(self, client):
         App = client.App
@@ -439,12 +435,14 @@ class TestJobs:
         )
         job = Job("test/test", app_id=app.id, ranks_per_node=64)
         job.save()
+        job.refresh_from_db()
         t1 = job.last_update
 
         job.num_nodes *= 2
         job.save()
         job.refresh_from_db()
         assert job.num_nodes == 2
+        print(t1, job.last_update)
         assert job.last_update > t1
 
     def test_can_view_history(self, client):
@@ -554,7 +552,7 @@ class TestJobs:
         app2 = App.objects.create(site_id=site2.id, name="one", serialized_class="txt", source_code="txt")
 
         jobs = [Job(f"foo/{i}", app_id=app1.id) for i in range(2)] + [
-            Job(f"foo/{i}", app_id=app2.id) for i in range(2)
+            Job(f"foo/{i}", app_id=app2.id) for i in range(2, 4)
         ]
         jobs = Job.objects.bulk_create(jobs)
 
@@ -682,6 +680,7 @@ class TestTransfers:
 
         job.state = "POSTPROCESSED"
         job.save()
+        job.refresh_from_db()
         assert job.state == "JOB_FINISHED"
 
     def test_stage_out_flow(self, client):
@@ -1026,7 +1025,7 @@ class TestBatchJobs:
         assert len(acquired) == 3
 
         related = Job.objects.filter(batch_job_id=batch_job.id)
-        assert sorted(related, key=lambda job: job.id) == sorted(acquired, key=lambda job: job.id)
+        assert sorted([j.id for j in related]) == sorted([j.id for j in acquired])
 
 
 class TestSessions:
