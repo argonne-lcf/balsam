@@ -12,7 +12,7 @@ aredis==1.1.8
 redis==3.5.3
 
 # Duplicated from setup.cfg (but pinned)
-PyYAML==5.4.1
+PyYAML==6.0
 multiprocessing-logging==0.3.1
 click==8.0.3
 inquirer==2.7.0
