@@ -51,12 +51,19 @@ def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> None:
     latest_sweep_time[owner.id] = now
     expiry_time = now - SESSION_EXPIRE_PERIOD
 
+    sess_ids = []
+
     expired_sessions = owned_session_query(db, owner).filter(models.Session.heartbeat <= expiry_time).all()
-    sess_ids = [sess.id for sess in expired_sessions]
+    for sess in expired_sessions:
+        logger.info(f"Session {sess.id} expired: last heartbeat was {sess.heartbeat}; expiry_time is {expiry_time}")
+        sess_ids.append(sess.id)
 
     finished_launcher_sessions = owned_session_query(db, owner).join(models.BatchJob).filter(models.BatchJob.state == "finished").all()  # type: ignore
-    expired_sessions.extend(sess for sess in finished_launcher_sessions if sess.id not in sess_ids)
-    sess_ids = [sess.id for sess in expired_sessions]
+    for sess in finished_launcher_sessions:
+        if sess.id not in sess_ids:
+            logger.info(f"Session {sess.id} expired: the assosciated BatchJob state is finished.")
+            expired_sessions.append(sess)
+            sess_ids.append(sess.id)
 
     for session in expired_sessions:
         _timeout_jobs(session)
