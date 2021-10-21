@@ -7,7 +7,6 @@ import logging.handlers
 
 LOG_PATH = "/home/msalim/db-backups/backup.log"
 BACKUP_DIR = "/home/msalim/db-backups"
-BACKUP_DESTINATION = "homes.cels.anl.gov:/nfs/gce/projects/balsam"
 DUMP_CMD = "docker exec postgres pg_dump -U postgres balsam"
 BACKUP_INTERVAL = timedelta(hours=12)
 MAX_OLD_BACKUPS = 64
@@ -37,9 +36,6 @@ def run_backup() -> None:
     for path in delete_paths:
         path.unlink(missing_ok=True)
         logger.info(f"Deleted old DB backup: {path}")
-
-    subprocess.run(f"rsync -avz {backup_dir}/ {BACKUP_DESTINATION}", shell=True)
-    logger.info(f"Completed rsync to {BACKUP_DESTINATION}")
 
 
 while True:
