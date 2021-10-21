@@ -106,3 +106,21 @@ $ docker-compose down
 $ docker-compose build gunicorn
 $ docker-compose up -d
 ```
+
+## Database Backups
+
+The script `balsam/deploy/db_snapshot.py` can be used with the accompanying
+`service.example` file to set up a recurring service for dumping the Postgres
+database to a file.  Copy the Python script to an appropriate location for the service,
+modify the `service.example` file accordingly, and follow the instructions at the top of the
+`service.example` file. 
+
+The script uses the [basic postgres dump
+functionality](https://www.postgresql.org/docs/9.1/backup-dump.html).  Backups
+are performed locally, and should be replicated to a remote system.  The easiest
+way within the CELS GCE environment is to set up a cron job to **pull** the database
+backups.
+
+```
+15 * * * *  rsync -avz balsam-dev-01.alcf.anl.gov:/home/msalim/db-backups /nfs/gce/projects/balsam/backups/
+```
