@@ -716,6 +716,7 @@ class TestTransfers:
 
         job.state = "POSTPROCESSED"
         job.save()
+        job.refresh_from_db()
         assert job.state == "POSTPROCESSED"
         stage_out.refresh_from_db()
         assert stage_out.state == "pending"

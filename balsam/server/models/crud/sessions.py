@@ -9,7 +9,7 @@ from balsam import schemas
 from balsam.server import ValidationError, models
 from balsam.server.routers.filters import SessionQuery
 
-from .jobs import owned_job_selector, update_states_by_query
+from .jobs import do_update_jobs, owned_job_selector, select_jobs_for_update
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +31,25 @@ def fetch(db: Session, owner: schemas.UserOut, filterset: SessionQuery) -> Tuple
     return count, result
 
 
-def _timeout_jobs(session: models.Session) -> None:
-    zombies = session.jobs.filter(models.Job.state == "RUNNING")
-    num_timedout = update_states_by_query(
-        zombies,
-        state="RUN_TIMEOUT",
-        data="Session expired: job was stuck in RUNNING state",
+def _timeout_jobs(db: Session, session: models.Session) -> None:
+    zombies = (
+        select((models.Job.__table__,))
+        .where(models.Job.session_id == session.id)
+        .where(models.Job.state == "RUNNING")
     )
-    logger.info(f"Timed out {num_timedout} running jobs in expired session {session.id}")
+    update_jobs, transfer_items_by_jobid = select_jobs_for_update(db, zombies)
+    timeout_dat = {
+        "state": "RUN_TIMEOUT",
+        "state_data": {"message": "Session expired: job was stuck in RUNNING state"},
+    }
+    if update_jobs:
+        do_update_jobs(
+            db,
+            update_jobs,
+            transfer_items_by_jobid,
+            patch_dicts={job.id: timeout_dat.copy() for job in update_jobs},
+        )
+        logger.info(f"Timed out {len(update_jobs)} running jobs in expired session {session.id}")
 
 
 def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> None:
@@ -71,7 +82,7 @@ def _clear_stale_sessions(db: Session, owner: schemas.UserOut) -> None:
             sess_ids.append(sess.id)
 
     for session in expired_sessions:
-        _timeout_jobs(session)
+        _timeout_jobs(db, session)
 
     db.query(models.Session).filter(models.Session.id.in_(sess_ids)).delete(synchronize_session=False)
     db.flush()
@@ -205,7 +216,7 @@ def delete(db: Session, owner: schemas.UserOut, session_id: int) -> None:
     qs = owned_session_query(db, owner).filter(models.Session.id == session_id)
     session = qs.one()
 
-    _timeout_jobs(session)
+    _timeout_jobs(db, session)
 
     db.query(models.Session).filter(models.Session.id == session_id).delete(synchronize_session=False)
     db.flush()

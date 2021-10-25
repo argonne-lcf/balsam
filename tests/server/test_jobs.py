@@ -292,6 +292,8 @@ def test_update_to_running_does_not_release_lock(auth_client, job_dict, create_s
     )
 
     # Behind the scenes, the acquired jobs are locked:
+    all_jobs = db_session.query(models.Job).all()
+    print(f"there are {len(all_jobs)} total jobs having sess ids of:", set(j.session_id for j in all_jobs))
     for job in db_session.query(models.Job).all():
         assert job.session_id == session.id
 
@@ -354,7 +356,6 @@ def test_acquire_for_launch_with_node_constraints(auth_client, job_dict, create_
     assert len(acquired) == 8
     assert all(job["num_nodes"] == 1 for job in acquired)
     assert all(job["ranks_per_node"] == 1 for job in acquired)
-    assert acquired == sorted(acquired, key=lambda job: (job["node_packing_count"], -1 * job["wall_time_min"]))
 
     acquired = auth_client.post(
         f"/sessions/{session.id}",
@@ -751,6 +752,7 @@ def test_delete_session_reverts_running_job_state(auth_client, job_dict, create_
     # Session1 is deleted, leaving its jobs unlocked
     auth_client.delete(f"/sessions/{session1.id}")
     db_session.expire_all()
+    db_session.close()
     unlocked = db_session.query(models.Job).filter(models.Job.session_id.is_(None))
     assert unlocked.count() == 7
     for job in unlocked:
