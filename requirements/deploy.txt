@@ -1,7 +1,7 @@
 # Pinned dependencies for server deploy
 psycopg2==2.9.1
 fastapi==0.70.0
-orjson==3.6.3
+orjson==3.6.4
 fastapi==0.70.0
 uvicorn[standard]==0.15.0
 python-multipart==0.0.5
@@ -9,12 +9,12 @@ gunicorn==20.1.0
 PyJWT==2.3.0
 passlib[bcrypt]==1.7.4
 alembic==1.7.4
-SQLAlchemy==1.4.25
+SQLAlchemy==1.4.26
 aredis==1.1.8
 redis==3.5.3
 
 # Duplicated from setup.cfg (but pinned)
-PyYAML==5.4.1
+PyYAML==6.0
 multiprocessing-logging==0.3.1
 click==8.0.3
 inquirer==2.7.0
