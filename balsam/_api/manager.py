@@ -226,10 +226,20 @@ class Manager(Generic[T]):
     def _do_bulk_update_query(self, patch: Dict[str, Any], filters: Dict[str, Any]) -> Union[int, List[T]]:
         if not self._bulk_update_enabled:
             raise NotImplementedError(f"The {self._model_class.__name__} API does not offer bulk updates")
-        query_params = self._build_query_params(filters)
-        response_data = self._client.bulk_put(self._api_path, patch, **query_params)
-        if isinstance(response_data, int):
-            return response_data
+
+        _, items = self._fetch_pages(filters, ordering=None, limit=None, offset=None)
+        update_ids = [item["id"] for item in items]
+
+        response_data = []
+        for ids_chunk in chunk_list(update_ids, chunk_size=FILTER_CHUNK_SIZE):
+            res = self._client.bulk_put(self._api_path, patch, id=ids_chunk)
+            if isinstance(res, int):
+                response_data.append(res)
+            else:
+                response_data.extend(res)
+
+        if response_data and isinstance(response_data[0], int):
+            return sum(response_data)
         instances = [self._model_class._from_api(dat) for dat in response_data]
         return instances
 

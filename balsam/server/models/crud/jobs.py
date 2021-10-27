@@ -385,6 +385,11 @@ def update_query(db: Session, owner: schemas.UserOut, update_data: Dict[str, Any
     qs = owned_job_selector(owner)
     qs = filterset.apply_filters(qs)
     update_jobs, transfer_items_by_jobid = select_jobs_for_update(db, qs)
+    if len(update_jobs) > schemas.MAX_ITEMS_PER_BULK_OP:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot bulk-update more than {schemas.MAX_ITEMS_PER_BULK_OP} in a single API call.",
+        )
     patch_dicts = {job.id: update_data.copy() for job in update_jobs}
     do_update_jobs(db, update_jobs, transfer_items_by_jobid, patch_dicts)
     return len(update_jobs)
