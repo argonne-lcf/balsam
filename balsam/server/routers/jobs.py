@@ -2,12 +2,13 @@ from datetime import datetime
 from typing import List
 
 import orjson
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import ORJSONResponse
 from sqlalchemy import orm
 from starlette.responses import Response
 
 from balsam import schemas
+from balsam.schemas import MAX_ITEMS_PER_BULK_OP
 from balsam.server import ValidationError, settings
 from balsam.server.models import Job, crud, get_session
 from balsam.server.pubsub import pubsub
@@ -45,6 +46,10 @@ def bulk_create(
     jobs: List[schemas.ServerJobCreate], db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
 ) -> ORJSONResponse:
     """Create a list of Jobs."""
+    if len(jobs) > MAX_ITEMS_PER_BULK_OP:
+        raise HTTPException(
+            status_code=400, detail=f"Cannot bulk-create more than {MAX_ITEMS_PER_BULK_OP} in a single API call."
+        )
     new_jobs = crud.jobs.bulk_create(db, owner=user, job_specs=jobs)
     db.commit()
     # TODO: Pubsub.publish using jsonable_encoder: killing performance for many jobs
@@ -59,6 +64,10 @@ def bulk_update(
     user: schemas.UserOut = Depends(auth),
 ) -> int:
     """Update a list of Jobs"""
+    if len(jobs) > MAX_ITEMS_PER_BULK_OP:
+        raise HTTPException(
+            status_code=400, detail=f"Cannot bulk-update more than {MAX_ITEMS_PER_BULK_OP} in a single API call."
+        )
     now = datetime.utcnow()
     patch_dicts = {job.id: {**job.dict(exclude_unset=True, exclude={"id"}), "last_update": now} for job in jobs}
     if len(jobs) > len(patch_dicts):

@@ -2,7 +2,7 @@ import logging
 from math import ceil
 from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
-from balsam.schemas import MAX_PAGE_SIZE
+from balsam.schemas import MAX_ITEMS_PER_BULK_OP, MAX_PAGE_SIZE
 
 from .model import BalsamModel
 from .query import Query
@@ -13,6 +13,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BalsamModel)
+U = TypeVar("U")
+
+
+def chunk_list(items: List[U], chunk_size: int) -> List[List[U]]:
+    num_chunks = ceil(len(items) / chunk_size)
+    return [items[n * chunk_size : (n + 1) * chunk_size] for n in range(num_chunks)]
 
 
 class Manager(Generic[T]):
@@ -64,7 +70,12 @@ class Manager(Generic[T]):
         ), f"bulk_create requires all items to be instances of {self._model_class.__name__}"
 
         data_list = [obj._create_model.dict() for obj in instances]  # type: ignore # (checked in the assert above)
-        response_data = self._client.bulk_post(self._api_path, data_list)
+        response_data: List[Dict[str, Any]] = []
+
+        for chunk in chunk_list(data_list, chunk_size=MAX_ITEMS_PER_BULK_OP):
+            res = self._client.bulk_post(self._api_path, chunk)
+            response_data.extend(res)
+
         # Cannot update in-place: no IDs to perform the mapping yet
         return [self._model_class._from_api(dat) for dat in response_data]
 
@@ -87,8 +98,16 @@ class Manager(Generic[T]):
             return
 
         logger.debug(f"Performing bulk-update to {self._api_path}\n{patch_list}")
-        response_data = self._client.bulk_patch(self._api_path, patch_list)
-        if isinstance(response_data, int):
+        response_data = []
+
+        for chunk in chunk_list(patch_list, chunk_size=MAX_ITEMS_PER_BULK_OP):
+            res = self._client.bulk_patch(self._api_path, chunk)
+            if isinstance(res, int):
+                response_data.append(res)
+            else:
+                response_data.extend(res)
+
+        if isinstance(response_data[0], int):
             logger.info(f"Updated {response_data} items: data was not updated in place.")
             return
 
