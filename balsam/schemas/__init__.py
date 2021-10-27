@@ -37,7 +37,7 @@ from .serializer import (
     serialize,
     serialize_exception,
 )
-from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
+from .session import MAX_JOBS_PER_SESSION_ACQUIRE, PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
 from .transfer import (
     PaginatedTransferItemOut,
@@ -78,6 +78,7 @@ __all__ = [
     "SessionOut",
     "PaginatedSessionsOut",
     "SessionAcquire",
+    "MAX_JOBS_PER_SESSION_ACQUIRE",
     "JobCreate",
     "ServerJobCreate",
     "JobUpdate",

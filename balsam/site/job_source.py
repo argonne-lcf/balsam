@@ -5,7 +5,7 @@ import time
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
-from balsam.schemas import JobState
+from balsam.schemas import MAX_JOBS_PER_SESSION_ACQUIRE, JobState
 from balsam.util import Process, SigHandler
 
 from .util import Queue
@@ -95,7 +95,6 @@ class FixedDepthJobSource(Process):
         self.max_aggregate_nodes = max_aggregate_nodes
         self.scheduler_id = scheduler_id
         self.start_time = time.time()
-        self.fetch_limit = 2048
 
     def get_jobs(self, max_num_jobs: int) -> List["Job"]:
         fetched = []
@@ -129,7 +128,7 @@ class FixedDepthJobSource(Process):
         while not sig_handler.wait_until_exit(timeout=1):
             qsize = self.queue.qsize()
             fetch_count = max(0, self.prefetch_depth - qsize)
-            fetch_count = min(fetch_count, self.fetch_limit)
+            fetch_count = min(fetch_count, MAX_JOBS_PER_SESSION_ACQUIRE)
             logger.debug(f"JobSource queue depth is currently {qsize}. Fetching {fetch_count} more")
             if fetch_count:
                 params = self._get_acquire_parameters(fetch_count)
@@ -215,12 +214,15 @@ class SynchronousJobSource(object):
     def get_jobs(
         self, max_num_jobs: int, max_nodes_per_job: Optional[int] = None, max_aggregate_nodes: Optional[float] = None
     ) -> List["Job"]:
+        max_num_jobs = min(max_num_jobs, MAX_JOBS_PER_SESSION_ACQUIRE)
+
         request_time: Optional[int]
         if self.max_wall_time_min:
             elapsed_min = (time.time() - self.start_time) / 60.0
             request_time = round(self.max_wall_time_min - elapsed_min)
         else:
             request_time = None
+
         jobs = self.session.acquire_jobs(
             max_num_jobs=max_num_jobs,
             max_nodes_per_job=max_nodes_per_job,

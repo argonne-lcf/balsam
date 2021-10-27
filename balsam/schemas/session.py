@@ -1,9 +1,11 @@
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 from .job import RUNNABLE_STATES, JobState
+
+MAX_JOBS_PER_SESSION_ACQUIRE = 2048
 
 
 class SessionCreate(BaseModel):
@@ -30,6 +32,12 @@ class SessionAcquire(BaseModel):
     filter_tags: Dict[str, str]
     states: Set[JobState] = RUNNABLE_STATES
     app_ids: Set[int] = set()
+
+    @validator("max_num_jobs")
+    def validate_max_num_jobs(cls, v: int) -> int:
+        if 1 <= v <= MAX_JOBS_PER_SESSION_ACQUIRE:
+            return v
+        raise ValueError(f"max_num_jobs must be between 1 and {MAX_JOBS_PER_SESSION_ACQUIRE}")
 
 
 class PaginatedSessionsOut(BaseModel):
