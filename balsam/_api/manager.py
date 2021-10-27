@@ -10,6 +10,7 @@ from .query import Query
 if TYPE_CHECKING:
     from balsam.client import RESTClient
 
+FILTER_CHUNK_SIZE = 512
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BalsamModel)
@@ -138,24 +139,19 @@ class Manager(Generic[T]):
 
     @staticmethod
     def _chunk_filters(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
-        chunk_size = 512
-        chunked_filter = next(
+        param_to_chunk = next(
             (
-                (name, filter)
-                for (name, filter) in filters.items()
-                if isinstance(filter, (list, tuple, set)) and len(filter) > chunk_size
+                (name, val)
+                for (name, val) in filters.items()
+                if isinstance(val, (list, tuple, set)) and len(val) > FILTER_CHUNK_SIZE
             ),
             None,
         )
-        if chunked_filter is None:
-            filter_chunks = [filters]
-        else:
-            name, filter = chunked_filter
-            filter = list(filter)
-            nchunk = ceil(len(filter) / chunk_size)
-            chunks = [filter[i * chunk_size : (i + 1) * chunk_size] for i in range(nchunk)]
-            filter_chunks = [{**filters, name: chunk} for chunk in chunks]
-        return filter_chunks
+        if param_to_chunk is None:
+            return [filters]
+
+        name, param_list = param_to_chunk
+        return [{**filters, name: chunk} for chunk in chunk_list(list(param_list), FILTER_CHUNK_SIZE)]
 
     def _unpack_list_response(self, response_data: Dict[str, Any]) -> Tuple[int, List[Dict[str, Any]]]:
         count = response_data["count"]
