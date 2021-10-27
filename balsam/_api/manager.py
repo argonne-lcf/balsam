@@ -2,6 +2,8 @@ import logging
 from math import ceil
 from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
+from balsam.schemas import MAX_PAGE_SIZE
+
 from .model import BalsamModel
 from .query import Query
 
@@ -19,7 +21,6 @@ class Manager(Generic[T]):
     _bulk_create_enabled: bool
     _bulk_update_enabled: bool
     _bulk_delete_enabled: bool
-    _paginated_list_response: bool
     _api_path: str
 
     def __init__(self, client: "RESTClient") -> None:
@@ -137,13 +138,35 @@ class Manager(Generic[T]):
             filter_chunks = [{**filters, name: chunk} for chunk in chunks]
         return filter_chunks
 
-    def _unpack_list_response(self, response_data: Dict[str, Any]) -> Tuple[Optional[int], List[Dict[str, Any]]]:
-        if self._paginated_list_response:
-            count = response_data["count"]
-            results = response_data["results"]
-        else:
-            count = None
-            results = response_data
+    def _unpack_list_response(self, response_data: Dict[str, Any]) -> Tuple[int, List[Dict[str, Any]]]:
+        count = response_data["count"]
+        results = response_data["results"]
+        return count, results
+
+    def _fetch_pages(
+        self, filters: Dict[str, Any], ordering: Optional[str], limit: Optional[int], offset: Optional[int]
+    ) -> Tuple[int, List[Dict[str, Any]]]:
+
+        base_offset = 0 if offset is None else offset
+        page_size = MAX_PAGE_SIZE if limit is None else min(limit, MAX_PAGE_SIZE)
+
+        # Fetch the first page of data and total item count
+        query_params = self._build_query_params(filters, ordering, limit=page_size, offset=base_offset)
+        response_data = self._client.get(self._api_path, **query_params)
+        count, results = self._unpack_list_response(response_data)
+
+        num_to_fetch = count if limit is None else min(limit, count)
+        num_pages = ceil(num_to_fetch / MAX_PAGE_SIZE)
+
+        # If there is more than 1 page of data to fetch
+        for page_no in range(1, num_pages):
+            to_fetch = min(page_size, num_to_fetch - len(results))
+            query_params = self._build_query_params(
+                filters, ordering, limit=to_fetch, offset=base_offset + (page_no * page_size)
+            )
+            response_data = self._client.get(self._api_path, **query_params)
+            _, page = self._unpack_list_response(response_data)
+            results.extend(page)
         return count, results
 
     def _get_list(
@@ -152,10 +175,10 @@ class Manager(Generic[T]):
         ordering: Optional[str],
         limit: Optional[int],
         offset: Optional[int],
-    ) -> Tuple[List[T], Optional[int]]:
+    ) -> Tuple[List[T], int]:
 
         filter_chunks = self._chunk_filters(filters)
-        full_count: Optional[int] = 0
+        full_count: int = 0
         full_results: List[Dict[str, Any]] = []
 
         # Added complexity: we handle the case that one URL query
@@ -163,13 +186,8 @@ class Manager(Generic[T]):
         # of the sequence (e.g. filter by list of 100k job ids will result in 196 requests
         # being stitched together)
         for filter_chunk in filter_chunks:
-            query_params = self._build_query_params(filter_chunk, ordering, limit, offset)
-            response_data = self._client.get(self._api_path, **query_params)
-            count, results = self._unpack_list_response(response_data)
-            if count is not None and full_count is not None:
-                full_count += count
-            else:
-                full_count = None
+            count, results = self._fetch_pages(filter_chunk, ordering, limit, offset)
+            full_count += count
             full_results.extend(results)
         if ordering and len(filter_chunks) > 1:
             order_key, reverse = (ordering.lstrip("-"), True) if ordering.startswith("-") else (ordering, False)

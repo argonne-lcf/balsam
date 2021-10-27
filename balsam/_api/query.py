@@ -127,8 +127,7 @@ class Query(Iterable[T]):
             limit=self._limit,
             offset=self._offset,
         )
-        if count is not None:
-            self._count = count
+        self._count = count
         self._result_cache = instances
 
     def _filter(self: "U", **kwargs: Any) -> "U":

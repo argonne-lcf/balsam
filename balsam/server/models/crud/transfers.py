@@ -37,7 +37,7 @@ def fetch(
         qs = filterset.apply_filters(qs)
     count = qs.group_by(models.TransferItem.id).count()
     assert paginator is not None
-    transfers = paginator.paginate(qs)
+    transfers = paginator.paginate(qs.order_by(models.TransferItem.id))
     return count, transfers
 
 

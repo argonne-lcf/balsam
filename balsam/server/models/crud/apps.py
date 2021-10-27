@@ -26,7 +26,7 @@ def fetch(
     else:
         assert paginator is not None
         count = qs.group_by(models.App.id).count()
-        return count, paginator.paginate(qs)
+        return count, paginator.paginate(qs.order_by(models.App.id))
 
 
 def flush_or_400(db: Session) -> None:

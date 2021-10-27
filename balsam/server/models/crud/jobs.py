@@ -84,7 +84,7 @@ def fetch(
         return 1, [dict(job)]
     count_q = stmt.with_only_columns([func.count(models.Job.id)]).order_by(None)
     count = db.execute(count_q).scalar()
-    stmt = paginator.paginate_core(stmt)
+    stmt = paginator.paginate_core(stmt).order_by(models.Job.id)
     job_rows = [dict(j) for j in db.execute(stmt).mappings()]
     return count, job_rows
 

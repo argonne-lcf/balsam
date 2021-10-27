@@ -26,7 +26,7 @@ def owned_session_query(db: Session, owner: schemas.UserOut) -> "Query[models.Se
 
 def fetch(db: Session, owner: schemas.UserOut, filterset: SessionQuery) -> Tuple[int, List[models.Session]]:
     qs = owned_session_query(db, owner)
-    result = filterset.apply_filters(qs).all()
+    result = filterset.apply_filters(qs).order_by(models.Session.id).all()
     count = len(result)
     return count, result
 

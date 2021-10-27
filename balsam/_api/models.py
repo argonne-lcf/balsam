@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev fb0d41e]
+# [git rev cb640a0]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -148,7 +148,6 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -345,7 +344,6 @@ class AppManager(balsam._api.bases.AppManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -634,7 +632,6 @@ class JobManager(balsam._api.bases.JobManagerBase):
     _bulk_create_enabled = True
     _bulk_update_enabled = True
     _bulk_delete_enabled = True
-    _paginated_list_response = True
 
     def create(
         self,
@@ -910,7 +907,6 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = True
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -1075,7 +1071,6 @@ class SessionManager(balsam._api.bases.SessionManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -1223,7 +1218,6 @@ class TransferItemManager(balsam._api.bases.TransferItemManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = True
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def all(self) -> "TransferItemQuery":
         """
@@ -1379,7 +1373,6 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def all(self) -> "EventLogQuery":
         """

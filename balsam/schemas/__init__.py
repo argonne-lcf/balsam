@@ -49,6 +49,8 @@ from .transfer import (
 )
 from .user import UserCreate, UserOut
 
+MAX_PAGE_SIZE = 10_000
+
 __all__ = [
     "UserCreate",
     "UserOut",
