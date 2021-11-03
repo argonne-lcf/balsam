@@ -23,7 +23,7 @@ def fetch(
         return 1, [qs.one()]
     count = qs.group_by(models.BatchJob.id).count()
     assert paginator is not None
-    batch_jobs = paginator.paginate(qs)
+    batch_jobs = paginator.paginate(qs.order_by(models.BatchJob.id))
     return count, batch_jobs
 
 

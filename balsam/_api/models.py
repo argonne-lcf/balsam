@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/misha/workflow/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev 4b3ff11]
+# [git rev cb640a0]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -123,7 +123,7 @@ class SiteQuery(Query[Site]):
         allowed_projects: Optional[typing.List[str]] = None,
         allowed_queues: Optional[typing.Dict[str, balsam.schemas.site.AllowedQueue]] = None,
         transfer_locations: Optional[typing.Dict[str, pydantic.networks.AnyUrl]] = None,
-    ) -> List[Site]:
+    ) -> Union[int, List[Site]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -148,7 +148,6 @@ class SiteManager(balsam._api.bases.SiteManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -322,7 +321,7 @@ class AppQuery(Query[App]):
         description: Optional[str] = None,
         parameters: Optional[typing.Dict[str, balsam.schemas.apps.AppParameter]] = None,
         transfers: Optional[typing.Dict[str, balsam.schemas.apps.TransferSlot]] = None,
-    ) -> List[App]:
+    ) -> Union[int, List[App]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -345,7 +344,6 @@ class AppManager(balsam._api.bases.AppManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -592,7 +590,7 @@ class JobQuery(Query[Job]):
         pending_file_cleanup: Optional[bool] = None,
         serialized_return_value: Optional[str] = None,
         serialized_exception: Optional[str] = None,
-    ) -> List[Job]:
+    ) -> Union[int, List[Job]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -634,7 +632,6 @@ class JobManager(balsam._api.bases.JobManagerBase):
     _bulk_create_enabled = True
     _bulk_update_enabled = True
     _bulk_delete_enabled = True
-    _paginated_list_response = True
 
     def create(
         self,
@@ -883,7 +880,7 @@ class BatchJobQuery(Query[BatchJob]):
         status_info: Optional[typing.Dict[str, str]] = None,
         start_time: Optional[datetime.datetime] = None,
         end_time: Optional[datetime.datetime] = None,
-    ) -> List[BatchJob]:
+    ) -> Union[int, List[BatchJob]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -910,7 +907,6 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = True
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -1075,7 +1071,6 @@ class SessionManager(balsam._api.bases.SessionManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def create(
         self,
@@ -1204,7 +1199,7 @@ class TransferItemQuery(Query[TransferItem]):
         state: Optional[balsam.schemas.transfer.TransferItemState] = None,
         task_id: Optional[str] = None,
         transfer_info: Optional[typing.Dict[str, typing.Any]] = None,
-    ) -> List[TransferItem]:
+    ) -> Union[int, List[TransferItem]]:
         """
         Updates all items selected by this query with the given values.
 
@@ -1223,7 +1218,6 @@ class TransferItemManager(balsam._api.bases.TransferItemManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = True
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def all(self) -> "TransferItemQuery":
         """
@@ -1379,7 +1373,6 @@ class EventLogManager(balsam._api.bases.EventLogManagerBase):
     _bulk_create_enabled = False
     _bulk_update_enabled = False
     _bulk_delete_enabled = False
-    _paginated_list_response = True
 
     def all(self) -> "EventLogQuery":
         """

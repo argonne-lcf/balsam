@@ -2,9 +2,10 @@ import logging
 import queue
 from collections import defaultdict
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+from math import ceil
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, cast
 
-from balsam.schemas import JobState
+from balsam.schemas import MAX_ITEMS_PER_BULK_OP, JobState
 from balsam.util import Process, SigHandler
 
 from .util import Queue
@@ -12,7 +13,13 @@ from .util import Queue
 if TYPE_CHECKING:
     from balsam.client import RESTClient
 
+T = TypeVar("T")
 logger = logging.getLogger(__name__)
+
+
+def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
+    num_chunks = ceil(len(items) / chunk_size)
+    return [items[n * chunk_size : (n + 1) * chunk_size] for n in range(num_chunks)]
 
 
 class StatusUpdater(Process):
@@ -92,6 +99,7 @@ class BulkStatusUpdater(StatusUpdater):
 
         while updates_by_id:
             bulk_update = [update_list.pop(0) for update_list in updates_by_id.values()]
-            self.client.bulk_patch("jobs/", bulk_update)
+            for chunk in chunk_list(bulk_update, chunk_size=MAX_ITEMS_PER_BULK_OP):
+                self.client.bulk_patch("jobs/", chunk)
             logger.info(f"StatusUpdater bulk-updated {len(bulk_update)} jobs")
             updates_by_id = {k: v for k, v in updates_by_id.items() if v}

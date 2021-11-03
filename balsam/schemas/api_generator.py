@@ -109,7 +109,7 @@ class {{query_name}}(Query[{{model_name}}]):
         {% for line in model_update_kwargs %}
         {{line}},
         {% endfor %}
-    ) -> List[{{model_name}}]:
+    ) -> Union[int, List[{{model_name}}]]:
         '''
         Updates all items selected by this query with the given values.
 
@@ -136,7 +136,6 @@ class {{manager_name}}({{manager_base}}):
     _bulk_create_enabled = {{_bulk_create_enabled}}
     _bulk_update_enabled = {{_bulk_update_enabled}}
     _bulk_delete_enabled = {{_bulk_delete_enabled}}
-    _paginated_list_response = {{_paginated_list_response}}
 
     {% if model_create_kwargs %}
     def create(
@@ -389,7 +388,6 @@ def get_model_ctx(model_base: Type[BalsamModel], manager_base: type, filterset: 
         _bulk_create_enabled=getattr(manager_base, "_bulk_create_enabled", False),
         _bulk_update_enabled=getattr(manager_base, "_bulk_update_enabled", False),
         _bulk_delete_enabled=getattr(manager_base, "_bulk_delete_enabled", False),
-        _paginated_list_response=getattr(manager_base, "_paginated_list_response", True),
         model_update_kwargs=update_kwargs,
         model_filter_kwargs=filter_kwargs,
         order_by_type=order_by_type,

@@ -174,8 +174,8 @@ class ApplicationDefinitionMeta(type):
                 f"ApplicationDefinition {name} must contain the `site` attribute, set to a site id, name, or Site object"
             )
 
-        has_command_template = "command_template" in attrs and isinstance(attrs["command_template"], str)
-        has_run_function = "run" in attrs and callable(attrs["run"])
+        has_command_template = isinstance(getattr(cls, "command_template", None), str)
+        has_run_function = callable(getattr(cls, "run", None))
 
         if has_command_template and has_run_function:
             raise AttributeError(

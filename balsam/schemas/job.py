@@ -26,7 +26,6 @@ class JobTransferItem(BaseModel):
 
 class JobState(str, Enum):
     created = "CREATED"
-    reset = "RESET"
     awaiting_parents = "AWAITING_PARENTS"
     ready = "READY"
     staged_in = "STAGED_IN"

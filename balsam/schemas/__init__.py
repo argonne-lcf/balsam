@@ -37,7 +37,7 @@ from .serializer import (
     serialize,
     serialize_exception,
 )
-from .session import PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
+from .session import MAX_JOBS_PER_SESSION_ACQUIRE, PaginatedSessionsOut, SessionAcquire, SessionCreate, SessionOut
 from .site import AllowedQueue, PaginatedSitesOut, SiteCreate, SiteOut, SiteUpdate
 from .transfer import (
     PaginatedTransferItemOut,
@@ -48,6 +48,9 @@ from .transfer import (
     TransferItemUpdate,
 )
 from .user import UserCreate, UserOut
+
+MAX_PAGE_SIZE = 10_000
+MAX_ITEMS_PER_BULK_OP = 5000
 
 __all__ = [
     "UserCreate",
@@ -76,6 +79,7 @@ __all__ = [
     "SessionOut",
     "PaginatedSessionsOut",
     "SessionAcquire",
+    "MAX_JOBS_PER_SESSION_ACQUIRE",
     "JobCreate",
     "ServerJobCreate",
     "JobUpdate",
@@ -107,4 +111,5 @@ __all__ = [
     "SerializeError",
     "DeserializeError",
     "EmptyPayload",
+    "MAX_ITEMS_PER_BULK_OP",
 ]

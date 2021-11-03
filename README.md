@@ -1,4 +1,4 @@
-![logo](./img/balsam-black.png)
+![logo](./docs/img/balsam-black.png)
 
 *This page is for the Balsam 0.6 pre-release. Click [here for stable Balsam 0.5 docs.](https://balsam.readthedocs.io/en/master)*
 
@@ -12,7 +12,7 @@ $ balsam login
 $ balsam site init my-site
 ```
 
-![site-init](./img/balsam-init.gif)
+![site-init](./docs/img/balsam-init.gif)
 
 **Declare HPC Apps and execution lifecycle hooks.**
 

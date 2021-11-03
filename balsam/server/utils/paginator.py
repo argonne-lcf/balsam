@@ -1,7 +1,10 @@
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from fastapi import Query as APIQuery
 from sqlalchemy.orm import Query as SQLQuery
+from sqlalchemy.sql import Select
+
+from balsam.schemas import MAX_PAGE_SIZE
 
 T = TypeVar("T")
 
@@ -9,20 +12,23 @@ T = TypeVar("T")
 class Paginator(Generic[T]):
     def __init__(
         self,
-        limit: Optional[int] = APIQuery(None, description="Maximum number of items to return."),
-        offset: int = APIQuery(0, description="Starting index from which to retrieve results."),
+        limit: int = APIQuery(MAX_PAGE_SIZE, le=MAX_PAGE_SIZE, description="Maximum number of items to return."),
+        offset: int = APIQuery(0, ge=0, description="Starting index from which to retrieve results."),
     ):
         self.limit = limit
         self.offset = offset
 
     def paginate(self, iterable: "SQLQuery[T]") -> "SQLQuery[T]":
+        return iterable[self.offset : self.offset + self.limit]  # type: ignore
+
+    def paginate_core(self, stmt: "Select") -> "Select":
         if self.limit is not None:
-            return iterable[self.offset : self.offset + self.limit]  # type: ignore
-        return iterable[self.offset :]  # type:ignore
+            stmt = stmt.limit(self.limit)
+        return stmt.offset(self.offset)
 
     def __new__(
         cls,
-        limit: Optional[int] = APIQuery(None, description="Maximum number of items to return."),
-        offset: int = APIQuery(0, description="Starting index from which to list items."),
+        limit: int = APIQuery(MAX_PAGE_SIZE, le=MAX_PAGE_SIZE, description="Maximum number of items to return."),
+        offset: int = APIQuery(0, ge=0, description="Starting index from which to list items."),
     ) -> "Paginator[T]":
         return super().__new__(cls)  # type: ignore

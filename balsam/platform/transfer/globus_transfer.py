@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import List, Sequence, Tuple, Union
 from uuid import UUID
@@ -114,15 +115,15 @@ class GlobusTransferInterface(TransferInterface):
     @staticmethod
     def _poll_tasks(task_ids: Sequence[str]) -> List[TaskInfo]:
         client = get_client()
-        filter_values = {"task_id": ",".join(map(str, task_ids))}
-        filter_str = "/".join(f"{k}:{v}" for k, v in filter_values.items())
         try:
-            task_list = list(client.task_list(num_results=None, filter=filter_str))
+            task_list = [client.get_task(task_id) for task_id in task_ids]
+            time.sleep(1)
         except GlobusConnectionError as exc:
-            raise TransferRetryableError(f"GlobusConnectionError in client.task_list: {exc}")
+            raise TransferRetryableError(f"GlobusConnectionError in client.get_task: {exc}")
         result = []
         for d in task_list:
             state = GlobusTransferInterface._state_map(d["status"])
+            logger.debug(f"Mapping Globus task {d} to TransferItem state: {state}")
             info = {}
             if d.get("fatal_error"):
                 info["error"] = d["fatal_error"]

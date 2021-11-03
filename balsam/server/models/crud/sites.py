@@ -27,7 +27,7 @@ def fetch(
     else:
         assert paginator is not None
         count = qs.group_by(models.Site.id).count()
-        return count, paginator.paginate(qs)
+        return count, paginator.paginate(qs.order_by(models.Site.id))
 
 
 def create(db: Session, owner: schemas.UserOut, site: schemas.SiteCreate) -> models.Site:

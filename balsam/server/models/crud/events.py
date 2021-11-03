@@ -15,5 +15,5 @@ def fetch(
     qs = qs.filter(models.Site.owner_id == owner.id)
     qs = filterset.apply_filters(qs)
     count = qs.group_by(models.LogEvent.id).count()
-    events = paginator.paginate(qs)
+    events = paginator.paginate(qs.order_by(models.LogEvent.id))
     return count, events
