@@ -6,6 +6,7 @@ from .default import DefaultNode
 from .nersc_corihas_node import CoriHaswellNode
 from .nersc_coriknl_node import CoriKNLNode
 from .nersc_perlmutter_gpu import PerlmutterGPUNode
+from .alcf_polaris_node import PolarisNode
 from .summit_node import SummitNode
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "CoriHaswellNode",
     "CoriKNLNode",
     "PerlmutterGPUNode",
+    "PolarisNode",
     "ComputeNode",
 ]
