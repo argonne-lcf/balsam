@@ -19,7 +19,7 @@ multiprocessing-logging==0.3.1
 click==8.0.3
 inquirer==2.7.0
 pydantic==1.8.2
-python-dotenv==0.19.1
+python-dotenv==0.19.2
 python-dateutil==2.8.2
 Jinja2==3.0.3
 requests==2.26.0
