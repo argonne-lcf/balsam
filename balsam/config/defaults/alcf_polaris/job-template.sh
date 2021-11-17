@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -l select={{ num_nodes }}:ncpus=1
-#PBS -l walltime=00:{{ wall_time_min }} 
+#PBS -l walltime=00:{{ wall_time_min }}:00
 #PBS -A {{ project }}
 #PBS -q {{ queue }}
 # #COBALT --attrs pubnet=true:enable_ssh=1:{% if optional_params.get("mig_count") %}mig-mode=true{% endif %}
