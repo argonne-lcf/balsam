@@ -1,9 +1,8 @@
+import json
 import logging
 import os
 import subprocess
 import tempfile
-import json
-import time
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -12,13 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import click
 import dateutil.parser
 
-from .scheduler import (
-    SchedulerBackfillWindow,
-    SchedulerJobLog,
-    SchedulerJobStatus,
-    SchedulerSubmitError,
-    SubprocessSchedulerInterface,
-)
+from .scheduler import SchedulerBackfillWindow, SchedulerJobLog, SchedulerJobStatus, SubprocessSchedulerInterface
 
 PathLike = Union[Path, str]
 
@@ -137,8 +130,10 @@ class PBSScheduler(SubprocessSchedulerInterface):
             project,
             "-q",
             queue,
-            "-l", f"select={num_nodes}",
-            "-l", f"walltime=00:{ wall_time_min }:00",
+            "-l",
+            f"select={num_nodes}",
+            "-l",
+            f"walltime=00:{ wall_time_min }:00",
             str(script_path),
         ]
         return args
@@ -147,8 +142,8 @@ class PBSScheduler(SubprocessSchedulerInterface):
     def _render_status_args(project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:
         args = [PBSScheduler.status_exe]
         args += "-f -F json".split()
-        #if user is not None:
-            #args += ["-u", user]
+        # if user is not None:
+        # args += ["-u", user]
         if queue is not None:
             args += ["-q", queue]
         return args
@@ -159,35 +154,40 @@ class PBSScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_backfill_args() -> List[str]:
-        return [PBSScheduler.backfill_exe, "-a","-F","json"]
+        return [PBSScheduler.backfill_exe, "-a", "-F", "json"]
 
     @staticmethod
     def _parse_submit_output(submit_output: str) -> int:
         try:
-            return int(submit_output.split('.')[0])
-        except:
+            return int(submit_output.split(".")[0])
+        except Exception as exc:
             # Catch errors here and handle
+            logger.warning(f"Exception: {exc}")
             raise
 
-# implement to fill in status_fields from above
+    # implement to fill in status_fields from above
     @staticmethod
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
         status_dict = {}
         j = json.loads(raw_output)
-        date_format = '%a %b %d %H:%M:%S %Y'
-        for jobidstr,job in j['Jobs'].items():
+        date_format = "%a %b %d %H:%M:%S %Y"
+        for jobidstr, job in j["Jobs"].items():
             status = {}
-            jobid = jobidstr.split('.')[0]
-            status['scheduler_id'] = jobid
-            status['state'] = PBSScheduler._job_states[job['job_state']]
-            W = job['Resource_List']['walltime'].split(':')
-            status['wall_time_min'] = W[0]*60 + W[1]  # 00:00:00
-            status['queue'] = job['queue']
-            status['num_nodes'] = job['Resource_List']['nodect']
-            status['project'] = job['project']
-            status['time_remaining_min'] = (datetime.strptime(job['etime'], date_format) - datetime.now()).total_seconds()
-            status['queued_time_min'] = (datetime.now() - datetime.strptime(job['qtime'], date_format)).total_seconds()
+            jobid = jobidstr.split(".")[0]
+            status["scheduler_id"] = jobid
+            status["state"] = PBSScheduler._job_states[job["job_state"]]
+            W = job["Resource_List"]["walltime"].split(":")
+            status["wall_time_min"] = W[0] * 60 + W[1]  # 00:00:00
+            status["queue"] = job["queue"]
+            status["num_nodes"] = job["Resource_List"]["nodect"]
+            status["project"] = job["project"]
+            status["time_remaining_min"] = (
+                datetime.strptime(job["etime"], date_format) - datetime.now()
+            ).total_seconds()
+            status["queued_time_min"] = (
+                datetime.now() - datetime.strptime(job["qtime"], date_format)
+            ).total_seconds()
             status_dict[jobid] = SchedulerJobStatus(**status)
         return status_dict
 
@@ -200,6 +200,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         raw_lines = stdout.strip().split("\n")
         nodelist = []
         node_lines = raw_lines[2:]
+        logger.debug(node_lines)
         for line in raw_lines:
             try:
                 line_dict = PBSScheduler._parse_nodelist_line(line)
@@ -261,13 +262,13 @@ class PBSScheduler(SubprocessSchedulerInterface):
         time_str = line[: line.find("(UTC)")]
         return dateutil.parser.parse(time_str)
 
-# implement
+    # implement
     @staticmethod
     def _parse_logs(scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         if job_script_path is None:
             logger.warning("No job script path provided; cannot parse logs from scheduler_id alone")
             return SchedulerJobLog()
-        logfile = Path(job_script_path).with_suffix("e"+str(scheduler_id))
+        logfile = Path(job_script_path).with_suffix("e" + str(scheduler_id))
         try:
             logger.info(f"Attempting to parse {logfile}")
             cobalt_log = logfile.read_text()

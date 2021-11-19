@@ -28,6 +28,8 @@ with open(TEST_TOKENS_FILE) as fp:
 
 class LocustBalsamClient(OAuthRequestsClient):
     def __init__(self, api_root: str, request_event: EventHook) -> None:
+        token = random.choice(tokens)
+        tokens.remove(token)
         super().__init__(api_root, token=random.choice(tokens))
         self._request_event = request_event
 
@@ -58,6 +60,7 @@ class BalsamUser(User):  # type: ignore
     def __init__(self, environment: Environment) -> None:
         super().__init__(environment)
         self.client = LocustBalsamClient("https://balsam-dev.alcf.anl.gov/", environment.events.request)
+        print("My token is", self.client.token)
         self.Site = copy.deepcopy(models.Site)
         self.Site.objects = models.SiteManager(self.client)
         self.App = copy.deepcopy(models.App)  # Deepcopy
@@ -84,39 +87,30 @@ class BalsamUser(User):  # type: ignore
         assert len(failed_to_delete) == 0
         name = f"test-site{uuid4()}"
         path = Path("/projects/premade_site")
-        self.premade_site = self.Site.objects.create(hostname=name, path=path)
+        self.premade_site = self.Site.objects.create(name=name, path=path)
+        print("Created site id:", self.premade_site.id)
         assert self.premade_site.id is not None
         class_path = "premade_app"
         parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
         self.premade_app = self.App.objects.create(
-            site_id=self.premade_site.id, class_path=class_path, parameters=parameters  # type: ignore
+            site_id=self.premade_site.id, name=class_path, parameters=parameters, serialized_class="", source_code=""
         )
-
-    def on_stop(self) -> None:
-        # Clean up Sites after testing
-        for site in self.Site.objects.all():
-            site.delete()
-
-    @task(1)
-    def site_create(self) -> None:
-        num_sites = len(self.Site.objects.all())
-        name = f"site_{num_sites}"
-        path = f"/projects/foo/{uuid4()}"
-        self.Site.objects.create(hostname=name, path=path)
+        print("Created app id:", self.premade_app.id, "at site:", self.premade_site.id)
 
     @task(3)
     def site_list(self) -> None:
         list(self.Site.objects.all())
 
     @task(1)
-    def app_create(self):
+    def app_create(self) -> None:
         site = self.premade_site
         num_apps = len(self.App.objects.filter(site_id=site.id))
-        class_path = f"foo.bar_{num_apps:08d}"
         parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
         self.App.objects.create(
             site_id=site.id,
-            class_path=class_path,
+            name=f"Bar_{num_apps:08d}",
+            serialized_class="",
+            source_code="",
             parameters=parameters,
         )
 
@@ -134,7 +128,7 @@ class BalsamUser(User):  # type: ignore
 
     @task(10)
     def job_list(self) -> None:
-        list(self.Job.objects.all())
+        list(self.Job.objects.all()[:5000])
 
     @task(10)
     def job_list_site(self) -> None:
