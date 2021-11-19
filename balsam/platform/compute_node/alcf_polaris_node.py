@@ -31,7 +31,7 @@ class PolarisNode(ComputeNode):
         hostnames = [h.strip() for h in hostnames if h.strip()]
         node_ids: Union[List[str], List[int]]
         try:
-            node_ids = [int(hostname.split('.')[0].split('-')[1]) for hostname in hostnames]
+            node_ids = [int(hostname.split(".")[0].split("-")[1]) for hostname in hostnames]
         except ValueError:
             node_ids = hostnames[:]
         node_list = []
@@ -57,5 +57,5 @@ class PolarisNode(ComputeNode):
     def get_scheduler_id() -> Optional[int]:
         id = os.environ.get("PBS_JOBID")
         if id is not None:
-            return int(id.split('.')[0])
+            return int(id.split(".")[0])
         return None
