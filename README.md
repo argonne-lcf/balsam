@@ -92,4 +92,3 @@ for job in Job.objects.as_completed(jobs):
 * [Elastic queueing](./user-guide/elastic.md): auto-scale resources to the workload size
 * [Monitoring APIs](./user-guide/monitoring.md): query recent task failures, node utilization, or throughput
 
-

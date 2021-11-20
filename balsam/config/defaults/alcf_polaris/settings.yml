@@ -1,0 +1,24 @@
+title: "Polaris (ALCF)"
+
+compute_node: balsam.platform.compute_node.PolarisNode
+mpi_app_launcher: balsam.platform.app_run.PolarisRun
+local_app_launcher: balsam.platform.app_run.LocalAppRun
+mpirun_allows_node_packing: true
+
+serial_mode_startup_params: 
+    cpu_affinity: none
+
+scheduler_class: balsam.platform.scheduler.PBSScheduler
+allowed_queues:
+    workq:
+        max_nodes: 2
+        max_queued_jobs: 3
+        max_walltime: 60
+
+allowed_projects:
+- datascience
+
+optional_batch_job_params:
+    mig_count: "0"  # Use -x mig_count='2' (or '3' or '7') to split GPUs N-ways
+
+globus_endpoint_id: 08925f04-569f-11e7-bef8-22000b9a448b # The local Globus endpoint ID

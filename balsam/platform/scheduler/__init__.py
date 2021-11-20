@@ -1,6 +1,7 @@
 from .cobalt_sched import CobaltScheduler
 from .local import LocalProcessScheduler
 from .lsf_sched import LsfScheduler
+from .pbs_sched import PBSScheduler
 from .scheduler import (
     SchedulerDeleteError,
     SchedulerError,
@@ -16,6 +17,7 @@ __all__ = [
     "CobaltScheduler",
     "SlurmScheduler",
     "LsfScheduler",
+    "PBSScheduler",
     "SchedulerError",
     "SchedulerSubmitError",
     "SchedulerDeleteError",
