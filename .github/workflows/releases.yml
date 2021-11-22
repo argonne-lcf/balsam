@@ -14,6 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@master
       - name: Generate change log
+        id: change_log
         uses: heinrichreimer/github-changelog-generator-action@v2.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }} 
@@ -27,16 +28,13 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             Changes in this Release
+            ${{ steps.change_log.outputs.changelog }}
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref, 'a') || contains(github.ref, 'b') }}
   deploy:
     needs: release
     runs-on: ubuntu-latest
     steps:
-    - name: Exit if not on master branch
-      if: endsWith(github.ref, 'main') == false
-      run: exit -1
-      
     - uses: actions/checkout@v1
     - name: Set up Python
       uses: actions/setup-python@v1
