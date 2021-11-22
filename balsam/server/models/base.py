@@ -1,11 +1,12 @@
 import logging
-from typing import Iterator
+from typing import Iterator, Optional
 
 from sqlalchemy import create_engine, orm
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 
 import balsam.server
+from balsam.schemas.user import UserOut
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def get_engine() -> Engine:
     return _engine
 
 
-def get_session() -> Iterator[orm.Session]:
+def get_session(user: Optional[UserOut] = None) -> Iterator[orm.Session]:
     global _Session
     if _Session is None:
         _Session = orm.sessionmaker(bind=get_engine())

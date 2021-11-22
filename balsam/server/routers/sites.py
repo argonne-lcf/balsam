@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server import settings
+from balsam.server.auth import get_auth_method
 from balsam.server.models import Site, crud, get_session
 from balsam.server.pubsub import pubsub
 from balsam.server.utils import Paginator
@@ -13,7 +13,7 @@ from balsam.server.utils import Paginator
 from .filters import SiteQuery
 
 router = APIRouter()
-auth = settings.auth.get_auth_method()
+auth = get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedSitesOut)

@@ -9,7 +9,8 @@ from starlette.responses import Response
 
 from balsam import schemas
 from balsam.schemas import MAX_ITEMS_PER_BULK_OP
-from balsam.server import ValidationError, settings
+from balsam.server import ValidationError
+from balsam.server.auth import get_auth_method
 from balsam.server.models import Job, crud, get_session
 from balsam.server.pubsub import pubsub
 from balsam.server.utils import Paginator
@@ -17,7 +18,7 @@ from balsam.server.utils import Paginator
 from .filters import JobQuery
 
 router = APIRouter()
-auth = settings.auth.get_auth_method()
+auth = get_auth_method()
 
 
 @router.get("/", response_class=Response)

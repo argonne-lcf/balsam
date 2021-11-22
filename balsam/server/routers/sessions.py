@@ -5,14 +5,14 @@ from fastapi.responses import ORJSONResponse
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server import settings
+from balsam.server.auth import get_auth_method
 from balsam.server.models import crud, get_session
 from balsam.server.pubsub import pubsub
 
 from .filters import SessionQuery
 
 router = APIRouter()
-auth = settings.auth.get_auth_method()
+auth = get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedSessionsOut)
