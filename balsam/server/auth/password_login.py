@@ -6,9 +6,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserCreate, UserOut
-from balsam.server.models import get_session
 from balsam.server.models.crud import users
 
+from .db_sessions import get_admin_session
 from .password_utils import verify_password
 from .token import create_access_token, user_from_token
 
@@ -35,7 +35,9 @@ def authenticate_user_password(db: Session, username: str, password: str) -> Use
 
 
 @router.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_session)) -> Dict[str, Any]:
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_admin_session)
+) -> Dict[str, Any]:
     username = form_data.username
     password = form_data.password
 
@@ -50,7 +52,7 @@ def profile(user: UserOut = Depends(user_from_token)) -> UserOut:
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(user: UserCreate, db: Session = Depends(get_session)) -> UserOut:
+def register(user: UserCreate, db: Session = Depends(get_admin_session)) -> UserOut:
     if users.user_exists(db, user.username):
         raise HTTPException(status_code=400, detail="Username already taken")
 

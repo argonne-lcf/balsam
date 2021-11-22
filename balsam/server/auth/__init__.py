@@ -1,14 +1,12 @@
-from typing import Callable, Dict, Iterator, List
+from typing import Dict, List
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import orm
+from fastapi import APIRouter
 
-from balsam import schemas
 from balsam.server import settings
 from balsam.server.conf import LoginMethod
-from balsam.server.models import get_session
 
 from . import authorization_code_login, device_code_login, password_login
+from .db_sessions import get_admin_session, get_auth_method, get_webuser_session
 from .token import user_from_token
 
 LOGIN_ROUTERS: Dict[LoginMethod, APIRouter] = {
@@ -16,18 +14,6 @@ LOGIN_ROUTERS: Dict[LoginMethod, APIRouter] = {
     LoginMethod.oauth_device: device_code_login.router,
     LoginMethod.password: password_login.router,
 }
-
-AUTH_METHODS = {
-    "user_from_token": user_from_token,
-}
-
-
-def get_auth_method() -> Callable[..., schemas.UserOut]:
-    return AUTH_METHODS[settings.auth.auth_method]
-
-
-def get_user_db_session(user: schemas.UserOut = Depends(get_auth_method())) -> Iterator[orm.Session]:
-    return get_session(user)
 
 
 def build_auth_router() -> APIRouter:
@@ -50,4 +36,7 @@ def build_auth_router() -> APIRouter:
 __all__ = [
     "user_from_token",
     "build_auth_router",
+    "get_auth_method",
+    "get_admin_session",
+    "get_webuser_session",
 ]

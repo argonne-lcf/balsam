@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server.auth import get_auth_method
-from balsam.server.models import Site, crud, get_session
+from balsam.server.auth import get_auth_method, get_webuser_session
+from balsam.server.models import Site, crud
 from balsam.server.pubsub import pubsub
 from balsam.server.utils import Paginator
 
@@ -14,12 +14,13 @@ from .filters import SiteQuery
 
 router = APIRouter()
 auth = get_auth_method()
+print("auth is", auth)
 
 
 @router.get("/", response_model=schemas.PaginatedSitesOut)
 def list(
     q: SiteQuery = Depends(SiteQuery),
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[Site] = Depends(Paginator),
 ) -> Dict[str, Any]:
@@ -34,7 +35,7 @@ def list(
 
 
 @router.get("/{site_id}", response_model=schemas.SiteOut)
-def read(site_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> Site:
+def read(site_id: int, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)) -> Site:
     """Fetch a Sites by id."""
     _, site = crud.sites.fetch(db, owner=user, site_id=site_id)
     assert isinstance(site, Site)
@@ -44,7 +45,7 @@ def read(site_id: int, db: orm.Session = Depends(get_session), user: schemas.Use
 @router.post("/", response_model=schemas.SiteOut, status_code=status.HTTP_201_CREATED)
 def create(
     site: schemas.SiteCreate,
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
 ) -> schemas.SiteOut:
     """Create a new Balsam Site."""
@@ -59,7 +60,7 @@ def create(
 def update(
     site_id: int,
     site: schemas.SiteUpdate,
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
 ) -> Site:
     """Update a Balsam Site by id."""
@@ -73,7 +74,9 @@ def update(
 
 
 @router.delete("/{site_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete(site_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+def delete(
+    site_id: int, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)
+) -> None:
     """Delete a Balsam Site by id. All associated Apps, Jobs, and BatchJobs are destroyed."""
     crud.sites.delete(db, owner=user, site_id=site_id)
     db.commit()

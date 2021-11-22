@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server.auth import get_auth_method
-from balsam.server.models import BatchJob, crud, get_session
+from balsam.server.auth import get_auth_method, get_webuser_session
+from balsam.server.models import BatchJob, crud
 from balsam.server.pubsub import pubsub
 from balsam.server.utils import Paginator
 
@@ -17,7 +17,7 @@ auth = get_auth_method()
 
 @router.get("/", response_model=schemas.PaginatedBatchJobOut)
 def list(
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[BatchJob] = Depends(Paginator),
     q: BatchJobQuery = Depends(BatchJobQuery),
@@ -29,7 +29,7 @@ def list(
 
 @router.get("/{batch_job_id}", response_model=schemas.BatchJobOut)
 def read(
-    batch_job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+    batch_job_id: int, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)
 ) -> BatchJob:
     """Get a BatchJob by id."""
     count, batch_jobs = crud.batch_jobs.fetch(db, owner=user, batch_job_id=batch_job_id)
@@ -38,7 +38,9 @@ def read(
 
 @router.post("/", response_model=schemas.BatchJobOut, status_code=status.HTTP_201_CREATED)
 def create(
-    batch_job: schemas.BatchJobCreate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+    batch_job: schemas.BatchJobCreate,
+    db: orm.Session = Depends(get_webuser_session),
+    user: schemas.UserOut = Depends(auth),
 ) -> schemas.BatchJobOut:
     """Submit a new BatchJob to a Balsam Site's queue."""
     new_batch_job = crud.batch_jobs.create(db, owner=user, batch_job=batch_job)
@@ -52,7 +54,7 @@ def create(
 def update(
     batch_job_id: int,
     batch_job: schemas.BatchJobUpdate,
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
 ) -> schemas.BatchJobOut:
     """Update a BatchJob by id."""
@@ -66,7 +68,7 @@ def update(
 @router.patch("/", response_model=List[schemas.BatchJobOut])
 def bulk_update(
     batch_jobs: List[schemas.BatchJobBulkUpdate],
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
 ) -> List[schemas.BatchJobOut]:
     """Update a list of BatchJobs."""
@@ -78,7 +80,9 @@ def bulk_update(
 
 
 @router.delete("/{batch_job_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete(batch_job_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+def delete(
+    batch_job_id: int, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)
+) -> None:
     """Delete a BatchJob by id."""
     crud.batch_jobs.delete(db, owner=user, batch_job_id=batch_job_id)
     db.commit()
