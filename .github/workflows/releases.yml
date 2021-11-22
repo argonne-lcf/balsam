@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Exit if not on master branch
-      if: endsWith(github.ref, 'master') == false
+      if: endsWith(github.ref, 'main') == false
       run: exit -1
       
     - uses: actions/checkout@v1
