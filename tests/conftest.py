@@ -49,7 +49,7 @@ def setup_database() -> Optional[str]:
     env_url = get_test_db_url()
     pg.configure_balsam_server_from_dsn(env_url)
     try:
-        session = next(models.get_session())
+        session = models.get_session()
         if not session.engine.database.endswith("test"):  # type: ignore
             raise RuntimeError("Database name used for testing must end with 'test'")
         pg.run_alembic_migrations(env_url)
