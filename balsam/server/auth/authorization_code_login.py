@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserOut
 from balsam.server import settings
-from balsam.server.models import get_session
 from balsam.server.models.crud import users
+
+from .db_sessions import get_admin_session
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,9 @@ def redirect_to_oauth_provider(request: Request, state: str) -> RedirectResponse
 
 
 @router.get("/ALCF/login/device")
-def start_login_device(request: Request, user_code: str, db: Session = Depends(get_session)) -> RedirectResponse:
+def start_login_device(
+    request: Request, user_code: str, db: Session = Depends(get_admin_session)
+) -> RedirectResponse:
     """
     User provides user code to proceed with "device code flow" (started by a CLI login client)
     Balsam hands off to ALCF OAuth for authenticating user via "authorization code flow"
@@ -94,7 +97,7 @@ def start_login_device(request: Request, user_code: str, db: Session = Depends(g
 
 
 @router.get("/ALCF/login")
-def start_login(request: Request, db: Session = Depends(get_session)) -> RedirectResponse:
+def start_login(request: Request, db: Session = Depends(get_admin_session)) -> RedirectResponse:
     """
     User initiated Web browser authorization code flow
     """
@@ -111,7 +114,7 @@ def callback(
     state: str,
     error: Optional[str] = None,
     error_description: Optional[str] = None,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_admin_session),
 ) -> Dict[str, Any]:
     """
     https://tools.ietf.org/html/rfc6749#section-4.1.2.1

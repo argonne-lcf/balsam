@@ -5,20 +5,21 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server import models, settings
-from balsam.server.models import crud, get_session
+from balsam.server import models
+from balsam.server.auth import get_auth_method, get_webuser_session
+from balsam.server.models import crud
 from balsam.server.pubsub import pubsub
 from balsam.server.utils import Paginator
 
 from .filters import AppQuery
 
 router = APIRouter()
-auth = settings.auth.get_auth_method()
+auth = get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedAppsOut)
 def list(
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[models.App] = Depends(Paginator),
     q: AppQuery = Depends(AppQuery),
@@ -35,7 +36,7 @@ def list(
 
 @router.get("/{app_id}", response_model=schemas.AppOut)
 def read(
-    app_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+    app_id: int, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)
 ) -> "orm.Query[models.App]":
     _, app = crud.apps.fetch(db, owner=user, app_id=app_id)
     """Get the specified App."""
@@ -44,7 +45,7 @@ def read(
 
 @router.post("/", response_model=schemas.AppOut, status_code=status.HTTP_201_CREATED)
 def create(
-    app: schemas.AppCreate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+    app: schemas.AppCreate, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)
 ) -> schemas.AppOut:
     """
     Register a new Balsam App.
@@ -58,7 +59,10 @@ def create(
 
 @router.put("/{app_id}", response_model=schemas.AppOut)
 def update(
-    app_id: int, app: schemas.AppUpdate, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+    app_id: int,
+    app: schemas.AppUpdate,
+    db: orm.Session = Depends(get_webuser_session),
+    user: schemas.UserOut = Depends(auth),
 ) -> models.App:
     """Update an App."""
     data = json.loads(app.json(exclude_unset=True))
@@ -70,7 +74,9 @@ def update(
 
 
 @router.delete("/{app_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete(app_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)) -> None:
+def delete(
+    app_id: int, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)
+) -> None:
     """Delete an App and all associated Jobs are deleted."""
     crud.apps.delete(db, owner=user, app_id=app_id)
     db.commit()
