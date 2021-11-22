@@ -16,7 +16,7 @@ def cli() -> None:
 @cli.command()
 @click.argument("username")
 def new_user(username: str) -> None:
-    db = next(get_session())
+    db = get_session()
     userout = create_user(db, username, password=None)
     db.commit()
     print("Created user", userout)
@@ -25,7 +25,7 @@ def new_user(username: str) -> None:
 @cli.command()
 @click.argument("username")
 def make_token(username: str) -> None:
-    db = next(get_session())
+    db = get_session()
     from_db = get_user_by_username(db, username)
     user_out = UserOut(id=from_db.id, username=from_db.username)
     jwt, expiry = create_access_token(user_out)

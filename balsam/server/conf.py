@@ -2,13 +2,11 @@ import logging
 import os
 from datetime import timedelta
 from enum import Enum
-from importlib import import_module
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseSettings, validator
 
-from balsam import schemas
 from balsam.util import validate_log_level
 
 
@@ -50,13 +48,9 @@ class AuthSettings(BaseSettings):
     )
     algorithm = "HS256"
     token_ttl: timedelta = timedelta(hours=48)
-    auth_method: str = "balsam.server.auth.user_from_token"
+    auth_method: str = "user_from_token"
     login_methods: List[LoginMethod] = [LoginMethod.password]
     oauth_provider: Optional[OAuthProviderSettings] = None
-
-    def get_auth_method(self) -> Callable[..., schemas.UserOut]:
-        module, func = self.auth_method.rsplit(".", 1)
-        return getattr(import_module(module), func)  # type: ignore
 
     @validator("oauth_provider", always=True)
     def get_oauth_config(cls, v: Optional[OAuthProviderSettings]) -> Optional[OAuthProviderSettings]:
