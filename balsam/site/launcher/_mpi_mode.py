@@ -12,7 +12,7 @@ from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
 from balsam.schemas import DeserializeError, JobState
 from balsam.site import BulkStatusUpdater, SynchronousJobSource
-from balsam.site.launcher.node_manager import NodeManager, InsufficientResources
+from balsam.site.launcher.node_manager import InsufficientResources, NodeManager
 from balsam.site.launcher.util import countdown_timer_min
 from balsam.util import SigHandler
 
