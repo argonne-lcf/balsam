@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 from fastapi import APIRouter
 
@@ -6,9 +6,10 @@ from balsam.server import settings
 from balsam.server.conf import LoginMethod
 
 from . import authorization_code_login, device_code_login, password_login
+from .db_sessions import get_admin_session, get_auth_method, get_webuser_session
 from .token import user_from_token
 
-LOGIN_ROUTERS = {
+LOGIN_ROUTERS: Dict[LoginMethod, APIRouter] = {
     LoginMethod.oauth_authcode: authorization_code_login.router,
     LoginMethod.oauth_device: device_code_login.router,
     LoginMethod.password: password_login.router,
@@ -25,7 +26,7 @@ def build_auth_router() -> APIRouter:
         auth_router.include_router(LOGIN_ROUTERS[method])
 
     @auth_router.get("/how")
-    def get_auth_methods() -> List[str]:
+    def get_login_methods() -> List[str]:
         methods = [str(s) for s in settings.auth.login_methods]
         return methods
 
@@ -35,4 +36,7 @@ def build_auth_router() -> APIRouter:
 __all__ = [
     "user_from_token",
     "build_auth_router",
+    "get_auth_method",
+    "get_admin_session",
+    "get_webuser_session",
 ]
