@@ -21,10 +21,13 @@ def db_session(setup_database):
 
 @pytest.fixture(scope="function")
 def fastapi_user_test_client(setup_database, db_session):
+    import hashlib
+
     created_users = []
 
     def _client_factory():
-        login_credentials = {"username": f"user{uuid4()}", "password": "test-password"}
+        uname = "user"+hashlib.sha1(f"user{uuid4()}".encode('utf8')).hexdigest()
+        login_credentials = {"username": uname, "password": "test-password"}
         user = users.create_user(db_session, **login_credentials)
         db_session.commit()
         created_users.append(user)
