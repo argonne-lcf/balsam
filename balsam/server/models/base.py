@@ -1,5 +1,5 @@
 import logging
-from typing import Iterator
+from typing import Optional
 
 from sqlalchemy import create_engine, orm
 from sqlalchemy.engine import Engine
@@ -11,6 +11,7 @@ auth = settings.auth.get_auth_method()
 
 import balsam.server
 from balsam import schemas
+from balsam.schemas.user import UserOut
 
 logger = logging.getLogger(__name__)
 
@@ -32,19 +33,13 @@ def get_engine(user: schemas.UserOut) -> Engine:
     return _engine
 
 
-def get_session(user: schemas.UserOut = Depends(auth)) -> Iterator[orm.Session]:
+def get_session(user: Optional[UserOut] = None) -> orm.Session:
     global _Session
     if _Session is None:
         _Session = orm.sessionmaker(bind=get_engine(user))
 
     session: orm.Session = _Session()
-    try:
-        yield session
-    except:  # noqa: E722
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    return session
 
 
 def create_tables() -> None:

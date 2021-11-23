@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session, exc
 
 from balsam.schemas import UserOut
 from balsam.server import settings
-from balsam.server.models import get_session
 from balsam.server.models.crud import users
 
+from .db_sessions import get_admin_session
 from .token import create_access_token
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def generate_user_code() -> str:
 @router.post("/login")
 def authorization_request(
     request: Request,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_admin_session),
     client_id: UUID = Form(...),
     scope: str = Form(""),
 ) -> Dict[str, Any]:
@@ -89,7 +89,7 @@ def authorization_request(
 
 @router.post("/token")
 def access_token_request(
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_admin_session),
     grant_type: str = Form(...),
     device_code: str = Form(...),
     client_id: UUID = Form(...),

@@ -1,5 +1,5 @@
 # Pinned dependencies for server deploy
-psycopg2==2.9.1
+psycopg2==2.9.2
 fastapi==0.70.0
 orjson==3.6.4
 fastapi==0.70.0
@@ -8,20 +8,20 @@ python-multipart==0.0.5
 gunicorn==20.1.0
 PyJWT==2.3.0
 passlib[bcrypt]==1.7.4
-alembic==1.7.4
-SQLAlchemy==1.4.26
+alembic==1.7.5
+SQLAlchemy==1.4.27
 aredis==1.1.8
-redis==3.5.3
+redis==4.0.2
 
 # Duplicated from setup.cfg (but pinned)
 PyYAML==6.0
 multiprocessing-logging==0.3.1
 click==8.0.3
-inquirer==2.7.0
+inquirer==2.8.0
 pydantic==1.8.2
-python-dotenv==0.19.1
+python-dotenv==0.19.2
 python-dateutil==2.8.2
-Jinja2==3.0.2
+Jinja2==3.0.3
 requests==2.26.0
 psutil==5.8.0
 globus-sdk==3.1.0

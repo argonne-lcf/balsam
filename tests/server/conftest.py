@@ -14,7 +14,7 @@ from .util import BalsamTestClient
 
 @pytest.fixture(scope="function")
 def db_session(setup_database):
-    session = next(models.get_session())
+    session = models.get_session()
     yield session
     session.close()
 
