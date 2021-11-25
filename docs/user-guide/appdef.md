@@ -1,13 +1,16 @@
 # Defining Applications
 
-## Adding App Files
-Once you have a Site installed, the next logical step is to define the applications that Balsam may run.
-Each Site's applications are defined by the set of `ApplicationDefinition` classes in the `apps/` directory.
-At a minimum, `ApplicationDefinitions` declare the template for a
-shell command and its adjustable parameters.  To run an application, we then [submit a
-**Job**](./jobs.md) that provides values for these parameters.
+## Registering `ApplicationDefinitions`
+Once you have a Site, the next step is to define the applications that Balsam may run.
+Each Site's applications are defined by the set of `ApplicationDefinition` Python classes that have been linked to the Site.  Check the [Getting Started tutorial](../../tutorials/theta-quickstart#set-up-your-apps) to see a quick example of this in action.
 
-You may add `ApplicationDefinition` subclasses to Python module files (`*.py`)
+At a minimum, `ApplicationDefinitions` must declare the `site` and a `command_template` for a
+shell command.  To run an application, we then [submit a
+**Job**](./jobs.md) to invoke the command with specific resources and parameters.  Alternatively, the `ApplicationDefinition` can define a `run()` method that serves as a Python-based entrypoint to the application on a compute node.
+
+You can create and register `ApplicationDefinition` subclasses from any Python session.  For instance, Balsam supports interactive workflows that are entirely contained within Jupyter notebooks. Alternatively, your own workflow systems can build on top of Balsam as a platform, where Balsam-level interactions are encapsulated in version-controlled Python software.
+
+interactive Python sessions, Jupyter notebooks, or in to Python module files (`*.py`)
 in the `apps/` folder, with multiple apps per file and/or multiple files.  Every
 Site comes "pre-packaged" with some demonstrative Apps. The intention is for you
 to copy one of the existing `ApplicationDefinitions` as a starting point, and
