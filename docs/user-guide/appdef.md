@@ -2,76 +2,186 @@
 
 ## Registering `ApplicationDefinitions`
 Once you have a Site, the next step is to define the applications that Balsam may run.
-Each Site's applications are defined by the set of `ApplicationDefinition` Python classes that have been linked to the Site.  Check the [Getting Started tutorial](../../tutorials/theta-quickstart#set-up-your-apps) to see a quick example of this in action.
+Each Site is linked to a set of `ApplicationDefinition` Python classes: check the [Getting Started tutorial](../../tutorials/theta-quickstart#set-up-your-apps) to see a quick example of this in action.
+You can create and register `ApplicationDefinition` subclasses from any Python
+session.  For instance, Balsam supports interactive workflows in Jupyter
+notebooks, or workflows driven by any other Python software.
 
-At a minimum, `ApplicationDefinitions` must declare the `site` and a `command_template` for a
-shell command.  To run an application, we then [submit a
-**Job**](./jobs.md) to invoke the command with specific resources and parameters.  Alternatively, the `ApplicationDefinition` can define a `run()` method that serves as a Python-based entrypoint to the application on a compute node.
-
-You can create and register `ApplicationDefinition` subclasses from any Python session.  For instance, Balsam supports interactive workflows that are entirely contained within Jupyter notebooks. Alternatively, your own workflow systems can build on top of Balsam as a platform, where Balsam-level interactions are encapsulated in version-controlled Python software.
-
-interactive Python sessions, Jupyter notebooks, or in to Python module files (`*.py`)
-in the `apps/` folder, with multiple apps per file and/or multiple files.  Every
-Site comes "pre-packaged" with some demonstrative Apps. The intention is for you
-to copy one of the existing `ApplicationDefinitions` as a starting point, and
-adapt it to your own needs.
-
-Balsam also provides a CLI to generate a *starter* `ApplicationDefinition` based on a 
-simple application command line invocation:
-
-```bash
-$ balsam app create
-Application Name (of the form MODULE.CLASS): test.Sleeper
-Application Template: sleep {{ sleeptime }} && echo goodbye
-```
-
-Now open `apps/test.py` and see the `Sleeper` class that was generated for you.
-The allowed parameters for this App are given in double curly braces: `{{
-sleeptime }}`.  When you add `test.Sleeper` jobs, you will have to pass this
-parameter and Balsam will take care of building the command line.
+At a minimum, `ApplicationDefinitions` must declare the `site` and a
+`command_template` for a shell command:
 
 ```python
-# apps/test.py
 from balsam.api import ApplicationDefinition
 
 class Sleeper(ApplicationDefinition):
-    """
-    Application description
-    """
+    site = "theta-gpu"
     command_template = 'sleep {{ sleeptime }} && echo goodbye'
+
+Sleeper.sync()
 ```
 
-Whenever you change the set of `ApplicationDefinitions` in a Site, you must push these changes to 
-the backend and reload the Site, using the `app sync` CLI:
+The `site` attribute must be present on each `ApplicationDefinition` subclass to identify where the app runs.  The `site` can take any of the following types unambiguously specifying a Site:
+
+- Site name (uniquely assigned during `balsam site init`, like `"theta-gpu"`)
+- Site ID (e.g. `142`)
+- `Site` object (fetched from the [API](./api.md))
+
+The `ApplicationDefinition` is uniquely identified by its **class name and site**.   In the above example, we defined the `Sleeper` application at the `theta-gpu` Site.  When `Sleeper.sync()` is called, the Python class and assosciated metadata is *serialized* and shipped to the Balsam web API. The `Sleeper` `ApplicationDefinition` is thereafter linked to the Site named `theta-gpu`, and workflows can proceed to submit `Sleeper` Jobs to `theta-gpu` from anywhere!
+
+!!! warning "`ApplicationDefinitions` must be named uniquely!"
+    If another Python session syncs a different `Sleeper` class belonging to
+    the same Site, **the previous application will be overwritten!**  This is
+    because apps are uniquely resolved by the pair (`site`, `class_name`).  This
+    is typically the desired behavior: simply running `sync()` 
+    will ensure that Balsam applications stay
+    up-to-date with your source code.  However, inadvertent name collisions can
+    cause unexpected results when you overwrite the implementation of an
+    existing `ApplicationDefinition`.
+
+## The `submit()` shortcut
+To run an application, we then [submit
+a
+**Job**](./jobs.md) to invoke the command with specific resources and
+parameters. The `submit()` class method provides a convenient syntax to combine the `sync` initialization step with job submission in a single call:
+
+```python
+# Implicitly sync (updates or creates the App) and submit a Job:
+job = Sleeper.submit(workdir="test/sleep_3", sleeptime=3)
+```
+
+This shorthand syntax is completely equivalent to the following:
+```python
+from balsam.api import Job
+
+Sleeper.sync()
+
+job = Job(workdir="test/sleep_3", app_id=Sleeper, parameters={"sleeptime": 3})
+job.save()
+```
+
+It's more efficient to [use bulk-creation](./api.md#creating) to submit large numbers of Jobs in a single network call.  This is possible by passing the special keyword argument `save=False`:
+
+```python
+jobs = [
+    Sleeper.submit(workdir=f"test/{i}", sleeptime=3, save=False)
+    for i in range(100)
+]
+jobs = Job.objects.bulk_create(jobs)
+```
+
+Besides the special `save` kwarg, The `submit()` method has the same signature as the [`Job()` constructor which is covered in-depth on the next page](./jobs.md).
+
+## Python Applications
+
+Besides running shell commands, Balsam can run Python applications directly on the compute nodes.  This paradigm significantly cuts down
+boilerplate and reduces the need for creating "entry point" scripts.
+
+Instead of using `command_template`, the `ApplicationDefinition` can simply
+define a `run()` method that will be launched using the exact same rules as ordinary shell applications.
+
+```python
+class Adder(ApplicationDefinition):
+    site = "theta-gpu"
+
+    def run(self, x, y):
+        return x + y
+
+job = Adder.submit("test/5plus5", x=5, y=5)
+assert job.result() == 10  # This will block until a BatchJob starts
+```
+
+`run` is an instance method and should take `self` as the first argument.  Additional positional or keyword arguments can be supplied as well.  When submitting `Jobs`, the parameters are serialized (under the hood `job.parameters = {"x": 5, "y": 5}` is converted to a Base64-encoded byte string with `dill` and stored as part of the `Job` in the Balsam web API.)
+
+The submitted `Jobs` behave *partially* like `concurrent.futures.Future` objects: namely, the return value or Exception raised by `run()` will propagate to the `result()` method.  Refer to the [Jobs documentation](./jobs.md) for more details on these `Future`-like APIs.
+
+### Python App Capabilities and Limitations
+
+Python `run()` function-based `ApplicationDefinitions` enjoy all the same
+lifecycle hooks and flexible resource launching capabilites as ordinary
+`ApplicationDefinitions`.  For instance, your Balsam apps can directly call into
+`mpi4py` code and be launched onto multiple compute nodes:
+
+```python
+import numpy as np
+
+
+class NumpyPlusMPI(ApplicationDefinition):
+    site = "theta-gpu"
+
+    def run(self, *dims):
+        from mpi4py import MPI
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            return np.random.rand(*dims)
+
+
+job = NumpyPlusMPI.submit(
+    workdir="test/parallel", 
+    dims=[5],
+    ranks_per_node=4,
+)
+```
+
+The `run` function can generally refer to imported modules and objects from other namespaces, **as long as they are importable in the Balsam Site's Python environment**.  This is a crucial constraint to understand when writing `ApplicationDefinitions`: all import statements are essentially *replayed* in the Balsam Site environment when the `ApplicationDefinition` is loaded and de-serialized.  This will fail if any any object referenced by the `ApplicationDefinition` cannot be imported from `sys.path`!
+
+!!! warning "Import statements will replay on the Balsam Site"
+    The issues above are easily avoided by ensuring that your codes and their dependencies are installed in the Python virtual environment where the Balsam Site runs.  
+    
+    Just remember that the Balsam app serializer does not recurse and ship other modules over the wire. **Virtually any import statement referenced by the `ApplicationDefintion` must work on both sides.**
+
+The same constraint holds true when the `ApplicationDefinitions` themselves are located in an imported module.  For example, if your Balsam code is packaged in `my_science_package`, that module/package must be installed in the Site environment where the `ApplicationDefinition` is synced to.
+
+```python
+# This import line must work on theta-gpu...
+from my_science_package import setup_workflow
+
+# If this method syncs apps to theta-gpu:
+setup_workflow(site="theta-gpu")
+```
+
+!!! note "Technical Details"
+    Under the hood, all `ApplicationDefinitions`, `Job` parameters, return values, and exceptions are serialized and deserialized using `dill` with the `recurse=True` option.
+
+Besides the issue of software dependencies, the following additional limitations should be kept in mind when writing `ApplicationDefinitions`:
+
+- **Do not use any `multiprocessing.Process`.** You can spawn background `Thread` tasks, but `Process` workers will attempt to communicate using `pickle` in a fashion that is incompatible with the serialization scheme used by Balsam.
+- **Do not use the `super()` syntax anywhere in the `ApplicationDefinition`.**  This is a [known issue with `dill`](https://github.com/uqfoundation/dill/issues/300).  If you are writing your own class hierarchies, you can always get around this by referencing the parent class directly.
+- **Avoid referring to `balsam.api` in the `ApplicationDefinition`.** Instead, you will need to manually initialize the client to fetch resources as follows:
+    ```python
+    from balsam.config import SiteConfig
+    client = SiteConfig().client  # Loads a fresh RESTClient
+    Job = client.Job  # Use just like balsam.api.Job
+    ```
+- **`ApplicationDefinitions`, parameters, return values, and exceptions should be lean.**  Do not rely on the Balsam API to move large quantities of data (instead, the [Transfer API](#transfer-slots) is designed for easy interoperability with out-of-band transfer methods like Globus).  Balsam imposes limits on the order of 100KB for each serialized entity.
+
+## Listing and Refreshing Applications
+You can check the Apps registered at a site using the CLI:
 
 ```bash
-# Refresh Apps:
-$ balsam app sync
-
-# And now list them:
-$ balsam app ls
+# List apps across all Sites
+$ balsam app ls --site=all
 ```
 
-!!! warning
-    Similar to the BatchJob template, the set of ApplicationDefinitions is
-    loaded in memory upon Site startup.  You **must** remember to run `balsam
-    app sync` to apply changes to the running Site.  Otherwise, new or modified 
-    Apps will not run correctly.
+!!! warning "Restart Sites to Reload `ApplicationDefinitions`"
+    A new `ApplicationDefinition` will be automatically loaded by a running
+    Site agent or launcher BatchJob.  However, if you modify an *existing* app
+    while it is loaded in a running Site or launcher, the change will not 
+    propagate!  You **must** remember to run `balsam site sync` to refresh
+    the loaded apps in a running Site.
 
-## Apps versus ApplicationDefinitions
-In the rest of the documentation, we use the terms `ApplicationDefinition` and
-`App` somewhat interchangably, but there is an important distinction.  The
-`ApplicationDefinition` is a Python class stored in the `apps/` folder of a
-Site. `Apps` are stored in the central web service and have a **one-to-one** correspondence with `ApplicationDefinition` classes. 
-The API `App` is merely a *pointer* to a
-`ApplicationDefinition` class at a certain Site.  The `App` does not store
-anything about the `ApplicationDefinition` classes other than the class name and
-some metadata about allowed parameters, allowed data transfers, and so forth.  Code executed at the Site is strictly loaded from the  site-local filesystem.
+## Loading Existing `ApplicationDefinitions`
 
-When creating a `Job`, we refer to the desired `App` by its name or ID.  This
-decoupling enables us to search `Apps` and submit `Jobs` from anywhere. 
-That is, we don't actually need to to
-access the `ApplicationDefinition` class to use it when building workflows.
+You don't need a handle on the `ApplicationDefinition` source code to submit
+`Jobs` with it.  Instead, the `app_id` argument to `Job()` can take an application by 
+name (string), ID (integer), or reference to a loaded `ApplicationDefinition`.
+For example, you can load the set of applications registered at a given Site as follows:
+
+```python
+apps_by_name = ApplicationDefinition.load_by_site("theta-gpu")
+Sleeper = apps_by_name["Sleeper"]
+```
+
+`ApplicationDefinitions` can then be used from this dictionary as if you had
+defined them in the current Python session.
 
 ## Writing ApplicationDefinitions
 
@@ -144,6 +254,22 @@ class MySimulation(ApplicationDefinition):
 
 By default, all app parameters are **required** parameters: it is an error
 to omit any parameter named in the template.  We can change this behavior below.
+
+### Run function and Python executable
+
+When the `run()` function is invoked in a Python application (as opposed to a shell command), it is important that the execution-side Python environment has the necessary dependencies installed. The optional class attribute `python_exe` defaults to `sys.executable` and should not be changed if the app runs in the same environment Balsam is installed in. 
+
+However, you should override `python_exe` if you wish to invoke the `run` function using a *different* Python environment from the one in which Balsam itself is installed.
+
+```python hl_lines="3"
+class MyApp(ApplicationDefinition):
+    site = "theta-gpu"
+    python_exe = "/path/to/bin/python3.8"
+
+    def run(self, vec):
+        import numpy as np # Loaded from `python_exe`
+        return np.linalg.norm(vec)
+```
 
 ### Parameter Spec
 
