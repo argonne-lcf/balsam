@@ -186,14 +186,14 @@ defined them in the current Python session.
 ## Writing ApplicationDefinitions
 
 At their simplest, `ApplicationDefinitions` provide a declarative template for a
-shell command and its adjustable parameters.  To run an application, we submit a
+shell command and its adjustable parameters. Alternatively, they define a Python `run()` function that takes arbitrary inputs. To run an application, we submit a
 Job that provides values for these parameters. 
 
 Importantly, we **do not** specify how the application is launched (`mpiexec`)
 or its CPU/GPU resources in the `ApplicationDefinition`.  Instead, Balsam takes
 care of managing resources and building the command lines to efficiently launch our Jobs.
 
-Besides the fundamental `command_template` shown above, `ApplicationDefinitions`
+Besides the fundamental `site`, `command_template`, and `run` attributes discussed above, `ApplicationDefinitions`
 provide other special attributes and methods that we can override to build more
 complex and useful workflow components.
 
@@ -219,6 +219,18 @@ class MySimulation(ApplicationDefinition):
     """
 ```
 
+### The Site Identifier
+
+The `site` attribute is required on **all** `ApplicationDefinitions` and it must unambiguously refer to one of your existing Sites.  This class attribute can be a string (site name), integer (site ID), or a `Site` object loaded from the Balsam SDK.
+
+```python hl_lines="5"
+class MySimulation(ApplicationDefinition):
+    """
+    Some description of the app goes here
+    """
+    site = "theta-gpu"
+```
+
 ### Environment Variables
 
 The `environment_variables` attribute should be a `Dict[str, str]`
@@ -227,25 +239,27 @@ constant environment variables that **do not vary** across runs.
 This environment is merged with the environment established in the job 
 template.
 
-```python hl_lines="5-7"
+```python hl_lines="6-8"
 class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
+    site = "theta-gpu"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
 ```
 
 ### Command Template
-As we have seen, the central (and only required) class attribute is the `command_template`.  This is interpreted as a Jinja2 template; therefore,
+As we have seen, `ApplicationDefinitions` must contain *either* a `command_template` or a `run()` method.  These are mutually exclusive: you must set one or the other. The `command_template` is interpreted as a Jinja2 template; therefore,
 parameters must be enclosed in double-curly braces.
 
-```python hl_lines="8"
+```python hl_lines="9"
 class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
+    site = "theta-gpu"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
@@ -255,14 +269,33 @@ class MySimulation(ApplicationDefinition):
 By default, all app parameters are **required** parameters: it is an error
 to omit any parameter named in the template.  We can change this behavior below.
 
-### Run function and Python executable
+### The `run` function
 
-When the `run()` function is invoked in a Python application (as opposed to a shell command), it is important that the execution-side Python environment has the necessary dependencies installed. The optional class attribute `python_exe` defaults to `sys.executable` and should not be changed if the app runs in the same environment Balsam is installed in. 
+When the `ApplicationDefinition` contains a `run()` method, this function is launched onto compute resources using the parameters set on the corresponding `Job`.
 
-However, you should override `python_exe` if you wish to invoke the `run` function using a *different* Python environment from the one in which Balsam itself is installed.
+```python hl_lines="6-7"
+import numpy as np
 
-```python hl_lines="3"
-class MyApp(ApplicationDefinition):
+class VecNorm(ApplicationDefinition):
+    site = "theta-gpu"
+
+    def run(self, vec):
+        return np.linalg.norm(vec)
+```
+
+### Python executable
+
+When using a `run()` function, it is important that the execution-side Python
+environment has the necessary dependencies installed. The optional class
+attribute `python_exe` defaults to `sys.executable` and should not be changed if
+the app runs in the same environment Balsam is installed in. 
+
+You should override `python_exe` if you wish to invoke the `run` function using a *different* Python environment from the one in which Balsam is installed.  This setting has no effect for `command_template` apps.
+
+```python hl_lines="5"
+import numpy as np
+
+class VecNorm(ApplicationDefinition):
     site = "theta-gpu"
     python_exe = "/path/to/bin/python3.8"
 
@@ -277,11 +310,12 @@ Maybe we want to have some **optional** parameters in the `command_template`,
 which take on a default value in the absence of a value specified in the Job.
 We can do this by providing the `parameters` dictionary:
 
-```python hl_lines="9-16"
+```python hl_lines="10-17"
 class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
+    site = "theta-gpu"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
@@ -371,11 +405,12 @@ state, after all stage out tasks have completed.
 
 By default, the `file_cleaner` will not delete anything, even when it has been enabled.  The `ApplicationDefinition` must *also* define a list of glob patterns in the `cleanup_files` attribute, for which matching files will be removed upon job completion.
 
-```python hl_lines="9"
+```python hl_lines="10"
 class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
+    site = "theta-gpu"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
