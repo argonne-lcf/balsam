@@ -5,7 +5,7 @@ hide:
 
 ![logo](./img/balsam-black.png){ style="width: 55%; display: block; margin: 0 auto" }
 
-*This page is for the Balsam 0.6 pre-release. Click [here for stable Balsam 0.5 docs.](https://balsam.readthedocs.io/en/master)*
+*This page is for the Balsam pre-release. Click [here for legacy Balsam 0.5 docs.](https://balsam.readthedocs.io/en/master)*
 
 A unified platform to manage high-throughput workflows across the HPC landscape.
 
@@ -19,7 +19,7 @@ $ balsam site init my-site
 
 ![site-init](./img/balsam-init.gif){ style="width: 80%; display: block; margin: 0 auto" }
 
-**Declare HPC Apps and execution lifecycle hooks.**
+**Python class-based declaration of Apps and execution lifecycles.**
 
 ```python
 from balsam.api import ApplicationDefinition
@@ -32,7 +32,7 @@ class Hello(ApplicationDefinition):
         self.job.state = "RESTART_READY"
 ```
 
-**Run Apps from anywhere, thanks to the unified Balsam service.**
+**Seamless remote job management.**
 
 ```python
 # On any machine with internet access...
@@ -57,7 +57,7 @@ BatchJob.objects.create(
 )
 ```
 
-**Define and run Python Apps on heterogeneous resources, from a single session.**
+**Dispatch Python Apps across heterogeneous resources from a single session.**
 
 ```python
 import numpy as np

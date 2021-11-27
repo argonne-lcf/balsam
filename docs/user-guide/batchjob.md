@@ -87,8 +87,8 @@ ease, using a single, consistent programming model.
 from balsam.api import Job, BatchJob
 # Create Jobs:
 job = Job.objects.create(
-    site_path="myProject-theta-gpu",
-    app_name="sim.X",
+    site_name="myProject-theta-gpu",
+    app_id="SimulationX",
     workdir="test-runs/foo/1",
 )
 
