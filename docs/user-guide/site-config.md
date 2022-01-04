@@ -11,9 +11,12 @@ new Site, you must be authenticated with Balsam:
 $ balsam login
 ```
 
+!!! note "Public logins temporarily are restricted"
+    The central Balsam service is currently in a pre-release phase and login is limited to pre-authorized ALCF users. For early access to Balsam, please send a request to the [ALCF Help Desk](mailto:support@alcf.anl.gov).
+
 ## Creating a site
 
-To initialize a Balsam site, we use the CLI to select an appropriate **default configuration**
+To initialize a Balsam site, use the CLI to select an appropriate **default configuration**
 for the current system.  Balsam creates a new Site directory and registers it with the REST API.  In order to use the Site, we must also start the agent process with `balsam site start`.
 
 ```bash
@@ -22,7 +25,7 @@ $ cd SITE-PATH
 $ balsam site start
 ```
 
-The Site is populated with several folders and a bootstrapped configuration file `settings.yml`.
+The Site is populated with several folders and a bootstrapped configuration file `settings.yml`. The **name** that you choose for the Site must be unique across all of your Sites.  This name is used to identify and target Jobs to specific Sites.
 
 ![site-init](../img/balsam-init.gif)
 
@@ -39,9 +42,6 @@ $ balsam site start
 
 Each Balsam site has a regular structure comprising certain files and directories:
 
-- `apps/`:  This directory contains Python modules with `ApplicationDefinition` classes defining
-  the known applications in each Site.  You can freely extend the examples and create Jobs
-  to invoke these Apps.
 - `data/`:  Each Balsam Job runs in a subdirectory of `data/`.   The Job working directories
   are specified *relative* to this folder via `job.workdir`.
 - `log/`:   The Site user agent and launcher pilot jobs send diagnostic messages
@@ -52,7 +52,7 @@ submitted to the HPC batch scheduler via a shell script.  This directory
 contains each of the materialized scripts that was actually submitted to the batch queue.
 - `job-template.sh`:  This is the template for the  `qsubmit/` 
 scripts submitted to the HPC batch scheduler.
-- `settings.yml`:  This is where the majority of Balsam Site behavior is configured.  The file is populated with sensible defaults and heavily commented for you to read and modify.
+- `settings.yml`:  This is where the Balsam Site is configured.  The file is populated with sensible defaults for the chosen platform, and it is commented for you to read and modify.
 
 
 ## Customizing the Job Template
