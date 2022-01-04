@@ -2,13 +2,14 @@
 
 This tutorial gets you up and running with a new Balsam Site quickly.  Since
 Balsam is highly platform-agnostic, you can follow along by choosing from any of
-the available default configs:
+the available default site setups:
 
 - A local MacOS or Linux system
 - Theta-KNL
 - Theta-GPU
 - Cooley
 - Cori (Haswell or KNL partitions)
+- Perlmutter
 - Summit
 
 ## Install
@@ -34,14 +35,18 @@ $ balsam login
 
 Once you are logged in, you can create a Balsam Site for job execution, or send jobs to any of your other existing Sites.
 
+!!! warning "Login temporarily restricted"
+    Balsam is currently in a pre-release stage and the web service is hosted on limited resources.  Consequently, logins are limited to pre-authorized users.  Please contact the [ALCF Help Desk](mailto:support@alcf.anl.gov) to request early access membership to the Balsam user group. 
+
+
 
 ## Create a Balsam Site
 
 All Balsam workflows are namespaced under **Sites**: self-contained project
 spaces belonging to individual users. You can use Balsam to manage
-Sites across one or several HPC systems from a single command line session (or Python program).
+Sites on multiple HPC systems from a single shell or Python program.
 This is one of the key strengths of Balsam: the usage looks exactly the same
-whether you're running locally or managing jobs across multiple remote supercomputer Sites.
+whether you're running locally or managing jobs across multiple supercomputers.
 
 Let's start by creating a Balsam Site in a folder named `./my-site`:
 
@@ -65,7 +70,7 @@ $ balsam site ls
 In order to actually run anything at the Site, **you have to enter the Site
 directory and start it** with `balsam site start`.  This command launches
 a persistent background agent which uses your access token to sync with the
-Balsam service and orchestrate the workflows locally.
+Balsam service.
 
 ```bash
 $ cd my-site
@@ -78,8 +83,8 @@ $ balsam site start
 Every Site has its own collection of Balsam **Apps**, which define the runnable
 applications at that Site.   A Balsam App is declared by writing an `ApplicationDefinition`
 class and running the `sync()` method from a Python program or interactive session.
-The simplest `ApplicationDefinition` is basically a declaration of a shell
-command, with any adjustable parameters enclosed in double-curly braces:
+The simplest `ApplicationDefinition` is just a template for a `bash`
+command, with any workflow variables enclosed in double-curly braces:
 
 ```python
 from balsam.api import ApplicationDefinition
@@ -91,9 +96,10 @@ class Hello(ApplicationDefinition):
 Hello.sync()
 ```
 
-By setting `site = "theta-demo"` and running `Hello.sync()`, we register an App
-named `Hello` under the named Site.  In addition to shell commands, we
-can define Apps that invoke a Python `run()` function on a compute node:
+Notice the attribute `site = "theta-demo"` which is **required** to associate the App `"Hello"` to the Site `"theta-demo"`. 
+
+In addition to shell command templates, we can define Apps that invoke a Python `run()`
+function on a compute node:
 
 ```python
 class VecNorm(ApplicationDefinition):
@@ -106,15 +112,15 @@ VecNorm.sync()
 ```
 
 After running the `sync()` methods for these Apps, they are serialized and
-stored in the Balsam database.  We can then load and re-use these Apps when
-submitting Jobs from other Python programs. 
+shipped into the Balsam cloud service.  We can then load and re-use these Apps when
+submitting Jobs from other Python programs.
 
 
 ## Add Jobs
 
 With these App classes in hand, we can now submit some jobs from the Python SDK.
 Let's create a Job for both the `Hello` and `VecNorm` apps:  all we need is to 
-pass a working directory and any necessary parameters for each:
+pass a **working directory** and any necessary **parameters** for each:
 
 ```python
 hello = Hello.submit(workdir="demo/hello", say_hello_to="world")
@@ -122,7 +128,7 @@ norm = VecNorm.submit(workdir="demo/norm", vec=[3, 4])
 ```
 
 Notice how shell command parameters (for `Hello`) and Python function parameters
-(for `VecNorm`) are treated on the same footing.  
+(for `VecNorm`) are treated on the same footing.  We have now created two Jobs that will eventually run on the Site `theta-demo`, once compute resources are available.  These Jobs can be seen by running `balsam job ls`.
 
 
 ## Make it run
@@ -133,7 +139,7 @@ This way, your workflow definitions are neatly separated from the
 concern of what allocation they run on.  You create a collection of Jobs first,
 and then many of these Jobs can run inside one (or more) BatchJobs.
 
-BatchJobs will *automatically* run as many Jobs as they can at their Site.  You can simply
+Since BatchJobs dynamically acquire Jobs, Balsam execution is fully **elastic** (just spin up more nodes by adding another BatchJob) and **migratable** (a Job that ran out of time in one batch allocation will get picked up in the next BatchJob).  BatchJobs will *automatically* run as many Jobs as they can at their Site.  You can simply
 queue up one or several BatchJobs and let them divide and conquer your workload. 
 
 ```python
@@ -153,7 +159,7 @@ via `qsub`).  The `hello` and `norm` Jobs will run in the `workdirs` specified
 above, located relative to the Site's `data/` directory.  You will find the
 "Hello world" job output in a `job.out` file therein.  
 
-For Python `run()` applications, the created `Jobs` can be treated similar to
+For Python `run()` applications, the created `Jobs` can be handled like
 [`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
 instances, where the `result()` method delivers the return value (or re-raises
 the Exception) from a `run()` invocation.
@@ -170,7 +176,7 @@ Balsam:
 $ balsam queue ls
 ```
 
-When the BatchJob starts, an MPI mode launcher pilot job will run your jobs. You will see (copious) logs in the `logs/`  directory showing what's going on.  Follow the Job statuses with `balsam job ls`:
+When the BatchJob with `job_mode="mpi"` starts, an [MPI mode launcher](../../user-guide/batchjob#selecting-a-launcher-job-mode) pilot job acquires and runs the jobs. You will find helpful logs in the `logs/`  directory showing what's going on.  Follow the Job statuses with `balsam job ls`:
 
 ```
 $ balsam job ls
@@ -185,7 +191,8 @@ ID       Site                  App          Workdir   State          Tags
 ## A complete Python example
 
 Now let's combine the Python snippets from above to show a
-self-contained example of Balsam SDK usage:
+self-contained example of Balsam SDK usage (e.g. something
+you might run from a Jupyter notebook):
 
 ```python
 from balsam.api import ApplicationDefinition, BatchJob, Job
