@@ -3,7 +3,7 @@ from collections import defaultdict
 from itertools import islice
 from math import ceil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, cast, DefaultDict
+from typing import TYPE_CHECKING, Any, DefaultDict, Dict, Iterable, List, Tuple, cast
 from urllib.parse import urlparse
 
 from balsam.platform.transfer import TaskInfo, TransferInterface, TransferRetryableError, TransferSubmitError
