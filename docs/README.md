@@ -12,7 +12,7 @@ A unified platform to manage high-throughput workflows across the HPC landscape.
 **Run Balsam on any laptop, cluster, or supercomputer.**
 
 ```console
-$ pip install --pre balsam-flow 
+$ pip install --pre balsam
 $ balsam login
 $ balsam site init my-site
 ```

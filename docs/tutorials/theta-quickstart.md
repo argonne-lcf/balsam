@@ -19,7 +19,7 @@ First create a new virtualenv and install Balsam:
 ```bash
 $ /soft/datascience/create_env.sh my-env # Or DIY
 $ source my-env/bin/activate
-$ pip install --pre balsam-flow
+$ pip install --pre balsam
 ```
 
 ## Log In 
