@@ -23,6 +23,7 @@ nav:
       - Integration Testing: development/testing.md
       - The Python REST Client: development/client.md
   - Admin Guide: development/deploy.md
+  - Publications: community/publications.md
   - License: LICENSE.md
 
 
