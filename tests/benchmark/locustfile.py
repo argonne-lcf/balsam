@@ -1,3 +1,5 @@
+# written by Taylor Childers and Misha Salim
+# usage: BALSAM_TEST_TOKENS=/path/to/file/with/tokens  BALSAM_TEST_SERVER=http://localhost:8000 locust
 import copy
 import logging
 import os
@@ -7,27 +9,63 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import requests
+import yaml
 from locust import User, task  # type: ignore
 from locust.env import Environment  # type: ignore
 from locust.event import EventHook  # type: ignore
 
 from balsam._api import models
-from balsam.client import OAuthRequestsClient
+from balsam.client import BasicAuthRequestsClient, OAuthRequestsClient
 
 logger = logging.getLogger(__name__)
 
+# get a token file
 TEST_TOKENS_FILE = os.environ.get("BALSAM_TEST_TOKENS", "test-tokens.txt")
 if not Path(TEST_TOKENS_FILE).is_file():
     raise RuntimeError(
         f"Cannot find token file {TEST_TOKENS_FILE}. Create this or set the path with BALSAM_TEST_TOKENS."
     )
+TEST_BALSAM_SERVER = os.environ.get("BALSAM_TESET_SERVER", "http://0.0.0.0:8000")
 
-with open(TEST_TOKENS_FILE) as fp:
-    tokens = [line.strip() for line in fp.readlines()]
-
-
-class LocustBalsamClient(OAuthRequestsClient):
+# overload client using username/password token authentication
+class LocustBalsamClientA(BasicAuthRequestsClient):
     def __init__(self, api_root: str, request_event: EventHook) -> None:
+        # token file is typically here: `$HOME/.balsam/client.yml`
+        with open(TEST_TOKENS_FILE) as fp:
+            yml_file = yaml.load(fp, Loader=yaml.FullLoader)
+            token = yml_file["token"]
+        super().__init__(api_root, token=token)
+        self._request_event = request_event
+
+    def request(self, url: str, http_method: str, **kwargs: Any) -> Any:  # type: ignore
+        start_time = time.perf_counter()
+        url_parts = [(part if not part.isdigit() else ":id") for part in url.split("/")]
+        url_name = "/".join(url_parts)
+        request_meta = {
+            "request_type": "balsam-requests-client",
+            "name": f"{http_method} {url_name}",
+            "response_length": 0,
+            "response": None,
+            "context": {},  # see HttpUser if you actually want to implement contexts
+            "exception": None,
+        }
+        try:
+            request_meta["response"] = super().request(url, http_method, **kwargs)
+        except Exception as e:
+            request_meta["exception"] = e
+            raise
+        finally:
+            request_meta["response_time"] = (time.perf_counter() - start_time) * 1000
+            self._request_event.fire(**request_meta)  # This is what makes the request actually get logged in Locust
+        return request_meta["response"]
+
+
+# using OAuth style authentication
+class LocustBalsamClientB(OAuthRequestsClient):
+    def __init__(self, api_root: str, request_event: EventHook) -> None:
+        with open(TEST_TOKENS_FILE) as fp:
+            tokens = [line.strip() for line in fp.readlines()]
         token = random.choice(tokens)
         tokens.remove(token)
         super().__init__(api_root, token=random.choice(tokens))
@@ -56,11 +94,14 @@ class LocustBalsamClient(OAuthRequestsClient):
         return request_meta["response"]
 
 
+# this is the locust User simiulator
 class BalsamUser(User):  # type: ignore
     def __init__(self, environment: Environment) -> None:
         super().__init__(environment)
-        self.client = LocustBalsamClient("https://balsam-dev.alcf.anl.gov/", environment.events.request)
-        print("My token is", self.client.token)
+        # using username/password Authentication
+        # change A to B to use OAuth instead
+        self.client = LocustBalsamClientA(TEST_BALSAM_SERVER, environment.events.request)
+        print("My token is ", self.client.token)
         self.Site = copy.deepcopy(models.Site)
         self.Site.objects = models.SiteManager(self.client)
         self.App = copy.deepcopy(models.App)  # Deepcopy
@@ -77,16 +118,8 @@ class BalsamUser(User):  # type: ignore
         self.EventLog.objects = models.EventLogManager(self.client)
 
     def on_start(self) -> None:
-        # Clean up old Sites prior to testing
-        for site in self.Site.objects.all():
-            logger.debug(f"Deleting old site: {site}")
-            site.delete()
-            assert site.id is None
-        logger.debug("OK I should have deleted all my sites by now!")
-        failed_to_delete = list(self.Site.objects.all())
-        assert len(failed_to_delete) == 0
-        name = f"test-site{uuid4()}"
-        path = Path("/projects/premade_site")
+        name = f"test-site-{uuid4()}"
+        path = Path(os.getcwd(), f"/projects/premade_site-{uuid4()}")
         self.premade_site = self.Site.objects.create(name=name, path=path)
         print("Created site id:", self.premade_site.id)
         assert self.premade_site.id is not None
@@ -97,6 +130,17 @@ class BalsamUser(User):  # type: ignore
         )
         print("Created app id:", self.premade_app.id, "at site:", self.premade_site.id)
 
+    def on_stop(self) -> None:
+        try:
+            self.premade_app.delete()
+        except requests.exceptions.HTTPError:
+            logger.exception("failed to delete premade app")
+        print("[", self.premade_site.id, "] sites: ", [site.id for site in self.Site.objects.all()])
+        try:
+            self.premade_site.delete()
+        except requests.exceptions.HTTPError:
+            logger.exception("failed to delete premade site")
+
     @task(3)
     def site_list(self) -> None:
         list(self.Site.objects.all())
@@ -106,13 +150,16 @@ class BalsamUser(User):  # type: ignore
         site = self.premade_site
         num_apps = len(self.App.objects.filter(site_id=site.id))
         parameters = {"foo": {"required": False, "default": "foo"}, "bar": {"required": False, "default": "bar"}}
-        self.App.objects.create(
+        app = self.App.objects.create(
             site_id=site.id,
             name=f"Bar_{num_apps:08d}",
             serialized_class="",
             source_code="",
             parameters=parameters,
         )
+        # delete app to cleanup
+        time.sleep(1)
+        app.delete()
 
     @task(3)
     def app_list(self) -> None:
@@ -124,7 +171,11 @@ class BalsamUser(User):  # type: ignore
 
         parameters = {"foo": "yes", "bar": "maybe"}
         job_num = len(self.Job.objects.all())
-        self.Job.objects.create("test/run_%08d" % job_num, app_id=app.id, parameters=parameters)
+        job = self.Job.objects.create("test/run_%08d" % job_num, app_id=app.id, parameters=parameters)
+
+        # delete job to cleanup
+        time.sleep(1)
+        job.delete()
 
     @task(10)
     def job_list(self) -> None:
@@ -141,7 +192,8 @@ class BalsamUser(User):  # type: ignore
         # create a bunch of jobs:
         parameters = {"foo": "yes", "bar": "maybe"}
         batch_id = str(int(time.time()))
-        # create between 1 and 100 jobs
+        # create some number of jobs
+        num_jobs = random.choice(range(100, 500))
         jobs = [
             self.Job(
                 f"batchjob_{batch_id}/run_{i:08d}",
@@ -149,7 +201,7 @@ class BalsamUser(User):  # type: ignore
                 parameters=parameters,
                 tags={"batch_id": batch_id},
             )
-            for i in range(random.choice(range(128, 512)))
+            for i in range(num_jobs)
         ]
         jobs = self.Job.objects.bulk_create(jobs)
 
@@ -181,9 +233,11 @@ class BalsamUser(User):  # type: ignore
         # session heartbeat
         sess.tick()
 
-        steps = int(simulated_nodes / len(jobs)) + 1
+        # simulate runnings jobs in batches
+        steps = int(len(jobs) / simulated_nodes) + 1
         for step in range(steps):
 
+            # indices of jobs to operate on
             start = simulated_nodes * step
             end = min(simulated_nodes * (step + 1), len(jobs))
 
@@ -203,5 +257,5 @@ class BalsamUser(User):  # type: ignore
             # session heartbeat
             sess.tick()
 
-        # Delete session when exiting:
-        sess.delete()
+        # Delete batch job which also deletes jobs and session
+        batch_job.delete()
