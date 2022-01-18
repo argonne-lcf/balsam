@@ -1,6 +1,6 @@
 
 
-<img src="./img/balsam-color.png" width=600/>
+<img src="./img/balsam-all-green-nobg.png" width=600/>
 
 A unified platform to manage high-throughput workflows across the HPC landscape.
 
