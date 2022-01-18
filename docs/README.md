@@ -1,23 +1,21 @@
----
-hide:
-  - toc
----
 
-![logo](./img/balsam-black.png){ style="width: 55%; display: block; margin: 0 auto" }
 
-*This page is for the Balsam pre-release. Click [here for legacy Balsam 0.5 docs.](https://balsam.readthedocs.io/en/master)*
+<img src="./img/balsam-color.png" width=600/>
 
 A unified platform to manage high-throughput workflows across the HPC landscape.
+
+*  [Balsam Documetation (branch: main)](https://balsam.readthedocs.io/en/latest/)
+*  [Legacy Balsam Documenation (branch: master)](https://balsam.readthedocs.io/en/master)
 
 **Run Balsam on any laptop, cluster, or supercomputer.**
 
 ```console
-$ pip install --pre balsam-flow 
+$ pip install --pre balsam
 $ balsam login
 $ balsam site init my-site
 ```
 
-![site-init](./img/balsam-init.gif){ style="width: 80%; display: block; margin: 0 auto" }
+![site-init](./img/balsam-init.gif)
 
 **Python class-based declaration of Apps and execution lifecycles.**
 
