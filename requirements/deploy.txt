@@ -1,7 +1,7 @@
 # Pinned dependencies for server deploy
 psycopg2==2.9.3
 fastapi==0.72.0
-orjson==3.6.5
+orjson==3.6.6
 fastapi==0.72.0
 uvicorn[standard]==0.17.0
 python-multipart==0.0.5
