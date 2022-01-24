@@ -19,8 +19,8 @@ services:
     networks:
       - monitor-net
     environment:
-      PGADMIN_DEFAULT_EMAIL: balsam@anl.gov
-      PGADMIN_DEFAULT_PASSWORD: y9lhFN1XbnVMNRyI
+      PGADMIN_DEFAULT_EMAIL: XXXXX
+      PGADMIN_DEFAULT_PASSWORD: XXXXXX
     ports:
       - 8008:80
 
