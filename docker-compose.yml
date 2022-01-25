@@ -19,8 +19,8 @@ services:
     networks:
       - monitor-net
     environment:
-      PGADMIN_DEFAULT_EMAIL: XXXXX
-      PGADMIN_DEFAULT_PASSWORD: XXXXXX
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     ports:
       - 8008:80
 
