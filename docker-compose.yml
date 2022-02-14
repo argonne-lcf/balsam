@@ -1,4 +1,4 @@
-version: "3.9"
+version: '2.1'
 
 networks:
   monitor-net:
@@ -13,14 +13,39 @@ volumes:
 
 services:
 
+
+  balsam-web:
+    image: anl/balsam-web
+    container_name: balsam-web
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/balsam
+    networks:
+      - monitor-net
+    ports:
+      - 5000:5000
+
+  balsam-ui:
+    image: anl/balsam-ui
+    container_name: balsam-ui
+    restart: always
+    depends_on:
+      - balsam-web
+    networks:
+      - monitor-net
+    ports:
+      - 8007:8080
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
     networks:
       - monitor-net
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_DEFAULT_EMAIL: balsam@anl.gov
+      PGADMIN_DEFAULT_PASSWORD: y9lhFN1XbnVMNRyI
     ports:
       - 8008:80
 
