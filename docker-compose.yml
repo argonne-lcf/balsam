@@ -36,8 +36,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: balsam
     volumes:
+      - "./postgres/postgresql.conf:/etc/postgresql.conf"
       - "pgdata:/var/lib/postgresql/data"
-    command: "-c log_min_duration_statement=0"
+    command: "-c log_min_duration_statement=0 -c config_file=/etc/postgresql.conf"
     logging:
       options:
         max-size: "50m"
