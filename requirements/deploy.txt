@@ -16,7 +16,7 @@ redis==4.1.4
 # Duplicated from setup.cfg (but pinned)
 PyYAML==6.0
 multiprocessing-logging==0.3.1
-click==8.0.3
+click==8.0.4
 inquirer==2.9.1
 pydantic==1.9.0
 python-dotenv==0.19.2
