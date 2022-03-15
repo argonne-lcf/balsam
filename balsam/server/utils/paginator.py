@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
 from fastapi import Query as APIQuery
 from sqlalchemy.orm import Query as SQLQuery
@@ -19,7 +19,7 @@ class Paginator(Generic[T]):
         self.offset = offset
 
     def paginate(self, iterable: "SQLQuery[T]") -> "SQLQuery[T]":
-        return iterable[self.offset : self.offset + self.limit]  # type: ignore
+        return cast(SQLQuery[T], iterable[self.offset : self.offset + self.limit])
 
     def paginate_core(self, stmt: "Select") -> "Select":
         if self.limit is not None:
@@ -31,4 +31,4 @@ class Paginator(Generic[T]):
         limit: int = APIQuery(MAX_PAGE_SIZE, le=MAX_PAGE_SIZE, description="Maximum number of items to return."),
         offset: int = APIQuery(0, ge=0, description="Starting index from which to list items."),
     ) -> "Paginator[T]":
-        return super().__new__(cls)  # type: ignore
+        return super().__new__(cls) 
