@@ -31,4 +31,4 @@ class Paginator(Generic[T]):
         limit: int = APIQuery(MAX_PAGE_SIZE, le=MAX_PAGE_SIZE, description="Maximum number of items to return."),
         offset: int = APIQuery(0, ge=0, description="Starting index from which to list items."),
     ) -> "Paginator[T]":
-        return super().__new__(cls) 
+        return super().__new__(cls)
