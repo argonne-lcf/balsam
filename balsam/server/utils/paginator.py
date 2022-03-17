@@ -10,6 +10,7 @@ T = TypeVar("T")
 
 
 class Paginator(Generic[T]):
+    """ Paging data class """
     def __init__(
         self,
         limit: int = APIQuery(MAX_PAGE_SIZE, le=MAX_PAGE_SIZE, description="Maximum number of items to return."),
