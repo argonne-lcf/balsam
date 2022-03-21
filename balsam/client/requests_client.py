@@ -75,7 +75,7 @@ class RequestsClient(RESTClient):
     def backoff(self, reason: Exception) -> None:
         if self._attempt > self.retry_count:
             raise TimeoutError(f"Exceeded max retries: {reason}")
-        sleep_time = 2**self._attempt + random.random()
+        sleep_time = 2 ** self._attempt + random.random()
         time.sleep(sleep_time)
         self._attempt += 1
 

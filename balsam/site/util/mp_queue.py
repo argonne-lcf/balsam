@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     class _QueueBase(QueueBase[T]):
         pass
 
+
 else:
 
     class _QueueBase(Generic[T], QueueBase):
