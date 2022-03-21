@@ -20,7 +20,7 @@ class Paginator(Generic[T]):
         self.offset = offset
 
     def paginate(self, iterable: "SQLQuery[T]") -> "SQLQuery[T]":
-        return cast(SQLQuery[T], iterable[self.offset : self.offset + self.limit])
+        return cast("SQLQuery[T]", iterable[self.offset : self.offset + self.limit])
 
     def paginate_core(self, stmt: "Select") -> "Select":
         if self.limit is not None:
