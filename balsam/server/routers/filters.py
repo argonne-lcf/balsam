@@ -89,10 +89,10 @@ class EventLogQuery:
         if self.scheduler_id:
             qs = qs.filter(BatchJob.scheduler_id == self.scheduler_id)
         if self.tags:
-            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)  # type: ignore
+            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)
             qs = qs.filter(Job.tags.contains(tags_dict))  # type: ignore
         if self.data:
-            data_dict: Dict[str, str] = dict(d.split(":", 1) for d in self.data if ":" in d)  # type: ignore
+            data_dict: Dict[str, str] = dict(d.split(":", 1) for d in self.data if ":" in d)
             qs = qs.filter(LogEvent.data.contains(data_dict))  # type: ignore
         if self.timestamp_before:
             qs = qs.filter(LogEvent.timestamp <= self.timestamp_before)
@@ -171,7 +171,7 @@ class JobQuery:
         if self.state:
             qs = _filter(Job.state.in_(self.state))
         if self.tags:
-            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)  # type: ignore
+            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.tags if ":" in t)
             qs = _filter(Job.tags.contains(tags_dict))  # type: ignore
         if self.pending_file_cleanup:
             qs = _filter(Job.pending_file_cleanup)
@@ -256,7 +256,7 @@ class BatchJobQuery:
             qs = qs.filter(BatchJob.end_time >= self.end_time_after)
 
         if self.filter_tags:
-            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.filter_tags if ":" in t)  # type: ignore
+            tags_dict: Dict[str, str] = dict(t.split(":", 1) for t in self.filter_tags if ":" in t)
             qs = qs.filter(BatchJob.filter_tags.contains(tags_dict))  # type: ignore
         if self.ordering:
             desc = self.ordering.startswith("-")

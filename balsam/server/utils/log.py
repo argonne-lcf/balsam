@@ -2,7 +2,7 @@ import logging
 import logging.handlers
 import sys
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 
 def log_uncaught_exceptions(exctype: Any, value: Any, tb: Any) -> None:
@@ -19,15 +19,19 @@ def setup_logging(log_dir: Optional[Path], log_level: Union[str, int]) -> None:
     datefmt = "%Y-%m-%d %H:%M:%S"
     formatter = logging.Formatter(format, datefmt=datefmt)
 
-    handler = (
-        logging.handlers.RotatingFileHandler(
-            filename=log_dir / "server-balsam.log",
-            maxBytes=int(32 * 1e6),
-            backupCount=3,
-        )
-        if log_dir
-        else logging.StreamHandler()
+    handler: logging.Handler = cast(
+        logging.Handler,
+        (
+            logging.handlers.RotatingFileHandler(
+                filename=log_dir / "server-balsam.log",
+                maxBytes=int(32 * 1e6),
+                backupCount=3,
+            )
+            if log_dir
+            else logging.StreamHandler()
+        ),
     )
+
     handler.setFormatter(formatter)
     logger.setLevel(log_level)
     logger.addHandler(handler)
