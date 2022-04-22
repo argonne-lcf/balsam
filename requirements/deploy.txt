@@ -17,7 +17,7 @@ redis==4.2.2
 PyYAML==6.0
 multiprocessing-logging==0.3.1
 click==8.0.4
-inquirer==2.9.1
+inquirer==2.9.2
 pydantic==1.9.0
 python-dotenv==0.20.0
 python-dateutil==2.8.2
