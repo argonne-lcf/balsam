@@ -5,7 +5,7 @@
 A unified platform to manage high-throughput workflows across the HPC landscape.
 
 *  [Balsam Documentation (branch: main)](https://balsam.readthedocs.io/en/latest/)
-*  [Legacy Balsam Documenation (branch: master)](https://balsam.readthedocs.io/en/master)
+*  [Legacy Balsam Documentation (branch: master)](https://balsam.readthedocs.io/en/master)
 
 **Run Balsam on any laptop, cluster, or supercomputer.**
 
