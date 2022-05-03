@@ -5,7 +5,8 @@
 #PBS -q {{ queue }}
 # #COBALT --attrs pubnet=true:enable_ssh=1:{% if optional_params.get("mig_count") %}mig-mode=true{% endif %}
 
-#export https_proxy=http://theta-proxy.tmi.alcf.anl.gov:3128
+export http_proxy="http://proxy.alcf.anl.gov:3128"
+export https_proxy="http://proxy.alcf.anl.gov:3128"
 
 {% if optional_params.mig_count == "2" %}
     cgi=9
