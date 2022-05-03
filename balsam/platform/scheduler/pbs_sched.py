@@ -177,8 +177,11 @@ class PBSScheduler(SubprocessSchedulerInterface):
             jobid = jobidstr.split(".")[0]
             status["scheduler_id"] = jobid
             status["state"] = PBSScheduler._job_states[job["job_state"]]
-            W = job["Resource_List"]["walltime"].split(":")
-            status["wall_time_min"] = W[0] * 60 + W[1]  # 00:00:00
+            if "walltime" in job["Resource_List"]:
+              W = job["Resource_List"]["walltime"].split(":")
+              status["wall_time_min"] = W[0] * 60 + W[1]  # 00:00:00
+            else:
+              status["wall_time_min"] = 0
             status["queue"] = job["queue"]
             status["num_nodes"] = job["Resource_List"]["nodect"]
             status["project"] = job["project"]
@@ -268,7 +271,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         if job_script_path is None:
             logger.warning("No job script path provided; cannot parse logs from scheduler_id alone")
             return SchedulerJobLog()
-        logfile = Path(job_script_path).with_suffix("e" + str(scheduler_id))
+        logfile = Path(job_script_path).with_suffix(".e" + str(scheduler_id))
         try:
             logger.info(f"Attempting to parse {logfile}")
             cobalt_log = logfile.read_text()

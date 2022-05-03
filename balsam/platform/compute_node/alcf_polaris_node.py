@@ -12,7 +12,7 @@ IntStr = Union[int, str]
 class PolarisNode(ComputeNode):
 
     # turam: confirm number of cpus
-    cpu_ids = list(range(128))
+    cpu_ids = list(range(64))
     gpu_ids: List[IntStr] = list(range(4))
 
     @classmethod
@@ -31,7 +31,7 @@ class PolarisNode(ComputeNode):
         hostnames = [h.strip() for h in hostnames if h.strip()]
         node_ids: Union[List[str], List[int]]
         try:
-            node_ids = [int(hostname.split(".")[0].split("-")[1]) for hostname in hostnames]
+            node_ids = [int(hostname.split(".")[0]) for hostname in hostnames]
         except ValueError:
             node_ids = hostnames[:]
         node_list = []
