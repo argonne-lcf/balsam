@@ -8,16 +8,17 @@ class PolarisRun(SubprocessAppRun):
 
     def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
-        env_args = [("-x", var) for var in self._envs.keys()]
+        env_args = ",".join(self._envs.keys())
         nid_str = ",".join(map(str, node_ids))
         args = [
             "mpiexec",
             "-n",
             self.get_num_ranks(),
-            "--map-by",
-            f"ppr:{self._ranks_per_node}:node",
-            *[arg for pair in env_args for arg in pair],
-            "-H",
+            # "--map-by",
+            # f"ppr:{self._ranks_per_node}:node",
+            "-envlist",
+            env_args,
+            "-hostlist",
             nid_str,
             self._cmdline,
         ]
