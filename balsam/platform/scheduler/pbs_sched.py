@@ -276,6 +276,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _parse_logs(scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         import traceback
+
         tb = traceback.extract_stack()
         logger.info(f"traceback at parse_logs {str(tb)}")
         if job_script_path is None:
