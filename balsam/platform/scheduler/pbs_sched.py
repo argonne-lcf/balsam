@@ -197,8 +197,8 @@ class PBSScheduler(SubprocessSchedulerInterface):
             else:
                 status["time_remaining_min"] = status["wall_time_min"]
             status["queued_time_min"] = (
-                    datetime.now() - datetime.strptime(job["qtime"], date_format)
-                ).total_seconds()
+                datetime.now() - datetime.strptime(job["qtime"], date_format)
+            ).total_seconds()
             status_dict[jobid] = SchedulerJobStatus(**status)
         return status_dict
 
