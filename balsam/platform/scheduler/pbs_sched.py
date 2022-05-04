@@ -183,10 +183,10 @@ class PBSScheduler(SubprocessSchedulerInterface):
             status["scheduler_id"] = jobid
             status["state"] = PBSScheduler._job_states[job["job_state"]]
             if "walltime" in job["Resource_List"]:
-              W = job["Resource_List"]["walltime"].split(":")
-              status["wall_time_min"] = int(W[0]) * 60 + int(W[1])  # 00:00:00
+                W = job["Resource_List"]["walltime"].split(":")
+                status["wall_time_min"] = int(W[0]) * 60 + int(W[1])  # 00:00:00
             else:
-              status["wall_time_min"] = 0
+                status["wall_time_min"] = 0
             status["queue"] = job["queue"]
             status["num_nodes"] = job["Resource_List"]["nodect"]
             status["project"] = job["project"]
