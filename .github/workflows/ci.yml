@@ -72,13 +72,13 @@ jobs:
       - name: tests
         run: make testcov
       - name: Archive test logs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: test-logs
           path: pytest-logs/
       - run: coverage xml
-      - uses: codecov/codecov-action@v2.1.0
+      - uses: codecov/codecov-action@v3.1.0
         with:
           files: ./coverage.xml
           env_vars: PYTHON,OS
