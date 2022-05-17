@@ -152,7 +152,7 @@ class Launcher:
                     state_data={
                         "message": "An exception occured while constructing the job command line",
                         "exception": str(exc),
-                    },                                                                                                 
+                    },
                 )
             except InsufficientResources:
                 logger.warning(
