@@ -13,7 +13,7 @@ However, in cutting off access to the Django ORM, users would lose the familiar 
 (arguably one of Balsams' most important features) and have to drop down to writing
 and decoding JSON data for each request.
 
-The client architecure described below provides a solution to this problem with
+The client architecture described below provides a solution to this problem with
 a *Django ORM-inspired* API.  A familiar Python object model of the data,
 complete with models (e.g. `Job`), managers (`Job.objects`), and Querysets
 (`Job.objects.filter(state="FAILED").delete()`) is available. Instead of

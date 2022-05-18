@@ -150,7 +150,7 @@ Finally, multiple command template parameters can be passed by repeated
 ### API Job Creation
 
 You will usually prefer to leverage the flexibility of Python to populate a
-large number of `Jobs` programatically. For example, a common pattern in Balsam
+large number of `Jobs` programmatically. For example, a common pattern in Balsam
 is to write a quick one-off script to crawl a directory of input files and
 generate a Job for each one.  Our entrypoint to creating `Jobs` from Python is the Balsam `Job` API:
 
@@ -191,7 +191,7 @@ job = Job.objects.create(app_id=123, ...)
 # don't need to call job.save()
 ```
 
-The **real** advantage of the API is to create many related `Jobs` programatically.  We can still call `job.save()` one-by-one, but it's more
+The **real** advantage of the API is to create many related `Jobs` programmatically.  We can still call `job.save()` one-by-one, but it's more
 efficient to *bulk-create* the jobs with a single network round trip:
 
 ```python
@@ -316,7 +316,7 @@ occupy a whole number of CPU cores and GPU devices while it runs.  For each comp
 
 - The node must have enough idle GPUs (`job.ranks_per_node * job.gpus_per_rank`)
 - The node must have enough idle CPUs (`job.ranks_per_node * job.threads_per_rank // job.threads_per_core`)
-- The node must have low enough occupancy to accomodate the `job` without exceeding an occupancy of 1.0.
+- The node must have low enough occupancy to accommodate the `job` without exceeding an occupancy of 1.0.
 
 !!! note "Job Placement Examples"
     Consider a 2-node allocation on a system with 64 CPU cores and 8 GPUs per
