@@ -26,7 +26,7 @@ The `site` attribute must be present on each `ApplicationDefinition` subclass to
 - Site ID (e.g. `142`)
 - `Site` object (fetched from the [API](./api.md))
 
-The `ApplicationDefinition` is uniquely identified by its **class name and site**.   In the above example, we defined the `Sleeper` application at the `theta-gpu` Site.  When `Sleeper.sync()` is called, the Python class and assosciated metadata is *serialized* and shipped to the Balsam web API. The `Sleeper` `ApplicationDefinition` is thereafter linked to the Site named `theta-gpu`, and workflows can proceed to submit `Sleeper` Jobs to `theta-gpu` from anywhere!
+The `ApplicationDefinition` is uniquely identified by its **class name and site**.   In the above example, we defined the `Sleeper` application at the `theta-gpu` Site.  When `Sleeper.sync()` is called, the Python class and associated metadata is *serialized* and shipped to the Balsam web API. The `Sleeper` `ApplicationDefinition` is thereafter linked to the Site named `theta-gpu`, and workflows can proceed to submit `Sleeper` Jobs to `theta-gpu` from anywhere!
 
 !!! warning "`ApplicationDefinitions` must be named uniquely!"
     If another Python session syncs a different `Sleeper` class belonging to
@@ -97,7 +97,7 @@ The submitted `Jobs` behave *partially* like `concurrent.futures.Future` objects
 ### Python App Capabilities and Limitations
 
 Python `run()` function-based `ApplicationDefinitions` enjoy all the same
-lifecycle hooks and flexible resource launching capabilites as ordinary
+lifecycle hooks and flexible resource launching capabilities as ordinary
 `ApplicationDefinitions`.  For instance, your Balsam apps can directly call into
 `mpi4py` code and be launched onto multiple compute nodes:
 
@@ -499,7 +499,7 @@ class MySimulation(ApplicationDefinition):
 ### The Postprocess Hook
 
 The `postprocess` hook is exactly like the `preprocess` hook, except that it
-runs **after** Jobs have succesfully executed.  In Balsam a "successful
+runs **after** Jobs have successfully executed.  In Balsam a "successful
 execution" simply means the application command return code was `0`, and the
 job is advanced by the launcher from `RUNNING` to `RUN_DONE`. Some common patterns in the `postprocess` hook include: 
 
@@ -537,7 +537,7 @@ We have just seen how the `postprocess` hook handles the return code `0` scenari
 1. The launcher wallclock time expired and the Job was terminated while still running.  The launcher marks the job state as `RUN_TIMEOUT`.
 2. The application finished with a nonzero exit code. This is interpreted by the launcher as an *error*, and the job state is set to `RUN_ERROR`.
 
-The `handle_timeout` hook gives us an oppportunity to manage timed-out jobs in
+The `handle_timeout` hook gives us an opportunity to manage timed-out jobs in
 the `RUN_TIMEOUT` state. The *default* Balsam action is to immediately mark the
 timed out job as `RESTART_READY`: it is simply eligible to run again as soon as
 resources are available.  If you wish to *fail* the job or tweak inputs before running again, this is the right place to do it.  
