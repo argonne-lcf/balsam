@@ -148,7 +148,7 @@ Therefore, the elastic queue automatically controls the **size** and **number**
 of requested BatchJobs as the workload grows.  We can think of each `BatchJob`
 as a *flexibly-sized block* of resources, and the elastic queue creates multiple
 blocks (one per `service_period`) while choosing their sizes.   If one BatchJob
-does not accomodate the incoming volume of tasks, then multiple BatchJobs of the
+does not accommodate the incoming volume of tasks, then multiple BatchJobs of the
 maximum size are submitted at each iteration.
 
 When the incoming Jobs slow down and the backlog falls inside the
