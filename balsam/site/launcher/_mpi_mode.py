@@ -143,6 +143,17 @@ class Launcher:
                         "exception": str(exc),
                     },
                 )
+            except ValueError as exc:
+                logger.exception(f"Missing parameters for Job(id={job.id}, workdir={job.workdir}): {exc}")
+                self.status_updater.put(
+                    job.id,
+                    state=JobState.failed,
+                    state_timestamp=datetime.utcnow(),
+                    state_data={
+                        "message": "An exception occured while constructing the job command line",
+                        "exception": str(exc),
+                    },
+                )
             except InsufficientResources:
                 logger.warning(
                     f"Insufficient resources to place Job {job.id} {job.workdir}. Stashing for later launch."
