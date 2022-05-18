@@ -79,7 +79,7 @@ multiple runs per node.
 ## Using the API
 
 A unique capability of the [Balsam Python API](./api.md) is that it allows us
-programatically manage HPC resources (via `BatchJob`) and tasks (via `Job`) on
+programmatically manage HPC resources (via `BatchJob`) and tasks (via `Job`) on
 equal footing. We can submit and monitor `Jobs` and `BatchJobs` at any Site with
 ease, using a single, consistent programming model.
 
