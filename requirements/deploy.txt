@@ -11,7 +11,7 @@ passlib[bcrypt]==1.7.4
 alembic==1.7.7
 SQLAlchemy==1.4.36
 aredis==1.1.8
-redis==4.3.0
+redis==4.3.1
 
 # Duplicated from setup.cfg (but pinned)
 PyYAML==6.0
