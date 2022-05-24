@@ -23,7 +23,7 @@ python-dotenv==0.20.0
 python-dateutil==2.8.2
 Jinja2==3.1.2
 requests==2.27.1
-psutil==5.9.0
+psutil==5.9.1
 globus-sdk==3.8.0
 configobj==5.0.6
 pyzmq==22.3.0
