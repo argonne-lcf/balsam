@@ -3,7 +3,7 @@
 # Pinned deployment dependencies:
 -r deploy.txt
 
-mypy==0.950
+mypy==0.960
 mkdocs-material>=7.1.9,<9.0.0
 coverage 
 black
