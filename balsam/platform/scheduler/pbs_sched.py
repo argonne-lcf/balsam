@@ -17,7 +17,6 @@ from .scheduler import (
     SchedulerBackfillWindow,
     SchedulerJobLog,
     SchedulerJobStatus,
-    SchedulerSubmitError,
     SubprocessSchedulerInterface,
     scheduler_subproc,
 )
@@ -150,8 +149,8 @@ class PBSScheduler(SubprocessSchedulerInterface):
     def _render_status_args(project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:
         args = [PBSScheduler.status_exe]
         args += "-f -F json".split()
-        #if user is not None:
-        #    args += ["-u", user]
+        # if user is not None:
+        #     args += ["-u", user]
         if queue is not None:
             args += ["-q", queue]
         return args
@@ -179,15 +178,15 @@ class PBSScheduler(SubprocessSchedulerInterface):
         logger.info(f"json status output {raw_output}")
         j = json.loads(raw_output)
         date_format = '%a %b %d %H:%M:%S %Y'
-        status_dict={}
+        status_dict = {}
         if 'Jobs' in j.keys():
             try:
-                for jobidstr,job in j['Jobs'].items(): 
+                for jobidstr,job in j['Jobs'].items():
                     status = {}
                     jobid = jobidstr.split('.')[0]
                     try:
                         status['scheduler_id'] = int(jobid)
-                    except:
+                    except ValueError:
                         logger.error(f"Error parsing jobid {jobid} in status output; skipping")
                         continue
                     status['state'] = PBSScheduler._job_states[job['job_state']]
@@ -200,7 +199,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
                         try:
                             if status['state'] == 'running':
                                 status['time_remaining_min'] = wall_time_min - (datetime.now() - datetime.strptime(job['stime'], date_format)).total_seconds()/60
-                            if status['state'] == 'queued':                                                                                                                                                           
+                            if status['state'] == 'queued':
                                 status['time_remaining_min'] = wall_time_min
                         except Exception as err:
                             logger.exception(f"Exception {str(err)} processing job {jobidstr} {job}")
@@ -289,10 +288,10 @@ class PBSScheduler(SubprocessSchedulerInterface):
         args = [PBSScheduler.status_exe]
         args += ["-x","-f","-F","json"]
         args += [str(scheduler_id)]
-        logger.info(f"_parse_logs issuing qstat: %s", str(args))
+        logger.info(f"_parse_logs issuing qstat: {str(args)}")
         stdout = scheduler_subproc(args)
         json_output = json.loads(stdout)
-        logger.info(f"_parse_logs json_output: %s",json_output)
+        logger.info(f"_parse_logs json_output: {json_output}")
         if len(json_output["Jobs"]) == 0:
             logger.error("no job found for JOB ID = %s", scheduler_id)
             return SchedulerJobLog()
@@ -305,7 +304,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         try:
             start = parse_to_utc(start_raw, local_zone="ET")
             end = parse_to_utc(end_raw, local_zone="ET")
-        except ParserError:
+        except dateutil.parser.ParserError:
             logger.warning(f"Failed to parse job_data times (START_TIME: {start_raw}) (FINISH_TIME: {end_raw})")
             return SchedulerJobLog()
         return SchedulerJobLog(start_time=start, end_time=end)
@@ -321,7 +320,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         with tempfile.NamedTemporaryFile() as fp:
             os.chmod(fp.name, 0o777)
             proc = subprocess.run(
-                f"sbank projects -r polaris -f project_name --no-header --no-totals --no-sys-msg",
+                "sbank projects -r polaris -f project_name --no-header --no-totals --no-sys-msg",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -334,22 +333,22 @@ class PBSScheduler(SubprocessSchedulerInterface):
             projects = super().discover_projects()
         return projects
 
+
 if __name__ == '__main__':
-  raw_output=open('qstat.out').read()
-  status_dict = {}
-  j = json.loads(raw_output)
-  p = PBSScheduler()
-#   scheduler_id = p.submit("hostname.sh","datascience","debug",1,10)
-#   p.delete_job(scheduler_id)
-#   scheduler_id = p.submit("hostname.sh","datascience","debug",1,10)
-  scheduler_id = 323614
-  o = p.parse_logs(scheduler_id, "hostname")
-  print('parse_logs:',o)
-  o = p.get_statuses()
-  for k,v in o.items():
-    print(k,v)
-  # not supporting this yet
-  #o = p.get_backfill_windows()
-  #print(o)
-  o = p.discover_projects()
-  print(o)
+    raw_output = open('qstat.out').read()
+    status_dict = {}
+    j = json.loads(raw_output)
+    p = PBSScheduler()
+    # scheduler_id = p.submit("hostname.sh","datascience","debug",1,10)
+    # p.delete_job(scheduler_id)
+    scheduler_id = p.submit("hostname.sh","datascience","debug",1,10)
+    o = p.parse_logs(scheduler_id, "hostname")
+    print('parse_logs:',o)
+    o = p.get_statuses()
+    for k,v in o.items():
+        print(k,v)
+    # not supporting this yet
+    o = p.get_backfill_windows()
+    print(o)
+    o = p.discover_projects()
+    print(o)
