@@ -5,6 +5,7 @@
 #PBS -q {{ queue }}
 # #COBALT --attrs pubnet=true:enable_ssh=1:{% if optional_params.get("mig_count") %}mig-mode=true{% endif %}
 
+export http_proxy=http://proxy:3128
 export https_proxy=http://proxy:3128
 
 {% if optional_params.mig_count == "2" %}

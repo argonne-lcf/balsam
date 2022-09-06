@@ -12,7 +12,7 @@ from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
 from balsam.schemas import DeserializeError, JobState
 from balsam.site import BulkStatusUpdater, SynchronousJobSource
-from balsam.site.launcher.node_manager import NodeManager
+from balsam.site.launcher.node_manager import InsufficientResources, NodeManager
 from balsam.site.launcher.util import countdown_timer_min
 from balsam.util import SigHandler
 
@@ -49,6 +49,7 @@ class Launcher:
         self.status_updater.start()
         self.job_source.start()
         self.active_runs: Dict[int, "AppRun"] = {}
+        self.job_stash: "List[Job]" = []
         self.idle_time: Optional[float] = None
         self.max_concurrent_runs = max_concurrent_runs
 
@@ -125,6 +126,8 @@ class Launcher:
 
     def launch_runs(self) -> None:
         acquired = self.acquire_jobs()
+        acquired.extend(self.job_stash)
+        self.job_stash = []
         for job in acquired:
             assert job.id is not None
             try:
@@ -140,6 +143,22 @@ class Launcher:
                         "exception": str(exc),
                     },
                 )
+            except ValueError as exc:
+                logger.exception(f"Missing parameters for Job(id={job.id}, workdir={job.workdir}): {exc}")
+                self.status_updater.put(
+                    job.id,
+                    state=JobState.failed,
+                    state_timestamp=datetime.utcnow(),
+                    state_data={
+                        "message": "An exception occured while constructing the job command line",
+                        "exception": str(exc),
+                    },
+                )
+            except InsufficientResources:
+                logger.warning(
+                    f"Insufficient resources to place Job {job.id} {job.workdir}. Stashing for later launch."
+                )
+                self.job_stash.append(job)
             else:
                 run.start()
                 self.status_updater.put(

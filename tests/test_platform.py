@@ -2,13 +2,14 @@ import os
 from pathlib import Path
 from typing import Optional, Set
 
-PLATFORMS: Set[str] = {"alcf_theta", "alcf_thetagpu", "alcf_cooley", "generic"}
+PLATFORMS: Set[str] = {"alcf_theta", "alcf_thetagpu", "alcf_cooley", "alcf_polaris", "generic"}
 
 LAUNCHER_STARTUP_TIMEOUT_SECONDS = {
     "generic": 30.0,
     "alcf_theta": 4 * 60.0 * 60,
     "alcf_thetagpu": 4 * 60.0 * 60,
     "alcf_cooley": 4 * 60.0 * 60,
+    "alcf_polaris": 4 * 60.0 * 60,
 }
 
 LAUNCHER_SHUTDOWN_TIMEOUT_SECONDS = {
@@ -16,6 +17,7 @@ LAUNCHER_SHUTDOWN_TIMEOUT_SECONDS = {
     "alcf_theta": 120.0,
     "alcf_thetagpu": 120.0,
     "alcf_cooley": 120.0,
+    "alcf_polaris": 120.0,
 }
 
 

@@ -4,19 +4,19 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server import settings
-from balsam.server.models import TransferItem, crud, get_session
+from balsam.server.auth import get_auth_method, get_webuser_session
+from balsam.server.models import TransferItem, crud
 from balsam.server.utils import Paginator
 
 from .filters import TransferItemQuery
 
 router = APIRouter()
-auth = settings.auth.get_auth_method()
+auth = get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedTransferItemOut)
 def list(
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[TransferItem] = Depends(Paginator),
     q: TransferItemQuery = Depends(TransferItemQuery),
@@ -28,7 +28,7 @@ def list(
 
 @router.get("/{transfer_id}", response_model=schemas.TransferItemOut)
 def read(
-    transfer_id: int, db: orm.Session = Depends(get_session), user: schemas.UserOut = Depends(auth)
+    transfer_id: int, db: orm.Session = Depends(get_webuser_session), user: schemas.UserOut = Depends(auth)
 ) -> TransferItem:
     """Fetch a data transfer item by id."""
     count, transfers = crud.transfers.fetch(db, owner=user, transfer_id=transfer_id)
@@ -41,7 +41,7 @@ def read(
 def update(
     transfer_id: int,
     data: schemas.TransferItemUpdate,
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
 ) -> schemas.TransferItemOut:
     """Update a transfer item by id."""
@@ -54,7 +54,7 @@ def update(
 @router.patch("/", response_model=List[schemas.TransferItemOut])
 def bulk_update(
     transfers: List[schemas.TransferItemBulkUpdate],
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
 ) -> List[schemas.TransferItemOut]:
     """Update a list of transfer items."""

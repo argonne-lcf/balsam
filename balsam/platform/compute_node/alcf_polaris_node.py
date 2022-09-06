@@ -12,7 +12,7 @@ IntStr = Union[int, str]
 class PolarisNode(ComputeNode):
 
     # turam: confirm number of cpus
-    cpu_ids = list(range(128))
+    cpu_ids = list(range(64))
     gpu_ids: List[IntStr] = list(range(4))
 
     @classmethod
@@ -54,5 +54,5 @@ class PolarisNode(ComputeNode):
     def get_scheduler_id() -> Optional[int]:
         id = os.environ.get("PBS_JOBID")
         if id is not None:
-            return int(id.split('.')[0])
+            return int(id.split(".")[0])
         return None

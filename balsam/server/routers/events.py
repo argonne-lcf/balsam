@@ -4,19 +4,19 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import orm
 
 from balsam import schemas
-from balsam.server import settings
-from balsam.server.models import LogEvent, crud, get_session
+from balsam.server.auth import get_auth_method, get_webuser_session
+from balsam.server.models import LogEvent, crud
 from balsam.server.utils import Paginator
 
 from .filters import EventLogQuery
 
 router = APIRouter()
-auth = settings.auth.get_auth_method()
+auth = get_auth_method()
 
 
 @router.get("/", response_model=schemas.PaginatedLogEventOut)
 def list(
-    db: orm.Session = Depends(get_session),
+    db: orm.Session = Depends(get_webuser_session),
     user: schemas.UserOut = Depends(auth),
     paginator: Paginator[LogEvent] = Depends(Paginator),
     q: EventLogQuery = Depends(EventLogQuery),

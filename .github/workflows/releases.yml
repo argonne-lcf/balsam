@@ -1,0 +1,57 @@
+name: Upload Python Package
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+' # Any release (0.5.3)
+      - '[0-9]+.[0-9]+.[0-9]+.[ab][0-9]+' # Any pre-release (0.7.0.a12)
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Generate change log
+        id: change_log
+        uses: heinrichreimer/github-changelog-generator-action@v2.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} 
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Changes in this Release
+            ${{ steps.change_log.outputs.changelog }}
+          draft: false
+          prerelease: ${{ contains(github.ref, 'a') || contains(github.ref, 'b') }}
+  deploy:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.8'
+        
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install setuptools wheel twine
+        python -m pip install --upgrade build
+    - name: Build Distribution
+      run: |
+        python -m build
+        python -m twine check dist/*
+    - name: Publish to PyPi
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_PASSWORD }}

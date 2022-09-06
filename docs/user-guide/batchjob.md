@@ -79,7 +79,7 @@ multiple runs per node.
 ## Using the API
 
 A unique capability of the [Balsam Python API](./api.md) is that it allows us
-programatically manage HPC resources (via `BatchJob`) and tasks (via `Job`) on
+programmatically manage HPC resources (via `BatchJob`) and tasks (via `Job`) on
 equal footing. We can submit and monitor `Jobs` and `BatchJobs` at any Site with
 ease, using a single, consistent programming model.
 
@@ -87,8 +87,8 @@ ease, using a single, consistent programming model.
 from balsam.api import Job, BatchJob
 # Create Jobs:
 job = Job.objects.create(
-    site_path="myProject-theta-gpu",
-    app_name="sim.X",
+    site_name="myProject-theta-gpu",
+    app_id="SimulationX",
     workdir="test-runs/foo/1",
 )
 
