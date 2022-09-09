@@ -192,20 +192,21 @@ class PBSScheduler(SubprocessSchedulerInterface):
                     except ValueError:
                         logger.error(f"Error parsing jobid {jobid} in status output; skipping")
                         continue
-                    status["state"] = PBSScheduler._job_states[job["job_state"]] # type: ignore # noqa
+                    status["state"] = PBSScheduler._job_states[job["job_state"]]  # type: ignore # noqa
                     status["time_remaining_min"] = 0
                     status["wall_time_min"] = 0
                     if "walltime" in job["Resource_List"].keys():
                         W = job["Resource_List"]["walltime"].split(":")
                         wall_time_min = int(W[0]) * 60 + int(W[1])  # 00:00:00
                         status["wall_time_min"] = wall_time_min
-                        if status["state"] == "queued": # type: ignore # noqa
+                        if status["state"] == "queued":  # type: ignore # noqa
                             status["time_remaining_min"] = wall_time_min
                         try:
-                            if status["state"] == "running": # type: ignore # noqa
+                            if status["state"] == "running":  # type: ignore # noqa
                                 status["time_remaining_min"] = int(
                                     wall_time_min
-                                    - (datetime.now() - datetime.strptime(job["stime"], date_format)).total_seconds() / 60 
+                                    - (datetime.now() - datetime.strptime(job["stime"], date_format)).total_seconds()
+                                    / 60
                                 )
                         except Exception as err:
                             status["time_remaining_min"] = wall_time_min
