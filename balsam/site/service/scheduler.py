@@ -175,7 +175,7 @@ class SchedulerService(BalsamService):
             site.backfill_windows = {}
         site.queued_jobs = scheduler_jobs
         site.save()
-        logger.debug(f"Updated Site info: {site.display_dict()}")
+        # logger.debug(f"Updated Site info: {site.display_dict()}")
 
     def cleanup(self) -> None:
         logger.info("SchedulerService exiting")

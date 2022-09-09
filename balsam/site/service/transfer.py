@@ -3,7 +3,7 @@ from collections import defaultdict
 from itertools import islice
 from math import ceil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, cast
+from typing import TYPE_CHECKING, Any, DefaultDict, Dict, Iterable, List, Tuple, cast
 from urllib.parse import urlparse
 
 from balsam.platform.transfer import TaskInfo, TransferInterface, TransferRetryableError, TransferSubmitError
@@ -57,7 +57,7 @@ class TransferService(BalsamService):
         self.num_items_query_limit = num_items_query_limit
 
     @staticmethod
-    def build_task_map(transfer_items: Iterable["TransferItem"]) -> "defaultdict[str, List[TransferItem]]":
+    def build_task_map(transfer_items: Iterable["TransferItem"]) -> "DefaultDict[str, List[TransferItem]]":
         task_map = defaultdict(list)
         for item in transfer_items:
             task_map[item.task_id].append(item)
