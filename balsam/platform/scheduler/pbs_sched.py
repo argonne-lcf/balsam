@@ -131,16 +131,19 @@ class PBSScheduler(SubprocessSchedulerInterface):
         script_path: Union[Path, str], project: str, queue: str, num_nodes: int, wall_time_min: int, **kwargs: Any
     ) -> List[str]:
         hours = wall_time_min // 60
-        minutes = wall_time_min - hours*60
+        minutes = wall_time_min - hours * 60
         args = [
             PBSScheduler.submit_exe,
             "-A",
             project,
             "-q",
             queue,
-            "-l", f"select={num_nodes}",
-            "-l", f"walltime={hours}:{minutes}:00",
-            "-k", "doe",
+            "-l",
+            f"select={num_nodes}",
+            "-l",
+            f"walltime={hours}:{minutes}:00",
+            "-k",
+            "doe",
             str(script_path),
         ]
         return args
@@ -175,38 +178,44 @@ class PBSScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
-        logger.info(f"json status output {raw_output}")
+        # logger.info(f"json status output {raw_output}")
         j = json.loads(raw_output)
-        date_format = '%a %b %d %H:%M:%S %Y'
+        date_format = "%a %b %d %H:%M:%S %Y"
         status_dict = {}
-        if 'Jobs' in j.keys():
+        if "Jobs" in j.keys():
             try:
-                for jobidstr,job in j['Jobs'].items():
+                for jobidstr, job in j["Jobs"].items():
                     status = {}
-                    jobid = jobidstr.split('.')[0]
                     try:
-                        status['scheduler_id'] = int(jobid)
+                        jobid = int(jobidstr.split(".")[0])
+                        status["scheduler_id"] = jobid
                     except ValueError:
                         logger.error(f"Error parsing jobid {jobid} in status output; skipping")
                         continue
-                    status['state'] = PBSScheduler._job_states[job['job_state']]
-                    status['time_remaining_min'] = 0
-                    status['wall_time_min'] = 0
-                    if 'walltime' in job['Resource_List'].keys():
-                        W = job['Resource_List']['walltime'].split(':')
-                        wall_time_min = int(W[0])*60 + int(W[1])  # 00:00:00
-                        status['wall_time_min'] = wall_time_min
+                    status["state"] = PBSScheduler._job_states[job["job_state"]] # type: ignore # noqa
+                    status["time_remaining_min"] = 0
+                    status["wall_time_min"] = 0
+                    if "walltime" in job["Resource_List"].keys():
+                        W = job["Resource_List"]["walltime"].split(":")
+                        wall_time_min = int(W[0]) * 60 + int(W[1])  # 00:00:00
+                        status["wall_time_min"] = wall_time_min
+                        if status["state"] == "queued": # type: ignore # noqa
+                            status["time_remaining_min"] = wall_time_min
                         try:
-                            if status['state'] == 'running':
-                                status['time_remaining_min'] = wall_time_min - (datetime.now() - datetime.strptime(job['stime'], date_format)).total_seconds()/60
-                            if status['state'] == 'queued':
-                                status['time_remaining_min'] = wall_time_min
+                            if status["state"] == "running": # type: ignore # noqa
+                                status["time_remaining_min"] = int(
+                                    wall_time_min
+                                    - (datetime.now() - datetime.strptime(job["stime"], date_format)).total_seconds() / 60 
+                                )
                         except Exception as err:
+                            status["time_remaining_min"] = wall_time_min
                             logger.exception(f"Exception {str(err)} processing job {jobidstr} {job}")
-                    status['queue'] = job['queue']
-                    status['num_nodes'] = job['Resource_List']['nodect']
-                    status['project'] = job['project']
-                    status['queued_time_min'] = int((datetime.now() - datetime.strptime(job['qtime'], date_format)).total_seconds()/60)
+                    status["queue"] = job["queue"]
+                    status["num_nodes"] = job["Resource_List"]["nodect"]
+                    status["project"] = job["project"]
+                    status["queued_time_min"] = int(
+                        (datetime.now() - datetime.strptime(job["qtime"], date_format)).total_seconds() / 60
+                    )
                     status_dict[jobid] = SchedulerJobStatus(**status)
             except BaseException as err:
                 logger.exception(f"Exception {str(err)} parsing {raw_output}")
@@ -286,12 +295,12 @@ class PBSScheduler(SubprocessSchedulerInterface):
     @staticmethod
     def _parse_logs(scheduler_id: int, job_script_path: Optional[PathLike]) -> SchedulerJobLog:
         args = [PBSScheduler.status_exe]
-        args += ["-x","-f","-F","json"]
+        args += ["-x", "-f", "-F", "json"]
         args += [str(scheduler_id)]
         logger.info(f"_parse_logs issuing qstat: {str(args)}")
         stdout = scheduler_subproc(args)
         json_output = json.loads(stdout)
-        logger.info(f"_parse_logs json_output: {json_output}")
+        # logger.info(f"_parse_logs json_output: {json_output}")
         if len(json_output["Jobs"]) == 0:
             logger.error("no job found for JOB ID = %s", scheduler_id)
             return SchedulerJobLog()
@@ -334,21 +343,24 @@ class PBSScheduler(SubprocessSchedulerInterface):
         return projects
 
 
-if __name__ == '__main__':
-    raw_output = open('qstat.out').read()
+if __name__ == "__main__":
+    pass
+    """
+    raw_output = open("qstat.out").read()
     status_dict = {}
     j = json.loads(raw_output)
     p = PBSScheduler()
     # scheduler_id = p.submit("hostname.sh","datascience","debug",1,10)
     # p.delete_job(scheduler_id)
-    scheduler_id = p.submit("hostname.sh","datascience","debug",1,10)
+    scheduler_id = p.submit("hostname.sh", "datascience", "debug", 1, 10)
     o = p.parse_logs(scheduler_id, "hostname")
-    print('parse_logs:',o)
+    print("parse_logs:", o)
     o = p.get_statuses()
-    for k,v in o.items():
-        print(k,v)
+    for k, v in o.items():
+        print(k, v)
     # not supporting this yet
     o = p.get_backfill_windows()
     print(o)
-    o = p.discover_projects()
-    print(o)
+    pl = p.discover_projects()
+    print(pl)
+    """

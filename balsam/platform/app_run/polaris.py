@@ -12,9 +12,12 @@ class PolarisRun(SubprocessAppRun):
         nid_str = ",".join(map(str, node_ids))
         args = [
             "mpiexec",
-            "-np", self.get_num_ranks(),
-            "-ppn", self._ranks_per_node,
-            "--hosts", nid_str,
+            "-np",
+            self.get_num_ranks(),
+            "-ppn",
+            self._ranks_per_node,
+            "--hosts",
+            nid_str,
             # "--map-by",
             # f"ppr:{self._ranks_per_node}:node",
             # "-envlist", env_args,
