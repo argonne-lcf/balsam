@@ -3,13 +3,13 @@ psycopg2==2.9.3
 fastapi==0.78.0
 orjson==3.6.8
 fastapi==0.78.0
-uvicorn[standard]==0.17.6
+uvicorn[standard]==0.18.3
 python-multipart==0.0.5
 gunicorn==20.1.0
 PyJWT==2.4.0
 passlib[bcrypt]==1.7.4
 alembic==1.7.7
-SQLAlchemy==1.4.36
+SQLAlchemy==1.4.41
 aredis==1.1.8
 redis==4.3.1
 
@@ -24,7 +24,7 @@ python-dateutil==2.8.2
 Jinja2==3.1.2
 requests==2.27.1
 psutil==5.9.1
-globus-sdk==3.8.0
+globus-sdk==3.11.0
 configobj==5.0.6
 pyzmq==23.0.0
 dill==0.3.5.1

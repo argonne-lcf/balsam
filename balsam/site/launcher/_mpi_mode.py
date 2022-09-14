@@ -118,7 +118,7 @@ class Launcher:
         )
         if acquired:
             logger.info(
-                f"Job Acqusition: {max_nodes_per_job} empty nodes; {max_aggregate_nodes} aggregate free nodes; "
+                f"Job Acquisition: {max_nodes_per_job} empty nodes; {max_aggregate_nodes} aggregate free nodes; "
                 f"requested up to {max_num_to_acquire} jobs [node packing allowed: {self.node_manager.allow_node_packing}]; "
                 f"Acquired {len(acquired)} jobs."
             )
