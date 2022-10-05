@@ -18,6 +18,8 @@ class PolarisRun(SubprocessAppRun):
             self._ranks_per_node,
             "--hosts",
             nid_str,
+            "--cpu-bind",
+            "none",
             # "--map-by",
             # f"ppr:{self._ranks_per_node}:node",
             # "-envlist", env_args,
