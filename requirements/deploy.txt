@@ -6,7 +6,7 @@ fastapi==0.78.0
 uvicorn[standard]==0.18.3
 python-multipart==0.0.5
 gunicorn==20.1.0
-PyJWT==2.4.0
+PyJWT==2.5.0
 passlib[bcrypt]==1.7.4
 alembic==1.8.1
 SQLAlchemy==1.4.41
