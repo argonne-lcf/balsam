@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -l select={{ num_nodes }}:ncpus=1
-#PBS -l walltime=00:{{ wall_time_min }}:00
+#PBS -l walltime={{ wall_time_min//60 | int }}:{{ wall_time_min | int }}:00
 #PBS -l filesystems=home:grand:eagle
 #PBS -A {{ project }}
 #PBS -q {{ queue }}
