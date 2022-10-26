@@ -46,5 +46,13 @@ test-site-integ:
 testcov:
 	pytest tests/units tests/server tests/api tests/site_integration --cov=balsam --cov-config setup.cfg --cov-report=html
 
+.PHONY: distribute
+distribute:
+	cp docs/README.md README.md
+	python -m build
+	python -m twine check dist/*
+	python -m twine upload dist/*
+
+
 .PHONY: all
 all: generate-api validate-defaults format lint mypy testcov

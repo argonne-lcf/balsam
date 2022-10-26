@@ -10,7 +10,7 @@ Within any suitable Python environment, Balsam can be installed using `pip`:
 
 ```bash
 # Use --pre to get the Balsam pre-release
-$ pip install --pre balsam-flow 
+$ pip install --pre balsam
 ```
 
 Balsam developers or service administrators should instead follow the [developer installation instructions](../development/contributing.md).
@@ -44,5 +44,5 @@ $ source ~/.bashrc
 $ conda create -p ./b2env "cryptography>=1.8.1,<3.4.0" -y
 $ conda activate ./b2env
 
-$ pip install --pre balsam-flow
+$ pip install --pre balsam
 ```
