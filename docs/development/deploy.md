@@ -16,7 +16,7 @@ $ docker-compose up --build -d
 
 ### Manual Installation
 Balsam can be installed into a Python environment in two ways. 
-User-mode installation with `pip install --pre balsam-flow` or `pip install -e .` fetches
+User-mode installation with `pip install --pre balsam` or `pip install -e .` fetches
 end-user package dependencies with flexible version ranges.  **This will not suffice for running a Balsam server.**
 To install the server, you must use the second option:
 
