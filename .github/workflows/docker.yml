@@ -17,7 +17,7 @@ jobs:
       SERVER_PORT: 8000
       
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build image
         run: |
           cp .env.example .env
@@ -33,7 +33,7 @@ jobs:
           docker exec gunicorn make install-dev
           docker exec -e BALSAM_LOG_DIR="/balsam/log" -e BALSAM_TEST_API_URL="http://localhost:8000" gunicorn make testcov
       - name: Archive test logs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: test-logs
@@ -41,12 +41,12 @@ jobs:
       - name: Cleanup service
         run: docker-compose down
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Push to Docker Hub
-        uses: docker/build-push-action@v2.7.0
+        uses: docker/build-push-action@v3.1.1
         with:
           push: true
           tags: masalim2/balsam:latest

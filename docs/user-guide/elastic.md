@@ -15,7 +15,7 @@ as needed over time.
 
 ## Enabling the Elastic Queue Plugin
 
-Auto-scaling is enabled at Site by setting the `elastic_queue` configuration appropriately inside of the `settings.yml` file.
+Auto-scaling is enabled at a Site by setting the `elastic_queue` configuration appropriately inside of the `settings.yml` file.
 
 You should find this line uncommented by default:
 
@@ -99,7 +99,7 @@ The interpretation of `min_wall_time_min` and `max_wall_time_min` depends on whe
 - **When `use_backfill` is `False`:** `min_wall_time_min` is ignored and
 BatchJobs are submitted for a constant wallclock time limit of
 `max_wall_time_min`.
-- **When `use_backfill` is `True`:** Balsam selects backfill windows that are *at least* as long as `min_wall_time_min` (this is to avoid futile 5 minute submissions when all Jobs take at least 30 minutes). The wallclock time limit is then *the lesser of* of the scheduler's backfill duration and `max_wall_time_min`.
+- **When `use_backfill` is `True`:** Balsam selects backfill windows that are *at least* as long as `min_wall_time_min` (this is to avoid futile 5 minute submissions when all Jobs take at least 30 minutes). The wallclock time limit is then *the lesser of* the scheduler's backfill duration and `max_wall_time_min`.
 - Finally, a "padding" value of `wall_time_pad_min` is subtracted from the 
   final wallclock time in all `BatchJob` submissions.  This should be set to a couple minutes when `use_backfill` is `True` and `0` otherwise.
 
@@ -148,7 +148,7 @@ Therefore, the elastic queue automatically controls the **size** and **number**
 of requested BatchJobs as the workload grows.  We can think of each `BatchJob`
 as a *flexibly-sized block* of resources, and the elastic queue creates multiple
 blocks (one per `service_period`) while choosing their sizes.   If one BatchJob
-does not accomodate the incoming volume of tasks, then multiple BatchJobs of the
+does not accommodate the incoming volume of tasks, then multiple BatchJobs of the
 maximum size are submitted at each iteration.
 
 When the incoming Jobs slow down and the backlog falls inside the

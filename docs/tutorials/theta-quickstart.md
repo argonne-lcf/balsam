@@ -5,8 +5,9 @@ Balsam is highly platform-agnostic, you can follow along by choosing from any of
 the available default site setups:
 
 - A local MacOS or Linux system
-- Theta-KNL
+- Polaris
 - Theta-GPU
+- Theta-KNL
 - Cooley
 - Cori (Haswell or KNL partitions)
 - Perlmutter

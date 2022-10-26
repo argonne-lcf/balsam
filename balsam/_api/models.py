@@ -1,5 +1,5 @@
-# This file was auto-generated via /home/misha/balsam/.venv/bin/python balsam/schemas/api_generator.py
-# [git rev 46088d4]
+# This file was auto-generated via /Users/turam/opt/miniconda3/bin/python balsam/schemas/api_generator.py
+# [git rev 8578c92]
 # Do *not* make changes to the API by changing this file!
 
 import datetime

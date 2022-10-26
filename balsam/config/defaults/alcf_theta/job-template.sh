@@ -3,7 +3,7 @@
 #COBALT -n {{ num_nodes }}
 #COBALT -q {{ queue }}
 #COBALT -t {{ wall_time_min }}
-#COBALT --attrs ssds=required:ssd_size=128
+#COBALT --attrs ssds=required:ssd_size=128:filesystems=home,grand,eagle,theta-fs0
 
 
 {% if optional_params.get("singularity_prime_cache") %}

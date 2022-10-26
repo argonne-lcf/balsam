@@ -10,10 +10,14 @@ serial_mode_startup_params:
 
 scheduler_class: balsam.platform.scheduler.PBSScheduler
 allowed_queues:
-    workq:
+    debug:
         max_nodes: 2
-        max_queued_jobs: 3
+        max_queued_jobs: 100
         max_walltime: 60
+    prod:
+        max_nodes: 496
+        max_queued_jobs: 100
+        max_walltime: 1440
 
 allowed_projects:
 - datascience

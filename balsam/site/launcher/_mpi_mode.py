@@ -118,7 +118,7 @@ class Launcher:
         )
         if acquired:
             logger.info(
-                f"Job Acqusition: {max_nodes_per_job} empty nodes; {max_aggregate_nodes} aggregate free nodes; "
+                f"Job Acquisition: {max_nodes_per_job} empty nodes; {max_aggregate_nodes} aggregate free nodes; "
                 f"requested up to {max_num_to_acquire} jobs [node packing allowed: {self.node_manager.allow_node_packing}]; "
                 f"Acquired {len(acquired)} jobs."
             )
@@ -140,6 +140,17 @@ class Launcher:
                     state_timestamp=datetime.utcnow(),
                     state_data={
                         "message": "An exception occured while loading the app or parameters",
+                        "exception": str(exc),
+                    },
+                )
+            except ValueError as exc:
+                logger.exception(f"Missing parameters for Job(id={job.id}, workdir={job.workdir}): {exc}")
+                self.status_updater.put(
+                    job.id,
+                    state=JobState.failed,
+                    state_timestamp=datetime.utcnow(),
+                    state_data={
+                        "message": "An exception occured while constructing the job command line",
                         "exception": str(exc),
                     },
                 )
