@@ -21,12 +21,24 @@ Balsam is easily extensible to new HPC systems. Default configurations are avail
 
 | Facility | System | Configuration Included? |
 |----------|--------|:------------------------:|
-| ALCF     | Theta (KNL) | :material-check-circle:  |
+| ALCF     | Polaris | :material-check-circle:  |
 | ALCF     | Theta (GPU) | :material-check-circle:  |
+| ALCF     | Theta (KNL) | :material-check-circle:  |
 | ALCF     | Cooley | :material-check-circle:  |
+| NERSC     | Perlmutter | :material-check-circle:  |
 | NERSC     | Cori | :material-check-circle:  |
 | OLCF     | Summit | :material-check-circle:  |
 | ---     | Mac OS | :material-check-circle:  |
+
+ > Cori-Haswell (NERSC)
+   Theta-KNL (ALCF)
+   MacOS/Linux (Local)
+   Cooley (ALCF)
+   Theta-GPU (ALCF)
+   Perlmutter-GPU (NERSC)
+   Cori-KNL (NERSC)
+   Polaris (ALCF)
+   Summit (OLCF)
 
 
 ### Summit (OLCF)
@@ -46,3 +58,4 @@ $ conda activate ./b2env
 
 $ pip install --pre balsam
 ```
+
