@@ -25,4 +25,3 @@ class PolarisRun(SubprocessAppRun):
             self._cmdline,
         ]
         return " ".join(str(arg) for arg in args)
-
