@@ -158,6 +158,7 @@ class SubprocessAppRun(AppRun):
         self._set_envs()
         cmdline = self._build_preamble() + self._build_cmdline()
         logger.info(f"{self.__class__.__name__} Popen: {cmdline}")
+        logger.info(f"{self.__class__.__name__} envs: {self._envs}")
         self._outfile = self._open_outfile()
         self._pre_popen()
 
