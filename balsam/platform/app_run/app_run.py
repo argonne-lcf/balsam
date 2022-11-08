@@ -161,7 +161,7 @@ class SubprocessAppRun(AppRun):
         log_envs = ["OMP_NUM_THREADS", "OMP_PLACES"]
         [
             logger.info(f"{self.__class__.__name__} envs: {k}={self._envs[k]}")
-            for k in log_envs 
+            for k in log_envs
             if k in self._envs.keys()
         ]
         self._outfile = self._open_outfile()
