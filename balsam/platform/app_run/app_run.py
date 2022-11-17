@@ -158,7 +158,7 @@ class SubprocessAppRun(AppRun):
         self._set_envs()
         cmdline = self._build_preamble() + self._build_cmdline()
         logger.info(f"{self.__class__.__name__} Popen: {cmdline}")
-        log_envs = ["OMP_NUM_THREADS", "OMP_PLACES"]
+        log_envs = ["OMP_NUM_THREADS", "OMP_PLACES","OMP_PROC_BIND"]
         for k in log_envs:
             if k in self._envs.keys():
                 logger.info(f"{self.__class__.__name__} envs: {k}={self._envs[k]}")
