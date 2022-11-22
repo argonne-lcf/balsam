@@ -23,7 +23,7 @@ class SunspotRun(SubprocessAppRun):
             "-d",
             self._threads_per_rank,
             "--envall",
-            "gpu_tile_compact.sh"
+            "gpu_tile_compact.sh",
             self._cmdline,
         ]
         return " ".join(str(arg) for arg in args)

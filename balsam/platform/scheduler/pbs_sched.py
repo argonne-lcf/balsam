@@ -328,19 +328,25 @@ class PBSScheduler(SubprocessSchedulerInterface):
         Note: Could use sbank; currently uses Cobalt reporting of valid
               projects when an invalid project is given
         """
-        click.echo("Checking with sbank for your current allocations...")
+        """        click.echo("Checking with sbank for your current allocations...")
         with tempfile.NamedTemporaryFile() as fp:
             os.chmod(fp.name, 0o777)
-            proc = subprocess.run(
-                "sbank projects -r polaris -f project_name --no-header --no-totals --no-sys-msg",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                encoding="utf-8",
-            )
-
-        sbank_out = proc.stdout
-        projects = [p.strip() for p in sbank_out.split("\n") if p]
+            try:
+                proc = subprocess.run(
+                    "sbank projects -r polaris -f project_name --no-header --no-totals --no-sys-msg",
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
+                print(f"proc is {proc}")
+                sbank_out = proc.stdout
+                projects = [p.strip() for p in sbank_out.split("\n") if p]
+            except:
+                projects = None
+   
+        """
+        projects=None
         if not projects:
             projects = super().discover_projects()
         return projects
