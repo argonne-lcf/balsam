@@ -1,7 +1,7 @@
 from .app_run import SubprocessAppRun
 
 
-class PolarisRun(SubprocessAppRun):
+class SunspotRun(SubprocessAppRun):
     """
     https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
     """

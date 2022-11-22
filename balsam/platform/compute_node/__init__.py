@@ -1,5 +1,6 @@
 from .alcf_cooley_node import CooleyNode
 from .alcf_polaris_node import PolarisNode
+from .alcf_sunspot_node import SunspotNode
 from .alcf_thetagpu_node import ThetaGPUNode
 from .alcf_thetaknl_node import ThetaKNLNode
 from .compute_node import ComputeNode
@@ -19,5 +20,6 @@ __all__ = [
     "CoriKNLNode",
     "PerlmutterGPUNode",
     "PolarisNode",
+    "SunspotNode",
     "ComputeNode",
 ]
