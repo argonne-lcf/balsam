@@ -27,3 +27,10 @@ class SunspotRun(SubprocessAppRun):
             self._cmdline,
         ]
         return " ".join(str(arg) for arg in args)
+
+    # Overide default because sunspot does not use CUDA
+    def _set_envs(self) -> None:
+        envs = os.environ.copy()
+	envs.update(self._envs)
+	envs["OMP_NUM_THREADS"] = str(self._threads_per_rank)
+        self._envs = envs
