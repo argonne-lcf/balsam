@@ -187,10 +187,12 @@ class PBSScheduler(SubprocessSchedulerInterface):
                 for jobidstr, job in j["Jobs"].items():
                     status = {}
                     try:
+                        # array jobs can have a trailing "[]"; remove this
+                        jobidstr = jobidstr.replace("[]", "")
                         jobid = int(jobidstr.split(".")[0])
                         status["scheduler_id"] = jobid
                     except ValueError:
-                        logger.error(f"Error parsing jobid {jobid} in status output; skipping")
+                        logger.error(f"Error parsing jobid {jobidstr} in status output; skipping")
                         continue
                     status["state"] = PBSScheduler._job_states[job["job_state"]]  # type: ignore # noqa
                     status["time_remaining_min"] = 0

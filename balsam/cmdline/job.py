@@ -216,6 +216,7 @@ def count_by_state(job_qs: "JobQuery", verbose: bool) -> None:
 def list_verbose(job_qs: "JobQuery") -> None:
     for job in job_qs:
         click.echo(yaml.dump(job.display_dict(), sort_keys=False, indent=4))
+        click.echo(f"deserialized parameters: {str(job.get_parameters())}")
         click.echo("---\n")
 
 
