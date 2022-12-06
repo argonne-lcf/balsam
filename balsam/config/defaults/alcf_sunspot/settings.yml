@@ -17,3 +17,5 @@ allowed_queues:
 
 allowed_projects:
 - Aurora_deployment
+
+optional_batch_job_params: {}
