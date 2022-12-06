@@ -91,7 +91,7 @@ def get_config_obj(system: bool = False, file_error: bool = False) -> ConfigObj:
     if system:
         path = "/etc/globus.cfg"
     else:
-        path = os.path.expanduser("~/.globus.cfg")
+        path = os.path.expanduser("~/.balsam/globus.cfg")
 
     conf = ConfigObj(path, encoding="utf-8", file_error=file_error)
 
