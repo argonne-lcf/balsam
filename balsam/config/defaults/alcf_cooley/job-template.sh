@@ -3,7 +3,7 @@
 #COBALT -n {{ num_nodes }}
 #COBALT -q {{ queue }}
 #COBALT -t {{ wall_time_min }}
-#COBALT --attrs pubnet
+#COBALT --attrs pubnet:filesystems=home,grand,eagle,theta-fs0
 
 # Uncomment this if the server is on an external network
 # (Note that https_proxy is set to use an `http://` protocol!

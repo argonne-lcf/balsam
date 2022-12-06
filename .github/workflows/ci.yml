@@ -78,7 +78,7 @@ jobs:
           name: test-logs
           path: pytest-logs/
       - run: coverage xml
-      - uses: codecov/codecov-action@v3.1.0
+      - uses: codecov/codecov-action@v3.1.1
         with:
           files: ./coverage.xml
           env_vars: PYTHON,OS
