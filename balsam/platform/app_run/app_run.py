@@ -165,6 +165,8 @@ class SubprocessAppRun(AppRun):
         self._outfile = self._open_outfile()
         self._pre_popen()
 
+        logger.info(f"starting command: {cmdline}")
+
         try:
             self._process = subprocess.Popen(
                 cmdline,
@@ -178,6 +180,7 @@ class SubprocessAppRun(AppRun):
             )
         except Exception as e:
             logger.error(f"Popen failed: {e}")
+            logger.exception(f"Popen failed: {e}")
             self._process = cast("subprocess.Popen[bytes]", FailedStartProcess())
         self._post_popen()
 
