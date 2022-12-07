@@ -37,7 +37,7 @@ class SunspotRun(SubprocessAppRun):
         # Check the assigned GPU ID list from the first compute node:                                         
         gpu_ids = self._node_spec.gpu_ids[0]
         if gpu_ids:
-            envs["ZE_ENABLE_PCI_ID_DEVICE_ORDER"] = 1
+            envs["ZE_ENABLE_PCI_ID_DEVICE_ORDER"] = "1"
             envs["ZE_AFFINITY_MASK"] = ",".join(map(str, gpu_ids))
 
         self._envs = envs
