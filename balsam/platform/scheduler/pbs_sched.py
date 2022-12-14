@@ -1,14 +1,10 @@
 import json
 import logging
-import os
-import subprocess
-import tempfile
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import click
 import dateutil.parser
 
 from balsam.util import parse_to_utc
@@ -344,9 +340,9 @@ class PBSScheduler(SubprocessSchedulerInterface):
                 projects = [p.strip() for p in sbank_out.split("\n") if p]
             except:
                 projects = None
-   
+
         """
-        projects=None
+        projects = None
         if not projects:
             projects = super().discover_projects()
         return projects

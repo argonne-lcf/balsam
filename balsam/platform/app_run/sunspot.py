@@ -1,4 +1,5 @@
 import os
+
 from .app_run import SubprocessAppRun
 
 
@@ -34,7 +35,7 @@ class SunspotRun(SubprocessAppRun):
         envs.update(self._envs)
         envs["OMP_NUM_THREADS"] = str(self._threads_per_rank)
 
-        # Check the assigned GPU ID list from the first compute node:                                         
+        # Check the assigned GPU ID list from the first compute node:
         gpu_ids = self._node_spec.gpu_ids[0]
         if gpu_ids:
             envs["ZE_ENABLE_PCI_ID_DEVICE_ORDER"] = "1"

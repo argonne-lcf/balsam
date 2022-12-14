@@ -1,6 +1,5 @@
 import logging
 import os
-from pathlib import Path
 from typing import List, Optional, Union
 
 from .compute_node import ComputeNode
@@ -10,16 +9,16 @@ IntStr = Union[int, str]
 
 
 class SunspotNode(ComputeNode):
-    
+
     cpu_ids = list(range(104))
 
     gids = []
     for gid in range(6):
         for tid in range(2):
-            gids.append(str(gid)+'.'+str(tid))
-    
+            gids.append(str(gid) + "." + str(tid))
+
     gpu_ids: List[IntStr] = gids
-    
+
     @classmethod
     def get_job_nodelist(cls) -> List["SunspotNode"]:
         """
