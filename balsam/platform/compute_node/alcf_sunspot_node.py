@@ -45,13 +45,7 @@ class SunspotNode(ComputeNode):
 
     @classmethod
     def discover_gpu_list(cls, hostname: str) -> List[IntStr]:
-        gpu_file = Path(f"/var/tmp/balsam-{hostname}-gpulist.txt")
-        gpu_ids: List[IntStr]
-        if gpu_file.is_file():
-            tokens = gpu_file.read_text().split()
-            gpu_ids = [t[:-1] for t in tokens if t.startswith("MIG-GPU-")]
-        else:
-            gpu_ids = cls.gpu_ids
+        gpu_ids = cls.gpu_ids
         logger.info(f"{hostname} detected GPU IDs: {gpu_ids}")
         return gpu_ids
 
