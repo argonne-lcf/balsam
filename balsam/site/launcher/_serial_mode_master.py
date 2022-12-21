@@ -127,8 +127,8 @@ class Master:
         self.active_ids -= finished_ids
         self.num_outstanding_jobs -= len(finished_ids)
 
-        src = msg["source"]
-        max_jobs: int = msg["request_num_jobs"]
+        src = msg["source"]  # type: ignore
+        max_jobs: int = msg["request_num_jobs"]  # type: ignore
         logger.debug(f"Worker {src} requested {max_jobs} jobs")
         new_job_specs = self.acquire_jobs(max_jobs)
 
