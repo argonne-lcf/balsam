@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, cast
 
-import zmq
+import zmq # type: ignore
 
 from balsam.config import SiteConfig
 from balsam.platform import TimeoutExpired
