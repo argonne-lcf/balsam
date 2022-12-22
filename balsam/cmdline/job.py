@@ -272,15 +272,19 @@ def ls(
 
         balsam job ls --tag experiment=XPCS --tag system=H2O
 
-    3) Select Jobs by their state
+    3) Select Jobs by their app
+
+        balsam job ls --app flux_capacitance
+
+    4) Select Jobs by their state
 
         balsam job ls --state JOB_FINISHED --tag system=H2O
 
-    4) Summarize Jobs by their state
+    5) Summarize Jobs by their state
 
         balsam job ls --by-state [--tag system=H20]
 
-    5) Select a specific job by ID
+    6) Select a specific job by ID
 
         balsam job ls --id [id]
     """
