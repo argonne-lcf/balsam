@@ -247,6 +247,7 @@ def list_table(job_qs: "JobQuery", client: "RESTClient") -> None:
 @click.option("--id", type=str)
 @click.option("--by-state", type=bool, default=False, is_flag=True)
 @click.option("-w", "--workdir", type=str)
+@click.option("-a", "--app", type=str)
 @click.option("--site", "site_selector", default="")
 @click.option("-v", "--verbose", is_flag=True)
 def ls(
@@ -255,6 +256,7 @@ def ls(
     exclude_state: Optional[JobState],
     id: Optional[int],
     by_state: Optional[bool],
+    app: Optional[str],
     workdir: Optional[str],
     verbose: bool,
     site_selector: str,
@@ -284,6 +286,10 @@ def ls(
     """
     client = load_client()
     job_qs = filter_by_sites(client.Job.objects.all(), site_selector)
+    if app:
+        app_qs = filter_by_sites(client.App.objects.all(), site_selector)
+        appo = fetch_app(app_qs, app)
+        job_qs = job_qs.filter(app_id=appo.id)
     if tags:
         job_qs = job_qs.filter(tags=tags)
     if state:
