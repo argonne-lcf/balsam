@@ -316,8 +316,9 @@ def ls(
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
+@click.option("-y", "yes", is_flag=True, default=False)
 @click.option("--all", is_flag=True, default=False)
-def rm(job_ids: List[int], tags: List[str], all: bool) -> None:
+def rm(job_ids: List[int], tags: List[str], yes: bool, all: bool) -> None:
     """
     Remove Jobs
 
@@ -348,5 +349,5 @@ def rm(job_ids: List[int], tags: List[str], all: bool) -> None:
     assert count is not None
     if count < 1:
         click.echo("No jobs match deletion query")
-    elif click.confirm(f"Really delete {count} jobs?"):
+    elif yes or click.confirm(f"Really delete {count} jobs?"):
         jobs.delete()
