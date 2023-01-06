@@ -211,7 +211,8 @@ def sample_settings() -> None:
 
 
 @site.command()
-def globus_login() -> None:
+@click.option("-e", "--endpoint_id", multiple=True, default=None, type=str, help="Globus Endpoint ID to enable")
+def globus_login(endpoint_id: str) -> None:
     """
     Get credentials for the Globus CLI
 
@@ -224,6 +225,6 @@ def globus_login() -> None:
         click.echo("You are already logged in!")
         return
 
-    globus_auth.do_link_auth_flow(force_new_client=True)
+    globus_auth.do_link_auth_flow(force_new_client=True, endpoint_ids=endpoint_id)
 
     click.echo("You have successfully logged in to the Globus CLI!")

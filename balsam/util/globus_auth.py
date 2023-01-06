@@ -21,7 +21,7 @@ EitherAuthClient = Union[ConfidentialAppAuthClient, NativeAppAuthClient]
 CLIENT_ID_OPTNAME = "client_id"
 CLIENT_SECRET_OPTNAME = "client_secret"
 TEMPLATE_ID_OPTNAME = "template_id"
-DEFAULT_TEMPLATE_ID = "95fdeba8-fac2-42bd-a357-e068d82ff78e"
+DEFAULT_TEMPLATE_ID = "b1ca1cb7-ae70-451c-be61-4b2a61a02e9c"
 TRANSFER_AT_EXPIRES_OPTNAME = "transfer_access_token_expires"
 TRANSFER_RT_OPTNAME = "transfer_refresh_token"
 TRANSFER_AT_OPTNAME = "transfer_access_token"
@@ -31,7 +31,7 @@ AUTH_AT_EXPIRES_OPTNAME = "auth_access_token_expires"
 SCOPES = (
     "openid profile email "
     "urn:globus:auth:scope:auth.globus.org:view_identity_set "
-    "urn:globus:auth:scope:transfer.api.globus.org:all"
+    "urn:globus:auth:scope:transfer.api.globus.org:all "
 )
 
 T = TypeVar("T")
@@ -184,7 +184,7 @@ def internal_auth_client(requires_instance: bool = False, force_new_client: bool
     # if we require a new client to be made
     if force_new_client or (requires_instance and not existing):
         # register a new instance client with auth
-        body = {"client": {"template_id": template_id, "name": "Globus CLI"}}
+        body = {"client": {"template_id": template_id, "name": "Balsam"}}
         res = template_client.post("/v2/api/clients", data=body)
 
         # get values and write to config
@@ -267,7 +267,7 @@ def exchange_code_and_store_config(auth_client: EitherAuthClient, auth_code: str
         write_option(optname, newval)
 
 
-def do_link_auth_flow(session_params: Optional[Dict[str, Any]] = None, force_new_client: bool = False) -> bool:
+def do_link_auth_flow(session_params: Optional[Dict[str, Any]] = None, force_new_client: bool = False, endpoint_ids: str = None) -> bool:
     """
     Prompts the user with a link to authenticate with globus auth
     and authorize the CLI to act on their behalf.
@@ -277,11 +277,17 @@ def do_link_auth_flow(session_params: Optional[Dict[str, Any]] = None, force_new
     # get the ConfidentialApp client object
     auth_client = internal_auth_client(requires_instance=True, force_new_client=force_new_client)
 
+    # add optional endpoint to default scopes
+    scopes = SCOPES
+    if endpoint_ids:
+      for e in endpoint_ids:
+        scopes += f"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/{e}/data_access] "
+
     # start the Confidential App Grant flow
     auth_client.oauth2_start_flow(
         redirect_uri=auth_client.base_url + "v2/web/auth-code",
         refresh_tokens=True,
-        requested_scopes=SCOPES,
+        requested_scopes=scopes,
     )
 
     # prompt
