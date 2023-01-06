@@ -5,8 +5,10 @@
 #PBS -A {{ project }}
 #PBS -q {{ queue }}
 
-export http_proxy=http://proxy:3128
-export https_proxy=http://proxy:3128
+export http_proxy="http://proxy:3128"
+export https_proxy="http://proxy:3128"
+
+export PYTHONPATH=/home/turam/dev/polaris/balsam:$PYTHONPATH
 
 #remove export PMI_NO_FORK=1
 export BALSAM_SITE_PATH={{balsam_site_path}}
