@@ -1,6 +1,6 @@
+import getpass
 import json
 import logging
-import getpass
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
