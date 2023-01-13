@@ -312,6 +312,9 @@ class PBSScheduler(SubprocessSchedulerInterface):
         job_data = list(json_output["Jobs"].values())[0]
         start_raw = job_data.get("stime")
         end_raw = job_data.get("mtime")
+        substate = job_data.get("substate")
+        logger.info(f"parsing logs; substate is {substate}")
+        substate = int(substate)
         if not (start_raw and end_raw):
             logger.warning(f"parse_logs got START_TIME: {start_raw}; FINISH_TIME: {end_raw}")
             return SchedulerJobLog()
@@ -321,7 +324,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         except dateutil.parser.ParserError:
             logger.warning(f"Failed to parse job_data times (START_TIME: {start_raw}) (FINISH_TIME: {end_raw})")
             return SchedulerJobLog()
-        return SchedulerJobLog(start_time=start, end_time=end)
+        return SchedulerJobLog(start_time=start, end_time=end, substate=substate)
 
     @classmethod
     def discover_projects(cls) -> List[str]:
