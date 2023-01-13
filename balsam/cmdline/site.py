@@ -216,15 +216,20 @@ def globus_login(endpoint_id: str) -> None:
     """
     Get credentials for the Globus CLI
 
-    Necessary before any Globus CLI commands which require authentication will work
+    Necessary before any Globus CLI commands which require authentication will work.
     This command directs you to the page necessary to permit the Globus CLI to make API
     calls for you, and gets the OAuth2 tokens needed to use those permissions.
     """
     # if not forcing, stop if user already logged in
     if globus_auth.check_logged_in():
         click.echo("You are already logged in!")
+        # user is logged in already, but let's ensure consents are in place for the 
+        # requested endpoints
+        # FIXME: Since the globus API doesn't allow query of consents, we should
+        # should store the list of successful consents so we know if this is needed
+        globus_auth.do_link_auth_flow(force_new_client=False, endpoint_ids=endpoint_id)
         return
 
     globus_auth.do_link_auth_flow(force_new_client=True, endpoint_ids=endpoint_id)
 
-    click.echo("You have successfully logged in to the Globus CLI!")
+    click.echo("You have successfully logged in to Globus")

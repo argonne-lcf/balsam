@@ -45,6 +45,8 @@ def submit_sdk(src_endpoint: UUID, dest_endpoint: UUID, batch: Sequence[SrcDestR
     try:
         res = client.submit_transfer(transfer_data)
     except GlobusAPIError as exc:
+        import traceback
+        traceback.print_exc()
         raise TransferSubmitError(str(exc))
     task_id = res.get("task_id", None)
     if task_id is None:

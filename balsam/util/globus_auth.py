@@ -194,11 +194,11 @@ def internal_auth_client(requires_instance: bool = False, force_new_client: bool
         write_option(CLIENT_ID_OPTNAME, client_id)
         write_option(CLIENT_SECRET_OPTNAME, client_secret)
 
-        return ConfidentialAppAuthClient(client_id, client_secret, app_name="Globus CLI")
+        return ConfidentialAppAuthClient(client_id, client_secret, app_name="Balsam")
 
     # if we already have a client, just return it
     elif existing:
-        return ConfidentialAppAuthClient(client_id, client_secret, app_name="Globus CLI")
+        return ConfidentialAppAuthClient(client_id, client_secret, app_name="Balsam")
 
     # fall-back to a native client to not break old logins
     # TOOD: eventually remove this behavior
@@ -220,7 +220,7 @@ def get_client() -> RetryingTransferClient:
             on_refresh=_update_tokens,
         )
 
-    return RetryingTransferClient(authorizer=authorizer, app_name="Globus CLI v2.1.0")
+    return RetryingTransferClient(authorizer=authorizer, app_name="Balsam")
 
 
 def exchange_code_and_store_config(auth_client: EitherAuthClient, auth_code: str) -> None:

@@ -187,6 +187,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
                 for jobidstr, job in j["Jobs"].items():
                     status = {}
                     try:
+                        jobidstr = jobidstr.replace("[]", "")
                         jobid = int(jobidstr.split(".")[0])
                         status["scheduler_id"] = jobid
                     except ValueError:

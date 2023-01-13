@@ -315,6 +315,30 @@ def ls(
 
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
+@click.option("-s", "--state", "state", type=str)
+def modify(job_ids: List[int], state: List[str]) -> None:
+    """
+    Modify Jobs
+
+    1) Modify Job State
+
+        balsam job modify --id 41 --id 42 --id 43 -s RESTART_READY
+    """
+    client: RESTClient = load_client()
+    jobs = client.Job.objects.all()
+    if job_ids:
+        jobs = jobs.filter(id=job_ids)
+    else:
+        raise click.BadParameter("Provide either list of Job ids or tags to delete")
+    count = jobs.count()
+    assert count is not None
+    for job in jobs:
+        job.state = state
+        job.save()
+
+
+@job.command()
+@click.option("-i", "--id", "job_ids", multiple=True, type=int)
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
 @click.option("-y", "yes", is_flag=True, default=False)
 @click.option("--all", is_flag=True, default=False)
