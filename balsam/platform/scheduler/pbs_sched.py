@@ -1,5 +1,6 @@
 import json
 import logging
+import getpass
 import os
 import subprocess
 import tempfile
@@ -179,12 +180,17 @@ class PBSScheduler(SubprocessSchedulerInterface):
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
         # logger.info(f"json status output {raw_output}")
+        username = getpass.getuser()
         j = json.loads(raw_output)
         date_format = "%a %b %d %H:%M:%S %Y"
         status_dict = {}
         if "Jobs" in j.keys():
             try:
                 for jobidstr, job in j["Jobs"].items():
+                    # temporarily filter jobs by user due to PBS bug
+                    job_username = job["Job_Owner"].split("@")[0]
+                    if job_username != username:
+                        continue
                     status = {}
                     try:
                         # array jobs can have a trailing "[]"; remove this
