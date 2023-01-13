@@ -52,7 +52,7 @@ class SchedulerService(BalsamService):
 
     def fail_submit(self, job: "BatchJob", msg: str) -> None:
         job.state = BatchJobState.submit_failed
-        job.status_info = {**(job.status_info or {}), "error": msg, "error_time": datetime.now()}
+        job.status_info = {**(job.status_info or {}), "error": msg, "error_time": str(datetime.now())}
         logger.error(f"Submit failed for BatchJob {job.id}: {msg}")
 
     def submit_launch(self, job: "BatchJob", scheduler_jobs: Dict[int, SchedulerJobStatus]) -> None:
