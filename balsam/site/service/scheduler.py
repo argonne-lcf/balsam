@@ -153,10 +153,10 @@ class SchedulerService(BalsamService):
                 )
                 job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
                 logger.info(f"job_log is {job_log}")
-                logger.info(f"substate is {job_log.substate}")
-                # Jobs terminated by PBS will have substate = 91.  See the PBS Big Book for details.
-                if job_log.substate == 91:
-                    logger.warning(f"PBS terminated batch job {job.id}: scheduler_id {job.scheduler_id} substate=91")
+                logger.info(f"state is {job_log.state}")
+                
+                if job_log.state == "terminated":
+                    logger.warning(f"PBS terminated batch job {job.id}")
                     job.state = BatchJobState.terminated
                 else:
                     job.state = BatchJobState.finished

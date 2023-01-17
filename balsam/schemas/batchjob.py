@@ -45,7 +45,7 @@ class SchedulerBackfillWindow(BaseModel):
 class SchedulerJobLog(BaseModel):
     start_time: Optional[datetime]
     end_time: Optional[datetime]
-    substate: Optional[int]
+    state: Optional[str]
 
 
 class BatchJobPartition(BaseModel):
