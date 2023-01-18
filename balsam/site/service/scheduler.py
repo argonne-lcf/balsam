@@ -150,9 +150,7 @@ class SchedulerService(BalsamService):
                     logger.warning(f"Failed to delete job {job.scheduler_id}: {exc}")
             elif job.scheduler_id not in scheduler_jobs:
                 logger.info(f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses")
-                job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
-                logger.info(f"job_log is {job_log}")
-                logger.info(f"state is {job_log.state}")
+                job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))  # type: ignore
 
                 if job_log.state == "terminated":
                     logger.warning(f"PBS terminated batch job {job.id}")
