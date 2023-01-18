@@ -114,6 +114,7 @@ class SchedulerService(BalsamService):
             }
             logger.info(f"Submit OK: {job}")
 
+    # flake8: noqa: C901
     def run_cycle(self) -> None:
         BatchJob = self.client.BatchJob
         api_jobs = list(
@@ -148,13 +149,11 @@ class SchedulerService(BalsamService):
                 except SchedulerDeleteError as exc:
                     logger.warning(f"Failed to delete job {job.scheduler_id}: {exc}")
             elif job.scheduler_id not in scheduler_jobs:
-                logger.info(
-                    f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses"
-                )
+                logger.info(f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses")
                 job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
                 logger.info(f"job_log is {job_log}")
                 logger.info(f"state is {job_log.state}")
-                
+
                 if job_log.state == "terminated":
                     logger.warning(f"PBS terminated batch job {job.id}")
                     job.state = BatchJobState.terminated
