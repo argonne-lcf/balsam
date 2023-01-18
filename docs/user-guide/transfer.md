@@ -37,12 +37,20 @@ Next, we configure the `transfers` section of `settings.yml`:
 - `transfer_locations` should be set to a dictionary of trusted [location
 aliases](./jobs.md#data-transfer). If you need to add Globus endpoints, they can
 be inserted here. 
-- `globus_endpoint_id` should refer to the endpoint ID of the local Site. On public subscriber endpoints at large HPC facilities, this value will be set correctly in the default Balsam site configuration.
+- `globus_endpoint_id` should refer to the endpoint ID of the local Site. 
 - `max_concurrent_transfers` determines the maximum number of in-flight
 transfer tasks, where each task manages a *batch* of files for many Jobs.
 - `transfer_batch_size` determines the maximum number of transfer items per transfer task.  This should be tuned depending on your workload (a higher number makes sense to utilize available bandwidth for smaller files).
 - `num_items_query_limit` determines the maximum number of transfer items considered in any single transfer task submission.
 - `service_period` determines the interval (in seconds) between transfer task submissions.
+
+Globus requires that you give Balsam consent to make transfers on your behalf; consent is granted for each endpoint that you intend to use. You can review your Globus consents [here](https://auth.globus.org/v2/web/consents). For any endpoints that you have configured above (including the globus_endpoint_id), determine the Globus endpoint id, and execute the following command:
+
+balsam site globus-login -e ENDPOINT_ID1 -e ENDPOINT_ID2
+
+Note that globus_endpoint_id in settings.yaml will be used to stage input data in, and to stage output data out. This endpoint id will depend on the filesystem where your site is located (e.g. at ALCF, if it's in your home directory, use alcf#dtn_home; if it's on the Eagle filesystem, use alcf#eagle_dtn). Also make sure that the path to your site is set to correspond to how it is mapped on your Globus endpoint:
+
+- `globus_endpoint_site_path` specifies the path on the Globus endpoint, which might be different from the path used on login/compute nodes (e.g. for ALCF home filesystem, paths begin with /home/USER, but on the dtn_home endpoint, paths begin with /USER.)
 
 Once `settings.yml` has been configured appropriately, be sure to restart the Balsam Site:
 
