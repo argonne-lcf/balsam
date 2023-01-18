@@ -154,7 +154,7 @@ class SchedulerService(BalsamService):
                 job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
                 logger.info(f"job_log is {job_log}")
                 logger.info(f"state is {job_log.state}")
-                
+
                 if job_log.state == "terminated":
                     logger.warning(f"PBS terminated batch job {job.id}")
                     job.state = BatchJobState.terminated
