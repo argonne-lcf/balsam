@@ -3,7 +3,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Sequence, Tuple, Union, Optional
+from typing import List, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
 from globus_sdk import TransferData
