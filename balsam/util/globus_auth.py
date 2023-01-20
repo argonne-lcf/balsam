@@ -268,7 +268,7 @@ def exchange_code_and_store_config(auth_client: EitherAuthClient, auth_code: str
 
 
 def do_link_auth_flow(
-    session_params: Optional[Dict[str, Any]] = None, force_new_client: bool = False, endpoint_ids: str = None
+    session_params: Optional[Dict[str, Any]] = None, force_new_client: bool = False, endpoint_ids: str = ""
 ) -> bool:
     """
     Prompts the user with a link to authenticate with globus auth

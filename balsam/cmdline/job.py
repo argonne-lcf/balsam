@@ -316,7 +316,7 @@ def ls(
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
 @click.option("-s", "--state", "state", type=str)
-def modify(job_ids: List[int], state: List[str]) -> None:
+def modify(job_ids: List[int], state: JobState) -> None:
     """
     Modify Jobs
 

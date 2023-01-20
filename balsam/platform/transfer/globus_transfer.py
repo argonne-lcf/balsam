@@ -2,8 +2,8 @@ import logging
 import os
 import subprocess
 import time
-from pathlib import Path
-from typing import List, Optional, Sequence, Tuple, Union
+from pathlib import Path, PosixPath
+from typing import cast, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
 from globus_sdk import TransferData
@@ -81,10 +81,10 @@ def submit_subproc(src_endpoint: UUID, dest_endpoint: UUID, batch: List[SrcDestR
 
 
 class GlobusTransferInterface(TransferInterface):
-    def __init__(self, endpoint_id: UUID, data_path: str, endpoint_path: Optional[str] = None):
+    def __init__(self, endpoint_id: UUID, data_path: PathLike, endpoint_path: Optional[PathLike] = None):
         self.endpoint_id: UUID = UUID(str(endpoint_id))
-        self.data_path: str = data_path
-        self.endpoint_path: str = endpoint_path
+        self.data_path: PathLike = data_path
+        self.endpoint_path: Optional[PathLike] = endpoint_path
 
     @staticmethod
     def _state_map(status: str) -> str:
@@ -102,27 +102,29 @@ class GlobusTransferInterface(TransferInterface):
         transfer_paths: Sequence[Tuple[PathLike, PathLike, bool]],
     ) -> str:
         """Submit Transfer Task via Globus CLI"""
-        from pathlib import PosixPath  # FIXME
-
-        transfer_paths_list = []
-        for transfer in transfer_paths:
-            transfer_paths_list.append(list(transfer))
+        transfer_paths_list: List[List[PathLike, PathLike, bool]] = [] # type: ignore [type-arg]
         if direction == "in":
             src_endpoint, dest_endpoint = UUID(str(remote_loc)), self.endpoint_id
             # modify destination path according to configured endpoint path
             if self.endpoint_path:
-                for transfer in transfer_paths_list:
-                    transfer[1] = PosixPath(str(transfer[1]).replace(str(self.data_path), str(self.endpoint_path)))
+                for transfer in transfer_paths:
+                    transfer_paths_list.append([
+                        transfer[0],
+                        PosixPath(str(transfer[1]).replace(str(self.data_path), str(self.endpoint_path))),
+                        transfer[2]])
         elif direction == "out":
             src_endpoint, dest_endpoint = self.endpoint_id, UUID(str(remote_loc))
             # modify source path according to configured endpoint path
             if self.endpoint_path:
-                for transfer in transfer_paths_list:
-                    transfer[0] = PosixPath(str(transfer[0]).replace(str(self.data_path), str(self.endpoint_path)))
+                for transfer in transfer_paths:
+                    transfer_paths_list.append([
+                        PosixPath(str(transfer[0]).replace(str(self.data_path), str(self.endpoint_path))),
+                        transfer[1],
+                        transfer[2]])
         else:
             raise ValueError("direction must be in or out")
         try:
-            task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths_list)
+            task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths_list) # type: ignore
         except TransferSubmitError as exc:
             if "ConsentRequired" in eval(exc.args[0]):
                 logger.warn(
