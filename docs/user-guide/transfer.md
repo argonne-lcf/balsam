@@ -45,11 +45,11 @@ transfer tasks, where each task manages a *batch* of files for many Jobs.
 - `num_items_query_limit` determines the maximum number of transfer items considered in any single transfer task submission.
 - `service_period` determines the interval (in seconds) between transfer task submissions.
 
-Globus requires that you give Balsam consent to make transfers on your behalf; consent is granted for each endpoint that you intend to use. You can review your Globus consents [here](https://auth.globus.org/v2/web/consents). For any endpoints that you have configured above (including the globus_endpoint_id), determine the Globus endpoint id, and execute the following command:
+Globus requires that you give Balsam consent to make transfers on your behalf; consent is granted for each endpoint that you intend to use. You can review your Globus consents [here](https://auth.globus.org/v2/web/consents). For any endpoints that you have configured above (including the `globus_endpoint_id`), determine the Globus endpoint id, and execute the following command:
 
 balsam site globus-login -e ENDPOINT_ID1 -e ENDPOINT_ID2
 
-Note that globus_endpoint_id in settings.yaml will be used to stage input data in, and to stage output data out. This endpoint id will depend on the filesystem where your site is located (e.g. at ALCF, if it's in your home directory, use alcf#dtn_home; if it's on the Eagle filesystem, use alcf#eagle_dtn). Also make sure that the path to your site is set to correspond to how it is mapped on your Globus endpoint, using the `globus_endpoint_site_path` setting above.
+Note that `globus_endpoint_id` in settings.yaml will be used to stage input data in, and to stage output data out. This endpoint id will depend on the filesystem where your site is located (e.g. at ALCF, if it's in your home directory, use alcf#dtn_home; if it's on the Eagle filesystem, use alcf#eagle_dtn). Also make sure that the path to your site is set to correspond to how it is mapped on your Globus endpoint, using the `globus_endpoint_site_path` setting above.
 
 Once `settings.yml` has been configured appropriately, be sure to restart the Balsam Site:
 
