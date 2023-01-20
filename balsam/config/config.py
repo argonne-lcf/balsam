@@ -177,6 +177,7 @@ class TransferSettings(BaseSettings):
     transfer_locations: Dict[str, str] = {"theta_dtn": "globus://08925f04-569f-11e7-bef8-22000b9a448b"}
     max_concurrent_transfers: int = 5
     globus_endpoint_id: Optional[UUID] = None
+    globus_endpoint_site_path: Optional[str] = None
     transfer_batch_size: int = 100
     num_items_query_limit: int = 2000
     service_period: int = 5
@@ -342,8 +343,9 @@ class SiteConfig:
             transfer_settings = dict(self.settings.transfers)
             transfer_interfaces: Dict[str, TransferInterface] = {}
             endpoint_id = transfer_settings.pop("globus_endpoint_id")
+            endpoint_path = transfer_settings.pop("globus_endpoint_site_path", "")
             if endpoint_id:
-                transfer_interfaces["globus"] = GlobusTransferInterface(endpoint_id)
+                transfer_interfaces["globus"] = GlobusTransferInterface(endpoint_id, self.site_path, endpoint_path)
             transfer_service = TransferService(
                 client=self.client,
                 site_id=self.site_id,

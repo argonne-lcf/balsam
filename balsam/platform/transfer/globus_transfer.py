@@ -2,8 +2,8 @@ import logging
 import os
 import subprocess
 import time
-from pathlib import Path
-from typing import List, Sequence, Tuple, Union
+from pathlib import Path, PosixPath
+from typing import List, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
 from globus_sdk import TransferData
@@ -81,8 +81,10 @@ def submit_subproc(src_endpoint: UUID, dest_endpoint: UUID, batch: List[SrcDestR
 
 
 class GlobusTransferInterface(TransferInterface):
-    def __init__(self, endpoint_id: UUID):
+    def __init__(self, endpoint_id: UUID, data_path: PathLike, endpoint_path: Optional[PathLike] = None):
         self.endpoint_id: UUID = UUID(str(endpoint_id))
+        self.data_path: PathLike = data_path
+        self.endpoint_path: Optional[PathLike] = endpoint_path
 
     @staticmethod
     def _state_map(status: str) -> str:
@@ -100,14 +102,44 @@ class GlobusTransferInterface(TransferInterface):
         transfer_paths: Sequence[Tuple[PathLike, PathLike, bool]],
     ) -> str:
         """Submit Transfer Task via Globus CLI"""
+        transfer_paths_list: List[List[PathLike, PathLike, bool]] = []  # type: ignore [type-arg]
         if direction == "in":
             src_endpoint, dest_endpoint = UUID(str(remote_loc)), self.endpoint_id
+            # modify destination path according to configured endpoint path
+            if self.endpoint_path:
+                for transfer in transfer_paths:
+                    transfer_paths_list.append(
+                        [
+                            transfer[0],
+                            PosixPath(str(transfer[1]).replace(str(self.data_path), str(self.endpoint_path))),
+                            transfer[2],
+                        ]
+                    )
         elif direction == "out":
             src_endpoint, dest_endpoint = self.endpoint_id, UUID(str(remote_loc))
+            # modify source path according to configured endpoint path
+            if self.endpoint_path:
+                for transfer in transfer_paths:
+                    transfer_paths_list.append(
+                        [
+                            PosixPath(str(transfer[0]).replace(str(self.data_path), str(self.endpoint_path))),
+                            transfer[1],
+                            transfer[2],
+                        ]
+                    )
         else:
             raise ValueError("direction must be in or out")
         try:
-            task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths)
+            task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths_list)  # type: ignore
+        except TransferSubmitError as exc:
+            if "ConsentRequired" in eval(exc.args[0]):
+                logger.warn(
+                    f"""Missing required data_access consent for Globus transfer.
+ Ensure that you have given consent for Balsam to transfer with the required
+ endpoints by executing the following command:
+     balsam site globus-login -e {src_endpoint} -e {dest_endpoint}"""
+                )
+            raise
         except GlobusConnectionError as exc:
             raise TransferRetryableError(f"GlobusConnectionError in Transfer task submission: {exc}") from exc
         return str(task_id)
