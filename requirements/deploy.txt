@@ -1,5 +1,5 @@
 # Pinned dependencies for server deploy
-#psycopg2==2.9.4
+psycopg2==2.9.4
 fastapi==0.78.0
 orjson==3.8.0
 fastapi==0.78.0
