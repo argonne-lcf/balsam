@@ -103,31 +103,34 @@ class GlobusTransferInterface(TransferInterface):
     ) -> str:
         """Submit Transfer Task via Globus CLI"""
         from pathlib import PosixPath  # FIXME
+
         transfer_paths_list = []
         for transfer in transfer_paths:
-            transfer_paths_list.append( list(transfer) )
+            transfer_paths_list.append(list(transfer))
         if direction == "in":
             src_endpoint, dest_endpoint = UUID(str(remote_loc)), self.endpoint_id
             # modify destination path according to configured endpoint path
             if self.endpoint_path:
                 for transfer in transfer_paths_list:
-                    transfer[1] = PosixPath(str(transfer[1]).replace( str(self.data_path), str(self.endpoint_path) ) )
+                    transfer[1] = PosixPath(str(transfer[1]).replace(str(self.data_path), str(self.endpoint_path)))
         elif direction == "out":
             src_endpoint, dest_endpoint = self.endpoint_id, UUID(str(remote_loc))
             # modify source path according to configured endpoint path
             if self.endpoint_path:
                 for transfer in transfer_paths_list:
-                    transfer[0] = PosixPath(str(transfer[0]).replace( str(self.data_path), str(self.endpoint_path) ) )
+                    transfer[0] = PosixPath(str(transfer[0]).replace(str(self.data_path), str(self.endpoint_path)))
         else:
             raise ValueError("direction must be in or out")
         try:
             task_id = submit_sdk(src_endpoint, dest_endpoint, transfer_paths_list)
         except TransferSubmitError as exc:
-            if 'ConsentRequired' in eval(exc.args[0]):
-                logger.warn(f"""Missing required data_access consent for Globus transfer.
+            if "ConsentRequired" in eval(exc.args[0]):
+                logger.warn(
+                    f"""Missing required data_access consent for Globus transfer.
 Ensure that you have given consent for Balsam to transfer with the required 
 endpoints by executing the following command: 
-balsam site globus-login -e {src_endpoint} -e {dest_endpoint}""")
+balsam site globus-login -e {src_endpoint} -e {dest_endpoint}"""
+                )
             raise
         except GlobusConnectionError as exc:
             raise TransferRetryableError(f"GlobusConnectionError in Transfer task submission: {exc}") from exc

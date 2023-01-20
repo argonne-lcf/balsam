@@ -267,7 +267,9 @@ def exchange_code_and_store_config(auth_client: EitherAuthClient, auth_code: str
         write_option(optname, newval)
 
 
-def do_link_auth_flow(session_params: Optional[Dict[str, Any]] = None, force_new_client: bool = False, endpoint_ids: str = None) -> bool:
+def do_link_auth_flow(
+    session_params: Optional[Dict[str, Any]] = None, force_new_client: bool = False, endpoint_ids: str = None
+) -> bool:
     """
     Prompts the user with a link to authenticate with globus auth
     and authorize the CLI to act on their behalf.
@@ -280,8 +282,10 @@ def do_link_auth_flow(session_params: Optional[Dict[str, Any]] = None, force_new
     # add optional endpoint to default scopes
     scopes = SCOPES
     if endpoint_ids:
-      for e in endpoint_ids:
-        scopes += f"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/{e}/data_access] "
+        for e in endpoint_ids:
+            scopes += (
+                f"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/{e}/data_access] "
+            )
 
     # start the Confidential App Grant flow
     auth_client.oauth2_start_flow(

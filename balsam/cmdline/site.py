@@ -223,7 +223,7 @@ def globus_login(endpoint_id: str) -> None:
     # if not forcing, stop if user already logged in
     if globus_auth.check_logged_in():
         click.echo("You are already logged in!")
-        # user is logged in already, but let's ensure consents are in place for the 
+        # user is logged in already, but let's ensure consents are in place for the
         # requested endpoints
         # FIXME: Since the globus API doesn't allow query of consents, we should
         # should store the list of successful consents so we know if this is needed
