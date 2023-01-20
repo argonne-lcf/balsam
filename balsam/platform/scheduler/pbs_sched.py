@@ -1,14 +1,10 @@
 import json
 import logging
-import os
-import subprocess
-import tempfile
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import click
 import dateutil.parser
 
 from balsam.util import parse_to_utc
@@ -187,6 +183,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
                 for jobidstr, job in j["Jobs"].items():
                     status = {}
                     try:
+                        # array jobs can have a trailing "[]"; remove this
                         jobidstr = jobidstr.replace("[]", "")
                         jobid = int(jobidstr.split(".")[0])
                         status["scheduler_id"] = jobid
@@ -327,19 +324,25 @@ class PBSScheduler(SubprocessSchedulerInterface):
         Note: Could use sbank; currently uses Cobalt reporting of valid
               projects when an invalid project is given
         """
-        click.echo("Checking with sbank for your current allocations...")
+        """        click.echo("Checking with sbank for your current allocations...")
         with tempfile.NamedTemporaryFile() as fp:
             os.chmod(fp.name, 0o777)
-            proc = subprocess.run(
-                "sbank projects -r polaris -f project_name --no-header --no-totals --no-sys-msg",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                encoding="utf-8",
-            )
+            try:
+                proc = subprocess.run(
+                    "sbank projects -r polaris -f project_name --no-header --no-totals --no-sys-msg",
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
+                print(f"proc is {proc}")
+                sbank_out = proc.stdout
+                projects = [p.strip() for p in sbank_out.split("\n") if p]
+            except:
+                projects = None
 
-        sbank_out = proc.stdout
-        projects = [p.strip() for p in sbank_out.split("\n") if p]
+        """
+        projects = None
         if not projects:
             projects = super().discover_projects()
         return projects

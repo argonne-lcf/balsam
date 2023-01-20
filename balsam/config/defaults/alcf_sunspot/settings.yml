@@ -1,0 +1,21 @@
+title: "Sunspot (ALCF)"
+
+compute_node: balsam.platform.compute_node.SunspotNode
+mpi_app_launcher: balsam.platform.app_run.SunspotRun
+local_app_launcher: balsam.platform.app_run.LocalAppRun
+mpirun_allows_node_packing: true
+
+serial_mode_startup_params: 
+    cpu_affinity: none
+
+scheduler_class: balsam.platform.scheduler.PBSScheduler
+allowed_queues:
+    workq:
+        max_nodes: 128
+        max_queued_jobs: 100
+        max_walltime: 60
+
+allowed_projects:
+- Aurora_deployment
+
+optional_batch_job_params: {}

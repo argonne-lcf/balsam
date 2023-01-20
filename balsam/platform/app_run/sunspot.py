@@ -1,7 +1,9 @@
+import os
+
 from .app_run import SubprocessAppRun
 
 
-class PolarisRun(SubprocessAppRun):
+class SunspotRun(SubprocessAppRun):
     """
     https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
     """
@@ -22,6 +24,21 @@ class PolarisRun(SubprocessAppRun):
             cpu_bind,
             "-d",
             self._threads_per_rank,
+            "--envall",
             self._cmdline,
         ]
         return " ".join(str(arg) for arg in args)
+
+    # Overide default because sunspot does not use CUDA
+    def _set_envs(self) -> None:
+        envs = os.environ.copy()
+        envs.update(self._envs)
+        envs["OMP_NUM_THREADS"] = str(self._threads_per_rank)
+
+        # Check the assigned GPU ID list from the first compute node:
+        gpu_ids = self._node_spec.gpu_ids[0]
+        if gpu_ids:
+            envs["ZE_ENABLE_PCI_ID_DEVICE_ORDER"] = "1"
+            envs["ZE_AFFINITY_MASK"] = ",".join(map(str, gpu_ids))
+
+        self._envs = envs

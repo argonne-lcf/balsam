@@ -30,17 +30,6 @@ Balsam is easily extensible to new HPC systems. Default configurations are avail
 | OLCF     | Summit | :material-check-circle:  |
 | ---     | Mac OS | :material-check-circle:  |
 
- > Cori-Haswell (NERSC)
-   Theta-KNL (ALCF)
-   MacOS/Linux (Local)
-   Cooley (ALCF)
-   Theta-GPU (ALCF)
-   Perlmutter-GPU (NERSC)
-   Cori-KNL (NERSC)
-   Polaris (ALCF)
-   Summit (OLCF)
-
-
 ### Summit (OLCF)
 
 The `cryptography` sub-dependency of `globus-sdk` can be troublesome on non-x86 environments, where 

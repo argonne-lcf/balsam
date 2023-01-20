@@ -49,7 +49,7 @@ from .transfer import (
 )
 from .user import UserCreate, UserOut
 
-MAX_PAGE_SIZE = 10_000
+MAX_PAGE_SIZE = 100_000
 MAX_ITEMS_PER_BULK_OP = 5000
 
 __all__ = [
