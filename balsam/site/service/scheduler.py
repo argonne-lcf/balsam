@@ -131,7 +131,7 @@ class SchedulerService(BalsamService):
             return
 
         for job in api_jobs:
-            if job.state in ["finished", "terminated", "deleted"]:
+            if job.state in ["finished"]:
                 continue
             if job.state == "pending_submission":
                 if all(item in job.filter_tags.items() for item in self.filter_tags.items()):
@@ -145,21 +145,16 @@ class SchedulerService(BalsamService):
                 logger.info(f"Performing queue-deletion of batch job {job.id}")
                 try:
                     self.scheduler.delete_job(job.scheduler_id)
-                    job.state = BatchJobState.deleted
                 except SchedulerDeleteError as exc:
                     logger.warning(f"Failed to delete job {job.scheduler_id}: {exc}")
             elif job.scheduler_id not in scheduler_jobs:
-                logger.info(f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses")
-                job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))  # type: ignore
-
-                if job_log.state == "terminated":
-                    logger.warning(f"PBS terminated batch job {job.id}")
-                    job.state = BatchJobState.terminated
-                else:
-                    job.state = BatchJobState.finished
-
+                logger.info(
+                    f"batch job {job.id}: scheduler_id {job.scheduler_id} no longer in queue statuses: finished"
+                )
+                job.state = BatchJobState.finished
                 assert job.scheduler_id is not None
                 assert job.status_info is not None
+                job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
                 start_time = job_log.start_time
                 end_time = job_log.end_time
                 if start_time:

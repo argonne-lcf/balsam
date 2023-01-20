@@ -22,8 +22,6 @@ class BatchJobState(str, Enum):
     finished = "finished"
     submit_failed = "submit_failed"
     pending_deletion = "pending_deletion"
-    terminated = "terminated"
-    deleted = "deleted"
 
 
 class SchedulerJobStatus(BaseModel):
@@ -45,7 +43,6 @@ class SchedulerBackfillWindow(BaseModel):
 class SchedulerJobLog(BaseModel):
     start_time: Optional[datetime]
     end_time: Optional[datetime]
-    state: Optional[str]
 
 
 class BatchJobPartition(BaseModel):
