@@ -52,7 +52,7 @@ class SchedulerService(BalsamService):
 
     def fail_submit(self, job: "BatchJob", msg: str) -> None:
         job.state = BatchJobState.submit_failed
-        job.status_info = {**(job.status_info or {}), "error": msg}
+        job.status_info = {**(job.status_info or {}), "error": msg, "error_time": str(datetime.now())}
         logger.error(f"Submit failed for BatchJob {job.id}: {msg}")
 
     def submit_launch(self, job: "BatchJob", scheduler_jobs: Dict[int, SchedulerJobStatus]) -> None:
@@ -68,7 +68,9 @@ class SchedulerService(BalsamService):
         num_queued = len([j for j in scheduler_jobs.values() if j.queue == job.queue])
         queue = self.allowed_queues[job.queue]
         if num_queued >= queue.max_queued_jobs:
-            return self.fail_submit(job, f"Exceeded max {queue.max_queued_jobs} jobs in queue {job.queue}")
+            return self.fail_submit(
+                job, f"Exceeded max {queue.max_queued_jobs} jobs in queue {job.queue}; num_queued is {num_queued}"
+            )
 
         script = self.job_template.render(
             project=job.project,
@@ -112,6 +114,7 @@ class SchedulerService(BalsamService):
             }
             logger.info(f"Submit OK: {job}")
 
+    # flake8: noqa: C901
     def run_cycle(self) -> None:
         BatchJob = self.client.BatchJob
         api_jobs = list(
@@ -128,7 +131,7 @@ class SchedulerService(BalsamService):
             return
 
         for job in api_jobs:
-            if job.state == "finished":
+            if job.state in ["finished"]:
                 continue
             if job.state == "pending_submission":
                 if all(item in job.filter_tags.items() for item in self.filter_tags.items()):

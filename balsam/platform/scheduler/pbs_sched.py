@@ -1,3 +1,4 @@
+import getpass
 import json
 import logging
 from collections import Counter, defaultdict
@@ -175,12 +176,17 @@ class PBSScheduler(SubprocessSchedulerInterface):
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
         # logger.info(f"json status output {raw_output}")
+        username = getpass.getuser()
         j = json.loads(raw_output)
         date_format = "%a %b %d %H:%M:%S %Y"
         status_dict = {}
         if "Jobs" in j.keys():
             try:
                 for jobidstr, job in j["Jobs"].items():
+                    # temporarily filter jobs by user due to PBS bug
+                    job_username = job["Job_Owner"].split("@")[0]
+                    if job_username != username:
+                        continue
                     status = {}
                     try:
                         # array jobs can have a trailing "[]"; remove this
@@ -200,7 +206,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
                         if status["state"] == "queued":  # type: ignore # noqa
                             status["time_remaining_min"] = wall_time_min
                         try:
-                            if status["state"] == "running":  # type: ignore # noqa
+                            if status["state"] == "running" and "stime" in job.keys():  # type: ignore # noqa
                                 status["time_remaining_min"] = int(
                                     wall_time_min
                                     - (datetime.now() - datetime.strptime(job["stime"], date_format)).total_seconds()
@@ -305,7 +311,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
             return SchedulerJobLog()
         job_data = list(json_output["Jobs"].values())[0]
         start_raw = job_data.get("stime")
-        end_raw = job_data.get("etime")
+        end_raw = job_data.get("mtime")
         if not (start_raw and end_raw):
             logger.warning(f"parse_logs got START_TIME: {start_raw}; FINISH_TIME: {end_raw}")
             return SchedulerJobLog()
