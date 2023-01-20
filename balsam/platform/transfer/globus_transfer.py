@@ -127,9 +127,9 @@ class GlobusTransferInterface(TransferInterface):
             if "ConsentRequired" in eval(exc.args[0]):
                 logger.warn(
                     f"""Missing required data_access consent for Globus transfer.
-Ensure that you have given consent for Balsam to transfer with the required 
-endpoints by executing the following command: 
-balsam site globus-login -e {src_endpoint} -e {dest_endpoint}"""
+ Ensure that you have given consent for Balsam to transfer with the required
+ endpoints by executing the following command:
+     balsam site globus-login -e {src_endpoint} -e {dest_endpoint}"""
                 )
             raise
         except GlobusConnectionError as exc:
