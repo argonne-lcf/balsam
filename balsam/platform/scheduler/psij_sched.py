@@ -24,39 +24,36 @@ from .scheduler import (
 )
 
 import psij
+from psij import JobState as psijJobState
 
 PathLike = Union[Path, str]
 
 logger = logging.getLogger(__name__)
 
-scheduler = None
-
 
 class Scheduler(SubprocessSchedulerInterface):
 
-    @staticmethod
-    def _render_submit_args(
+    def _render_submit_args(self,
         script_path: Union[Path, str], project: str, queue: str, num_nodes: int, wall_time_min: int, **kwargs: Any
     ) -> List[str]:
         job = psij.Job() # This seems to be unused by scheduler.get_submit_command
         #    def get_submit_command(self, job: Job, submit_file_path: Path) -> List[str]:
-        return scheduler.get_submit_command( job, script_path )
+        return self.scheduler.get_submit_command( job, script_path )
+
+    def _render_status_args(self, project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:                                                                                            
+        return self.scheduler.get_status_command([])
 
     @staticmethod
-    def _render_status_args(project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:                                                                                            
-        return scheduler.get_status_command()
-
-    @staticmethod
-    def _render_delete_args(job_id: Union[int, str]) -> List[str]:
-        return scheduler.get_cancel_command( job_id )
+    def _render_delete_args(self, job_id: Union[int, str]) -> List[str]:
+        return self.scheduler.get_cancel_command( job_id )
 
     @staticmethod
     def _render_backfill_args() -> List[str]:
         pass
 
     @staticmethod
-    def _parse_submit_output(submit_output: str) -> int:
-        return scheduler.job_id_from_submit_output( submit_output )
+    def _parse_submit_output(self, submit_output: str) -> int:
+        return self.scheduler.job_id_from_submit_output( submit_output )
 
 #class SchedulerJobStatus(BaseModel):
     #scheduler_id: int
@@ -68,8 +65,7 @@ class Scheduler(SubprocessSchedulerInterface):
     #time_remaining_min: int
     #queued_time_min: int
 
-    @staticmethod
-    def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:                     
+    def _parse_status_output(self, raw_output: str) -> Dict[int, SchedulerJobStatus]:                     
         #Balsam BatchJobStates
         #    pending_submission = "pending_submission"
         #    queued = "queued"
@@ -79,21 +75,24 @@ class Scheduler(SubprocessSchedulerInterface):
         #    pending_deletion = "pending_deletion"
         #PsiJ job states
         #    The possible states are: `NEW`, `QUEUED`, `ACTIVE`, `COMPLETED`, `FAILED`, and `CANCELED`.
+
+        logger.warn(f"psijJobState NEW = {psijJobState.NEW}")
         state_map = {
-            psij.JobState.NEW : BatchJobState.pending_submission,
-            psij.JobState.QUEUED : BatchJobState.queued,
-            psij.JobState.ACTIVE : BatchJobState.running,
-            psij.JobState.COMPLETED : BatchJobState.finished,
-            psij.JobState.FAILED : BatchJobState.submit_failed, # FIXME: check
-            psij.JobState.CANCELED : BatchJobState.submit_failed # FIXME: check
+            str(psijJobState.NEW) : BatchJobState.pending_submission,
+            str(psijJobState.QUEUED) : BatchJobState.queued,
+            str(psijJobState.ACTIVE) : BatchJobState.running,
+            str(psijJobState.COMPLETED) : BatchJobState.finished,
+            str(psijJobState.FAILED) : BatchJobState.submit_failed, # FIXME: check
+            str(psijJobState.CANCELED) : BatchJobState.submit_failed # FIXME: check
         }
 
-        stat_dict = scheduler.parse_status_output( raw_output )
+        exit_code = 0 #FIXME: check this
+        stat_dict = self.scheduler.parse_status_output( exit_code, raw_output )
         out_stat_dict = {}
         for k,psij_status in stat_dict:
             s = SchedulerJobStatus()
             s.scheduler_id = k
-            s.state = state_map[psij.status.state]
+            s.state = state_map[psij_status.state._name]
             # these variables are needed by Balsam but not provided
             # by psij
             s.queue = "default"
@@ -118,32 +117,35 @@ class Scheduler(SubprocessSchedulerInterface):
     def get_backfill_windows(cls) -> Dict[str, List[SchedulerBackfillWindow]]:
         return []
 
-    @classmethod
     def get_statuses(                                                                               
-        cls,
+        self,
         project: Optional[str] = None,
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
     ) -> Dict[int, SchedulerJobStatus]:
-        stat_args = cls._render_status_args(project, user, queue)
+        stat_args = self._render_status_args(project, user, queue)
         stdout = scheduler_subproc(stat_args)
-        stat_dict = cls._parse_status_output(stdout)
+        stat_dict = self._parse_status_output(stdout)
         return out_stat_dict
 
 
 
 
 class PBSScheduler(Scheduler):
-    scheduler = psij.JobExecutor.get_instance("pbspro")
+    def __init__(self):
+        self.scheduler = psij.JobExecutor.get_instance("pbspro")
 
 class CobaltScheduler(Scheduler):
-    scheduler = psij.JobExecutor.get_instance("cobalt")
+    def __init__(self):
+        self.scheduler = psij.JobExecutor.get_instance("cobalt")
 
 class SlurmScheduler (Scheduler):
-    scheduler = psij.JobExecutor.get_instance("slurm")
+    def __init__(self):
+        self.scheduler = psij.JobExecutor.get_instance("slurm")
 
 class LocalProcessScheduler(Scheduler):
-    scheduler = psij.JobExecutor.get_instance("local")
+    def __init__(self):
+        self.scheduler = psij.JobExecutor.get_instance("local")
 
 
 if __name__ == "__main__":
