@@ -12,6 +12,7 @@ alembic==1.8.1
 SQLAlchemy==1.4.41
 aredis==1.1.8
 redis==4.3.4
+git+https://github.com/ExaWorks/psij-python.git@main#egg=psij-python
 
 # Duplicated from setup.cfg (but pinned)
 PyYAML==6.0
