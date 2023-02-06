@@ -1,5 +1,5 @@
 # This file was auto-generated via /Users/turam/opt/miniconda3/bin/python balsam/schemas/api_generator.py
-# [git rev 3fcc4a5]
+# [git rev ce4bdce]
 # Do *not* make changes to the API by changing this file!
 
 import datetime
@@ -765,7 +765,7 @@ class BatchJob(balsam._api.bases.BatchJobBase):
     job_mode = Field[balsam.schemas.batchjob.JobMode]()
     optional_params = Field[typing.Dict[str, str]]()
     filter_tags = Field[typing.Dict[str, str]]()
-    partitions = Field[Optional[typing.Union[typing.List[balsam.schemas.batchjob.BatchJobPartition], None]]]()
+    partitions = Field[typing.Optional[typing.List[balsam.schemas.batchjob.BatchJobPartition]]]()
     site_id = Field[int]()
     project = Field[str]()
     queue = Field[str]()
@@ -786,7 +786,7 @@ class BatchJob(balsam._api.bases.BatchJobBase):
         queue: str,
         optional_params: Optional[typing.Dict[str, str]] = None,
         filter_tags: Optional[typing.Dict[str, str]] = None,
-        partitions: Optional[typing.Union[typing.List[balsam.schemas.batchjob.BatchJobPartition], None]] = None,
+        partitions: Optional[typing.Optional[typing.List[balsam.schemas.batchjob.BatchJobPartition]]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -918,7 +918,7 @@ class BatchJobManager(balsam._api.bases.BatchJobManagerBase):
         queue: str,
         optional_params: Optional[typing.Dict[str, str]] = None,
         filter_tags: Optional[typing.Dict[str, str]] = None,
-        partitions: Optional[typing.Union[typing.List[balsam.schemas.batchjob.BatchJobPartition], None]] = None,
+        partitions: Optional[typing.Optional[typing.List[balsam.schemas.batchjob.BatchJobPartition]]] = None,
     ) -> BatchJob:
         """
         Create a new BatchJob object and save it to the API in one step.

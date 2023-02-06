@@ -5,7 +5,6 @@ from .compute_node import ComputeNode
 
 
 class PerlmutterGPUNode(ComputeNode):
-
     cpu_ids = list(range(64))
     gpu_ids: List[Union[int, str]] = list(range(4))
 

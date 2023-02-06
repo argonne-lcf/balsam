@@ -5,7 +5,6 @@ from .compute_node import ComputeNode
 
 
 class SummitNode(ComputeNode):
-
     cpu_ids = list(range(42))
     gpu_ids = list(range(6))
 

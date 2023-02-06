@@ -9,7 +9,6 @@ IntStr = Union[int, str]
 
 
 class SunspotNode(ComputeNode):
-
     cpu_ids = list(range(104))
     gpu_ids: List[IntStr]
 

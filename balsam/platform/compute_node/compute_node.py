@@ -6,7 +6,6 @@ U = TypeVar("U")
 
 
 class ComputeNode:
-
     cpu_ids: List[IntStr] = []
     gpu_ids: List[IntStr] = []
 
