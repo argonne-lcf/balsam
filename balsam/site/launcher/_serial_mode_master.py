@@ -117,9 +117,9 @@ class Master:
     def handle_request(self) -> None:
         msg = self.socket.recv_json()
 
-        done_ids: List[int] = msg["done"]
-        error_logs: List[Tuple[int, int, str]] = msg["error"]
-        started_ids: List[int] = msg["started"]
+        done_ids: List[int] = msg["done"]  # type: ignore
+        error_logs: List[Tuple[int, int, str]] = msg["error"]  # type: ignore
+        started_ids: List[int] = msg["started"]  # type: ignore
         self.update_job_states(done_ids, error_logs, started_ids)
 
         finished_ids = set(done_ids) | set(log[0] for log in error_logs)
@@ -127,8 +127,8 @@ class Master:
         self.active_ids -= finished_ids
         self.num_outstanding_jobs -= len(finished_ids)
 
-        src = msg["source"]
-        max_jobs: int = msg["request_num_jobs"]
+        src = msg["source"]  # type: ignore
+        max_jobs: int = msg["request_num_jobs"]  # type: ignore
         logger.debug(f"Worker {src} requested {max_jobs} jobs")
         new_job_specs = self.acquire_jobs(max_jobs)
 
@@ -154,9 +154,9 @@ class Master:
     def run(self) -> None:
         logger.debug("In master run")
         try:
-            self.context = zmq.Context()  # type: ignore
-            self.context.setsockopt(zmq.LINGER, 0)  # type: ignore
-            self.socket = self.context.socket(zmq.REP)  # type: ignore
+            self.context = zmq.Context()
+            self.context.setsockopt(zmq.LINGER, 0)
+            self.socket = self.context.socket(zmq.REP)
             self.socket.bind(f"tcp://*:{self.master_port}")
             logger.debug("Master ZMQ socket bound.")
 
@@ -173,7 +173,7 @@ class Master:
             self.shutdown()
             self.socket.setsockopt(zmq.LINGER, 0)
             self.socket.close(linger=0)
-            self.context.term()  # type: ignore
+            self.context.term()
             logger.info("shutdown done: ensemble master exit gracefully")
 
     def shutdown(self) -> None:
