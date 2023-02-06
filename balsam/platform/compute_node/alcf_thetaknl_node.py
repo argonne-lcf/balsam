@@ -5,7 +5,6 @@ from .compute_node import ComputeNode
 
 
 class ThetaKNLNode(ComputeNode):
-
     cpu_ids = list(range(64))
     gpu_ids: List[Union[int, str]] = []
 

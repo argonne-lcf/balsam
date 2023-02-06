@@ -21,7 +21,6 @@ class NotAuthenticatedError(Exception):
 
 
 class RequestsClient(RESTClient):
-
     _client_classes: "Dict[str, Type[RequestsClient]]" = {}
 
     @staticmethod

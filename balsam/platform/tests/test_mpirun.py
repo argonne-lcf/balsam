@@ -110,7 +110,6 @@ time.sleep({1})
 
     @staticmethod
     def parse_output(output_fn):
-
         ranks = []
         sizes = []
         with open(output_fn) as file:
@@ -164,7 +163,6 @@ time.sleep({1})
 
     @staticmethod
     def parse_output(output_fn):
-
         ranks = []
         sizes = []
         with open(output_fn) as file:
@@ -218,7 +216,6 @@ time.sleep({1})
 
     @staticmethod
     def parse_output(output_fn):
-
         ranks = []
         sizes = []
         with open(output_fn) as file:
@@ -280,7 +277,6 @@ time.sleep({1})
 
     @staticmethod
     def parse_output(output_fn):
-
         ranks = []
         sizes = []
         with open(output_fn) as file:

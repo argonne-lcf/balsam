@@ -149,7 +149,6 @@ def _footprint_func() -> Any:
 def acquire(
     db: Session, owner: schemas.UserOut, session_id: int, spec: schemas.SessionAcquire
 ) -> List[Dict[str, Any]]:
-
     session = (owned_session_query(db, owner).filter(models.Session.id == session_id)).one()
     session.heartbeat = datetime.utcnow()
 

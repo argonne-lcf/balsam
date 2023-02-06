@@ -82,7 +82,7 @@ class Master:
         for id in done_ids:
             self.status_updater.put(id, JobState.run_done, state_timestamp=now)
 
-        for (id, retcode, tail) in error_logs:
+        for id, retcode, tail in error_logs:
             self.status_updater.put(
                 id, JobState.run_error, state_timestamp=now, state_data={"returncode": retcode, "error": tail}
             )

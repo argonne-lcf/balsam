@@ -5,7 +5,6 @@ from .compute_node import ComputeNode
 
 
 class CoriHaswellNode(ComputeNode):
-
     cpu_ids = list(range(32))
     gpu_ids: List[Union[int, str]] = []
 

@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class DefaultNode(ComputeNode):
-
     cpu_ids = list(range(psutil.cpu_count() or 4))
     gpu_ids: List[Union[int, str]] = []
 
