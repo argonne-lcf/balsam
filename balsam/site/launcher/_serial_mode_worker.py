@@ -150,7 +150,7 @@ class Worker:
             self.cleanup_proc(id, timeout=self.CHECK_PERIOD)
         self.socket.setsockopt(zmq.LINGER, 0)
         self.socket.close(linger=0)
-        self.context.term()
+        self.context.term()  # type: ignore
 
     def start_jobs(self) -> List[int]:
         started_ids = []
@@ -193,12 +193,12 @@ class Worker:
         response_msg = self.socket.recv_json()
         logger.debug("Worker response received")
 
-        if response_msg.get("exit"):  # type: ignore
+        if response_msg.get("exit"):
             logger.info(f"Worker {self.hostname} received exit message: break")
             return False
 
-        if response_msg.get("new_jobs"):  # type: ignore
-            self.runnable_cache.update({job["id"]: job for job in response_msg["new_jobs"]})  # type: ignore
+        if response_msg.get("new_jobs"):
+            self.runnable_cache.update({job["id"]: job for job in response_msg["new_jobs"]})
 
         logger.debug(
             f"{self.hostname} fraction available: {self.node_manager.aggregate_free_nodes()} "
@@ -208,9 +208,9 @@ class Worker:
         return True
 
     def run(self) -> None:
-        self.context = zmq.Context()
-        self.context.setsockopt(zmq.LINGER, 0)
-        self.socket = self.context.socket(zmq.REQ)
+        self.context = zmq.Context()  # type: ignore
+        self.context.setsockopt(zmq.LINGER, 0)  # type: ignore
+        self.socket = self.context.socket(zmq.REQ)  # type: ignore
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected to {self.master_address}")
 
