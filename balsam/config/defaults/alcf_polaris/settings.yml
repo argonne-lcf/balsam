@@ -18,6 +18,10 @@ allowed_queues:
         max_nodes: 496
         max_queued_jobs: 100
         max_walltime: 1440
+    preemptable:
+        max_nodes: 10
+        max_queued_jobs: 20
+        max_walltime: 4320
 
 allowed_projects:
 - datascience
