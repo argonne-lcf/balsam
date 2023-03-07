@@ -146,6 +146,10 @@ class PBSScheduler(SubprocessSchedulerInterface):
         return args
 
     @staticmethod
+    def _render_status_args(project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:
+        pass
+
+    @staticmethod
     def _render_delete_args(job_id: Union[int, str]) -> List[str]:
         return [PBSScheduler.delete_exe, str(job_id)]
 
