@@ -166,7 +166,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
             logger.warning(f"Exception: {exc}")
             raise
     
-    @staticmethod
+    @classmethod
     def get_statuses(
         cls,
         project: Optional[str] = None,
@@ -176,9 +176,8 @@ class PBSScheduler(SubprocessSchedulerInterface):
         
         # First call qstat to get user job ids
         args = [PBSScheduler.status_exe]
-        args += ["-u", user, queue]
         stdout = scheduler_subproc(args).split("\n")
-        stdout = [s for s in stdout if user in s if queue in s]
+        stdout = [s for s in stdout if user in s]
         if len(stdout) == 0:
             return [] #if there are no jobs in the queue return an empty list
         user_job_ids = [s.split('.')[0] for s in stdout]
