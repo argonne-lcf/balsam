@@ -173,7 +173,6 @@ class PBSScheduler(SubprocessSchedulerInterface):
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
     ) -> Dict[int, SchedulerJobStatus]:
-
         # First call qstat to get user job ids
         args = [PBSScheduler.status_exe]
         if queue is not None:
@@ -182,7 +181,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         stdout = [s for s in stdout if user in s]
         if len(stdout) == 0:
             return {}  # if there are no jobs in the queue return an empty dictionary
-        user_job_ids = [s.split('.')[0] for s in stdout]
+        user_job_ids = [s.split(".")[0] for s in stdout]
 
         # Next call qstat to get job jsons
         args = [PBSScheduler.status_exe]
