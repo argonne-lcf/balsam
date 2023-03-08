@@ -165,7 +165,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
             # Catch errors here and handle
             logger.warning(f"Exception: {exc}")
             raise
-    
+
     @classmethod
     def get_statuses(
         cls,
@@ -173,13 +173,15 @@ class PBSScheduler(SubprocessSchedulerInterface):
         user: Optional[str] = getpass.getuser(),
         queue: Optional[str] = None,
     ) -> Dict[int, SchedulerJobStatus]:
-        
+
         # First call qstat to get user job ids
         args = [PBSScheduler.status_exe]
+        if queue is not None:
+            args += [queue]
         stdout = scheduler_subproc(args).split("\n")
         stdout = [s for s in stdout if user in s]
         if len(stdout) == 0:
-            return {} #if there are no jobs in the queue return an empty dictionary
+            return {}  # if there are no jobs in the queue return an empty dictionary
         user_job_ids = [s.split('.')[0] for s in stdout]
 
         # Next call qstat to get job jsons
