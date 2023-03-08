@@ -179,7 +179,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         stdout = scheduler_subproc(args).split("\n")
         stdout = [s for s in stdout if user in s]
         if len(stdout) == 0:
-            return [] #if there are no jobs in the queue return an empty list
+            return {} #if there are no jobs in the queue return an empty dictionary
         user_job_ids = [s.split('.')[0] for s in stdout]
 
         # Next call qstat to get job jsons
