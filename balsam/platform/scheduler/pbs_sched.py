@@ -175,8 +175,6 @@ class PBSScheduler(SubprocessSchedulerInterface):
     ) -> Dict[int, SchedulerJobStatus]:
         # First call qstat to get user job ids
         args = [PBSScheduler.status_exe]
-        if queue is not None:
-            args += [queue]
         stdout = scheduler_subproc(args).split("\n")
         stdout = [s for s in stdout if user in s]
         if len(stdout) == 0:
