@@ -147,13 +147,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_status_args(project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:
-        args = [PBSScheduler.status_exe]
-        args += "-f -F json".split()
-        # if user is not None:
-        #     args += ["-u", user]
-        if queue is not None:
-            args += ["-q", queue]
-        return args
+        pass
 
     @staticmethod
     def _render_delete_args(job_id: Union[int, str]) -> List[str]:
@@ -171,6 +165,29 @@ class PBSScheduler(SubprocessSchedulerInterface):
             # Catch errors here and handle
             logger.warning(f"Exception: {exc}")
             raise
+
+    @classmethod
+    def get_statuses(
+        cls,
+        project: Optional[str] = None,
+        user: Optional[str] = getpass.getuser(),
+        queue: Optional[str] = None,
+    ) -> Dict[int, SchedulerJobStatus]:
+        # First call qstat to get user job ids
+        args = [PBSScheduler.status_exe]
+        stdout = scheduler_subproc(args)
+        stdout_lines = [s for s in stdout.split("\n") if str(user) in s]
+        if len(stdout_lines) == 0:
+            return {}  # if there are no jobs in the queue return an empty dictionary
+        user_job_ids = [s.split(".")[0] for s in stdout_lines]
+
+        # Next call qstat to get job jsons
+        args = [PBSScheduler.status_exe]
+        args += user_job_ids
+        args += "-f -F json".split()
+        stdout = scheduler_subproc(args)
+        stat_dict = cls._parse_status_output(stdout)
+        return stat_dict
 
     @staticmethod
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
