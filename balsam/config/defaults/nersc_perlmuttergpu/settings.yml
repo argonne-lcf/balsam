@@ -9,11 +9,11 @@ serial_mode_startup_params: {}
 scheduler_class: balsam.platform.scheduler.SlurmScheduler
 allowed_queues:
     regular:
-        max_nodes: 128
+        max_nodes: 1536
         max_queued_jobs: 5000
         max_walltime: 720
     debug:
-        max_nodes: 5
+        max_nodes: 8
         max_queued_jobs: 5
         max_walltime: 30
 
