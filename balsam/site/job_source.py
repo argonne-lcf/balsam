@@ -136,8 +136,9 @@ class FixedDepthJobSource(Process):
                 params = self._get_acquire_parameters(fetch_count)
                 try:
                     jobs = self.session.acquire_jobs(**params)
-                except requests.exceptions.HTTPError:
-                    logger.exception("Failed to acquire jobs from server")
+                except (requests.ConnectionError, requests.HTTPError) as exec:
+                    logger.exception("Failed to communicate with server")
+                    logger.exception(str(exec))
                     continue
                 if jobs:
                     logger.debug(
