@@ -5,8 +5,6 @@ import time
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
-import requests
-
 from balsam.schemas import MAX_JOBS_PER_SESSION_ACQUIRE, JobState
 from balsam.util import Process, SigHandler
 
@@ -134,12 +132,7 @@ class FixedDepthJobSource(Process):
             logger.debug(f"JobSource queue depth is currently {qsize}. Fetching {fetch_count} more")
             if fetch_count:
                 params = self._get_acquire_parameters(fetch_count)
-                try:
-                    jobs = self.session.acquire_jobs(**params)
-                except (requests.ConnectionError, requests.HTTPError) as exec:
-                    logger.exception("Failed to communicate with server")
-                    logger.exception(str(exec))
-                    continue
+                jobs = self.session.acquire_jobs(**params)
                 if jobs:
                     logger.debug(
                         f"Acquired from session {self.session.id} (batch_job_id {self.session.batch_job_id})"
