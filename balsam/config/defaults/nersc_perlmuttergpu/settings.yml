@@ -1,0 +1,26 @@
+title: "Perlmutter-GPU (NERSC)"
+
+compute_node: balsam.platform.compute_node.PerlmutterNode
+mpi_app_launcher: balsam.platform.app_run.PerlmutterRun
+local_app_launcher: balsam.platform.app_run.LocalAppRun
+mpirun_allows_node_packing: true # mpi_app_launcher supports multiple concurrent runs per node
+serial_mode_startup_params: {}
+
+scheduler_class: balsam.platform.scheduler.SlurmScheduler
+allowed_queues:
+    regular:
+        max_nodes: 1536
+        max_queued_jobs: 5000
+        max_walltime: 720
+    debug:
+        max_nodes: 8
+        max_queued_jobs: 5
+        max_walltime: 30
+
+allowed_projects:
+    - ntrain
+
+optional_batch_job_params:
+    reservation: ""
+
+globus_endpoint_id: 6bdc7956-fc0f-4ad2-989c-7aa5ee643a79 # The local Globus endpoint ID

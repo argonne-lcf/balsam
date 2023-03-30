@@ -3,7 +3,7 @@ import time
 from .app_run import SubprocessAppRun
 
 
-class PerlmutterGPURun(SubprocessAppRun):
+class PerlmutterRun(SubprocessAppRun):
     """
     https://slurm.schedmd.com/srun.html
     """
