@@ -8,11 +8,6 @@ class PerlmutterRun(SubprocessAppRun):
     https://slurm.schedmd.com/srun.html
     """
 
-    def _get_cpus_per_task(self) -> int:
-        cpu_per_rank = 64 // self._ranks_per_node
-        cpu_per_task = cpu_per_rank*2
-        return cpu_per_task
-
     def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
         num_nodes = str(len(node_ids))
@@ -29,7 +24,7 @@ class PerlmutterRun(SubprocessAppRun):
 
         launch_params = []
         for k in self._launch_params.keys():
-            launch_params.append(k)
+            launch_params.append("--"+k)
             launch_params.append(str(self._launch_params[k]))
             
         args = [
@@ -45,7 +40,7 @@ class PerlmutterRun(SubprocessAppRun):
             "--nodes",
             num_nodes,
             "--cpus-per-task",
-            self._get_cpus_per_task(),
+            self._threads_per_rank,
             *launch_params,
             "--overlap",
             self._cmdline,
