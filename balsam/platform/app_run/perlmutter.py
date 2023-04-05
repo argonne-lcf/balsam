@@ -26,7 +26,7 @@ class PerlmutterRun(SubprocessAppRun):
         for k in self._launch_params.keys():
             launch_params.append("--"+k)
             launch_params.append(str(self._launch_params[k]))
-            
+
         args = [
             "srun",
             *network_args,
