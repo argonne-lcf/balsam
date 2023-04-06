@@ -24,7 +24,7 @@ class PerlmutterRun(SubprocessAppRun):
 
         launch_params = []
         for k in self._launch_params.keys():
-            launch_params.append("--"+k)
+            launch_params.append("--" + k)
             launch_params.append(str(self._launch_params[k]))
 
         args = [
