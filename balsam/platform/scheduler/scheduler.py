@@ -17,6 +17,10 @@ class SchedulerNonZeroReturnCode(SchedulerError):
     pass
 
 
+class DelayedSubmitFail(SchedulerError):
+    pass
+
+
 class SchedulerSubmitError(SchedulerError):
     pass
 

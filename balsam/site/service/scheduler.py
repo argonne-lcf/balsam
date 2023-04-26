@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Type
 
 from balsam.platform.scheduler import (
+    DelayedSubmitFail,
     SchedulerDeleteError,
     SchedulerError,
     SchedulerNonZeroReturnCode,
@@ -154,7 +155,10 @@ class SchedulerService(BalsamService):
                 job.state = BatchJobState.finished
                 assert job.scheduler_id is not None
                 assert job.status_info is not None
-                job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
+                try:
+                    job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
+                except DelayedSubmitFail:
+                    job.state = BatchJobState.submit_failed
                 start_time = job_log.start_time
                 end_time = job_log.end_time
                 if start_time:
