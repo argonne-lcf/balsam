@@ -98,7 +98,7 @@ class RequestsClient(RESTClient):
             except requests.Timeout as exc:
                 logger.warning(f"Attempt Retry of Timed-out request {http_method} {absolute_url}")
                 self.backoff(exc)
-            except requests.ConnectionError as exc:
+            except (requests.ConnectionError, requests.HTTPError) as exc:
                 logger.warning(f"Attempt retry ({self._attempt} of {self.retry_count}) of connection: {exc}")
                 self.backoff(exc)
             else:
