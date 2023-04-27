@@ -325,7 +325,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
         try:
             stdout = scheduler_subproc(args)
         except SchedulerNonZeroReturnCode as e:
-            if "Unknown Job Id" in e:
+            if "Unknown Job Id" in str(e):
                 logger.warning(f"Batch Job {scheduler_id} not found in PBS")
                 raise DelayedSubmitFail
             return SchedulerJobLog()
