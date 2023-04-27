@@ -157,14 +157,17 @@ class SchedulerService(BalsamService):
                 assert job.status_info is not None
                 try:
                     job_log = self.scheduler.parse_logs(job.scheduler_id, job.status_info.get("submit_script", None))
+
+                    start_time = job_log.start_time
+                    end_time = job_log.end_time
+                    if start_time:
+                        job.start_time = start_time
+                    if end_time:
+                        job.end_time = end_time
+
                 except DelayedSubmitFail:
                     job.state = BatchJobState.submit_failed
-                start_time = job_log.start_time
-                end_time = job_log.end_time
-                if start_time:
-                    job.start_time = start_time
-                if end_time:
-                    job.end_time = end_time
+
             elif job.state != scheduler_jobs[job.scheduler_id].state:
                 job.state = scheduler_jobs[job.scheduler_id].state
                 logger.info(f"Job {job.id} (sched_id {job.scheduler_id}) advanced to state {job.state}")
