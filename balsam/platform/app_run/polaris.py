@@ -1,3 +1,5 @@
+import os
+
 from .app_run import SubprocessAppRun
 
 
@@ -9,6 +11,18 @@ class PolarisRun(SubprocessAppRun):
     def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
         cpu_bind = self._launch_params.get("cpu_bind", "none")
+        if (
+            cpu_bind == "none"
+            and self._gpus_per_rank > 0
+            and self.get_num_ranks() == 8
+            and self.get_cpus_per_rank == 1
+        ):
+            gpu_device = int(os.getenv("CUDA_VISIBLE_DEVICES"))
+            cpu_bind_list = ["list"]
+            start_cpu = 32 - 8 * (1 + gpu_device)
+            for i in range(8):
+                cpu_bind_list.append(":" + str(start_cpu + i))
+            cpu_bind = "".join(cpu_bind_list)
         nid_str = ",".join(map(str, node_ids))
         args = [
             "mpiexec",
