@@ -114,18 +114,16 @@ def ls(history: bool, verbose: bool, num: int, site_selector: str, scheduler_id:
     BatchJob = client.BatchJob
     qs = filter_by_sites(BatchJob.objects.all(), site_selector)
 
-    active_only = False
     if not history:
-        active_only = True
         qs_filter = qs.filter(state=["pending_submission", "queued", "running", "pending_deletion"])
-        if len(qs_filter) > 0 or num == 0:
+        if (len(qs_filter) > 0 and scheduler_id is None) or num == 0:
             qs = qs_filter
 
     if scheduler_id is not None:
         qs = qs.filter(scheduler_id=scheduler_id)
 
     jobs = [j.display_dict() for j in qs]
-    if active_only and num > 0:
+    if not history and num > 0 and scheduler_id is None:
         click.echo(f"No active Batch Jobs.  Displaying records for last {num} Batch Jobs")
         jobs = jobs[-num:]
 
