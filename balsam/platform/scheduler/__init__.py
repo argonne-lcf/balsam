@@ -3,6 +3,7 @@ from .local import LocalProcessScheduler
 from .lsf_sched import LsfScheduler
 from .pbs_sched import PBSScheduler
 from .scheduler import (
+    DelayedSubmitFail,
     SchedulerDeleteError,
     SchedulerError,
     SchedulerInterface,
@@ -22,4 +23,5 @@ __all__ = [
     "SchedulerSubmitError",
     "SchedulerDeleteError",
     "SchedulerNonZeroReturnCode",
+    "DelayedSubmitFail",
 ]
