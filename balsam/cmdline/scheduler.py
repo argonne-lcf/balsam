@@ -84,9 +84,12 @@ def submit(
 
 
 @queue.command()
+@click.option("-n", "--num", default=3, type=int)
 @click.option("-h", "--history", is_flag=True, default=False)
+@click.option("-v", "--verbose", is_flag=True, default=False)
 @click.option("--site", "site_selector", default="")
-def ls(history: bool, site_selector: str) -> None:
+@click.option("--id", "scheduler_id", type=int, default=None)
+def ls(history: bool, verbose: bool, num: int, site_selector: str, scheduler_id: int) -> None:
     """
     List BatchJobs
 
@@ -97,49 +100,72 @@ def ls(history: bool, site_selector: str) -> None:
     2) View historical BatchJobs at all sites
 
         balsam queue ls --history --site all
+
+    3) View verbose record for BatchJob with scheduler id
+
+        balsam queue ls --id 12345 -v
+
+    4) View the last n BatchJobs
+
+        balsam queue ls --num n
+
     """
     client = load_client()
     BatchJob = client.BatchJob
     qs = filter_by_sites(BatchJob.objects.all(), site_selector)
+
     if not history:
-        qs = qs.filter(state=["pending_submission", "queued", "running", "pending_deletion"])
+        qs_filter = qs.filter(state=["pending_submission", "queued", "running", "pending_deletion"])
+        if (len(qs_filter) > 0 and scheduler_id is None) or num == 0:
+            qs = qs_filter
+
+    if scheduler_id is not None:
+        qs = qs.filter(scheduler_id=scheduler_id)
 
     jobs = [j.display_dict() for j in qs]
-    sites = {site.id: site for site in client.Site.objects.all()}
-    for job in jobs:
-        site = sites[job["site_id"]]
-        path_str = site.path.as_posix()
-        if len(path_str) > 27:
-            path_str = "..." + path_str[-27:]
-        job["site"] = f"{site.name}"
+    if not history and num > 0 and scheduler_id is None:
+        click.echo(f"No active Batch Jobs.  Displaying records for last {num} Batch Jobs")
+        jobs = jobs[-num:]
 
-    fields = [
-        "id",
-        "site",
-        "scheduler_id",
-        "state",
-        "filter_tags",
-        "project",
-        "queue",
-        "num_nodes",
-        "wall_time_min",
-        "job_mode",
-    ]
-    rows = [[str(j[field]) for field in fields] for j in jobs]
+    if verbose:
+        for j in jobs:
+            click.echo(j)
+    else:
+        sites = {site.id: site for site in client.Site.objects.all()}
+        for job in jobs:
+            site = sites[job["site_id"]]
+            path_str = site.path.as_posix()
+            if len(path_str) > 27:
+                path_str = "..." + path_str[-27:]
+            job["site"] = f"{site.name}"
 
-    col_widths = [len(f) for f in fields]
-    for row in rows:
-        for col_idx, width in enumerate(col_widths):
-            col_widths[col_idx] = max(width, len(row[col_idx]))
+        fields = [
+            "id",
+            "site",
+            "scheduler_id",
+            "state",
+            "filter_tags",
+            "project",
+            "queue",
+            "num_nodes",
+            "wall_time_min",
+            "job_mode",
+        ]
+        rows = [[str(j[field]) for field in fields] for j in jobs]
 
-    for i, field in enumerate(fields):
-        fields[i] = field.rjust(col_widths[i] + 1)
+        col_widths = [len(f) for f in fields]
+        for row in rows:
+            for col_idx, width in enumerate(col_widths):
+                col_widths[col_idx] = max(width, len(row[col_idx]))
 
-    print(*fields)
-    for row in rows:
-        for i, col in enumerate(row):
-            row[i] = col.rjust(col_widths[i] + 1)
-        print(*row)
+        for i, field in enumerate(fields):
+            fields[i] = field.rjust(col_widths[i] + 1)
+
+        print(*fields)
+        for row in rows:
+            for i, col in enumerate(row):
+                row[i] = col.rjust(col_widths[i] + 1)
+            print(*row)
 
 
 @queue.command()

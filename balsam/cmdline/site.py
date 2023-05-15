@@ -1,3 +1,4 @@
+import os
 import shutil
 import socket
 import sys
@@ -128,23 +129,40 @@ def mv(src: Union[Path, str], dest: Union[Path, str]) -> None:
 
 
 @site.command()
-@click.argument("path", type=click.Path(exists=True, file_okay=False))
-def rm(path: Union[str, Path]) -> None:
+# @click.argument("path", type=click.Path(exists=True, file_okay=False))
+@click.argument("path", type=click.Path())
+@click.option("-f", "--force", is_flag=True, default=False)
+def rm(path: str, force: bool) -> None:
     """
     Remove a balsam site
 
     balsam site rm /path/to/site
     """
-    cf = SiteConfig(path)
-    client = cf.client
-    site = client.Site.objects.get(id=cf.site_id)
-    jobcount = client.Job.objects.filter(site_id=site.id).count()
-    warning = f"This will wipe out {jobcount} jobs inside!" if jobcount else ""
+    if not force:
+        if os.path.exists(path):
+            cf = SiteConfig(path)
+            client = cf.client
+            site = client.Site.objects.get(id=cf.site_id)
+            jobcount = client.Job.objects.filter(site_id=site.id).count()
+            warning = f"This will wipe out {jobcount} jobs inside!" if jobcount else ""
 
-    if click.confirm(f"Do you really want to destroy {Path(path).name}? {warning}"):
-        site.delete()
-        shutil.rmtree(path)
-        click.echo(f"Deleted site {path}")
+            if click.confirm(f"Do you really want to destroy {Path(path).name}? {warning}"):
+                site.delete()
+                shutil.rmtree(path)
+                click.echo(f"Deleted site {path}")
+        else:
+            raise click.BadParameter("Path doesn't exist")
+    else:
+        client = ClientSettings.load_from_file().build_client()
+        qs = client.Site.objects.all()
+        qs = qs.filter(path=path)
+        if len(qs) > 1:
+            raise click.BadParameter(f"Path found in {len(qs)} sites")
+        else:
+            site_id = qs[0].id
+            site = client.Site.objects.get(id=site_id)
+            site.delete()
+            click.echo("Forced site deletion; check for path to clean up")
 
 
 @site.command()
