@@ -11,9 +11,11 @@ import dateutil.parser
 from balsam.util import parse_to_utc
 
 from .scheduler import (
+    DelayedSubmitFail,
     SchedulerBackfillWindow,
     SchedulerJobLog,
     SchedulerJobStatus,
+    SchedulerNonZeroReturnCode,
     SubprocessSchedulerInterface,
     scheduler_subproc,
 )
@@ -320,7 +322,13 @@ class PBSScheduler(SubprocessSchedulerInterface):
         args += ["-x", "-f", "-F", "json"]
         args += [str(scheduler_id)]
         logger.info(f"_parse_logs issuing qstat: {str(args)}")
-        stdout = scheduler_subproc(args)
+        try:
+            stdout = scheduler_subproc(args)
+        except SchedulerNonZeroReturnCode as e:
+            if "Unknown Job Id" in str(e):
+                logger.warning(f"Batch Job {scheduler_id} not found in PBS")
+                raise DelayedSubmitFail
+            return SchedulerJobLog()
         json_output = json.loads(stdout)
         # logger.info(f"_parse_logs json_output: {json_output}")
         if len(json_output["Jobs"]) == 0:
