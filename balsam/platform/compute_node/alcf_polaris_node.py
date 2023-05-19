@@ -12,6 +12,8 @@ IntStr = Union[int, str]
 class PolarisNode(ComputeNode):
     # turam: confirm number of cpus
     cpu_ids = list(range(64))
+    # cms21: recommended cpu affinity for polaris nodes is in reverse order to gpu ids
+    cpu_ids.reverse()
     gpu_ids: List[IntStr] = list(range(4))
 
     @classmethod
