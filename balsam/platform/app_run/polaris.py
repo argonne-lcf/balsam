@@ -18,7 +18,6 @@ class PolarisRun(SubprocessAppRun):
         if cpu_bind == "none" and self._gpus_per_rank > 0:
             gpu_device = self._envs["CUDA_VISIBLE_DEVICES"]
             gpu_ids = gpu_device.split(",")
-            gpu_ids.reverse()
             cpu_ids = self._node_spec.cpu_ids[0]
 
             cpu_bind_list = ["verbose,list"]
