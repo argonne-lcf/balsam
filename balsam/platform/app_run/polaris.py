@@ -1,6 +1,5 @@
 import logging
 import os
-import stat
 
 from balsam.platform.compute_node import PolarisNode
 
@@ -18,56 +17,15 @@ class PolarisRun(SubprocessAppRun):
         node_ids = [h for h in self._node_spec.hostnames]
 
         cpu_bind = self._launch_params.get("cpu_bind", "none")
-        gpu_affinity_script = ""
-        if cpu_bind == "none" and self._gpus_per_rank > 0:
+        if cpu_bind == "none" and self._gpus_per_rank > 0 and self._ranks_per_node == 1:
+            gpu_ids = self._envs["CUDA_VISIBLE_DEVICES"].split(",")
             if len(self._node_spec.node_ids) == 1:
                 cpu_ids = self._node_spec.cpu_ids[0]
-                gpu_ids = self._node_spec.gpu_ids[0]
             else:
-                gpu_ids = self._envs["CUDA_VISIBLE_DEVICES"].split(
-                    ","
-                )  # These should be distributed across local ranks
                 polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
                 cpu_ids = polaris_node.cpu_ids
 
-            if len(self._node_spec.node_ids) > 1 or self._ranks_per_node > 1:
-                polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
-                node_gpu_ids = polaris_node.gpu_ids
-                gpu_affinity_script = self._cwd.joinpath("set_affinity_gpu_polaris.sh")
-                with open(gpu_affinity_script, "w") as f:
-                    f.write(
-                        f"""#!/bin/bash -l
-                                    gpu_ids=( {" ".join(gpu_ids)} )
-                                    num_gpus={len(node_gpu_ids)}
-                                    gpus_per_rank={self._gpus_per_rank}
-                                    ngpu=0
-                                    gpu_string=""\n
-                                    """
-                    )
-                    f.write(
-                        """while [ $ngpu -lt $gpus_per_rank ]
-                                do
-                                    igpu=$(((${PMI_LOCAL_RANK} * ${gpus_per_rank}) + ${ngpu} % ${num_gpus}))
-                                    gpu=${gpu_ids[$igpu]}
-                                    ##gpu=$((${num_gpus} - 1 - ${ngpu} - (${PMI_LOCAL_RANK} * ${gpus_per_rank}) % ${num_gpus}))
-                                    sep=""
-                                    if [ $ngpu -gt 0 ]
-                                    then
-                                        sep=","
-                                    fi
-                                    gpu_string=$gpu_string$sep$gpu
-                                    ngpu=$((${igpu} + 1))
-                                done
-                                export CUDA_VISIBLE_DEVICES=$gpu_string
-                                echo “RANK= ${PMI_RANK} LOCAL_RANK= ${PMI_LOCAL_RANK} gpu= $gpu_string”
-                                exec "$@"
-                    """
-                    )
-                    st = os.stat(gpu_affinity_script)
-                    os.chmod(gpu_affinity_script, st.st_mode | stat.S_IEXEC)
-
             cpus_per_rank = self.get_cpus_per_rank()
-            cpu_ids_ns = self._node_spec.cpu_ids
 
             cpu_bind_list = ["verbose,list"]
             for irank in range(self._ranks_per_node):
@@ -78,9 +36,7 @@ class PolarisRun(SubprocessAppRun):
                     cid = str(cpu_ids[i + cpus_per_rank * irank])
                     cpu_bind_list.append(cid)
             cpu_bind = "".join(cpu_bind_list)
-            logger.info(
-                f"Polaris app_run: cpu_bind={cpu_bind} cpu_ids={cpu_ids} cpu_ids_ns={cpu_ids_ns} gpu_ids={gpu_ids}"
-            )
+            logger.info(f"Polaris app_run: cpu_bind={cpu_bind} cpu_ids={cpu_ids} gpu_ids={gpu_ids}")
 
         launch_params = []
         for k in self._launch_params.keys():
@@ -102,7 +58,6 @@ class PolarisRun(SubprocessAppRun):
             "-d",
             self._threads_per_rank,
             *launch_params,
-            gpu_affinity_script,
             self._cmdline,
         ]
         return " ".join(str(arg) for arg in args)
@@ -116,15 +71,14 @@ class PolarisRun(SubprocessAppRun):
         gpu_ids = self._node_spec.gpu_ids[0]
         cpu_ids = self._node_spec.cpu_ids[0]
         logger.info(f"Polaris set_envs: gpu_ids={gpu_ids} cpu_ids={cpu_ids}")
-        if gpu_ids:
+        if gpu_ids and self._ranks_per_node == 1:
             envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
             envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
-        else:
+        if not gpu_ids and self._ranks_per_node == 1 and self._gpus_per_rank > 0:
             polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
-            if self._gpus_per_rank > 0:
-                gpu_ids = polaris_node.gpu_ids[0 : self.get_gpus_per_node_for_job()]
-                envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-                envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
+            gpu_ids = polaris_node.gpu_ids[0 : self._gpus_per_rank]
+            envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+            envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
 
         envs["OMP_NUM_THREADS"] = str(self._threads_per_rank)
         self._envs = envs
