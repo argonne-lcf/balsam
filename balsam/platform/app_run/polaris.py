@@ -22,7 +22,7 @@ class PolarisRun(SubprocessAppRun):
         cpu_bind = self._launch_params.get("cpu_bind", "none")
         gpu_affinity_script = ""
         if cpu_bind == "none" and self._gpus_per_rank > 0:
-            if len(self._node_spec.node_ids) == 1 or self._ranks_per_node == 1:
+            if len(self._node_spec.node_ids) == 1:
                 cpu_ids = self._node_spec.cpu_ids[0]
                 gpu_ids = self._node_spec.gpu_ids[0]
             else:
@@ -31,12 +31,15 @@ class PolarisRun(SubprocessAppRun):
                 )  # These should be distributed across local ranks
                 polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
                 cpu_ids = polaris_node.cpu_ids
+
+            if len(self._node_spec.node_ids) > 1 or self._ranks_per_node > 1:
+                polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
                 node_gpu_ids = polaris_node.gpu_ids
                 gpu_affinity_script = self._cwd.joinpath("set_affinity_gpu_polaris.sh")
                 with open(gpu_affinity_script, "w") as f:
                     f.write(
                         f"""#!/bin/bash -l
-                                    gpu_ids=( "{" ".join(gpu_ids)}" )
+                                    gpu_ids=( {" ".join(gpu_ids)} )
                                     num_gpus={len(node_gpu_ids)}
                                     gpus_per_rank={self._gpus_per_rank}
                                     ngpu=0
@@ -64,21 +67,6 @@ class PolarisRun(SubprocessAppRun):
                     )
                     st = os.stat(gpu_affinity_script)
                     os.chmod(gpu_affinity_script, st.st_mode | stat.S_IEXEC)
-
-                # gpu_ids = polaris_node.gpu_ids
-                # num_gpus = len(gpu_ids)
-                # gpu_affinity_script = self._cwd.joinpath("set_affinity_gpu_polaris.sh")
-                # with open(gpu_affinity_script,"w") as f:
-                #     f.write(f"""#!/bin/bash -l
-                #                 num_gpus={num_gpus}
-                #                 gpus_per_rank={self._gpus_per_rank}\n"""+
-                #              """gpu=$((${num_gpus} - 1 - ${PMI_LOCAL_RANK} % ${num_gpus}))\n
-                #                 export CUDA_VISIBLE_DEVICES=$gpu\n
-                #                 echo “RANK= ${PMI_RANK} LOCAL_RANK= ${PMI_LOCAL_RANK} gpu= ${gpu}”\n
-                #                 exec "$@"\n
-                #             """)
-                #     st = os.stat(gpu_affinity_script)
-                #     os.chmod(gpu_affinity_script, st.st_mode | stat.S_IEXEC)
 
             cpus_per_rank = self.get_cpus_per_rank()
             cpu_ids_ns = self._node_spec.cpu_ids
