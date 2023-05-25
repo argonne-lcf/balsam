@@ -2,7 +2,7 @@ import logging
 import os
 import stat
 
-from balsam.platform.compute_node.alcf_polaris_node import PolarisNode
+from balsam.platform.compute_node import PolarisNode
 
 from .app_run import SubprocessAppRun
 
@@ -16,8 +16,6 @@ class PolarisRun(SubprocessAppRun):
 
     def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
-
-        # cms21: currently this is broken for multinode jobs
 
         cpu_bind = self._launch_params.get("cpu_bind", "none")
         gpu_affinity_script = ""
