@@ -8,7 +8,6 @@ from typing import IO, Dict, List, Optional, Union, cast
 
 import psutil  # type: ignore
 
-from balsam.platform.compute_node import ComputeNode
 from balsam.site.launcher import NodeSpec
 
 logger = logging.getLogger(__name__)
@@ -72,16 +71,6 @@ class AppRun(ABC):
         if not cpu_per_rank:
             cpu_per_rank = max(1, int(self._threads_per_rank // self._threads_per_core))
         return cpu_per_rank
-
-    def get_gpus_per_node_for_job(self) -> int:
-        gpus_per_node = self._gpus_per_rank * self._ranks_per_node
-        compute_node = ComputeNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
-        total_gpus_per_node = len(compute_node.gpu_ids)
-        if gpus_per_node > total_gpus_per_node:
-            logger.warning(
-                f"You have too many gpus per node! Physical gpus={total_gpus_per_node} gpus_per_rank={self._gpus_per_rank} ranks_per_node={self._ranks_per_node}"
-            )
-        return min(gpus_per_node, total_gpus_per_node)
 
     @abstractmethod
     def start(self) -> None:
