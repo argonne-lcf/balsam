@@ -49,8 +49,11 @@ class PolarisRun(SubprocessAppRun):
                     cid = str(cpu_ids[i + cpus_per_rank * irank])
                     cpu_bind_list.append(cid)
             cpu_bind = "".join(cpu_bind_list)
-            gpu_device = self._envs["CUDA_VISIBLE_DEVICES"]
-            gpu_ids = gpu_device.split(",")
+            if "CUDA_VISIBLE_DEVICES" in self._envs.keys():
+                gpu_device = self._envs["CUDA_VISIBLE_DEVICES"]
+                gpu_ids = gpu_device.split(",")
+            else:
+                gpu_ids = []
             logger.info(f"Polaris app_run: cpu_bind={cpu_bind} cpu_ids={cpu_ids} gpu_ids={gpu_ids}")
 
         launch_params = []
@@ -71,7 +74,7 @@ class PolarisRun(SubprocessAppRun):
             "--cpu-bind",
             cpu_bind,
             "-d",
-            self._threads_per_rank,
+            self.get_cpus_per_rank(),
             *launch_params,
             self._cmdline,
         ]
