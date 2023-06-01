@@ -32,6 +32,8 @@ class PolarisRun(SubprocessAppRun):
             cpu_ids_ns = self._node_spec.cpu_ids[0]
             if cpu_ids_ns:
                 cpu_ids = self._node_spec.cpu_ids[0]
+                if self._threads_per_core == 2:
+                    polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
             else:
                 polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
                 cpu_ids = polaris_node.cpu_ids
@@ -48,6 +50,13 @@ class PolarisRun(SubprocessAppRun):
                         cpu_bind_list.append(",")
                     cid = str(cpu_ids[i + cpus_per_rank * irank])
                     cpu_bind_list.append(cid)
+                    # If the job is using 2 hardware threads per core, we need to add those threads to the list
+                    # The additional threads should go in the same ascending order (threads 0 and 32 are on the
+                    # same physical core, threads 31 and 63 are on the same physical core)
+                    if self._threads_per_core == 2:
+                        cpu_bind_list.append(",")
+                        cid = str(cpu_ids[i + cpus_per_rank * irank] + len(polaris_node.cpu_ids))
+                        cpu_bind_list.append(cid)
             cpu_bind = "".join(cpu_bind_list)
             if "CUDA_VISIBLE_DEVICES" in self._envs.keys():
                 gpu_device = self._envs["CUDA_VISIBLE_DEVICES"]
@@ -62,6 +71,13 @@ class PolarisRun(SubprocessAppRun):
                 launch_params.append("--" + k)
                 launch_params.append(str(self._launch_params[k]))
 
+        # The value of -d depends on the setting of cpu_bind.  If cpu-bind=core, -d is the number of
+        # physical cores per rank, otherwise it is the number of hardware threads per rank
+        # https://docs.alcf.anl.gov/running-jobs/example-job-scripts/
+        depth = self._threads_per_rank
+        if "core" in cpu_bind:
+            depth = self.get_cpus_per_rank()
+
         nid_str = ",".join(map(str, node_ids))
         args = [
             "mpiexec",
@@ -74,7 +90,7 @@ class PolarisRun(SubprocessAppRun):
             "--cpu-bind",
             cpu_bind,
             "-d",
-            self.get_cpus_per_rank(),
+            depth,
             *launch_params,
             self._cmdline,
         ]
