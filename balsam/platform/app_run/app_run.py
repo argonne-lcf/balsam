@@ -75,7 +75,7 @@ class AppRun(ABC):
         cpu_ids = self._node_spec.cpu_ids[0]
         if not cpu_ids:
             compute_node = ComputeNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
-            cpu_ids = compute_node.cpu_ids
+            cpu_ids = list(compute_node.cpu_ids)
 
         cpus_per_node = len(cpu_ids)
         cpus_per_rank = cpus_per_node // self._ranks_per_node
