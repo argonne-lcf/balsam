@@ -73,11 +73,11 @@ class AppRun(ABC):
         # so we will assume all cpus on a compute node are available to the job.  The list of cpus is
         # just the list of cpus on the node in that case.
         cpu_ids = self._node_spec.cpu_ids[0]
+        cpus_per_node = len(cpu_ids)
         if not cpu_ids:
             compute_node = ComputeNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
-            cpu_ids = list(compute_node.cpu_ids)
+            cpus_per_node = len(compute_node.cpu_ids)
 
-        cpus_per_node = len(cpu_ids)
         cpus_per_rank = cpus_per_node // self._ranks_per_node
 
         # If ranks are oversubscribed to cpus (ranks_per_node > cpus_per_node), set it to a minimum of
