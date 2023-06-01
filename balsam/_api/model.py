@@ -186,7 +186,7 @@ class BalsamModel(metaclass=BalsamModelMeta):
 
     def __str__(self) -> str:
         d = self.display_dict()
-        return yaml.dump(d, sort_keys=False, indent=4)  # type: ignore
+        return yaml.dump(d, sort_keys=False, indent=4)
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, BalsamModel):
