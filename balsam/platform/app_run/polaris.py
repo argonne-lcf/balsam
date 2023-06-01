@@ -24,7 +24,6 @@ class PolarisRun(SubprocessAppRun):
         # 8 cpus per gpu.  This code will not skip the appropriate number of cpus
         # in the rank binding assignments.
         if cpu_bind == "none" and self._gpus_per_rank > 0:
-
             # Here we grab the cpu_ids assigned to the job in the NodeSpec object
             # If this is not set in NodeSpec (it is only set for single node jobs),
             # then we take the cpu_id list from the Polaris ComputeNode subclass,
@@ -98,7 +97,6 @@ class PolarisRun(SubprocessAppRun):
 
     # Overide default because sunspot does not use CUDA
     def _set_envs(self) -> None:
-
         envs = os.environ.copy()
         envs.update(self._envs)
 

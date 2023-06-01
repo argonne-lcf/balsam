@@ -10,7 +10,6 @@ IntStr = Union[int, str]
 
 
 class PolarisNode(ComputeNode):
-
     cpu_ids = list(range(32))
     gpu_ids: List[IntStr] = list(range(4))
 

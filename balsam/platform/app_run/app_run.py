@@ -68,7 +68,6 @@ class AppRun(ABC):
         return self._ranks_per_node * len(self._node_spec.node_ids)
 
     def get_cpus_per_rank(self) -> int:
-
         # Get the list of cpus assigned to the job.  If it is a single node job, that is stored in
         # the NodeSpec object.  If it is a multinode job, the cpu_ids assigned to NodeSpec is empty,
         # so we will assume all cpus on a compute node are available to the job.  The list of cpus is
