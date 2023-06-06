@@ -235,13 +235,10 @@ class Settings(BaseSettings):
             fp.write(self.dump_yaml())
 
     def dump_yaml(self) -> str:
-        return cast(
-            str,
-            yaml.dump(
-                json.loads(self.json()),
-                sort_keys=False,
-                indent=4,
-            ),
+        return yaml.dump(
+            json.loads(self.json()),
+            sort_keys=False,
+            indent=4,
         )
 
     @classmethod
