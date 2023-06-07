@@ -84,11 +84,11 @@ def submit(
 
 
 @queue.command()
-@click.option("-n", "--num", default=3, type=int)
+@click.option("-n", "--num", default=0, type=int)
 @click.option("-h", "--history", is_flag=True, default=False)
 @click.option("-v", "--verbose", is_flag=True, default=False)
 @click.option("--site", "site_selector", default="")
-@click.option("--id", "scheduler_id", type=int, default=None)
+@click.option("--scheduler_id", "scheduler_id", type=int, default=None)
 def ls(history: bool, verbose: bool, num: int, site_selector: str, scheduler_id: int) -> None:
     """
     List BatchJobs
@@ -103,7 +103,7 @@ def ls(history: bool, verbose: bool, num: int, site_selector: str, scheduler_id:
 
     3) View verbose record for BatchJob with scheduler id
 
-        balsam queue ls --id 12345 -v
+        balsam queue ls --scheduler_id 12345 -v
 
     4) View the last n BatchJobs
 
@@ -114,17 +114,17 @@ def ls(history: bool, verbose: bool, num: int, site_selector: str, scheduler_id:
     BatchJob = client.BatchJob
     qs = filter_by_sites(BatchJob.objects.all(), site_selector)
 
-    if not history:
-        qs_filter = qs.filter(state=["pending_submission", "queued", "running", "pending_deletion"])
-        if (len(qs_filter) > 0 and scheduler_id is None) or num == 0:
-            qs = qs_filter
+    if not history and scheduler_id is None and num == 0:
+        qs = qs.filter(state=["pending_submission", "queued", "running", "pending_deletion"])
+        if len(qs) == 0:
+            click.echo("No active batch jobs.  Use --history option to list completed batch jobs.")
 
     if scheduler_id is not None:
         qs = qs.filter(scheduler_id=scheduler_id)
 
     jobs = [j.display_dict() for j in qs]
     if not history and num > 0 and scheduler_id is None:
-        click.echo(f"No active Batch Jobs.  Displaying records for last {num} Batch Jobs")
+        click.echo(f"Displaying records for last {num} Batch Jobs")
         jobs = jobs[-num:]
 
     if verbose:
