@@ -239,7 +239,7 @@ def worker_main(
 
     SigHandler()
     site_config.enable_logging("serial_mode", filename=log_filename + f".{hostname}")
-    if hostname == master_host:
+    if hostname == master_host.split(".")[0]:
         logger.info(f"Launching master subprocess on {hostname}")
         master_proc = launch_master_subprocess()
     else:
@@ -247,7 +247,8 @@ def worker_main(
 
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node
-    nodes = [node for node in node_cls.get_job_nodelist() if node.hostname == hostname]
+    logger.debug(f"node.hostname={node_cls.get_job_nodelist()[0].hostname} and hostname={hostname}")
+    nodes = [node for node in node_cls.get_job_nodelist() if node.hostname.split(".")[0] == hostname]
     node_manager = NodeManager(nodes, allow_node_packing=True)
     worker = Worker(
         app_run=launch_settings.local_app_launcher,
