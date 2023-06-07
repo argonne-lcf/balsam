@@ -10,7 +10,7 @@ from .query import Query
 if TYPE_CHECKING:
     from balsam.client import RESTClient
 
-FILTER_CHUNK_SIZE = 512
+FILTER_CHUNK_SIZE = 500
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BalsamModel)
