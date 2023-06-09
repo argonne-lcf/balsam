@@ -1,4 +1,6 @@
-FROM python:3-slim
+FROM python:3.10-slim
+
+# Note that python 3.11 triggers a gunicorn bug as of June 2023
 
 WORKDIR /balsam
 
