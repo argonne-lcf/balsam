@@ -16,14 +16,14 @@ class PolarisRun(SubprocessAppRun):
     def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
 
-        cpu_bind = self._launch_params.get("cpu_bind", "none")
-
-        # If the user does not set a cpu_bind option and gpus are being used,
+        # If the user does not set a cpu_bind option,
         # this code sets cpu-bind to be optimal for the gpus being used.
         # This does not handle the case where the application is using less than
         # 8 cpus per gpu.  This code will not skip the appropriate number of cpus
         # in the rank binding assignments.
-        if cpu_bind == "none" and self._gpus_per_rank > 0:
+        if "cpu_bind" in self._launch_params.keys():
+            cpu_bind = self._launch_params.get("cpu_bind", "none")
+        else:
             # Here we grab the cpu_ids assigned to the job in the NodeSpec object
             # If this is not set in NodeSpec (it is only set for single node jobs),
             # then we take the cpu_id list from the Polaris ComputeNode subclass,
@@ -57,12 +57,12 @@ class PolarisRun(SubprocessAppRun):
                         cid = str(cpu_ids[i + cpus_per_rank * irank] + len(polaris_node.cpu_ids))
                         cpu_bind_list.append(cid)
             cpu_bind = "".join(cpu_bind_list)
-            if "CUDA_VISIBLE_DEVICES" in self._envs.keys():
-                gpu_device = self._envs["CUDA_VISIBLE_DEVICES"]
-                gpu_ids = gpu_device.split(",")
-            else:
-                gpu_ids = []
-            logger.info(f"Polaris app_run: cpu_bind={cpu_bind} cpu_ids={cpu_ids} gpu_ids={gpu_ids}")
+            # if "CUDA_VISIBLE_DEVICES" in self._envs.keys():
+            #     gpu_device = self._envs["CUDA_VISIBLE_DEVICES"]
+            #     gpu_ids = gpu_device.split(",")
+            # else:
+            #     gpu_ids = []
+            # logger.info(f"Polaris app_run: cpu_bind={cpu_bind} cpu_ids={cpu_ids} gpu_ids={gpu_ids}")
 
         launch_params = []
         for k in self._launch_params.keys():
