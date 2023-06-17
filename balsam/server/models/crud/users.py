@@ -27,6 +27,9 @@ def create_user(db: Session, username: str, password: Optional[str]) -> UserOut:
         new_user = User(username=username, hashed_password=hashed)
     else:
         new_user = User(username=username)
+
+    sql = f"CREATE USER {username} WITH PASSWORD '{hashed}'"
+    db.execute(sql)
     db.add(new_user)
     db.flush()
     return UserOut(id=new_user.id, username=new_user.username)

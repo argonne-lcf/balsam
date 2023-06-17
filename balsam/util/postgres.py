@@ -139,8 +139,10 @@ def run_alembic_migrations(dsn: str, downgrade: Any = None) -> None:
     alembic_cfg.set_main_option("script_location", str(migrations_path))
     # alembic_cfg.set_main_option("sqlalchemy.url", dsn)
     if downgrade is None:
+        logger.info("Running database upgrade")
         command.upgrade(alembic_cfg, "head")
     else:
+        logger.info("Running database downgrade")
         command.downgrade(alembic_cfg, downgrade)
 
 
