@@ -7,7 +7,6 @@ IntStr = Union[int, str]
 
 
 class CoriKNLNode(ComputeNode):
-
     cpu_ids: List[IntStr] = list(range(68))
     gpu_ids: List[IntStr] = []
 

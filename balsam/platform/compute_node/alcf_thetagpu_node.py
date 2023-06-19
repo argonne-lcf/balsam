@@ -10,7 +10,6 @@ IntStr = Union[int, str]
 
 
 class ThetaGPUNode(ComputeNode):
-
     cpu_ids = list(range(128))
     gpu_ids: List[IntStr] = list(range(8))
 

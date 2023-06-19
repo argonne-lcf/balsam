@@ -10,7 +10,6 @@ IntStr = Union[int, str]
 
 
 class PolarisNode(ComputeNode):
-
     # turam: confirm number of cpus
     cpu_ids = list(range(64))
     gpu_ids: List[IntStr] = list(range(4))

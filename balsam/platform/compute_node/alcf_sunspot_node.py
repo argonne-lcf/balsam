@@ -1,6 +1,5 @@
 import logging
 import os
-from pathlib import Path
 from typing import List, Optional, Union
 
 from .compute_node import ComputeNode
@@ -10,16 +9,14 @@ IntStr = Union[int, str]
 
 
 class SunspotNode(ComputeNode):
-    
     cpu_ids = list(range(104))
+    gpu_ids: List[IntStr]
 
-    gids = []
+    gpu_ids = []
     for gid in range(6):
         for tid in range(2):
-            gids.append(str(gid)+'.'+str(tid))
-    
-    gpu_ids: List[IntStr] = gids
-    
+            gpu_ids.append(str(gid) + "." + str(tid))
+
     @classmethod
     def get_job_nodelist(cls) -> List["SunspotNode"]:
         """
@@ -45,13 +42,7 @@ class SunspotNode(ComputeNode):
 
     @classmethod
     def discover_gpu_list(cls, hostname: str) -> List[IntStr]:
-        gpu_file = Path(f"/var/tmp/balsam-{hostname}-gpulist.txt")
-        gpu_ids: List[IntStr]
-        if gpu_file.is_file():
-            tokens = gpu_file.read_text().split()
-            gpu_ids = [t[:-1] for t in tokens if t.startswith("MIG-GPU-")]
-        else:
-            gpu_ids = cls.gpu_ids
+        gpu_ids = cls.gpu_ids
         logger.info(f"{hostname} detected GPU IDs: {gpu_ids}")
         return gpu_ids
 

@@ -247,6 +247,7 @@ def list_table(job_qs: "JobQuery", client: "RESTClient") -> None:
 @click.option("--id", type=str)
 @click.option("--by-state", type=bool, default=False, is_flag=True)
 @click.option("-w", "--workdir", type=str)
+@click.option("-a", "--app", type=str)
 @click.option("--site", "site_selector", default="")
 @click.option("-v", "--verbose", is_flag=True)
 def ls(
@@ -255,6 +256,7 @@ def ls(
     exclude_state: Optional[JobState],
     id: Optional[int],
     by_state: Optional[bool],
+    app: Optional[str],
     workdir: Optional[str],
     verbose: bool,
     site_selector: str,
@@ -270,20 +272,28 @@ def ls(
 
         balsam job ls --tag experiment=XPCS --tag system=H2O
 
-    3) Select Jobs by their state
+    3) Select Jobs by their app
+
+        balsam job ls --app flux_capacitance
+
+    4) Select Jobs by their state
 
         balsam job ls --state JOB_FINISHED --tag system=H2O
 
-    4) Summarize Jobs by their state
+    5) Summarize Jobs by their state
 
         balsam job ls --by-state [--tag system=H20]
 
-    5) Select a specific job by ID
+    6) Select a specific job by ID
 
         balsam job ls --id [id]
     """
     client = load_client()
     job_qs = filter_by_sites(client.Job.objects.all(), site_selector)
+    if app:
+        app_qs = filter_by_sites(client.App.objects.all(), site_selector)
+        appo = fetch_app(app_qs, app)
+        job_qs = job_qs.filter(app_id=appo.id)
     if tags:
         job_qs = job_qs.filter(tags=tags)
     if state:
@@ -306,8 +316,36 @@ def ls(
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
+@click.option("-s", "--state", "state", type=str)
+def modify(job_ids: List[int], tags: List[str], state: JobState) -> None:
+    """
+    Modify Jobs
+
+    1) Modify Job State
+
+        balsam job modify --id 41 --id 42 --id 43 -s RESTART_READY
+    """
+    client: RESTClient = load_client()
+    jobs = client.Job.objects.all()
+    if job_ids:
+        jobs = jobs.filter(id=job_ids)
+    elif tags:
+        jobs = jobs.filter(tags=tags)
+    else:
+        raise click.BadParameter("Provide either list of Job ids or tags to delete")
+    count = jobs.count()
+    assert count is not None
+    for job in jobs:
+        job.state = state
+        job.save()
+
+
+@job.command()
+@click.option("-i", "--id", "job_ids", multiple=True, type=int)
+@click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
+@click.option("-y", "yes", is_flag=True, default=False)
 @click.option("--all", is_flag=True, default=False)
-def rm(job_ids: List[int], tags: List[str], all: bool) -> None:
+def rm(job_ids: List[int], tags: List[str], yes: bool, all: bool) -> None:
     """
     Remove Jobs
 
@@ -338,5 +376,5 @@ def rm(job_ids: List[int], tags: List[str], all: bool) -> None:
     assert count is not None
     if count < 1:
         click.echo("No jobs match deletion query")
-    elif click.confirm(f"Really delete {count} jobs?"):
+    elif yes or click.confirm(f"Really delete {count} jobs?"):
         jobs.delete()

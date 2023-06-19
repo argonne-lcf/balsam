@@ -5,7 +5,6 @@ from .compute_node import ComputeNode
 
 
 class CooleyNode(ComputeNode):
-
     cpu_ids = list(range(12))
     gpu_ids = list(range(2))
 

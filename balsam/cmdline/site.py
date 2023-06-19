@@ -1,3 +1,4 @@
+import os
 import shutil
 import socket
 import sys
@@ -128,23 +129,40 @@ def mv(src: Union[Path, str], dest: Union[Path, str]) -> None:
 
 
 @site.command()
-@click.argument("path", type=click.Path(exists=True, file_okay=False))
-def rm(path: Union[str, Path]) -> None:
+# @click.argument("path", type=click.Path(exists=True, file_okay=False))
+@click.argument("path", type=click.Path())
+@click.option("-f", "--force", is_flag=True, default=False)
+def rm(path: str, force: bool) -> None:
     """
     Remove a balsam site
 
     balsam site rm /path/to/site
     """
-    cf = SiteConfig(path)
-    client = cf.client
-    site = client.Site.objects.get(id=cf.site_id)
-    jobcount = client.Job.objects.filter(site_id=site.id).count()
-    warning = f"This will wipe out {jobcount} jobs inside!" if jobcount else ""
+    if not force:
+        if os.path.exists(path):
+            cf = SiteConfig(path)
+            client = cf.client
+            site = client.Site.objects.get(id=cf.site_id)
+            jobcount = client.Job.objects.filter(site_id=site.id).count()
+            warning = f"This will wipe out {jobcount} jobs inside!" if jobcount else ""
 
-    if click.confirm(f"Do you really want to destroy {Path(path).name}? {warning}"):
-        site.delete()
-        shutil.rmtree(path)
-        click.echo(f"Deleted site {path}")
+            if click.confirm(f"Do you really want to destroy {Path(path).name}? {warning}"):
+                site.delete()
+                shutil.rmtree(path)
+                click.echo(f"Deleted site {path}")
+        else:
+            raise click.BadParameter("Path doesn't exist")
+    else:
+        client = ClientSettings.load_from_file().build_client()
+        qs = client.Site.objects.all()
+        qs = qs.filter(path=path)
+        if len(qs) > 1:
+            raise click.BadParameter(f"Path found in {len(qs)} sites")
+        else:
+            site_id = qs[0].id
+            site = client.Site.objects.get(id=site_id)
+            site.delete()
+            click.echo("Forced site deletion; check for path to clean up")
 
 
 @site.command()
@@ -211,19 +229,25 @@ def sample_settings() -> None:
 
 
 @site.command()
-def globus_login() -> None:
+@click.option("-e", "--endpoint_id", multiple=True, default=None, type=str, help="Globus Endpoint ID to enable")
+def globus_login(endpoint_id: str) -> None:
     """
     Get credentials for the Globus CLI
 
-    Necessary before any Globus CLI commands which require authentication will work
+    Necessary before any Globus CLI commands which require authentication will work.
     This command directs you to the page necessary to permit the Globus CLI to make API
     calls for you, and gets the OAuth2 tokens needed to use those permissions.
     """
     # if not forcing, stop if user already logged in
     if globus_auth.check_logged_in():
         click.echo("You are already logged in!")
+        # user is logged in already, but let's ensure consents are in place for the
+        # requested endpoints
+        # FIXME: Since the globus API doesn't allow query of consents, we should
+        # should store the list of successful consents so we know if this is needed
+        globus_auth.do_link_auth_flow(force_new_client=False, endpoint_ids=endpoint_id)
         return
 
-    globus_auth.do_link_auth_flow(force_new_client=True)
+    globus_auth.do_link_auth_flow(force_new_client=True, endpoint_ids=endpoint_id)
 
-    click.echo("You have successfully logged in to the Globus CLI!")
+    click.echo("You have successfully logged in to Globus")

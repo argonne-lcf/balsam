@@ -150,7 +150,7 @@ class Worker:
             self.cleanup_proc(id, timeout=self.CHECK_PERIOD)
         self.socket.setsockopt(zmq.LINGER, 0)
         self.socket.close(linger=0)
-        self.context.term()  # type: ignore
+        self.context.term()
 
     def start_jobs(self) -> List[int]:
         started_ids = []
@@ -193,12 +193,12 @@ class Worker:
         response_msg = self.socket.recv_json()
         logger.debug("Worker response received")
 
-        if response_msg.get("exit"):
+        if response_msg.get("exit"):  # type: ignore
             logger.info(f"Worker {self.hostname} received exit message: break")
             return False
 
-        if response_msg.get("new_jobs"):
-            self.runnable_cache.update({job["id"]: job for job in response_msg["new_jobs"]})
+        if response_msg.get("new_jobs"):  # type: ignore
+            self.runnable_cache.update({job["id"]: job for job in response_msg["new_jobs"]})  # type: ignore
 
         logger.debug(
             f"{self.hostname} fraction available: {self.node_manager.aggregate_free_nodes()} "
@@ -208,9 +208,9 @@ class Worker:
         return True
 
     def run(self) -> None:
-        self.context = zmq.Context()  # type: ignore
-        self.context.setsockopt(zmq.LINGER, 0)  # type: ignore
-        self.socket = self.context.socket(zmq.REQ)  # type: ignore
+        self.context = zmq.Context()
+        self.context.setsockopt(zmq.LINGER, 0)
+        self.socket = self.context.socket(zmq.REQ)
         self.socket.connect(self.master_address)
         logger.debug(f"Worker connected to {self.master_address}")
 
@@ -239,7 +239,7 @@ def worker_main(
 
     SigHandler()
     site_config.enable_logging("serial_mode", filename=log_filename + f".{hostname}")
-    if hostname == master_host:
+    if hostname == master_host.split(".")[0]:
         logger.info(f"Launching master subprocess on {hostname}")
         master_proc = launch_master_subprocess()
     else:
@@ -247,7 +247,8 @@ def worker_main(
 
     launch_settings = site_config.settings.launcher
     node_cls = launch_settings.compute_node
-    nodes = [node for node in node_cls.get_job_nodelist() if node.hostname == hostname]
+    logger.debug(f"node.hostname={node_cls.get_job_nodelist()[0].hostname} and hostname={hostname}")
+    nodes = [node for node in node_cls.get_job_nodelist() if node.hostname.split(".")[0] == hostname]
     node_manager = NodeManager(nodes, allow_node_packing=True)
     worker = Worker(
         app_run=launch_settings.local_app_launcher,

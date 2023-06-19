@@ -10,7 +10,7 @@ from .query import Query
 if TYPE_CHECKING:
     from balsam.client import RESTClient
 
-FILTER_CHUNK_SIZE = 512
+FILTER_CHUNK_SIZE = 500
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BalsamModel)
@@ -161,7 +161,6 @@ class Manager(Generic[T]):
     def _fetch_pages(
         self, filters: Dict[str, Any], ordering: Optional[str], limit: Optional[int], offset: Optional[int]
     ) -> Tuple[int, List[Dict[str, Any]]]:
-
         base_offset = 0 if offset is None else offset
         page_size = MAX_PAGE_SIZE if limit is None else min(limit, MAX_PAGE_SIZE)
 
@@ -191,7 +190,6 @@ class Manager(Generic[T]):
         limit: Optional[int],
         offset: Optional[int],
     ) -> Tuple[List[T], int]:
-
         filter_chunks = self._chunk_filters(filters)
         full_count: int = 0
         full_results: List[Dict[str, Any]] = []

@@ -1,22 +1,21 @@
+import getpass
 import json
 import logging
-import os
-import subprocess
-import tempfile
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import click
 import dateutil.parser
 
 from balsam.util import parse_to_utc
 
 from .scheduler import (
+    DelayedSubmitFail,
     SchedulerBackfillWindow,
     SchedulerJobLog,
     SchedulerJobStatus,
+    SchedulerNonZeroReturnCode,
     SubprocessSchedulerInterface,
     scheduler_subproc,
 )
@@ -150,13 +149,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
 
     @staticmethod
     def _render_status_args(project: Optional[str], user: Optional[str], queue: Optional[str]) -> List[str]:
-        args = [PBSScheduler.status_exe]
-        args += "-f -F json".split()
-        # if user is not None:
-        #     args += ["-u", user]
-        if queue is not None:
-            args += ["-q", queue]
-        return args
+        pass
 
     @staticmethod
     def _render_delete_args(job_id: Union[int, str]) -> List[str]:
@@ -175,16 +168,44 @@ class PBSScheduler(SubprocessSchedulerInterface):
             logger.warning(f"Exception: {exc}")
             raise
 
+    @classmethod
+    def get_statuses(
+        cls,
+        project: Optional[str] = None,
+        user: Optional[str] = getpass.getuser(),
+        queue: Optional[str] = None,
+    ) -> Dict[int, SchedulerJobStatus]:
+        # First call qstat to get user job ids
+        args = [PBSScheduler.status_exe]
+        stdout = scheduler_subproc(args)
+        stdout_lines = [s for s in stdout.split("\n") if str(user) in s]
+        if len(stdout_lines) == 0:
+            return {}  # if there are no jobs in the queue return an empty dictionary
+        user_job_ids = [s.split(".")[0] for s in stdout_lines]
+
+        # Next call qstat to get job jsons
+        args = [PBSScheduler.status_exe]
+        args += user_job_ids
+        args += "-f -F json".split()
+        stdout = scheduler_subproc(args)
+        stat_dict = cls._parse_status_output(stdout)
+        return stat_dict
+
     @staticmethod
     def _parse_status_output(raw_output: str) -> Dict[int, SchedulerJobStatus]:
         # TODO: this can be much more efficient with a compiled regex findall()
         # logger.info(f"json status output {raw_output}")
+        username = getpass.getuser()
         j = json.loads(raw_output)
         date_format = "%a %b %d %H:%M:%S %Y"
         status_dict = {}
         if "Jobs" in j.keys():
             try:
                 for jobidstr, job in j["Jobs"].items():
+                    # temporarily filter jobs by user due to PBS bug
+                    job_username = job["Job_Owner"].split("@")[0]
+                    if job_username != username:
+                        continue
                     status = {}
                     try:
                         # array jobs can have a trailing "[]"; remove this
@@ -204,7 +225,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
                         if status["state"] == "queued":  # type: ignore # noqa
                             status["time_remaining_min"] = wall_time_min
                         try:
-                            if status["state"] == "running":  # type: ignore # noqa
+                            if status["state"] == "running" and "stime" in job.keys():  # type: ignore # noqa
                                 status["time_remaining_min"] = int(
                                     wall_time_min
                                     - (datetime.now() - datetime.strptime(job["stime"], date_format)).total_seconds()
@@ -301,7 +322,13 @@ class PBSScheduler(SubprocessSchedulerInterface):
         args += ["-x", "-f", "-F", "json"]
         args += [str(scheduler_id)]
         logger.info(f"_parse_logs issuing qstat: {str(args)}")
-        stdout = scheduler_subproc(args)
+        try:
+            stdout = scheduler_subproc(args)
+        except SchedulerNonZeroReturnCode as e:
+            if "Unknown Job Id" in str(e):
+                logger.warning(f"Batch Job {scheduler_id} not found in PBS")
+                raise DelayedSubmitFail
+            return SchedulerJobLog()
         json_output = json.loads(stdout)
         # logger.info(f"_parse_logs json_output: {json_output}")
         if len(json_output["Jobs"]) == 0:
@@ -309,7 +336,7 @@ class PBSScheduler(SubprocessSchedulerInterface):
             return SchedulerJobLog()
         job_data = list(json_output["Jobs"].values())[0]
         start_raw = job_data.get("stime")
-        end_raw = job_data.get("etime")
+        end_raw = job_data.get("mtime")
         if not (start_raw and end_raw):
             logger.warning(f"parse_logs got START_TIME: {start_raw}; FINISH_TIME: {end_raw}")
             return SchedulerJobLog()
@@ -344,9 +371,9 @@ class PBSScheduler(SubprocessSchedulerInterface):
                 projects = [p.strip() for p in sbank_out.split("\n") if p]
             except:
                 projects = None
-   
+
         """
-        projects=None
+        projects = None
         if not projects:
             projects = super().discover_projects()
         return projects

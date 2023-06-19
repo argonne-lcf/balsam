@@ -28,6 +28,7 @@ if not Path(TEST_TOKENS_FILE).is_file():
     )
 TEST_BALSAM_SERVER = os.environ.get("BALSAM_TESET_SERVER", "http://0.0.0.0:8000")
 
+
 # overload client using username/password token authentication
 class LocustBalsamClientA(BasicAuthRequestsClient):
     def __init__(self, api_root: str, request_event: EventHook) -> None:
@@ -236,7 +237,6 @@ class BalsamUser(User):  # type: ignore
         # simulate runnings jobs in batches
         steps = int(len(jobs) / simulated_nodes) + 1
         for step in range(steps):
-
             # indices of jobs to operate on
             start = simulated_nodes * step
             end = min(simulated_nodes * (step + 1), len(jobs))

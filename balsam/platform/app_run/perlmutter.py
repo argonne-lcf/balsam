@@ -3,7 +3,7 @@ import time
 from .app_run import SubprocessAppRun
 
 
-class PerlmutterGPURun(SubprocessAppRun):
+class PerlmutterRun(SubprocessAppRun):
     """
     https://slurm.schedmd.com/srun.html
     """
@@ -22,6 +22,11 @@ class PerlmutterGPURun(SubprocessAppRun):
         else:
             gpu_args = []
 
+        launch_params = []
+        for k in self._launch_params.keys():
+            launch_params.append("--" + k)
+            launch_params.append(str(self._launch_params[k]))
+
         args = [
             "srun",
             *network_args,
@@ -35,8 +40,8 @@ class PerlmutterGPURun(SubprocessAppRun):
             "--nodes",
             num_nodes,
             "--cpus-per-task",
-            self.get_cpus_per_rank(),
-            "--mem=40G",
+            self._threads_per_rank,
+            *launch_params,
             "--overlap",
             self._cmdline,
         ]

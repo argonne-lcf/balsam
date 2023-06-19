@@ -4,13 +4,12 @@ from typing import List, Optional, Union
 from .compute_node import ComputeNode
 
 
-class PerlmutterGPUNode(ComputeNode):
-
+class PerlmutterNode(ComputeNode):
     cpu_ids = list(range(64))
     gpu_ids: List[Union[int, str]] = list(range(4))
 
     @classmethod
-    def get_job_nodelist(cls) -> List["PerlmutterGPUNode"]:
+    def get_job_nodelist(cls) -> List["PerlmutterNode"]:
         """
         Get all compute nodes allocated in the current job context
         """
@@ -51,4 +50,4 @@ class PerlmutterGPUNode(ComputeNode):
 if __name__ == "__main__":
     if "SLURM_NODELIST" not in os.environ:
         os.environ["SLURM_NODELIST"] = "nid0[3038-3039,8241-8246]"
-    print([str(x) for x in PerlmutterGPUNode.get_job_nodelist()])
+    print([str(x) for x in PerlmutterNode.get_job_nodelist()])

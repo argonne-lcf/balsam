@@ -14,7 +14,6 @@ class SchedulerTestMixin(object):
         self.assertTrue(which_exe is not None, f"'{exe}' not in PATH")
 
     def test_submit(self):
-
         # verify script exists
         self.assertTrue(os.path.exists(self.script_path))
         # verify submit command is in path
@@ -127,7 +126,6 @@ echo [$SECONDS] JOBID=4
 
 
 class CobaltTest(SchedulerTestMixin, unittest.TestCase):
-
     submit_script = """!#/usr/bin/env bash
 echo [$SECONDS] Running test submit script
 echo [$SECONDS] COBALT_JOBID = $COBALT_JOBID
@@ -171,7 +169,6 @@ echo [$SECONDS] All Done! Great Test!
 
 
 class SlurmTest(SchedulerTestMixin, unittest.TestCase):
-
     submit_script = """#!/usr/bin/env bash -l
 echo [$SECONDS] Running test submit script
 echo [$SECONDS] SLURM_JOB_ID = SLURM_JOB_ID
@@ -221,7 +218,6 @@ echo [$SECONDS] All Done! Great Test!
 
 
 class LsfTest(SchedulerTestMixin, unittest.TestCase):
-
     submit_script = """#!/usr/bin/env bash
 echo [$SECONDS] Running test submit script
 echo [$SECONDS] LSB_JOBID = $LSB_JOBID
