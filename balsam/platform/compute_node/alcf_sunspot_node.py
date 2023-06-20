@@ -52,3 +52,37 @@ class SunspotNode(ComputeNode):
         if id is not None:
             return int(id.split(".")[0])
         return None
+    
+    def assign(self, job_id: int, num_cpus: int = 0, num_gpus: int = 0, occupancy: float = 1.0) -> Dict[str, Any]:
+        if job_id in self.jobs:
+            raise ValueError(f"Already have job {job_id}")
+
+        self.occupancy += occupancy
+        if self.occupancy > 0.999:
+            self.occupancy = 1.0
+
+        idle_cpus = self.idle_cpus
+        # Reserve thread 0 for OS
+        idle_cpus.remove(0)
+
+        # Thread 52 is on the 2nd CPU. Ensure thread assignment doesn't stradle CPUs.
+        assigned_cpus = idle_cpus[:num_cpus]
+        if 52 in assigned_cpus and min(assigned_cpus) != 52:
+            while min(assigned_cpus) != 52:
+                idle_cpus.remove(min(assigned_cpus))
+                assigned_cpus = idle_cpus[:num_cpus]
+
+        assigned_gpus = self.idle_gpus[:num_gpus]
+        if assigned_cpus:
+            self.busy_cpus.extend(assigned_cpus)
+            self.idle_cpus = [i for i in self.idle_cpus if i not in assigned_cpus]
+        if assigned_gpus:
+            self.busy_gpus.extend(assigned_gpus)
+            self.idle_gpus = [i for i in self.idle_gpus if i not in assigned_gpus]
+        resource_spec = {
+            "cpu_ids": assigned_cpus,
+            "gpu_ids": assigned_gpus,
+            "occupancy": occupancy,
+        }
+        self.jobs[job_id] = resource_spec
+        return resource_spec
