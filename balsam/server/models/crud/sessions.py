@@ -192,6 +192,18 @@ def acquire(
         .limit(spec.max_num_jobs)
         .with_for_update(of=models.Job.__table__, skip_locked=True)
     )
+    if "sort_walltime_first" in models.BatchJob.optional_params.keys():
+        if models.BatchJob.optional_params["sort_walltime_first"]:
+            lock_ids_q = (
+                job_q.with_only_columns([models.Job.id])
+                .order_by(
+                    models.Job.wall_time_min.desc(),
+                    models.Job.node_packing_count.desc(),
+                    models.Job.num_nodes.asc(),
+                )
+                .limit(spec.max_num_jobs)
+                .with_for_update(of=models.Job.__table__, skip_locked=True)
+            )
     locked_ids = db.execute(lock_ids_q).scalars().all()
 
     subq = select(models.Job.__table__, _footprint_func()).where(models.Job.id.in_(locked_ids)).subquery()  # type: ignore
