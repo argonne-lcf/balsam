@@ -182,13 +182,13 @@ def acquire(
         return _acquire_jobs(db, job_q, session)
 
     # MPI Mode Launcher will take this path:
-    if spec.sort_by == "wall_time":
+    if spec.sort_by == "long_large_first":
         lock_ids_q = (
             job_q.with_only_columns([models.Job.id])
             .order_by(
                 models.Job.wall_time_min.desc(),
+                models.Job.num_nodes.desc(),
                 models.Job.node_packing_count.desc(),
-                models.Job.num_nodes.asc(),
             )
             .limit(spec.max_num_jobs)
             .with_for_update(of=models.Job.__table__, skip_locked=True)
