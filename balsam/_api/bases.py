@@ -370,6 +370,7 @@ class SessionBase(CreatableBalsamModel):
         max_nodes_per_job: Optional[int] = None,
         max_aggregate_nodes: Optional[float] = None,
         serial_only: bool = False,
+        sort_by: Optional[str] = None,
         filter_tags: Optional[Dict[str, str]] = None,
         states: Set[JobState] = RUNNABLE_STATES,
         app_ids: Optional[Set[int]] = None,
