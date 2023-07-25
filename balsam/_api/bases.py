@@ -386,6 +386,7 @@ class SessionBase(CreatableBalsamModel):
             max_nodes_per_job=max_nodes_per_job,
             max_aggregate_nodes=max_aggregate_nodes,
             serial_only=serial_only,
+            sort_by=sort_by,
             filter_tags=filter_tags,
             states=states,
             app_ids=app_ids,

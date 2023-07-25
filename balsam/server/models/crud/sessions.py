@@ -130,20 +130,34 @@ def _acquire_jobs(db: orm.Session, job_q: Select, session: models.Session) -> Li
     return acquired_jobs
 
 
-def _footprint_func() -> Any:
+def _footprint_func(spec: schemas.SessionAcquire) -> Any:
     footprint = cast(models.Job.num_nodes, Float) / cast(models.Job.node_packing_count, Float)
-    return (
-        func.sum(footprint)
-        .over(
-            order_by=(
-                models.Job.num_nodes.asc(),
-                models.Job.node_packing_count.desc(),
-                models.Job.wall_time_min.desc(),
-                models.Job.id.asc(),
+    if spec.sort_by == "long_large_first":
+        return (
+            func.sum(footprint)
+            .over(
+                order_by=(
+                    models.Job.wall_time_min.desc(),
+                    models.Job.num_nodes.desc(),
+                    models.Job.node_packing_count.desc(),
+                    models.Job.id.asc(),
+                )
             )
+            .label("aggregate_footprint")
         )
-        .label("aggregate_footprint")
-    )
+    else:
+        return (
+            func.sum(footprint)
+            .over(
+                order_by=(
+                    models.Job.num_nodes.asc(),
+                    models.Job.node_packing_count.desc(),
+                    models.Job.wall_time_min.desc(),
+                    models.Job.id.asc(),
+                )
+            )
+            .label("aggregate_footprint")
+        )
 
 
 def acquire(

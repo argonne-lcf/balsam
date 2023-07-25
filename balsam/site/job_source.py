@@ -91,6 +91,7 @@ class FixedDepthJobSource(Process):
         self.app_ids = set() if app_ids is None else app_ids
         self.states = states
         self.serial_only = serial_only
+        self.sort_by = sort_by
         self.max_wall_time_min = max_wall_time_min
         self.max_nodes_per_job = max_nodes_per_job
         self.max_aggregate_nodes = max_aggregate_nodes
@@ -195,6 +196,7 @@ class SynchronousJobSource(object):
         self.app_ids = set() if app_ids is None else app_ids
         self.states = states
         self.serial_only = serial_only
+        self.sort_by = sort_by
         self.max_wall_time_min = max_wall_time_min
         self.start_time = time.time()
 
