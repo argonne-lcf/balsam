@@ -129,30 +129,20 @@ def _acquire_jobs(db: orm.Session, job_q: Select, session: models.Session) -> Li
     logger.debug(f"Acquired {len(acquired_jobs)} jobs")
     return acquired_jobs
 
-
-def _order_args(spec: schemas.SessionAcquire) -> Any:
-    if spec.sort_by == "long_large_first":
-        order_args = (
-            models.Job.wall_time_min.desc(),
-            models.Job.num_nodes.desc(),
-            models.Job.node_packing_count.desc(),
-            models.Job.id.asc(),
-        )
-    else:
-        order_args = (
-            models.Job.num_nodes.asc(),
-            models.Job.node_packing_count.desc(),
-            models.Job.wall_time_min.desc(),
-            models.Job.id.asc(),
-        )
-    return order_args
-
-
-def _footprint_func(spec: schemas.SessionAcquire) -> Any:
+def _footprint_func() -> Any:
     footprint = cast(models.Job.num_nodes, Float) / cast(models.Job.node_packing_count, Float)
-    order_args = _order_args(spec)
-    return func.sum(footprint).over(order_by=(*order_args)).label("aggregate_footprint")
-
+    return (
+        func.sum(footprint)
+        .over(
+            order_by=(
+                models.Job.num_nodes.asc(),
+                models.Job.node_packing_count.desc(),
+                models.Job.wall_time_min.desc(),
+                models.Job.id.asc(),
+            )
+        )
+        .label("aggregate_footprint")
+    )
 
 def acquire(
     db: Session, owner: schemas.UserOut, session_id: int, spec: schemas.SessionAcquire
@@ -190,14 +180,29 @@ def acquire(
         return _acquire_jobs(db, job_q, session)
 
     # MPI Mode Launcher will take this path:
-    order_args = _order_args(spec)
-
-    lock_ids_q = (
-        job_q.with_only_columns([models.Job.id])
-        .order_by(*order_args)
-        .limit(spec.max_num_jobs)
-        .with_for_update(of=models.Job.__table__, skip_locked=True)
-    )
+    
+    if spec.sort_by == "long_large_first":
+        lock_ids_q = (
+            job_q.with_only_columns([models.Job.id])
+            .order_by(
+                models.Job.wall_time_min.desc(),
+                models.Job.num_nodes.desc(),
+                models.Job.node_packing_count.desc(),
+            )
+            .limit(spec.max_num_jobs)
+            .with_for_update(of=models.Job.__table__, skip_locked=True)
+        )
+    else:
+        lock_ids_q = (
+            job_q.with_only_columns([models.Job.id])
+            .order_by(
+                models.Job.num_nodes.asc(),
+                models.Job.node_packing_count.desc(),
+                models.Job.wall_time_min.desc(),
+            )
+            .limit(spec.max_num_jobs)
+            .with_for_update(of=models.Job.__table__, skip_locked=True)
+        )
 
     locked_ids = db.execute(lock_ids_q).scalars().all()
 
