@@ -114,6 +114,7 @@ def create(db: Session, owner: schemas.UserOut, session: schemas.SessionCreate) 
 def _acquire_jobs(db: orm.Session, job_q: Select, session: models.Session) -> List[Dict[str, Any]]:
     acquired_jobs = [{str(key): value for key, value in job.items()} for job in db.execute(job_q).mappings()]
     acquired_ids = [job["id"] for job in acquired_jobs]
+    # logger.info(f"*** in _acquire_jobs acquired_ids={acquired_ids}")
 
     stmt = update(models.Job.__table__).where(models.Job.id.in_(acquired_ids)).values(session_id=session.id)
 
@@ -129,7 +130,8 @@ def _acquire_jobs(db: orm.Session, job_q: Select, session: models.Session) -> Li
     logger.debug(f"Acquired {len(acquired_jobs)} jobs")
     return acquired_jobs
 
-def _footprint_func() -> Any:
+
+def _footprint_func_nodes() -> Any:
     footprint = cast(models.Job.num_nodes, Float) / cast(models.Job.node_packing_count, Float)
     return (
         func.sum(footprint)
@@ -143,6 +145,22 @@ def _footprint_func() -> Any:
         )
         .label("aggregate_footprint")
     )
+
+def _footprint_func_walltime() -> Any:
+    footprint = cast(models.Job.num_nodes, Float) / cast(models.Job.node_packing_count, Float)
+    return (
+        func.sum(footprint)
+        .over(
+            order_by=(
+                models.Job.wall_time_min.desc(),
+                models.Job.num_nodes.desc(),
+                models.Job.node_packing_count.desc(),
+                models.Job.id.asc(),
+            )
+        )
+        .label("aggregate_footprint")
+    )
+
 
 def acquire(
     db: Session, owner: schemas.UserOut, session_id: int, spec: schemas.SessionAcquire
@@ -180,7 +198,7 @@ def acquire(
         return _acquire_jobs(db, job_q, session)
 
     # MPI Mode Launcher will take this path:
-    
+    # logger.info(f"*** In session.acquire: spec.sort_by = {spec.sort_by}")
     if spec.sort_by == "long_large_first":
         lock_ids_q = (
             job_q.with_only_columns([models.Job.id])
@@ -205,10 +223,16 @@ def acquire(
         )
 
     locked_ids = db.execute(lock_ids_q).scalars().all()
+    # logger.info(f"*** locked_ids: {locked_ids}")
+    if spec.sort_by == "long_large_first":
+        subq = select(models.Job.__table__, _footprint_func_walltime()).where(models.Job.id.in_(locked_ids)).subquery()  # type: ignore
+    else:
+        subq = select(models.Job.__table__, _footprint_func_nodes()).where(models.Job.id.in_(locked_ids)).subquery()  # type: ignore
 
-    subq = select(models.Job.__table__, _footprint_func()).where(models.Job.id.in_(locked_ids)).subquery()  # type: ignore
+    # logger.info(f"*** max_aggregate_nodes: {spec.max_aggregate_nodes}")
     cols = [c for c in subq.c if c.name not in ["aggregate_footprint", "session_id"]]
     job_q = select(cols).where(subq.c.aggregate_footprint <= spec.max_aggregate_nodes)
+
     return _acquire_jobs(db, job_q, session)
 
 
