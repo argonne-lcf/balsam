@@ -146,6 +146,7 @@ def _footprint_func_nodes() -> Any:
         .label("aggregate_footprint")
     )
 
+
 def _footprint_func_walltime() -> Any:
     footprint = cast(models.Job.num_nodes, Float) / cast(models.Job.node_packing_count, Float)
     return (
