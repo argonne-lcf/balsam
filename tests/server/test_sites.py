@@ -12,7 +12,7 @@ def test_create_site(auth_client):
         name="thetalogin3.alcf.anl.gov",
         path="/projects/myProject/balsam-site",
     )
-    assert type(posted_site["id"]) == int
+    assert isinstance(posted_site["id"], int)
     site_list = auth_client.get("/sites/")["results"]
     assert isinstance(site_list, list)
     assert len(site_list) == 1
