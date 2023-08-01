@@ -273,7 +273,6 @@ def main(
 
     scheduler_id = node_cls.get_scheduler_id()
 
-    
     job_source = SynchronousJobSource(
         client=site_config.client,
         site_id=site_config.site_id,
