@@ -65,7 +65,7 @@ class PolarisRun(SubprocessAppRun):
         # physical cores per rank, otherwise it is the number of hardware threads per rank
         # https://docs.alcf.anl.gov/running-jobs/example-job-scripts/
         depth = self._threads_per_rank
-        if "core" in cpu_bind:
+        if "core" == cpu_bind:
             depth = self.get_cpus_per_rank()
 
         nid_str = ",".join(map(str, node_ids))
