@@ -127,6 +127,7 @@ class Launcher:
     def launch_runs(self) -> None:
         acquired = self.acquire_jobs()
         acquired.extend(self.job_stash)
+        logger.info(f"acquired jobs: {acquired}")
         self.job_stash = []
         for job in acquired:
             assert job.id is not None
@@ -271,10 +272,12 @@ def main(
         )
 
     scheduler_id = node_cls.get_scheduler_id()
+
     job_source = SynchronousJobSource(
         client=site_config.client,
         site_id=site_config.site_id,
         filter_tags=filter_tags_dict,
+        sort_by=site_config.settings.launcher.sort_by,
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
     )
