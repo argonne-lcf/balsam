@@ -22,26 +22,24 @@ class PolarisRun(SubprocessAppRun):
         # 8 cpus per gpu.  This code will not skip the appropriate number of cpus
         # in the rank binding assignments.
         if "cpu_bind" in self._launch_params.keys():
-            cpu_bind = self._launch_params.get("cpu_bind", "none")
+            cpu_bind = self._launch_params.get("cpu_bind")
+        elif "--cpu-bind" in self._launch_params.keys():
+            cpu_bind = self._launch_params.get("--cpu-bind")
         else:
             # Here we grab the cpu_ids assigned to the job in the NodeSpec object
             # If this is not set in NodeSpec (it is only set for single node jobs),
             # then we take the cpu_id list from the Polaris ComputeNode subclass,
             # assuming the job will have use of all the cpus in nodes assigned to it.
-            cpu_ids_ns = self._node_spec.cpu_ids[0]
-            if cpu_ids_ns:
-                cpu_ids = self._node_spec.cpu_ids[0]
-                if self._threads_per_core == 2:
-                    polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
-            else:
-                polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
+            cpu_ids = self._node_spec.cpu_ids[0]
+            polaris_node = PolarisNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
+            if not cpu_ids:
                 cpu_ids = polaris_node.cpu_ids
 
             cpus_per_rank = self.get_cpus_per_rank()
 
             # PolarisNode reverses the order of the gpu_ids, so assigning the cpu-bind
             # in ascending cpu order is what we want here.
-            cpu_bind_list = ["verbose,list"]
+            cpu_bind_list = ["list"]
             for irank in range(self._ranks_per_node):
                 cpu_bind_list.append(":")
                 for i in range(cpus_per_rank):
@@ -57,17 +55,10 @@ class PolarisRun(SubprocessAppRun):
                         cid = str(cpu_ids[i + cpus_per_rank * irank] + len(polaris_node.cpu_ids))
                         cpu_bind_list.append(cid)
             cpu_bind = "".join(cpu_bind_list)
-            # if "CUDA_VISIBLE_DEVICES" in self._envs.keys():
-            #     gpu_device = self._envs["CUDA_VISIBLE_DEVICES"]
-            #     gpu_ids = gpu_device.split(",")
-            # else:
-            #     gpu_ids = []
-            # logger.info(f"Polaris app_run: cpu_bind={cpu_bind} cpu_ids={cpu_ids} gpu_ids={gpu_ids}")
 
         launch_params = []
         for k in self._launch_params.keys():
-            if k != "cpu_bind":
-                launch_params.append("--" + k)
+            if k != "cpu_bind" and k != "--cpu-bind":
                 launch_params.append(str(self._launch_params[k]))
 
         # The value of -d depends on the setting of cpu_bind.  If cpu-bind=core, -d is the number of
@@ -95,7 +86,6 @@ class PolarisRun(SubprocessAppRun):
         ]
         return " ".join(str(arg) for arg in args)
 
-    # Overide default because sunspot does not use CUDA
     def _set_envs(self) -> None:
         envs = os.environ.copy()
         envs.update(self._envs)
