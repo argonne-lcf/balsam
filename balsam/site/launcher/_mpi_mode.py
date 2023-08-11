@@ -127,7 +127,6 @@ class Launcher:
     def launch_runs(self) -> None:
         acquired = self.acquire_jobs()
         acquired.extend(self.job_stash)
-        logger.info(f"acquired jobs: {acquired}")
         self.job_stash = []
         for job in acquired:
             assert job.id is not None
