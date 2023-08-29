@@ -8,6 +8,7 @@ from typing import IO, Dict, List, Optional, Union, cast
 
 import psutil  # type: ignore
 
+from balsam.platform.compute_node import ComputeNode
 from balsam.site.launcher import NodeSpec
 
 logger = logging.getLogger(__name__)
@@ -67,10 +68,23 @@ class AppRun(ABC):
         return self._ranks_per_node * len(self._node_spec.node_ids)
 
     def get_cpus_per_rank(self) -> int:
-        cpu_per_rank = len(self._node_spec.cpu_ids[0]) // self._ranks_per_node
-        if not cpu_per_rank:
-            cpu_per_rank = max(1, int(self._threads_per_rank // self._threads_per_core))
-        return cpu_per_rank
+        # Get the list of cpus assigned to the job.  If it is a single node job, that is stored in
+        # the NodeSpec object.  If it is a multinode job, the cpu_ids assigned to NodeSpec is empty,
+        # so we will assume all cpus on a compute node are available to the job.  The list of cpus is
+        # just the list of cpus on the node in that case.
+        cpu_ids = self._node_spec.cpu_ids[0]
+        cpus_per_node = len(cpu_ids)
+        if not cpu_ids:
+            compute_node = ComputeNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
+            cpus_per_node = len(compute_node.cpu_ids)
+
+        cpus_per_rank = cpus_per_node // self._ranks_per_node
+
+        # If ranks are oversubscribed to cpus (ranks_per_node > cpus_per_node), set it to a minimum of
+        # 1 cpu per rank or the number of cores per rank from the threading settings
+        if not cpus_per_rank:
+            cpus_per_rank = max(1, int(self._threads_per_rank // self._threads_per_core))
+        return cpus_per_rank
 
     @abstractmethod
     def start(self) -> None:

@@ -271,10 +271,12 @@ def main(
         )
 
     scheduler_id = node_cls.get_scheduler_id()
+
     job_source = SynchronousJobSource(
         client=site_config.client,
         site_id=site_config.site_id,
         filter_tags=filter_tags_dict,
+        sort_by=site_config.settings.launcher.sort_by,
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
     )

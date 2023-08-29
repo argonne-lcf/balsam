@@ -315,8 +315,9 @@ def ls(
 
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
+@click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
 @click.option("-s", "--state", "state", type=str)
-def modify(job_ids: List[int], state: JobState) -> None:
+def modify(job_ids: List[int], tags: List[str], state: JobState) -> None:
     """
     Modify Jobs
 
@@ -328,6 +329,8 @@ def modify(job_ids: List[int], state: JobState) -> None:
     jobs = client.Job.objects.all()
     if job_ids:
         jobs = jobs.filter(id=job_ids)
+    elif tags:
+        jobs = jobs.filter(tags=tags)
     else:
         raise click.BadParameter("Provide either list of Job ids or tags to delete")
     count = jobs.count()

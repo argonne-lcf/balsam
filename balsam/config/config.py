@@ -193,6 +193,7 @@ class LauncherSettings(BaseSettings):
     local_app_launcher: Type[AppRun] = Field("balsam.platform.app_run.LocalAppRun")
     mpirun_allows_node_packing: bool = False
     serial_mode_prefetch_per_rank: int = 64
+    sort_by: Optional[str] = None
     serial_mode_startup_params: Dict[str, str] = {"cpu_affinity": "none"}
 
     @validator("compute_node", pre=True, always=True)
@@ -235,13 +236,10 @@ class Settings(BaseSettings):
             fp.write(self.dump_yaml())
 
     def dump_yaml(self) -> str:
-        return cast(
-            str,
-            yaml.dump(
-                json.loads(self.json()),
-                sort_keys=False,
-                indent=4,
-            ),
+        return yaml.dump(
+            json.loads(self.json()),
+            sort_keys=False,
+            indent=4,
         )
 
     @classmethod
