@@ -29,6 +29,7 @@ class SessionAcquire(BaseModel):
     max_nodes_per_job: Optional[int]
     max_aggregate_nodes: Optional[float]
     serial_only: bool = False
+    sort_by: Optional[str] = None
     filter_tags: Dict[str, str]
     states: Set[JobState] = RUNNABLE_STATES
     app_ids: Set[int] = set()

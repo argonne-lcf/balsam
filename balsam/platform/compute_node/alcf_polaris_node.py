@@ -10,9 +10,11 @@ IntStr = Union[int, str]
 
 
 class PolarisNode(ComputeNode):
-    # turam: confirm number of cpus
-    cpu_ids = list(range(64))
+    cpu_ids = list(range(32))
     gpu_ids: List[IntStr] = list(range(4))
+
+    # cms21: optimal gpu/cpu binding on Polaris nodes goes in reverse order
+    gpu_ids.reverse()
 
     @classmethod
     def get_job_nodelist(cls) -> List["PolarisNode"]:

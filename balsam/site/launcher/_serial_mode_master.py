@@ -237,6 +237,7 @@ def master_main(wall_time_min: int, master_port: int, log_filename: str, num_wor
         max_wall_time_min=wall_time_min,
         scheduler_id=scheduler_id,
         serial_only=True,
+        sort_by=site_config.settings.launcher.sort_by,
         max_nodes_per_job=1,
     )
     status_updater = BulkStatusUpdater(site_config.client)

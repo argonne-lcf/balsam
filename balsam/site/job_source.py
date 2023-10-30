@@ -72,6 +72,7 @@ class FixedDepthJobSource(Process):
         filter_tags: Optional[Dict[str, str]] = None,
         states: Set[str] = {"PREPROCESSED", "RESTART_READY"},
         serial_only: bool = False,
+        sort_by: Optional[str] = None,
         max_wall_time_min: Optional[int] = None,
         max_nodes_per_job: Optional[int] = None,
         max_aggregate_nodes: Optional[float] = None,
@@ -90,6 +91,7 @@ class FixedDepthJobSource(Process):
         self.app_ids = set() if app_ids is None else app_ids
         self.states = states
         self.serial_only = serial_only
+        self.sort_by = sort_by
         self.max_wall_time_min = max_wall_time_min
         self.max_nodes_per_job = max_nodes_per_job
         self.max_aggregate_nodes = max_aggregate_nodes
@@ -158,6 +160,7 @@ class FixedDepthJobSource(Process):
             max_aggregate_nodes=self.max_aggregate_nodes,
             max_wall_time_min=request_time,
             serial_only=self.serial_only,
+            sort_by=self.sort_by,
             filter_tags=self.filter_tags,
             states=self.states,
             app_ids=self.app_ids,
@@ -182,6 +185,7 @@ class SynchronousJobSource(object):
         filter_tags: Optional[Dict[str, str]] = None,
         states: Set[JobState] = {JobState.preprocessed, JobState.restart_ready},
         serial_only: bool = False,
+        sort_by: Optional[str] = None,
         max_wall_time_min: Optional[int] = None,
         scheduler_id: Optional[int] = None,
         app_ids: Optional[Set[int]] = None,
@@ -192,6 +196,7 @@ class SynchronousJobSource(object):
         self.app_ids = set() if app_ids is None else app_ids
         self.states = states
         self.serial_only = serial_only
+        self.sort_by = sort_by
         self.max_wall_time_min = max_wall_time_min
         self.start_time = time.time()
 
@@ -229,6 +234,7 @@ class SynchronousJobSource(object):
             max_aggregate_nodes=max_aggregate_nodes,
             max_wall_time_min=request_time,
             serial_only=self.serial_only,
+            sort_by=self.sort_by,
             filter_tags=self.filter_tags,
             states=self.states,
             app_ids=self.app_ids,
