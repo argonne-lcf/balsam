@@ -102,7 +102,7 @@ class RequestsClient(RESTClient):
                 logger.warning(f"Attempt retry ({self._attempt} of {self.retry_count}) of connection: {exc}")
                 self.backoff(exc)
             except requests.HTTPError as exc:
-                if authenticating == False:
+                if authenticating is False:
                     logger.warning(f"Attempt retry ({self._attempt} of {self.retry_count}) of connection: {exc}")
                     self.backoff(exc)
             else:
