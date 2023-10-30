@@ -343,9 +343,12 @@ def modify(job_ids: List[int], tags: List[str], state: JobState) -> None:
 @job.command()
 @click.option("-i", "--id", "job_ids", multiple=True, type=int)
 @click.option("-t", "--tag", "tags", multiple=True, type=str, callback=validate_tags)
+@click.option("-s", "--state", type=str, callback=validate_state)
+@click.option("-ns", "--exclude-state", type=str, callback=validate_state)
+@click.option("--site", "site_selector", default="")
 @click.option("-y", "yes", is_flag=True, default=False)
 @click.option("--all", is_flag=True, default=False)
-def rm(job_ids: List[int], tags: List[str], yes: bool, all: bool) -> None:
+def rm(job_ids: List[int], site_selector: str, tags: List[str], state: Optional[JobState], exclude_state: Optional[JobState], yes: bool, all: bool) -> None:
     """
     Remove Jobs
 
@@ -357,18 +360,36 @@ def rm(job_ids: List[int], tags: List[str], yes: bool, all: bool) -> None:
 
         balsam job rm --tag workflow=temp-test
 
-    3) Remove all jobs (DANGER!)
+    3) Remove Jobs by State
+
+        balsam job rm --state FAILED
+
+    4) Filter by Site ID or Path fragments (comma-separated)
+
+        balsam job rm --site=123,my-cori-site
+
+    5) Remove all jobs (DANGER!)
 
         balsam job rm --all
     """
     client: RESTClient = load_client()
-    jobs = client.Job.objects.all()
+    
+    jobs = filter_by_sites(client.Job.objects.all(), site_selector)
+    
     if job_ids:
         jobs = jobs.filter(id=job_ids)
-    elif tags:
-        jobs = jobs.filter(tags=tags)
+    elif tags or state or exclude_state:
+        if tags:
+            jobs = jobs.filter(tags=tags)
+        if state:
+            jobs = jobs.filter(state=state)
+            click.echo("filtering by state")
+        if exclude_state:
+            jobs = jobs.filter(state__ne=exclude_state)
     elif all:
         click.echo("THIS WILL DELETE ALL JOBS! CAUTION!")
+        pass
+    elif site_selector != "":
         pass
     else:
         raise click.BadParameter("Provide either list of Job ids or tags to delete")
