@@ -3,7 +3,7 @@
 #COBALT -n {{ num_nodes }}
 #COBALT -q {{ queue }}
 #COBALT -t {{ wall_time_min }}
-#COBALT --attrs pubnet=true:enable_ssh=1:filesystems=home,grand,eagle,theta-fs0:{% if optional_params.get("mig_count") %}mig-mode=true{% endif %}
+#COBALT --attrs pubnet=true:enable_ssh=1:filesystems=home,grand,eagle,theta-fs0{% if optional_params.get("mig_count") %}:mig-mode=true{% endif %}
 
 export https_proxy=http://theta-proxy.tmi.alcf.anl.gov:3128
 
