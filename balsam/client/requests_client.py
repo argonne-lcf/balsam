@@ -71,10 +71,11 @@ class RequestsClient(RESTClient):
         self._session = None
         return None
 
-    def backoff(self, reason: Exception) -> None:
-        if self._attempt > self.retry_count:
-            raise TimeoutError(f"Exceeded max retries: {reason}")
-        sleep_time = 2**self._attempt + random.random()
+    def backoff(self) -> None:
+        if self._attempt < self.retry_count:
+            sleep_time = 2**self._attempt + random.random()
+        else:
+            sleep_time = 2**self.retry_count + random.random()
         time.sleep(sleep_time)
         self._attempt += 1
 
@@ -96,11 +97,21 @@ class RequestsClient(RESTClient):
                 logger.debug(f"{http_method}: {absolute_url} {params if params else ''}")
                 response = self._do_request(absolute_url, http_method, params, json, data)
             except requests.Timeout as exc:
-                logger.warning(f"Attempt Retry of Timed-out request {http_method} {absolute_url}")
-                self.backoff(exc)
+                if self._attempt < self.retry_count:
+                    logger.warning(f"Attempt Retry of Timed-out request {http_method} {absolute_url}")
+                else:
+                    logger.warning(
+                        f"Max backoff retries exceed for timed-out request; attempt retry every {2**self.retry_count}s: {exc}"
+                    )
+                self.backoff()
             except (requests.ConnectionError, requests.HTTPError) as exc:
-                logger.warning(f"Attempt retry ({self._attempt} of {self.retry_count}) of connection: {exc}")
-                self.backoff(exc)
+                if self._attempt < self.retry_count:
+                    logger.warning(f"Attempt retry ({self._attempt} of {self.retry_count}) of connection: {exc}")
+                else:
+                    logger.warning(
+                        f"Max backoff retries exceed for failed request; attempt retry every {2**self.retry_count}s: {exc}"
+                    )
+                self.backoff()
             else:
                 try:
                     return response.json()  # type: ignore
