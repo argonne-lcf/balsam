@@ -348,7 +348,15 @@ def modify(job_ids: List[int], tags: List[str], state: JobState) -> None:
 @click.option("--site", "site_selector", default="")
 @click.option("-y", "yes", is_flag=True, default=False)
 @click.option("--all", is_flag=True, default=False)
-def rm(job_ids: List[int], site_selector: str, tags: List[str], state: Optional[JobState], exclude_state: Optional[JobState], yes: bool, all: bool) -> None:
+def rm(
+    job_ids: List[int],
+    site_selector: str,
+    tags: List[str],
+    state: Optional[JobState],
+    exclude_state: Optional[JobState],
+    yes: bool,
+    all: bool,
+) -> None:
     """
     Remove Jobs
 
