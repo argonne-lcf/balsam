@@ -12,6 +12,8 @@ alembic==1.8.1
 SQLAlchemy==1.4.41
 aredis==1.1.8
 redis==4.3.4
+starlette==0.19.1
+anyio==3.7.1
 
 # Duplicated from setup.cfg (but pinned)
 PyYAML==6.0
