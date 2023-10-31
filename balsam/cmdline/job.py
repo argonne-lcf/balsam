@@ -373,9 +373,9 @@ def rm(job_ids: List[int], site_selector: str, tags: List[str], state: Optional[
         balsam job rm --all
     """
     client: RESTClient = load_client()
-    
+
     jobs = filter_by_sites(client.Job.objects.all(), site_selector)
-    
+
     if job_ids:
         jobs = jobs.filter(id=job_ids)
     elif tags or state or exclude_state:
