@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, cast
 
 from balsam.schemas import MAX_ITEMS_PER_BULK_OP, JobState
 from balsam.util import Process, SigHandler
+from balsam._api.models import JobQuery, JobManager
 
 from .util import Queue
 
@@ -97,9 +98,20 @@ class BulkStatusUpdater(StatusUpdater):
         for update in sorted(updates, key=lambda x: x["state_timestamp"]):  # type: ignore
             updates_by_id[update["id"]].append(update)
 
-        while updates_by_id:
-            bulk_update = [update_list.pop(0) for update_list in updates_by_id.values()]
-            for chunk in chunk_list(bulk_update, chunk_size=MAX_ITEMS_PER_BULK_OP):
-                self.client.bulk_patch("jobs/", chunk)
-            logger.info(f"StatusUpdater bulk-updated {len(bulk_update)} jobs")
-            updates_by_id = {k: v for k, v in updates_by_id.items() if v}
+        # while updates_by_id:
+        #     bulk_update = [update_list.pop(0) for update_list in updates_by_id.values()]
+        #     logger.info(f"Status Updater bulk-updating {updates}")
+        #     for chunk in chunk_list(bulk_update, chunk_size=MAX_ITEMS_PER_BULK_OP):
+        #         self.client.bulk_patch("jobs/", chunk)
+        #     logger.info(f"StatusUpdater bulk-updated {len(bulk_update)} jobs")
+        #     updates_by_id = {k: v for k, v in updates_by_id.items() if v}
+
+        job_query = JobQuery(JobManager(self.client))
+
+        for update in updates:
+            job_id = update["id"]
+            job = job_query.get(id=[job_id])
+            for k in update.keys():
+                if k != "id":
+                    setattr(job,k,update[k])
+            job.save()
