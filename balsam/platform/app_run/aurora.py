@@ -3,7 +3,7 @@ import os
 from .app_run import SubprocessAppRun
 
 
-class SunspotRun(SubprocessAppRun):
+class AuroraRun(SubprocessAppRun):
     """
     https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
     """
@@ -29,7 +29,7 @@ class SunspotRun(SubprocessAppRun):
         ]
         return " ".join(str(arg) for arg in args)
 
-    # Overide default because sunspot does not use CUDA
+    # Overide default because aurora/sunspot does not use CUDA
     def _set_envs(self) -> None:
         envs = os.environ.copy()
         envs.update(self._envs)

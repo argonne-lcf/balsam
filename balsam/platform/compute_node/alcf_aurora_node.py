@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 IntStr = Union[int, str]
 
 
-class SunspotNode(ComputeNode):
+class AuroraNode(ComputeNode):
     cpu_ids = list(range(104))
     gpu_ids: List[IntStr]
 
@@ -18,7 +18,7 @@ class SunspotNode(ComputeNode):
             gpu_ids.append(str(gid) + "." + str(tid))
 
     @classmethod
-    def get_job_nodelist(cls) -> List["SunspotNode"]:
+    def get_job_nodelist(cls) -> List["AuroraNode"]:
         """
         Get all compute nodes allocated in the current job context
         """

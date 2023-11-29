@@ -31,6 +31,7 @@ launcher:
     local_app_launcher: {{ local_app_launcher }}
     mpirun_allows_node_packing: {{ mpirun_allows_node_packing }} # mpi_app_launcher supports multiple concurrent runs per node
     serial_mode_prefetch_per_rank: 64 # How many jobs to prefetch from API in serial mode
+    # sort_by: long_large_first # Enable this option to run jobs with longest wall_time_min first, followed by jobs with largest num_nodes
 
     # Pass-through parameters to mpirun when starting the serial mode launcher:
     serial_mode_startup_params: {{ {} if not serial_mode_startup_params }}

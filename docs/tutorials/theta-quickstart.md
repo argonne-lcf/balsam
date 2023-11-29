@@ -9,9 +9,9 @@ the available default site setups:
 - Theta-GPU
 - Theta-KNL
 - Cooley
-- Cori (Haswell or KNL partitions)
 - Perlmutter
 - Summit
+- Aurora (coming soon)
 
 ## Install
 

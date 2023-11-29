@@ -1,4 +1,4 @@
-title: "Sunspot (ALCF)"
+title: "Aurora (ALCF)"
 
 compute_node: balsam.platform.compute_node.AuroraNode
 mpi_app_launcher: balsam.platform.app_run.AuroraRun
@@ -12,8 +12,8 @@ scheduler_class: balsam.platform.scheduler.PBSScheduler
 allowed_queues:
     workq:
         max_nodes: 128
-        max_queued_jobs: 100
-        max_walltime: 60
+        max_queued_jobs: 1
+        max_walltime: 240
 
 allowed_projects:
 - Aurora_deployment
