@@ -94,6 +94,7 @@ Under `launcher`, add this option:
 ```yaml
 sort_by: long_large_first # set this to enable alternative sorting model that starts the longest running and largest node count jobs first
 ```
+Restart the site after changing `settings.yml` for the changes to take effect.
 
 ## Using the API
 
