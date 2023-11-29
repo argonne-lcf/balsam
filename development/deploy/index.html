@@ -1,0 +1,1071 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://balsam.readthedocs.io/en/latest/development/deploy/">
+      
+      
+        <link rel="prev" href="../client/">
+      
+      
+        <link rel="next" href="../../community/publications/">
+      
+      <link rel="icon" href="../../img/balsam_favicon.ico">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.6">
+    
+    
+      
+        <title>Admin Guide - Balsam</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.558e4712.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.2505c338.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#balsam-service-deployment" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Balsam" class="md-header__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Balsam
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Admin Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../.." class="md-tabs__link">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tutorials/theta-quickstart/" class="md-tabs__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../user-guide/installation/" class="md-tabs__link">
+        User Guide
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        Developer Guide
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  <li class="md-tabs__item">
+    <a href="./" class="md-tabs__link md-tabs__link--active">
+      Admin Guide
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../community/publications/" class="md-tabs__link">
+      Publications
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../LICENSE/" class="md-tabs__link">
+      License
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Balsam" class="md-nav__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    Balsam
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_2" type="checkbox" id="__nav_2" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2" tabindex="0" aria-expanded="false">
+          Tutorials
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Tutorials" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Tutorials
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/theta-quickstart/" class="md-nav__link">
+        Getting Started
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3" tabindex="0" aria-expanded="false">
+          User Guide
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="User Guide" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          User Guide
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/installation/" class="md-nav__link">
+        Installation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/site-config/" class="md-nav__link">
+        Creating Balsam Sites
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/appdef/" class="md-nav__link">
+        Defining Apps
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli/" class="md-nav__link">
+        The Command Line
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/jobs/" class="md-nav__link">
+        Managing Jobs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/api/" class="md-nav__link">
+        The Python API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/batchjob/" class="md-nav__link">
+        Executing Jobs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/monitoring/" class="md-nav__link">
+        Workflow Monitoring and Analytics
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/elastic/" class="md-nav__link">
+        Auto Scaling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/transfer/" class="md-nav__link">
+        Data Transfers
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_4" type="checkbox" id="__nav_4" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4" tabindex="0" aria-expanded="false">
+          Developer Guide
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Developer Guide" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Developer Guide
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        Instructions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-model/" class="md-nav__link">
+        Understanding the Data Model
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layout/" class="md-nav__link">
+        Project Layout
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../porting/" class="md-nav__link">
+        Porting to New Sites
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        Integration Testing
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../client/" class="md-nav__link">
+        The Python REST Client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Admin Guide
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Admin Guide
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#docker-compose-quick-setup-recommended" class="md-nav__link">
+    Docker Compose: quick setup (recommended)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-installation" class="md-nav__link">
+    Manual Installation
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsam-server-configuration" class="md-nav__link">
+    Balsam Server Configuration
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-migrations" class="md-nav__link">
+    Database Migrations
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stopping-and-starting-the-server" class="md-nav__link">
+    Stopping and Starting the Server
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-the-server-code" class="md-nav__link">
+    Updating the Server Code
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-backups" class="md-nav__link">
+    Database Backups
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/publications/" class="md-nav__link">
+        Publications
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LICENSE/" class="md-nav__link">
+        License
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#docker-compose-quick-setup-recommended" class="md-nav__link">
+    Docker Compose: quick setup (recommended)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-installation" class="md-nav__link">
+    Manual Installation
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsam-server-configuration" class="md-nav__link">
+    Balsam Server Configuration
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-migrations" class="md-nav__link">
+    Database Migrations
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stopping-and-starting-the-server" class="md-nav__link">
+    Stopping and Starting the Server
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-the-server-code" class="md-nav__link">
+    Updating the Server Code
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-backups" class="md-nav__link">
+    Database Backups
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+
+<h1 id="balsam-service-deployment">Balsam Service Deployment<a class="headerlink" href="#balsam-service-deployment" title="Permanent link">&para;</a></h1>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<h3 id="docker-compose-quick-setup-recommended">Docker Compose: quick setup (recommended)<a class="headerlink" href="#docker-compose-quick-setup-recommended" title="Permanent link">&para;</a></h3>
+<p>Docker Compose can be used to manage the PostgreSQL,  Redis, and Balsam server containers with a single command:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>balsam/
+<span class="gp">$ </span>git<span class="w"> </span>pull
+<span class="gp">$ </span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<span class="gp">$ </span>vim<span class="w"> </span>.env<span class="w">  </span><span class="c1"># Configure here</span>
+<span class="gp">$ </span>vim<span class="w"> </span>balsam/server/gunicorn.conf.example.py<span class="w"> </span><span class="c1"># And here</span>
+<span class="gp">$ </span>docker-compose<span class="w"> </span>up<span class="w"> </span>--build<span class="w"> </span>-d
+</code></pre></div>
+<h3 id="manual-installation">Manual Installation<a class="headerlink" href="#manual-installation" title="Permanent link">&para;</a></h3>
+<p>Balsam can be installed into a Python environment in two ways. 
+User-mode installation with <code>pip install --pre balsam</code> or <code>pip install -e .</code> fetches
+end-user package dependencies with flexible version ranges.  <strong>This will not suffice for running a Balsam server.</strong>
+To install the server, you must use the second option:</p>
+<div class="highlight"><pre><span></span><code><span class="go">pip install -r requirements/deploy.txt</span>
+</code></pre></div>
+<p>This installs all the necessary dependencies with pinned versions for a reproducible deployment environment.</p>
+<p>Next, you will need to run a PostgreSQL database dedicated to Balsam.  If <code>which pg_ctl</code>  does not show a Postgres on your system, <a href="https://www.enterprisedb.com/download-postgresql-binaries">get the Postgres binaries</a>.
+You only need to unzip and add the postgres bin/ to your PATH.
+Follow the PostgreSQL docuemntation to create a new database cluster with <code>initdb</code>, configure and start up the database server, and create an empty database with <code>createdb</code>.
+The canonical name for the database is <code>balsam</code> but any name can be used. The DSN for Balsam to connect to the database is configured via <code>BALSAM_DATABASE_URL</code>. Refer to the
+<code>.env.example</code> file and <a href="https://pydantic-docs.helpmanual.io/usage/types/#urls">Pydantic documentation for URL parsing</a>.</p>
+<p>Running Redis is optional and needed only for the Balsam event streaming WebSocket functionality.  Inside your virtualenv, run the <code>redis-install.sh</code> script to install Redis (or DIY). This will copy the built Redis binary in your virtualenv <code>bin/</code>. Run the Redis server and configure the Balsam-Redis connection via the <code>BALSAM_REDIS_PARAMS</code> environment variable, which should be a JSON-formatted string as shown in the <code>.env.example</code> file.</p>
+<h2 id="balsam-server-configuration">Balsam Server Configuration<a class="headerlink" href="#balsam-server-configuration" title="Permanent link">&para;</a></h2>
+<p>Regardless of installation method, the server can be configured in a few places:</p>
+<ol>
+<li>Environment variables are read from the <code>.env</code> file in the project root directory. Refer to, copy, and modify the <code>.env.example</code> example file.</li>
+<li>Gunicorn-specific configuration is contained in the file referenced by <code>GUNICORN_CONFIG_FILE</code>.  Refer to the example in <code>balsam/server/gunicorn.conf.example.py</code></li>
+<li>Any additional settings listed in <code>balsam/server/conf.py</code> can also be controlled through the <code>.env</code> file or environment variables. The environment variables should be formed by combining the appropriate <code>env_prefix</code> with the setting name.</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Keeping Balsam and Gunicorn Config Separate</p>
+<p>Settings internal to the Balsam web server application are defined with <a href="https://pydantic-docs.helpmanual.io/usage/settings/">Pydantic</a>
+in <code>balsam/server/conf.py</code>.  This includes concerns such as where to find the database, how to perform logging, and how to perform user Authentication.</p>
+<p>This should not be conflated with outer-level server <em>environment</em> concerns that Balsam itself does not need to know.  Examples include which port the server is listening on, or how many copies of the underlying <code>uvicorn</code> web worker are running.  These ultimately depend on the deployment method. In the case of Docker Compose with Gunicorn, we break the config into the separate <code>gunicorn.conf.example.py</code> file and load it from within the Dockerfile's entrypoint.</p>
+</div>
+<h2 id="database-migrations">Database Migrations<a class="headerlink" href="#database-migrations" title="Permanent link">&para;</a></h2>
+<p>Initially, the PostgreSQL database will be empty and have no tables defined.  To apply the latest Balsam database schema, you need to run the Alembic migrations:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Make sure Postgres is up and running</span>
+<span class="c1"># Make sure .env has the correct BALSAM_DATABASE_URL</span>
+$<span class="w"> </span>balsam<span class="w"> </span>server<span class="w"> </span>migrate
+
+<span class="c1"># Or when using Docker:</span>
+$<span class="w"> </span>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>gunicorn<span class="w"> </span>balsam<span class="w"> </span>server<span class="w"> </span>migrate
+</code></pre></div>
+<h2 id="stopping-and-starting-the-server">Stopping and Starting the Server<a class="headerlink" href="#stopping-and-starting-the-server" title="Permanent link">&para;</a></h2>
+<p>With Docker Compose, the server and its companion services are started/stopped with the  <code>docker-compose</code> subcommands <code>up</code> and <code>down</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Start, detached:</span>
+$<span class="w"> </span>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+
+<span class="c1"># Stop:</span>
+$<span class="w"> </span>docker-compose<span class="w"> </span>down
+</code></pre></div>
+<p>When running a bare-metal installation, you are responsible for having PostgreSQL (and optionally Redis) started up separately. Then, you may launch the Balsam web application with <code>gunicorn</code>:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>gunicorn<span class="w"> </span>-c<span class="w"> </span>./balsam/server/gunicorn.conf.example.py<span class="w"> </span>balsam.server.main:app
+</code></pre></div>
+<p>As a quick sanity check that the server is running and reachable, you can try to fetch the FastAPI docs:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>curl<span class="w"> </span>localhost:8000/docs
+</code></pre></div>
+<h2 id="updating-the-server-code">Updating the Server Code<a class="headerlink" href="#updating-the-server-code" title="Permanent link">&para;</a></h2>
+<p>Run <code>git pull</code> to update the server Python code. Because the source directory is mounted in the container, this can even be used to live-update the server when running with Docker Compose:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>git<span class="w"> </span>pull
+<span class="gp">$ </span>docker<span class="w"> </span><span class="nb">kill</span><span class="w"> </span>--signal<span class="o">=</span>SIGHUP<span class="w"> </span>gunicorn
+</code></pre></div>
+<p>The same applies when running without Docker.</p>
+<div class="admonition note">
+<p class="admonition-title">Live Update Limitations</p>
+<p>Restarting gunicorn workers with <code>SIGHUP</code> avoids server downtime, but it will not apply changes to the container environment (i.e. any changes made to <code>docker-compose.yml</code> or <code>.env</code> will not propagate to the workers).  This method is only useful for updates to the gunicorn config or Python source code.</p>
+</div>
+<p>More generally, when there are changes to the container, Python environment, or configuration, you will want to rebuild the container and restart the service, which entails downtime:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>balsam/
+<span class="gp">$ </span>docker-compose<span class="w"> </span>down
+<span class="gp">$ </span>docker-compose<span class="w"> </span>build<span class="w"> </span>gunicorn
+<span class="gp">$ </span>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<h2 id="database-backups">Database Backups<a class="headerlink" href="#database-backups" title="Permanent link">&para;</a></h2>
+<p>The script <code>balsam/deploy/db_snapshot.py</code> can be used with the accompanying
+<code>service.example</code> file to set up a recurring service for dumping the Postgres
+database to a file.  Copy the Python script to an appropriate location for the service,
+modify the <code>service.example</code> file accordingly, and follow the instructions at the top of the
+<code>service.example</code> file. </p>
+<p>The script uses the <a href="https://www.postgresql.org/docs/9.1/backup-dump.html">basic postgres dump
+functionality</a>.  Backups
+are performed locally, and should be replicated to a remote system.  The easiest
+way within the CELS GCE environment is to set up a cron job to <strong>pull</strong> the database
+backups.</p>
+<div class="highlight"><pre><span></span><code>15 * * * *  rsync -avz balsam-dev-01.alcf.anl.gov:/home/msalim/db-backups /nfs/gce/projects/balsam/backups/
+</code></pre></div>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/argonne-lcf/balsam" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs"], "search": "../../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.51d95adb.min.js"></script>
+      
+        <script src="../../mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

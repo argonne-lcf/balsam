@@ -1,0 +1,1749 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://balsam.readthedocs.io/en/latest/user-guide/jobs/">
+      
+      
+        <link rel="prev" href="../cli/">
+      
+      
+        <link rel="next" href="../api/">
+      
+      <link rel="icon" href="../../img/balsam_favicon.ico">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.6">
+    
+    
+      
+        <title>Managing Jobs - Balsam</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.558e4712.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.2505c338.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#balsam-jobs" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Balsam" class="md-header__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Balsam
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Managing Jobs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../.." class="md-tabs__link">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tutorials/theta-quickstart/" class="md-tabs__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link md-tabs__link--active">
+        User Guide
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../development/contributing/" class="md-tabs__link">
+        Developer Guide
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../development/deploy/" class="md-tabs__link">
+      Admin Guide
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../community/publications/" class="md-tabs__link">
+      Publications
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../LICENSE/" class="md-tabs__link">
+      License
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Balsam" class="md-nav__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    Balsam
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_2" type="checkbox" id="__nav_2" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2" tabindex="0" aria-expanded="false">
+          Tutorials
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Tutorials" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Tutorials
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/theta-quickstart/" class="md-nav__link">
+        Getting Started
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3" tabindex="0" aria-expanded="true">
+          User Guide
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="User Guide" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          User Guide
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        Installation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../site-config/" class="md-nav__link">
+        Creating Balsam Sites
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../appdef/" class="md-nav__link">
+        Defining Apps
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        The Command Line
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Managing Jobs
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Managing Jobs
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#key-concept-the-job-lifecycle" class="md-nav__link">
+    Key Concept: The Job Lifecycle
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-jobs" class="md-nav__link">
+    Creating Jobs
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating Jobs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-job-creation" class="md-nav__link">
+    CLI Job Creation
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-job-creation" class="md-nav__link">
+    API Job Creation
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tagging-jobs" class="md-nav__link">
+    Tagging Jobs
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#associating-data-with-jobs" class="md-nav__link">
+    Associating Data with Jobs
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#defining-compute-resources" class="md-nav__link">
+    Defining Compute Resources
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parent-job-dependencies" class="md-nav__link">
+    Parent Job Dependencies
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-transfer" class="md-nav__link">
+    Data Transfer
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#querying-jobs" class="md-nav__link">
+    Querying Jobs
+  </a>
+  
+    <nav class="md-nav" aria-label="Querying Jobs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#filtering-examples" class="md-nav__link">
+    Filtering Examples
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolving-the-workdir" class="md-nav__link">
+    Resolving the Workdir
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#accessing-parents" class="md-nav__link">
+    Accessing Parents
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-jobs" class="md-nav__link">
+    Updating Jobs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deleting-jobs" class="md-nav__link">
+    Deleting Jobs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-app-futures" class="md-nav__link">
+    Python App Futures
+  </a>
+  
+    <nav class="md-nav" aria-label="Python App Futures">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#accessing-results" class="md-nav__link">
+    Accessing Results
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#polling-a-single-job-on-completion" class="md-nav__link">
+    Polling a single job on completion
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#polling-many-jobs-on-completion" class="md-nav__link">
+    Polling many jobs on completion
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iterating-over-jobs-as-they-complete" class="md-nav__link">
+    Iterating over Jobs as they complete
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        The Python API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batchjob/" class="md-nav__link">
+        Executing Jobs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        Workflow Monitoring and Analytics
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../elastic/" class="md-nav__link">
+        Auto Scaling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transfer/" class="md-nav__link">
+        Data Transfers
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_4" type="checkbox" id="__nav_4" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4" tabindex="0" aria-expanded="false">
+          Developer Guide
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Developer Guide" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Developer Guide
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/contributing/" class="md-nav__link">
+        Instructions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/data-model/" class="md-nav__link">
+        Understanding the Data Model
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/layout/" class="md-nav__link">
+        Project Layout
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/porting/" class="md-nav__link">
+        Porting to New Sites
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        Integration Testing
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/client/" class="md-nav__link">
+        The Python REST Client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/deploy/" class="md-nav__link">
+        Admin Guide
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/publications/" class="md-nav__link">
+        Publications
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LICENSE/" class="md-nav__link">
+        License
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#key-concept-the-job-lifecycle" class="md-nav__link">
+    Key Concept: The Job Lifecycle
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-jobs" class="md-nav__link">
+    Creating Jobs
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating Jobs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-job-creation" class="md-nav__link">
+    CLI Job Creation
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-job-creation" class="md-nav__link">
+    API Job Creation
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tagging-jobs" class="md-nav__link">
+    Tagging Jobs
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#associating-data-with-jobs" class="md-nav__link">
+    Associating Data with Jobs
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#defining-compute-resources" class="md-nav__link">
+    Defining Compute Resources
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parent-job-dependencies" class="md-nav__link">
+    Parent Job Dependencies
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-transfer" class="md-nav__link">
+    Data Transfer
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#querying-jobs" class="md-nav__link">
+    Querying Jobs
+  </a>
+  
+    <nav class="md-nav" aria-label="Querying Jobs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#filtering-examples" class="md-nav__link">
+    Filtering Examples
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolving-the-workdir" class="md-nav__link">
+    Resolving the Workdir
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#accessing-parents" class="md-nav__link">
+    Accessing Parents
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-jobs" class="md-nav__link">
+    Updating Jobs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deleting-jobs" class="md-nav__link">
+    Deleting Jobs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-app-futures" class="md-nav__link">
+    Python App Futures
+  </a>
+  
+    <nav class="md-nav" aria-label="Python App Futures">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#accessing-results" class="md-nav__link">
+    Accessing Results
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#polling-a-single-job-on-completion" class="md-nav__link">
+    Polling a single job on completion
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#polling-many-jobs-on-completion" class="md-nav__link">
+    Polling many jobs on completion
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iterating-over-jobs-as-they-complete" class="md-nav__link">
+    Iterating over Jobs as they complete
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+
+<h1 id="balsam-jobs">Balsam Jobs<a class="headerlink" href="#balsam-jobs" title="Permanent link">&para;</a></h1>
+<h2 id="key-concept-the-job-lifecycle">Key Concept: The Job Lifecycle<a class="headerlink" href="#key-concept-the-job-lifecycle" title="Permanent link">&para;</a></h2>
+<p>The Balsam <code>Job</code> represents a single invocation of <a href="../appdef/">an <code>App</code></a> on
+some specified computing resources. Each <code>Job</code> is a stateful object that
+advances through a lifecycle of <strong>states</strong> (from <code>CREATED</code> to <code>JOB_FINISHED</code> in
+a successful flow).  </p>
+<p>After <a href="../appdef/#writing-applicationdefinitions">defining the requisite <code>Apps</code></a>, we create a collection
+of <code>Jobs</code>. Each Job specifies any data transfer or inter-job
+dependencies. The collection of <code>Jobs</code> represents our workflow, which is then
+executed by Balsam over time.</p>
+<div class="admonition note">
+<p class="admonition-title">Jobs do not automatically run!</p>
+<p>As mentioned in the
+<a href="../../tutorials/theta-quickstart/#queueing-a-batchjob">quickstart</a>,
+Jobs only specify the CPU/GPU resources needed for each task.  In
+order to <strong>run</strong> Jobs, we then request a block of node-hours
+by <a href="../batchjob/">submitting a BatchJob</a>.  This section goes into
+detail on managing <code>Jobs</code>, which is a separate concern in Balsam.
+You will find your jobs waiting in the <code>PREPROCESSED</code> state until
+a <code>BatchJob</code> begins running.</p>
+</div>
+<p>In the normal (successful) flow of execution, a <code>Job</code> moves through the
+following sequence of states.  The table below defines each state as well as the 
+action performed by Balsam to move the job toward the next state.</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Meaning</th>
+<th>Next Balsam Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATED</code></td>
+<td>Job initially submitted.</td>
+<td>Check the parent Job and data transfer dependencies</td>
+</tr>
+<tr>
+<td><code>AWAITING_PARENTS</code></td>
+<td>Pending parent job dependencies.</td>
+<td>Advance to <code>READY</code> when all parents finished</td>
+</tr>
+<tr>
+<td><code>READY</code></td>
+<td>All parent jobs have finished.</td>
+<td>Submit any stage-in transfer tasks</td>
+</tr>
+<tr>
+<td><code>STAGED_IN</code></td>
+<td>All data dependencies staged in.</td>
+<td>Call the <a href="../appdef/#the-preprocess-hook"><code>preprocess()</code> hook</a></td>
+</tr>
+<tr>
+<td><code>PREPROCESSED</code></td>
+<td>The <code>preprocess</code> hook completed.</td>
+<td>Acquire and launch the executable on a compute node</td>
+</tr>
+<tr>
+<td><code>RUNNING</code></td>
+<td>Started executing on a compute node.</td>
+<td>Poll the executing Job process's return code</td>
+</tr>
+<tr>
+<td><code>RUN_DONE</code></td>
+<td>Execution finished with return <code>0</code>.</td>
+<td>Call the <a href="../appdef/#the-postprocess-hook"><code>postprocess()</code> hook</a></td>
+</tr>
+<tr>
+<td><code>POSTPROCESSED</code></td>
+<td>The <code>postprocess</code> hook completed.</td>
+<td>Submit any stage-out transfer tasks</td>
+</tr>
+<tr>
+<td><code>STAGED_OUT</code></td>
+<td>All stage-out transfers completed.</td>
+<td>Mark the job <code>JOB_FINISHED</code></td>
+</tr>
+<tr>
+<td><code>JOB_FINISHED</code></td>
+<td>The job has completed processing.</td>
+<td><strong>Nothing (end state)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Additionally, Balsam defines the following exceptional states for handling jobs
+that encounter errors or early termination:</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Meaning</th>
+<th>Next Balsam Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RUN_ERROR</code></td>
+<td>Execution finished with nonzero returncode.</td>
+<td>Call the <a href="../appdef/#error-handler"><code>handle_error()</code> hook</a></td>
+</tr>
+<tr>
+<td><code>RUN_TIMEOUT</code></td>
+<td>Execution was terminated mid-run.</td>
+<td>Call the <a href="../appdef/#timeout-handler"><code>handle_timeout()</code> hook</a></td>
+</tr>
+<tr>
+<td><code>RESTART_READY</code></td>
+<td>Job is ready to run again.</td>
+<td>Acquire and launch the executable on a compute node</td>
+</tr>
+<tr>
+<td><code>FAILED</code></td>
+<td>Completed processing (unsuccessfully).</td>
+<td><strong>Nothing (end state)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Hopefully, it's clear from these state flows that a <code>Job</code> can be thought of as
+the workflow surrounding a <strong>single App run</strong>. You should check out <a href="../appdef/#job-lifecycle-hooks">specific
+examples of the Balsam hooks</a> that can be used
+to build interesting workflows at the <code>ApplicationDefinition</code> level. If we don't
+define any special hooks or data transfers, most of the steps listed above are
+<em>no-ops</em> and the <code>Job</code> simplifies down to a simple run of an App command.</p>
+<p>Of course, we can also build DAGs or ensembles of <em>many</em> application runs by
+creating multiple <code>Jobs</code>,  potentially specifying inter-<code>Job</code> dependencies.  We
+will show effective methods for creating large batches of Jobs later on.  To
+conclude this section, the <strong>state diagram</strong> below summarizes the Job lifecycle
+by illustrating the common state flows.</p>
+<div class="mermaid">stateDiagram-v2
+    created: Created
+    awaiting_parents: Awaiting Parents
+    ready: Ready
+    staged_in: Staged In
+    preprocessed: Preprocessed
+    restart_ready: Restart Ready
+    running: Running
+    run_done: Run Done
+    postprocessed: Postprocessed
+    staged_out: Staged Out
+    finished: Job Finished
+    run_error: Run Error
+    run_timeout: Run Timeout
+    failed: Failed
+
+    created --&gt; ready: No parents
+    created --&gt; awaiting_parents: Pending dependencies
+    awaiting_parents --&gt; ready: Dependencies finished
+    ready --&gt; staged_in: Transfer external data in
+    staged_in --&gt; preprocessed: Run preprocess script
+    preprocessed --&gt; running: Launch job
+
+    running --&gt; run_done: Return code 0
+    running --&gt; run_error: Nonzero return
+    running --&gt; run_timeout: Early termination
+
+    run_timeout --&gt; restart_ready: Auto retry
+    run_error --&gt; restart_ready: Run error handler
+    run_error --&gt; failed: No error handler
+    restart_ready --&gt; running: Launch job
+
+    run_done --&gt; postprocessed: Run postprocess script
+    postprocessed --&gt; staged_out: Transfer data out
+    staged_out --&gt; finished: Job Finished</div>
+<h2 id="creating-jobs">Creating Jobs<a class="headerlink" href="#creating-jobs" title="Permanent link">&para;</a></h2>
+<p>To create a <code>Job</code>, we need to supply arguments via the Python API's <code>Job()</code> constructor
+<em>or</em> the <code>balsam job create</code> CLI.  Most fields are optional and take sensible default values.
+At a minimum, we must always supply:</p>
+<ul>
+<li><code>app_id</code> <em>or</em> <code>app_name</code> and <code>site_path</code>: reference to the specific <code>App</code></li>
+<li><code>workdir</code>: the working directory, <em>relative</em> to the Site's <code>data/</code> path</li>
+<li>Any <code>parameters</code> required by the <code>ApplicationDefinition</code>'s command template</li>
+<li>Any <code>transfers</code>  items required by the <code>ApplicationDefinition</code></li>
+</ul>
+<p>We can also create <code>Jobs</code> <a href="../appdef/#the-submit-shortcut">using the <code>ApplicationDefinition.submit()</code> shorthand</a>: this removes the need for <code>app_id</code> because the value is inferred from the application class itself.</p>
+<h3 id="cli-job-creation">CLI Job Creation<a class="headerlink" href="#cli-job-creation" title="Permanent link">&para;</a></h3>
+<p>The <a href="../../tutorials/theta-quickstart/#submitting-jobs-from-the-command-line">quickstart tutorial</a> showed an example of CLI job creation:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>job<span class="w"> </span>create<span class="w"> </span>--site<span class="o">=</span>laptop<span class="w"> </span>--app<span class="w"> </span>Hello<span class="w"> </span>--workdir<span class="w"> </span>demo/hello2<span class="w"> </span>--param<span class="w"> </span><span class="nv">say_hello_to</span><span class="o">=</span><span class="s2">&quot;world2&quot;</span><span class="w"> </span>
+</code></pre></div>
+<p>If <code>-a/--app</code> doesn't uniquely specify an App by its <a href="../appdef/#the-class-path">class
+path</a>, you can provide the numeric app ID (revealed
+by <code>balsam app ls</code>) or target a specific site <a href="../cli/">using the <code>--site</code>
+selector</a>.  <strong>Since you can target any App defined at any Site, the
+process of submitting Jobs locally or between systems
+is seamless and unified.</strong></p>
+<p>By passing <code>test/1</code> to the <code>-w/--workdir</code> option, we declare that the job should
+run in the <code>data/test/1/</code> subdirectory of the Site.  This folder will be created
+automatically.</p>
+<p>Finally, multiple command template parameters can be passed by repeated
+<code>-p/--param</code> arguments.  In the example above we have only one parameter called
+<code>name</code> and provide a value of <code>"world"</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Multiple Arguments</p>
+<p>Run <code>balsam job create --help</code> to list the various options and example
+usage.  For any option that takes multiple arguments, they should be provided by repeating the flag. For instance, <code>balsam job create --tag foo=xyz --tag experiment=initial</code> will create a job with two tags.</p>
+</div>
+<h3 id="api-job-creation">API Job Creation<a class="headerlink" href="#api-job-creation" title="Permanent link">&para;</a></h3>
+<p>You will usually prefer to leverage the flexibility of Python to populate a
+large number of <code>Jobs</code> programmatically. For example, a common pattern in Balsam
+is to write a quick one-off script to crawl a directory of input files and
+generate a Job for each one.  Our entrypoint to creating <code>Jobs</code> from Python is the Balsam <code>Job</code> API:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">Job</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Take advantage of the docstrings and type annotations!</p>
+<p>We strongly recommend using the Balsam APIs in an interactive development
+environment such as a Jupyter Notebook or Python IDE of choice.  Each Balsam
+model defined under <code>balsam.api</code> includes detailed docstrings and type
+annotations for the possible methods.</p>
+</div>
+<p>We can construct an in-memory <code>Job</code> object by populating the required fields, and then we submit it to the web service by calling <code>job.save()</code>.
+This is the Python equivalent of the previous CLI example:</p>
+<div class="highlight"><pre><span></span><code><span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="p">(</span><span class="n">app_id</span><span class="o">=</span><span class="mi">123</span><span class="p">,</span> <span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;test/1&quot;</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;world!&quot;</span><span class="p">})</span>
+<span class="n">job</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</code></pre></div>
+<p>If you don't want to lookup and hard-code the <code>app_id</code>, you can provide the app name in its place.  If you're using the same app name at multiple Sites, you will also have to provide the <code>site_name</code> to disambiguate which app you really mean to create:</p>
+<div class="highlight"><pre><span></span><code><span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="p">(</span>
+    <span class="n">app_id</span><span class="o">=</span><span class="s2">&quot;Hello&quot;</span><span class="p">,</span>
+    <span class="n">site_name</span><span class="o">=</span><span class="s2">&quot;theta-gpu&quot;</span><span class="p">,</span>
+    <span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;test/1&quot;</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;world!&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="n">job</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</code></pre></div>
+<p>A shortcut for creating and saving the <code>Job</code> in one step is provide the same exact arguments to <code>Job.objects.create</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">app_id</span><span class="o">=</span><span class="mi">123</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="c1"># don&#39;t need to call job.save()</span>
+</code></pre></div>
+<p>The <strong>real</strong> advantage of the API is to create many related <code>Jobs</code> programmatically.  We can still call <code>job.save()</code> one-by-one, but it's more
+efficient to <em>bulk-create</em> the jobs with a single network round trip:</p>
+<div class="highlight"><pre><span></span><code><span class="n">jobs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">Job</span><span class="p">(</span><span class="n">app_id</span><span class="o">=</span><span class="mi">123</span><span class="p">,</span> <span class="n">workdir</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;test/</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;world </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">})</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="p">]</span>
+
+<span class="c1"># Capture `jobs` as return value!</span>
+<span class="n">jobs</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">bulk_create</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title"><code>bulk_create</code> does not modify objects in place!</p>
+<p>When passing a list of Jobs into <code>bulk_create()</code>, you <strong>must</strong> use the returned value to overwrite the input list with the newly-created Jobs.  This is necessary to set the ID on each item as generated by the server.  Otherwise, the created Jobs will have <code>id == None</code> and generally behave like objects that have never been saved to the API.</p>
+</div>
+<p>Finally, <code>ApplicationDefinitions</code> provide a convenient shorthand to create <code>Jobs</code> from the same file that the application is defined in:</p>
+<div class="highlight"><pre><span></span><code><span class="n">job</span> <span class="o">=</span> <span class="n">Hello</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;test/123&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;world!&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>When using the <code>ApplicationDefinition.submit()</code> syntax, the <code>app_id</code> is automatically inferred, and any unrecognized keyword arguments are passed through into <code>job.parameters</code>.
+This allows for a very concise Job creation. To use <code>submit</code> with bulk-creation, pass <code>save=False</code> to avoid saving each <code>Job</code> to the API one a time: </p>
+<div class="highlight"><pre><span></span><code><span class="n">jobs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">Hello</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;test/</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">say_hello_to</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;world </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="p">]</span>
+<span class="n">jobs</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">bulk_create</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span> <span class="c1"># efficient creation</span>
+</code></pre></div>
+<h3 id="tagging-jobs">Tagging Jobs<a class="headerlink" href="#tagging-jobs" title="Permanent link">&para;</a></h3>
+<p>When creating many <code>Jobs</code> to run the same <code>App</code>, we need a way of keeping things
+organized and searchable.  Jobs should be organized into hierarchical working
+directories in a scheme that makes sense for your workflow.  Jobs can then be
+<em>queried</em> by working directory substrings, which facilitates monitoring groups
+*of Jobs
+having some common path fragment.</p>
+<p>However, organizing by <code>workdir</code> quickly becomes limited, so Balsam provides a
+more flexible system for <strong>tagging</strong> <code>Jobs</code> with arbitrary key-value string
+pairs.  You can assign <code>Jobs</code> any tag names and values (keeping in mind that
+even numerical tags are treated as strings), and then easily query or manipulate
+Jobs according to their tags.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Create tagged jobs...</span>
+$<span class="w"> </span>balsam<span class="w"> </span>job<span class="w"> </span>create<span class="w"> </span>--tag<span class="w"> </span><span class="nv">experiment</span><span class="o">=</span>foo<span class="w"> </span>--tag<span class="w"> </span><span class="nv">system</span><span class="o">=</span>H2O<span class="w"> </span>--tag<span class="w"> </span><span class="nv">run</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="c1"># ...other args</span>
+
+<span class="c1"># ...so that you can fetch jobs with certain tags later!</span>
+$<span class="w"> </span>balsam<span class="w"> </span>job<span class="w"> </span>ls<span class="w"> </span>--tag<span class="w"> </span><span class="nv">experiment</span><span class="o">=</span>foo
+</code></pre></div>
+<p>The idea is much the same with the Python API:</p>
+<div class="highlight"><pre><span></span><code><span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="c1"># ...other kwargs here</span>
+    <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;experiment&quot;</span><span class="p">:</span> <span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="s2">&quot;system&quot;</span><span class="p">:</span> <span class="s2">&quot;H2O&quot;</span><span class="p">,</span> <span class="s2">&quot;run&quot;</span><span class="p">:</span> <span class="s2">&quot;5&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;experiment&quot;</span><span class="p">:</span> <span class="s2">&quot;foo&quot;</span><span class="p">}):</span>
+    <span class="k">if</span> <span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;JOB_FINISHED&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Finished:&quot;</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">workdir</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="associating-data-with-jobs">Associating Data with Jobs<a class="headerlink" href="#associating-data-with-jobs" title="Permanent link">&para;</a></h3>
+<p>The Balsam service is not designed to store large volumes of data directly;
+instead, Balsam interfaces with external transfer providers such as
+<a href="https://www.globus.org/">Globus</a> to orchestrate out-of-band data transfers
+efficiently.  Nevertheless, each Balsam <code>Job</code> contains a <code>data</code> attribute that
+can store a dictionary of arbitrary, JSON-serialized data.  This can be
+particularly useful to attach some user-defined, persistent state to <code>Jobs</code> that
+can be <a href="../appdef/#job-lifecycle-hooks">leveraged by the lifecycle hooks</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Creating Jobs with some initial data</span>
+<span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="c1"># ...other kwargs here</span>
+    <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;retry_count&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;input_coords&quot;</span><span class="p">:</span> <span class="n">coords</span><span class="p">}</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Note that in order to <em>update</em> <code>job.data</code> on an existing Job, we need to assign a new dictionary to the <code>job.data</code> attribute, rather than setting an individual key:</p>
+<div class="highlight"><pre><span></span><code><span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;experiment&quot;</span><span class="p">:</span> <span class="s2">&quot;foo&quot;</span><span class="p">},</span> <span class="n">workdir__contains</span><span class="o">=</span><span class="s2">&quot;foo/20&quot;</span><span class="p">)</span>
+<span class="n">dat</span> <span class="o">=</span> <span class="n">job</span><span class="o">.</span><span class="n">data</span>
+<span class="n">retry_count</span> <span class="o">=</span> <span class="n">dat</span><span class="p">[</span><span class="s2">&quot;retry_count&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="c1"># Merge the old job.data with an incremented value:</span>
+<span class="n">job</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">dat</span><span class="p">,</span> <span class="s2">&quot;retry_count&quot;</span><span class="p">:</span> <span class="n">retry_count</span> <span class="o">+</span> <span class="mi">1</span><span class="p">}</span>
+<span class="n">job</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</code></pre></div>
+<p>This is a consequence of the descriptor protocol used to track mutations to 
+<code>Job</code> fields. The Python API currently sends only fields which have been
+expclitly set (<code>job.FIELD = VALUE</code>) in updates to the backend. If you modify an existing mutable field (appending to a list or setting a new key on the <code>data</code> dictionary), the change cannot yet be detected by the Balsam client API layer.</p>
+<h3 id="defining-compute-resources">Defining Compute Resources<a class="headerlink" href="#defining-compute-resources" title="Permanent link">&para;</a></h3>
+<p>The default <code>Job</code> arguments assume the application will execute as one
+single-threaded process occupying a full compute node.  This is often not the
+case, and the <code>Job</code> constructor provides several options to specify precise
+resource requirements. As usual, these parameters can be specified via the
+Python API or CLI when creating new Jobs.  </p>
+<ul>
+<li><code>num_nodes</code>: number of compute nodes needed in a multi-node MPI application</li>
+<li><code>ranks_per_node</code>: number of processes (MPI ranks) per compute node</li>
+<li><code>threads_per_rank</code>: number of threads per rank</li>
+<li><code>threads_per_core</code>: number of threads per physical CPU core</li>
+<li><code>launch_params</code>: optional pass-through parameters to MPI launcher</li>
+<li><code>gpus_per_rank</code>: number of GPU accelerators per rank</li>
+<li><code>node_packing_count</code>: maximum number of <code>Jobs</code> that may run simultaneously on the same compute node</li>
+<li><code>wall_time_min</code>: optional Job execution time estimate, in minutes</li>
+</ul>
+<p>Balsam dynamically schedules <code>Jobs</code> onto the available compute resources over
+the course of each launcher (pilot batch job). Each <code>Job</code> is considered to fully
+occupy a whole number of CPU cores and GPU devices while it runs.  For each compute node in a batch allocation, Balsam tracks the list of busy CPUs, busy GPUs, and a <strong>node occupancy</strong> metric.  The occupancy is a floating-point value between 0.0 (idle) and 1.0 (busy) calculated as the <em>sum</em> of <code>1 / job.node_packing_count</code> over all <code>jobs</code> running on a node. When Balsam places a sub-node job, it simultaneously honors the constraints:</p>
+<ul>
+<li>The node must have enough idle GPUs (<code>job.ranks_per_node * job.gpus_per_rank</code>)</li>
+<li>The node must have enough idle CPUs (<code>job.ranks_per_node * job.threads_per_rank // job.threads_per_core</code>)</li>
+<li>The node must have low enough occupancy to accommodate the <code>job</code> without exceeding an occupancy of 1.0.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Job Placement Examples</p>
+<p>Consider a 2-node allocation on a system with 64 CPU cores and 8 GPUs per
+node.  </p>
+<ul>
+<li>If there are 16 single-process <code>jobs</code> with <code>node_packing_count=8</code> and
+<code>gpus_per_rank=1</code>, then all 16 runs will execute concurrently.  </li>
+<li>With <code>node_packing_count=4</code> and <code>gpus_per_rank=1</code>, only 8 jobs will run at a time (4
+per node, constrained by the node occupancy).</li>
+<li>If <code>node_packing_count=8</code> and <code>gpus_per_rank=8</code>, only 2 jobs
+will run at a time (one job per node, constrained by the lack of idle GPUs).</li>
+</ul>
+</div>
+<h3 id="parent-job-dependencies">Parent Job Dependencies<a class="headerlink" href="#parent-job-dependencies" title="Permanent link">&para;</a></h3>
+<p>By including parent Job IDs in a <code>Job</code> constructor, we create <em>dependencies</em>:
+every <code>Job</code> waits to begin executing until all of its parents reach the
+<code>JOB_FINISHED</code> state. This can be used to build workflows comprising several
+<code>Apps</code>. Moreover, since <code>Jobs</code> can be created in lifecycle hooks, we can
+leverage this ability to dynamically change the workflow graph as Jobs are
+executed.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Create a Job that depends on job1 and job2:</span>
+<span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="c1"># ...other kwargs</span>
+    <span class="n">parent_ids</span><span class="o">=</span><span class="p">[</span><span class="n">job1</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">job2</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+<span class="p">)</span>
+</code></pre></div>
+<h3 id="data-transfer">Data Transfer<a class="headerlink" href="#data-transfer" title="Permanent link">&para;</a></h3>
+<p>In the <a href="../appdef/#transfer-slots">App Transfer Slots section</a>, we explained
+how <code>ApplicationDefinition</code> classes define requirements for remote data
+stage in before execution (or stage out after execution).  This scheme has
+two advantages:</p>
+<ul>
+<li>The inputs and outputs for an <code>App</code> are explicitly defined and consistently named
+  alongside the other ingredients of the <code>ApplicationDefinition</code> class. This pattern
+  facilitates writing command templates and lifecycle hooks that are decoupled from
+  details like external file paths.</li>
+<li>The Balsam Site Agent automatically groups transfers from endpoint <code>A</code> to <code>B</code>
+across many Jobs.  It can then submit <em>batched</em> transfer tasks to the underlying
+transfer service provider, and those transfers are monitored until completion.
+As soon as input data arrives, waiting jobs transition from <code>READY</code> to
+<code>STAGED_IN</code> and begin preprocessing.  The end-to-end lifecycle (await parent
+dependencies, stage in datasets, preprocess, schedule compute nodes, launch
+application) is <strong>fully managed</strong> by the Site Agent.</li>
+</ul>
+<p>Since the <code>ApplicationDefinition</code> decides how files are named in local working directories,
+we only need to fill the Transfer Slots by providing
+remote data locations. The Job <code>transfers</code> argument
+is a dictionary of the form <code>{"slot_name": "location_alias:absolute_path"}</code>.</p>
+<ul>
+<li><code>slot_name</code> must match one of the App's transfer keys.</li>
+<li><code>location_alias</code> must match one of the keys in the
+<code>transfer_locations</code> dictionary in <code>settings.yml</code>. </li>
+<li><code>absolute_path</code> is the fully-resolved path to the source file or directory for
+stage-ins. For stage-outs, it is the path of the <em>destination</em> to be written.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Adding Location Aliases</p>
+<p>The <code>transfer_locations</code> dictionary in <code>settings.yml</code> maps location aliases
+to values of the form <code>protocol://network_location</code>.  A useful example would
+be a <a href="https://www.globus.org/globus-connect-personal">Globus Connect
+Personal</a> endpoint running
+on your laptop.  The corresponding list item under <code>transfer_locations</code> in
+<code>settings.yml</code> would look like this:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">transfer_locations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">laptop</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">globus://9d6d99eb-6d04-11e5-ba46-22000b92c6ec</span>
+</code></pre></div>
+</div>
+<p>In this example, we create a <code>Job</code> that runs on a supercomputer but copies the
+<code>input_file</code> from our laptop and eventually writes the <code>result</code> back to it.</p>
+<div class="highlight"><pre><span></span><code><span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="c1"># ...other kwargs</span>
+    <span class="n">transfers</span><span class="o">=</span><span class="p">{</span>
+        <span class="c1"># Using &#39;laptop&#39; alias defined in settings.yml</span>
+        <span class="s2">&quot;input_file&quot;</span><span class="p">:</span> <span class="s2">&quot;laptop:/path/to/input.dat&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="s2">&quot;laptop:/path/to/output.json&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</code></pre></div>
+<h2 id="querying-jobs">Querying Jobs<a class="headerlink" href="#querying-jobs" title="Permanent link">&para;</a></h2>
+<p>Once many <code>Jobs</code> are added to Balsam, there are several effective ways of
+searching and manipulating those jobs from the CLI or Python API. The Balsam
+query API has a regular structure that's the same for all resources (<code>Site</code>,
+<code>App</code>, <code>Job</code>, <code>BatchJob</code>, etc...) and loosely based on the <a href="https://docs.djangoproject.com/en/3.2/topics/db/queries/">Django
+ORM</a>.  Refer to the
+<a href="../api/">next section on the Balsam API</a> for general details that apply to
+<em>all</em> resources.  In the following, we focus on <code>Job</code> specific examples, because
+those are the most common and useful queries you'll be performing with
+Balsam.  </p>
+<div class="admonition note">
+<p class="admonition-title">The CLI is just a wrapper of the API</p>
+<p>While the examples focus on the Python API, the CLI is merely a thin
+wrapper of the API, and most CLI queries can be inferred from the <code>balsam job ls
+--help</code> menu.</p>
+<p>For example, this Python query:
+<div class="highlight"><pre><span></span><code><span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;FAILED&quot;</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;experiment&quot;</span><span class="p">:</span> <span class="s2">&quot;foo&quot;</span><span class="p">})</span>
+</code></pre></div></p>
+<p>is equivalent to this command line:
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>job<span class="w"> </span>ls<span class="w"> </span>--state<span class="w"> </span>FAILED<span class="w"> </span>--tag<span class="w"> </span><span class="nv">experiment</span><span class="o">=</span>foo
+</code></pre></div></p>
+</div>
+<h3 id="filtering-examples">Filtering Examples<a class="headerlink" href="#filtering-examples" title="Permanent link">&para;</a></h3>
+<p><code>Job.objects</code> is a <strong>Manager</strong> class that talks to the underlying REST API over
+HTTPS and builds <code>Job</code> objects from JSON data transferred over the Web.  We can
+start to build a query with one or many filter kwargs passed to
+Job.objects.filter().  The <code>filter</code> docstrings are again very useful here in
+listing the supported query parameters within your IDE.  Queries are <em>chainable</em>
+and
+<em>lazily-evaluated</em>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">Site</span><span class="p">,</span> <span class="n">Job</span>
+
+<span class="c1"># This hits the network and immediately returns ONE Site object:</span>
+<span class="n">theta_site</span> <span class="o">=</span> <span class="n">Site</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;theta&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;my-site&quot;</span><span class="p">)</span>
+
+<span class="c1"># This doesn&#39;t hit the network yet:</span>
+<span class="n">foo_jobs</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+    <span class="n">site_id</span><span class="o">=</span><span class="n">theta_site</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> 
+    <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;experiment&quot;</span><span class="p">:</span> <span class="s2">&quot;foo&quot;</span><span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># We chain the query and iterate, triggering HTTPS request:</span>
+<span class="n">failed_workdirs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">j</span><span class="o">.</span><span class="n">workdir</span> 
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">foo_jobs</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;FAILED&quot;</span><span class="p">)</span>
+<span class="p">]</span>
+</code></pre></div>
+<p>We can generate a query that returns <em>all</em> Jobs across Balsam:</p>
+<div class="highlight"><pre><span></span><code><span class="n">all_jobs</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</code></pre></div>
+<p>Queries support slicing operations:
+<div class="highlight"><pre><span></span><code><span class="n">some_jobs</span> <span class="o">=</span> <span class="n">all_jobs</span><span class="p">[</span><span class="mi">5</span><span class="p">:</span><span class="mi">15</span><span class="p">]</span>
+</code></pre></div></p>
+<p>We can count the number of Jobs that satisfy some query:
+<div class="highlight"><pre><span></span><code><span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;RUNNING&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+</code></pre></div></p>
+<p>We can order the Jobs according to some criterion (prefix with <code>-</code> for descending order):
+<div class="highlight"><pre><span></span><code><span class="n">ten_most_recent_finished</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+    <span class="n">state</span><span class="o">=</span><span class="s2">&quot;JOB_FINISHED&quot;</span>
+<span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s2">&quot;-last_update&quot;</span><span class="p">)[:</span><span class="mi">10</span><span class="p">]</span>
+</code></pre></div></p>
+<p>We can build up queries based on numerous criteria, including but not limited to:</p>
+<ul>
+<li><code>workdir__contains</code>: path fragment</li>
+<li><code>tags</code></li>
+<li><code>app_id</code></li>
+<li><code>state</code></li>
+<li><code>parameters</code></li>
+<li><code>id</code> (single or list of Job IDs)</li>
+<li><code>parent_id</code> (single or list of Parent Job IDs)</li>
+</ul>
+<p>The iterable queries return <code>Job</code> instances that can be inspected or modified
+and updated by calling <code>job.save()</code>.  Again, refer to the docstrings or use
+<code>help(Job)</code> to see a detailed listing of the Job fields.</p>
+<div class="highlight"><pre><span></span><code><span class="n">failed</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">workdir__contains</span><span class="o">=</span><span class="s2">&quot;production-X&quot;</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="s2">&quot;FAILED&quot;</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">failed</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">job</span><span class="o">.</span><span class="n">return_code</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">job</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">=</span> <span class="mi">16</span>
+        <span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;RESTART_READY&quot;</span>
+        <span class="n">job</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="resolving-the-workdir">Resolving the Workdir<a class="headerlink" href="#resolving-the-workdir" title="Permanent link">&para;</a></h3>
+<p>The <code>Job.workdir</code> attribute is given and stored <em>relative</em> to the Site <code>data/</code>
+directory.  Sometimes it is useful to resolve an absolute path to a job's working directory:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># From a given Site and Job...</span>
+<span class="n">site</span> <span class="o">=</span> <span class="n">Site</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">123</span><span class="p">)</span>
+<span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">456</span><span class="p">)</span>
+
+<span class="c1"># The workdir can be constructed with Path join operators:</span>
+<span class="n">abs_workdir</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="s2">&quot;data&quot;</span> <span class="o">/</span> <span class="n">job</span><span class="o">.</span><span class="n">workdir</span>
+
+<span class="c1"># Or with the helper method:</span>
+<span class="n">abs_workdir</span> <span class="o">=</span> <span class="n">job</span><span class="o">.</span><span class="n">resolve_workdir</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>If you are running code from <em>inside</em> a Site, you can access the current Site configuration and the resolved <code>data/</code> path:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">site_config</span>
+
+<span class="n">abs_workdir</span> <span class="o">=</span> <span class="n">job</span><span class="o">.</span><span class="n">resolve_workdir</span><span class="p">(</span><span class="n">site_config</span><span class="o">.</span><span class="n">data_path</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="accessing-parents">Accessing Parents<a class="headerlink" href="#accessing-parents" title="Permanent link">&para;</a></h3>
+<p><code>Jobs</code> contain the special method <code>parent_query()</code> which returns a iterable
+query over the job's parents.  For example, we can combine this with
+<code>resolve_workdir</code> to list the parents' working directories.  This pattern can
+be particularly useful in the preprocessing app hook, where a Job needs to read some
+data from its parents before executing:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">site_config</span>
+<span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">ApplicationDefinition</span>
+
+<span class="k">class</span> <span class="nc">MyApp</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+    <span class="c1"># ...other class attrs</span>
+
+    <span class="k">def</span> <span class="nf">preprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">parent_workdirs</span> <span class="o">=</span> <span class="p">[</span>
+<span class="hll">            <span class="n">j</span><span class="o">.</span><span class="n">resolve_workdir</span><span class="p">(</span><span class="n">site_config</span><span class="o">.</span><span class="n">data_path</span><span class="p">)</span>
+</span><span class="hll">            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">parent_query</span><span class="p">()</span>
+</span>        <span class="p">]</span>
+</code></pre></div>
+<h2 id="updating-jobs">Updating Jobs<a class="headerlink" href="#updating-jobs" title="Permanent link">&para;</a></h2>
+<p>In addition to the examples where <code>Jobs</code> were modified and updated by calling
+<code>save()</code>, we can efficiently apply the same update to <em>all</em> jobs
+matching a particular query.  This can be <strong>significantly</strong> faster than calling
+<code>job.save()</code> in a loop, which repeatedly sends small HTTP update requests over
+the wire.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run all the Failed Jobs again:</span>
+<span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;FAILED&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;RESTART_READY&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="deleting-jobs">Deleting Jobs<a class="headerlink" href="#deleting-jobs" title="Permanent link">&para;</a></h2>
+<p>Just as we can apply updates to individual jobs or job sets selected by a query, we can also <strong>delete</strong> <code>Jobs</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Delete a single job:</span>
+<span class="n">job</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+
+<span class="c1"># Delete a collection of Jobs:</span>
+<span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;FAILED&quot;</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run&quot;</span><span class="p">:</span> <span class="s2">&quot;H2O&quot;</span><span class="p">})</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+</code></pre></div>
+<h2 id="python-app-futures">Python App Futures<a class="headerlink" href="#python-app-futures" title="Permanent link">&para;</a></h2>
+<p>When <a href="../appdef/#python-applications">using the <code>run() function</code></a> in your
+<code>ApplicationDefinitions</code>, you can treat the resultant <code>Job</code> objects like standard Python
+<a href="https://docs.python.org/3/library/concurrent.futures.html#future-objects">Futures</a> in a few useful ways.</p>
+<h3 id="accessing-results">Accessing Results<a class="headerlink" href="#accessing-results" title="Permanent link">&para;</a></h3>
+<p>The <code>Job.result(timeout=None)</code> method will block until the job is completed, and return the propagated return value of the <code>run()</code> function.  If the function raised an Exception, the Exception is re-raised:</p>
+<p><div class="highlight"><pre><span></span><code><span class="n">job</span> <span class="o">=</span> <span class="n">Adder</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="s2">&quot;test/123&quot;</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">job</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">7</span>
+</code></pre></div>
+<code>result()</code> optionally takes a floating point seconds timeout value.  If the Job does not complete within the timeout period, it will raise <code>concurrent.futures.TimeoutError</code>.</p>
+<p>Similarly, <code>result_nowait()</code> will return the result in a non-blocking fashion
+and raise  <code>Job.NoResult</code> if a result is not immediately available.</p>
+<h3 id="polling-a-single-job-on-completion">Polling a single job on completion<a class="headerlink" href="#polling-a-single-job-on-completion" title="Permanent link">&para;</a></h3>
+<p><code>Job.done()</code> polls the API and returns <code>True</code> if the Job is either in the <code>JOB_FINISHED</code> or <code>FAILED</code> state.</p>
+<h3 id="polling-many-jobs-on-completion">Polling many jobs on completion<a class="headerlink" href="#polling-many-jobs-on-completion" title="Permanent link">&para;</a></h3>
+<p>The <code>Job.objects.wait()</code> function takes a list of <code>Jobs</code> and behaves otherwise analogously to <a href="https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.wait"><code>concurrent.futures.wait</code></a>.  This can be used to efficiently poll on a large collection of Jobs with a timeout  and sort the results by completed/in-progress Jobs:</p>
+<div class="highlight"><pre><span></span><code><span class="n">wait_result</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+    <span class="n">active_jobs</span><span class="p">,</span> 
+    <span class="n">return_when</span><span class="o">=</span><span class="s2">&quot;FIRST_COMPLETED&quot;</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> 
+    <span class="n">poll_interval</span><span class="o">=</span><span class="mi">10</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">wait_result</span><span class="o">.</span><span class="n">done</span><span class="p">)</span><span class="si">}</span><span class="s2"> jobs completed&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">wait_result</span><span class="o">.</span><span class="n">not_done</span><span class="p">)</span><span class="si">}</span><span class="s2"> active jobs&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="iterating-over-jobs-as-they-complete">Iterating over Jobs as they complete<a class="headerlink" href="#iterating-over-jobs-as-they-complete" title="Permanent link">&para;</a></h3>
+<p>The <code>Job.objects.as_completed()</code> function behaves analogously to
+<a href="https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.as_completed"><code>concurrent.futures.as_completed</code></a>.  The method returns an generator over the input <code>Jobs</code>, which yields <code>Jobs</code> one a time as they are completed.</p>
+<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">active_jobs</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Job </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">workdir</span><span class="si">}</span><span class="s2"> returned:  </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/argonne-lcf/balsam" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs"], "search": "../../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.51d95adb.min.js"></script>
+      
+        <script src="../../mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

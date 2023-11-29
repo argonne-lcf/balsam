@@ -1,0 +1,1224 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://balsam.readthedocs.io/en/latest/user-guide/site-config/">
+      
+      
+        <link rel="prev" href="../installation/">
+      
+      
+        <link rel="next" href="../appdef/">
+      
+      <link rel="icon" href="../../img/balsam_favicon.ico">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.6">
+    
+    
+      
+        <title>Creating Balsam Sites - Balsam</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.558e4712.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.2505c338.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#balsam-sites" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Balsam" class="md-header__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Balsam
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Creating Balsam Sites
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../.." class="md-tabs__link">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tutorials/theta-quickstart/" class="md-tabs__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link md-tabs__link--active">
+        User Guide
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../development/contributing/" class="md-tabs__link">
+        Developer Guide
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../development/deploy/" class="md-tabs__link">
+      Admin Guide
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../community/publications/" class="md-tabs__link">
+      Publications
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../LICENSE/" class="md-tabs__link">
+      License
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Balsam" class="md-nav__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    Balsam
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_2" type="checkbox" id="__nav_2" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2" tabindex="0" aria-expanded="false">
+          Tutorials
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Tutorials" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Tutorials
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/theta-quickstart/" class="md-nav__link">
+        Getting Started
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3" tabindex="0" aria-expanded="true">
+          User Guide
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="User Guide" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          User Guide
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        Installation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Creating Balsam Sites
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Creating Balsam Sites
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sites-have-a-single-owner" class="md-nav__link">
+    Sites have a single owner
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-site" class="md-nav__link">
+    Creating a site
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-site-directory" class="md-nav__link">
+    The Site directory
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-the-job-template" class="md-nav__link">
+    Customizing the Job Template
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing the Job Template">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-template-variables" class="md-nav__link">
+    Optional Template Variables
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-the-settings" class="md-nav__link">
+    Customizing the Settings
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-site-cli" class="md-nav__link">
+    The Site CLI
+  </a>
+  
+    <nav class="md-nav" aria-label="The Site CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#starting-stopping-and-restarting-sites" class="md-nav__link">
+    Starting, Stopping, and Restarting Sites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listing-sites" class="md-nav__link">
+    Listing Sites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#moving-or-deleting-sites" class="md-nav__link">
+    Moving or Deleting Sites
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-is-there-a-delay-in-queue-submission" class="md-nav__link">
+    Why is there a delay in queue submission?
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../appdef/" class="md-nav__link">
+        Defining Apps
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        The Command Line
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jobs/" class="md-nav__link">
+        Managing Jobs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        The Python API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batchjob/" class="md-nav__link">
+        Executing Jobs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        Workflow Monitoring and Analytics
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../elastic/" class="md-nav__link">
+        Auto Scaling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transfer/" class="md-nav__link">
+        Data Transfers
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_4" type="checkbox" id="__nav_4" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4" tabindex="0" aria-expanded="false">
+          Developer Guide
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Developer Guide" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Developer Guide
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/contributing/" class="md-nav__link">
+        Instructions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/data-model/" class="md-nav__link">
+        Understanding the Data Model
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/layout/" class="md-nav__link">
+        Project Layout
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/porting/" class="md-nav__link">
+        Porting to New Sites
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        Integration Testing
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/client/" class="md-nav__link">
+        The Python REST Client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/deploy/" class="md-nav__link">
+        Admin Guide
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/publications/" class="md-nav__link">
+        Publications
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LICENSE/" class="md-nav__link">
+        License
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sites-have-a-single-owner" class="md-nav__link">
+    Sites have a single owner
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-site" class="md-nav__link">
+    Creating a site
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-site-directory" class="md-nav__link">
+    The Site directory
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-the-job-template" class="md-nav__link">
+    Customizing the Job Template
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing the Job Template">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-template-variables" class="md-nav__link">
+    Optional Template Variables
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-the-settings" class="md-nav__link">
+    Customizing the Settings
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-site-cli" class="md-nav__link">
+    The Site CLI
+  </a>
+  
+    <nav class="md-nav" aria-label="The Site CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#starting-stopping-and-restarting-sites" class="md-nav__link">
+    Starting, Stopping, and Restarting Sites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listing-sites" class="md-nav__link">
+    Listing Sites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#moving-or-deleting-sites" class="md-nav__link">
+    Moving or Deleting Sites
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-is-there-a-delay-in-queue-submission" class="md-nav__link">
+    Why is there a delay in queue submission?
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+
+<h1 id="balsam-sites">Balsam Sites<a class="headerlink" href="#balsam-sites" title="Permanent link">&para;</a></h1>
+<h2 id="sites-have-a-single-owner">Sites have a single owner<a class="headerlink" href="#sites-have-a-single-owner" title="Permanent link">&para;</a></h2>
+<p>All Balsam workflows are namespaced under <strong>Sites</strong>, which are self-contained
+project directories managed by an autonomous user agent. There is no concept of
+sharing Balsam Sites with other users: <strong>each Site has exactly one owner</strong>, who is
+the sole user able to see the Site. Therefore, to create a
+new Site, you must be authenticated with Balsam:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>login
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Public logins temporarily are restricted</p>
+<p>The central Balsam service is currently in a pre-release phase and login is limited to pre-authorized ALCF users. For early access to Balsam, please send a request to the <a href="mailto:support@alcf.anl.gov">ALCF Help Desk</a>.</p>
+</div>
+<h2 id="creating-a-site">Creating a site<a class="headerlink" href="#creating-a-site" title="Permanent link">&para;</a></h2>
+<p>To initialize a Balsam site, use the CLI to select an appropriate <strong>default configuration</strong>
+for the current system.  Balsam creates a new Site directory and registers it with the REST API.  In order to use the Site, we must also start the agent process with <code>balsam site start</code>.</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>init<span class="w"> </span>SITE-PATH
+$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>SITE-PATH
+$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>start
+</code></pre></div>
+<p>The Site is populated with several folders and a bootstrapped configuration file <code>settings.yml</code>. The <strong>name</strong> that you choose for the Site must be unique across all of your Sites.  This name is used to identify and target Jobs to specific Sites.</p>
+<p><img alt="site-init" src="../../img/balsam-init.gif" /></p>
+<p>You may need to restart the Site when the system is rebooted or otherwise goes down
+for maintenance.  You can always stop and restart the Site yourself:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>stop
+$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>start
+</code></pre></div>
+<h2 id="the-site-directory">The Site directory<a class="headerlink" href="#the-site-directory" title="Permanent link">&para;</a></h2>
+<p>Each Balsam site has a regular structure comprising certain files and directories:</p>
+<ul>
+<li><code>data/</code>:  Each Balsam Job runs in a subdirectory of <code>data/</code>.   The Job working directories
+  are specified <em>relative</em> to this folder via <code>job.workdir</code>.</li>
+<li><code>log/</code>:   The Site user agent and launcher pilot jobs send diagnostic messages
+here. Checking the logs is a great way to track exactly what is happening or
+what went wrong.</li>
+<li><code>qsubmit/</code>:  Balsam runs your apps inside of <em>launchers</em> which are
+submitted to the HPC batch scheduler via a shell script.  This directory
+contains each of the materialized scripts that was actually submitted to the batch queue.</li>
+<li><code>job-template.sh</code>:  This is the template for the  <code>qsubmit/</code> 
+scripts submitted to the HPC batch scheduler.</li>
+<li><code>settings.yml</code>:  This is where the Balsam Site is configured.  The file is populated with sensible defaults for the chosen platform, and it is commented for you to read and modify.</li>
+</ul>
+<h2 id="customizing-the-job-template">Customizing the Job Template<a class="headerlink" href="#customizing-the-job-template" title="Permanent link">&para;</a></h2>
+<p>You can adapt the <code>job-template.sh</code> file to add custom scheduler flags, or to
+run code on your allocation before the pilot job starts.  Some examples of job
+template customization include:</p>
+<ul>
+<li>Adding scheduler-specific directives to the header of the shell script</li>
+<li>Configuring hardware (e.g. setting up MIG mode on GPUs)</li>
+<li>Staging data by copying files to node-local SSD's</li>
+<li>Loading modules or exporting global environment variables</li>
+</ul>
+<p>Feel free to add logic to the <code>job-template.sh</code> file as needed.  You can also maintain templates with
+different filenames, and point to the currently active job template by changing the <code>job_template_path</code> parameter in <code>settings.yml</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Keep Template Variables Intact</p>
+<p>Any values enclosed in double-curly braces (<code>{{launcher_cmd}}</code>) are
+variables provided to the template from Balsam.  Be sure to leave these
+names intact when modifying the template!</p>
+</div>
+<p>Whenever you change the job template or Site settings file, it is necessary to 
+reload the Site if it's already running:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>sync
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The <code>job-template.sh</code> and <code>settings.yml</code> are first loaded when the Site starts and stay in memory!  Therefore, any changes will <strong>not</strong> apply until you stop and restart the Site, using <code>balsam site stop</code> and <code>balsam site start</code> or <code>balsam site sync</code>.</p>
+</div>
+<h3 id="optional-template-variables">Optional Template Variables<a class="headerlink" href="#optional-template-variables" title="Permanent link">&para;</a></h3>
+<p>Because templates are generated with <a href="https://jinja.palletsprojects.com/en/3.0.x/">Jinja2</a>, you
+can write custom templates leveraging variables, if-statements, for-loops,
+etc... referring to the Jinja2 template syntax.  You can define <strong>optional
+parameters</strong> exposed to the template by using the <code>optional_batch_job_params</code> key
+of <code>settings.yml</code>. This expects a dictionary mapping parameter <strong>names</strong> to <strong>default string values</strong>. </p>
+<p>These "pass-through" parameters can then be provided as
+extras on the command line via <code>-x/--extra-param</code> flags.
+For instance, the ALCF-Theta job template supports a <code>singularity_prime_cache</code> option that allows you to enable this
+feature using <code>-x singularity_prime_cache=yes</code> on the <code>balsam queue submit</code>
+command.  Here's how that option is implemented:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># In settings.yml</span>
+<span class="nt">scheduler</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">optional_batch_job_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">singularity_prime_cache</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;no&#39;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># In job-template.sh</span>
+<span class="o">{</span>%<span class="w"> </span><span class="k">if</span><span class="w"> </span>optional_params.get<span class="o">(</span><span class="s2">&quot;singularity_prime_cache&quot;</span><span class="o">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">&#39;yes&#39;</span><span class="w"> </span>%<span class="o">}</span>
+<span class="w">  </span><span class="c1"># Prime LDAP for large-scale Singularity runs</span>
+<span class="w">  </span>aprun<span class="w"> </span>-N<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span><span class="nv">$COBALT_JOBSIZE</span><span class="w"> </span>/soft/tools/prime-cache
+<span class="w">  </span>sleep<span class="w"> </span><span class="m">10</span>
+<span class="o">{</span>%<span class="w"> </span>endif<span class="w"> </span>%<span class="o">}</span>
+</code></pre></div>
+<p>Users of ThetaGPU at the ALCF can similarly leverage the MIG partitioning
+capability of A100 GPUs by passing the optional parameter <code>-x mig_count=N</code> (three possible split values of <code>N</code> equal to <code>2</code>, <code>3</code>, and <code>7</code> are currently supported).</p>
+<h2 id="customizing-the-settings">Customizing the Settings<a class="headerlink" href="#customizing-the-settings" title="Permanent link">&para;</a></h2>
+<p>There are numerous adjustable parameters in <code>settings.yml</code> that control how the
+Site runs and processes your workflows.  The default values are designed to work
+on the chosen platform <em>as-is</em>, but users are encouraged to read the comments
+and modify <code>settings.yml</code> to suit their own needs.  </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Be sure to run <code>balsam site sync</code> to apply any changes to the Site agent!</p>
+</div>
+<p>We highlight just a few of the important settings you may want to adjust:</p>
+<ul>
+<li><code>logging.level</code>: Change the verbosity to get more or less diagnostics from Balsam  in your <code>log/</code> directory.</li>
+<li><code>launcher.idle_ttl_sec</code>:  controls how long the pilot job should stay alive before quitting when nothing is running.  You might turn this up if you are debugging and want to <em>hold on</em> to resources.</li>
+<li><code>scheduler.allowed_projects</code>: lists the projects/allocations that the Site may submit to.  You need to update this to manage what allocations the Site may use.</li>
+<li><code>scheduler.allowed_queues</code>: defines the queueing policies per-queue name.  If a special reservation or partition is created for your project or a workshop,  you will need to define that here.</li>
+<li><code>processing.num_workers</code>: controls the number of simultaneous processes handling your Jobs' pre/post-processing workload.  If I/O-intensive preprocessing is a bottleneck, you can turn this value up.</li>
+<li><code>transfers.transfer_locations</code>: lets Balsam know about remote Globus endpoints
+    that the Site may stage data in/out from</li>
+<li><code>elastic_queue</code>: controls automated queue submissions by defining the granularity and flexibility of resource requests.  This is disabled by default and must be configured on an as-needed basis (see the <a href="../elastic/">Auto Scaling</a> page for more information).</li>
+</ul>
+<h2 id="the-site-cli">The Site CLI<a class="headerlink" href="#the-site-cli" title="Permanent link">&para;</a></h2>
+<h3 id="starting-stopping-and-restarting-sites">Starting, Stopping, and Restarting Sites<a class="headerlink" href="#starting-stopping-and-restarting-sites" title="Permanent link">&para;</a></h3>
+<p>In order for workflows to actually run at a Site, the agent must
+be started as a background process on a login (or gateway) node.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># To start and stop the Site agent:</span>
+$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>start
+$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>stop
+
+<span class="c1"># Restart the Site agent and push settings changes to the API:</span>
+$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>sync
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Site Agent Resources</p>
+<p>The Balsam site agent runs as persistent daemon.  It can be started
+on any node with Internet access, access to the parallel filesystems, and access to the HPC resource manager.  This is typically a "login" or "gateway" node in a multi-user environment.</p>
+</div>
+<p>The site agent runs a collection of plug-in modules responsible for various
+facets of the workflow.  These plug-ins can be configured, enabled, and disabled in the <code>settings.yml</code> file by adjusting data under these keys:</p>
+<ul>
+<li><code>scheduler</code>: interfaces with the HPC resource manager to submit and query batch resource allocations</li>
+<li><code>processing</code>: runs pre- and post- job execution lifecycle hooks to advance the workflow.</li>
+<li><code>transfers</code>: manages batch transfer tasks for stage in and stage out of job data</li>
+<li><code>elastic_queue</code>: automates batch job submissions to auto-scale resources to the runnable backlog</li>
+<li><code>file_cleaner</code>: clears unused data from working directories of finished jobs</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Launchers will still run if the agent is stopped</p>
+<p>Once submitted to the HPC queue, the Balsam launchers (pilot jobs) operate
+on the compute nodes <em>independently</em> of the Site agent.  As long as they
+have a valid access token, they will work regardless of whether the Site
+is running.  However, you typically want the Site to continue running so
+that new Jobs can be preprocessed for execution.</p>
+</div>
+<h3 id="listing-sites">Listing Sites<a class="headerlink" href="#listing-sites" title="Permanent link">&para;</a></h3>
+<p>The CLI is useful to get a quick listing of all the Sites you own:
+<div class="highlight"><pre><span></span><code><span class="c1"># Summary of Sites:</span>
+$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>ls
+</code></pre></div></p>
+<p>The <code>Active</code> column indicates whether Sites have recently communicated with the
+API and are most likely up and running.  You can obtain much more detailed Site information (such as a listing of currently idle backfill windows at each Site) by
+including the <code>-v/--verbose</code> flag:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Detailed Site data:</span>
+$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>ls<span class="w"> </span>-v
+</code></pre></div>
+<h3 id="moving-or-deleting-sites">Moving or Deleting Sites<a class="headerlink" href="#moving-or-deleting-sites" title="Permanent link">&para;</a></h3>
+<p>To <strong>permanently</strong> delete a Site and all associated workflows inside:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>rm<span class="w"> </span>SITE-PATH
+</code></pre></div>
+<p>To <strong>rename</strong> a site or move it to a new directory:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>site<span class="w"> </span>mv<span class="w"> </span>SITE-PATH<span class="w"> </span>DESTINATION
+</code></pre></div>
+<h2 id="why-is-there-a-delay-in-queue-submission">Why is there a delay in queue submission?<a class="headerlink" href="#why-is-there-a-delay-in-queue-submission" title="Permanent link">&para;</a></h2>
+<p>Any Balsam CLI or Python API interaction (like running <code>balsam queue submit</code>),
+does not affect the HPC system directly. In fact, you're only manipulating resources in the REST API (creating a <code>BatchJob</code>). Eventually, the Site agent that runs in
+the background
+fetches state from the backend and performs local actions (run <code>sbatch</code> or <code>qsub</code>) to synchronize your Site with the central state.  </p>
+<p>This decoupled design, with all control flow routed through the central REST
+API, makes Balsam interactions completely uniform, whether you're running
+commands locally or remotely. For instance, you can provision resources on a
+remote supercomputer simply by specifying the <code>--site</code> on the command line:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>queue<span class="w"> </span>submit<span class="w"> </span>--site<span class="o">=</span>my-site<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-t<span class="w"> </span><span class="m">15</span><span class="w"> </span>-q<span class="w"> </span>debug<span class="w"> </span>-A<span class="w"> </span>Project<span class="w"> </span>-j<span class="w"> </span>mpi
+</code></pre></div>
+<div class="mermaid">sequenceDiagram
+    User-&gt;&gt;API:  `balsam queue submit`
+    API--&gt;&gt;User:  OK
+    Site-&gt;&gt;API:  Have any new BatchJobs for me?
+    API--&gt;&gt;Site:  Yes, here is one
+    Site-&gt;&gt;Cobalt:  `qsub` this BatchJob
+    Cobalt--&gt;&gt;Site:  New Cobalt Job ID
+    Site-&gt;&gt;API:  Update BatchJob with Cobalt Job ID
+    API--&gt;&gt;Site:  OK
+    User-&gt;&gt;API:  `balsam queue ls`
+    API--&gt;&gt;User:  Updated BatchJob
+</div>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/argonne-lcf/balsam" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs"], "search": "../../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.51d95adb.min.js"></script>
+      
+        <script src="../../mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
