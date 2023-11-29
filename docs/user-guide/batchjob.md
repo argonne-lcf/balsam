@@ -76,6 +76,25 @@ multiple runs per node.
     smaller BatchJobs can get through the queues faster and improve overall
     throughput.
 
+## Ordering Job Execution
+
+By default, Balsam will sort jobs that are ready to run first by `num_nodes` 
+in acending order, then by `node_packing_count` in decending order, and finally 
+by `wall_time_min` in decending order.  This default behavior will result in 
+the smallest jobs by node count starting first.
+
+There is an alternative sorting model that can be enabled that sorts jobs first 
+by `wall_time_min` in decending order, then by `num_nodes` in decending order, 
+and finally by `node_packing_count` in decending order.  This alternative 
+sorting behavior will start the longest running jobs, as estimated by 
+`wall_time_min`, first.  If jobs have no `wall_time_min` set, it will start 
+the largest jobs by node count first.  This alternative sorting model can be 
+enabled for the site by modifying the site's configuration `settings.yml` file.  
+Under `launcher`, add this option:
+```yaml
+sort_by: long_large_first # set this to enable alternative sorting model that starts the longest running and largest node count jobs first
+```
+
 ## Using the API
 
 A unique capability of the [Balsam Python API](./api.md) is that it allows us
