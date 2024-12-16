@@ -1,0 +1,27 @@
+title: "Sophia (ALCF)"
+
+compute_node: balsam.platform.compute_node.ThetaGPUNode
+mpi_app_launcher: balsam.platform.app_run.ThetaGPURun
+local_app_launcher: balsam.platform.app_run.LocalAppRun
+mpirun_allows_node_packing: true
+
+serial_mode_startup_params: 
+    cpu_affinity: none
+
+scheduler_class: balsam.platform.scheduler.PBSScheduler
+allowed_queues:
+    by-node:
+        max_nodes: 8
+        max_queued_jobs: 20
+        max_walltime: 720
+    by-gpu:
+        max_nodes: 1
+        max_queued_jobs: 20
+        max_walltime: 720
+
+allowed_projects:
+- datascience
+
+globus_endpoint_id: 05d2c76a-e867-4f67-aa57-76edeb0beda0 # The local Globus endpoint ID
+
+optional_batch_job_params: {}
