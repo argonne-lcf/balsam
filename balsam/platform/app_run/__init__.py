@@ -8,6 +8,7 @@ from .slurm import SlurmRun
 from .summit import SummitJsrun
 from .theta import ThetaAprun
 from .theta_gpu import ThetaGPURun
+from .sophia import SophiaRun
 
 __all__ = [
     "AppRun",
@@ -21,4 +22,5 @@ __all__ = [
     "SummitJsrun",
     "AuroraRun",
     "PerlmutterRun",
+    "SophiaRun",
 ]

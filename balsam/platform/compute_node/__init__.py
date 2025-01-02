@@ -7,6 +7,7 @@ from .compute_node import ComputeNode
 from .default import DefaultNode
 from .nersc_perlmutter import PerlmutterNode
 from .summit_node import SummitNode
+from .alcf_sophia_node import SophiaNode
 
 __all__ = [
     "DefaultNode",
@@ -17,5 +18,6 @@ __all__ = [
     "PerlmutterNode",
     "PolarisNode",
     "AuroraNode",
+    "SophiaNode",
     "ComputeNode",
 ]
