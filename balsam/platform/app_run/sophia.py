@@ -16,71 +16,30 @@ class SophiaRun(SubprocessAppRun):
     def _build_cmdline(self) -> str:
         node_ids = [h for h in self._node_spec.hostnames]
 
-        # If the user does not set a cpu_bind option,
-        # this code sets cpu-bind to be optimal for the gpus being used.
-        # This does not handle the case where the application is using less than
-        # 8 cpus per gpu.  This code will not skip the appropriate number of cpus
-        # in the rank binding assignments.
+        # If the user does not set a cpu_bind option, set it to none
         if "cpu_bind" in self._launch_params.keys():
             cpu_bind = self._launch_params.get("cpu_bind")
         elif "--cpu-bind" in self._launch_params.keys():
             cpu_bind = self._launch_params.get("--cpu-bind")
         else:
-            # Here we grab the cpu_ids assigned to the job in the NodeSpec object
-            # If this is not set in NodeSpec (it is only set for single node jobs),
-            # then we take the cpu_id list from the Polaris ComputeNode subclass,
-            # assuming the job will have use of all the cpus in nodes assigned to it.
-            cpu_ids = self._node_spec.cpu_ids[0]
-            sophia_node = SophiaNode(self._node_spec.node_ids[0], self._node_spec.hostnames[0])
-            if not cpu_ids:
-                cpu_ids = sophia_node.cpu_ids
-
-            cpus_per_rank = self.get_cpus_per_rank()
-
-            # PolarisNode reverses the order of the gpu_ids, so assigning the cpu-bind
-            # in ascending cpu order is what we want here.
-            cpu_bind_list = ["list"]
-            for irank in range(self._ranks_per_node):
-                cpu_bind_list.append(":")
-                for i in range(cpus_per_rank):
-                    if i > 0:
-                        cpu_bind_list.append(",")
-                    cid = str(cpu_ids[i + cpus_per_rank * irank])
-                    cpu_bind_list.append(cid)
-                    # If the job is using 2 hardware threads per core, we need to add those threads to the list
-                    # The additional threads should go in the same ascending order (threads 0 and 128 are on the
-                    # same physical core)
-                    if self._threads_per_core == 2:
-                        cpu_bind_list.append(",")
-                        cid = str(cpu_ids[i + cpus_per_rank * irank] + len(sophia_node.cpu_ids))
-                        cpu_bind_list.append(cid)
-            cpu_bind = "".join(cpu_bind_list)
+            cpu_bind = "none"
 
         launch_params = []
         for k in self._launch_params.keys():
             if k != "cpu_bind" and k != "--cpu-bind":
                 launch_params.append(str(self._launch_params[k]))
 
-        # The value of -d depends on the setting of cpu_bind.  If cpu-bind=core, -d is the number of
-        # physical cores per rank, otherwise it is the number of hardware threads per rank
-        # https://docs.alcf.anl.gov/running-jobs/example-job-scripts/
-        depth = self._threads_per_rank
-        if "core" == cpu_bind:
-            depth = self.get_cpus_per_rank()
-
         nid_str = ",".join(map(str, node_ids))
         args = [
-            "mpiexec",
-            "-np",
+            "mpirun",
+            "-n",
             self.get_num_ranks(),
-            "-ppn",
+            "--npernode",
             self._ranks_per_node,
-            "--hosts",
+            "--host",
             nid_str,
-            "--cpu-bind",
+            "--bind-to",
             cpu_bind,
-            "-d",
-            depth,
             *launch_params,
             self._cmdline,
         ]

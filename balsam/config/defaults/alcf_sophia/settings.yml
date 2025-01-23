@@ -1,7 +1,7 @@
 title: "Sophia (ALCF)"
 
-compute_node: balsam.platform.compute_node.ThetaGPUNode
-mpi_app_launcher: balsam.platform.app_run.ThetaGPURun
+compute_node: balsam.platform.compute_node.SophiaNode
+mpi_app_launcher: balsam.platform.app_run.SophiaRun
 local_app_launcher: balsam.platform.app_run.LocalAppRun
 mpirun_allows_node_packing: true
 
@@ -12,10 +12,6 @@ scheduler_class: balsam.platform.scheduler.PBSScheduler
 allowed_queues:
     by-node:
         max_nodes: 8
-        max_queued_jobs: 20
-        max_walltime: 720
-    by-gpu:
-        max_nodes: 1
         max_queued_jobs: 20
         max_walltime: 720
 

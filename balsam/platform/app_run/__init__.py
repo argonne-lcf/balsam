@@ -4,6 +4,7 @@ from .mpich import MPICHRun
 from .openmpi import OpenMPIRun
 from .perlmutter import PerlmutterRun
 from .polaris import PolarisRun
+from .sophia import SophiaRun
 from .slurm import SlurmRun
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "MPICHRun",
     "AuroraRun",
     "PerlmutterRun",
+    "SophiaRun"
 ]
