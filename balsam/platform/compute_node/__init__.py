@@ -7,7 +7,6 @@ from .nersc_perlmutter import PerlmutterNode
 
 __all__ = [
     "DefaultNode",
-    "SophiaNode",
     "PerlmutterNode",
     "PolarisNode",
     "AuroraNode",
