@@ -2,7 +2,7 @@
 
 ## Registering `ApplicationDefinitions`
 Once you have a Site, the next step is to define the applications that Balsam may run.
-Each Site is linked to a set of `ApplicationDefinition` Python classes: check the [Getting Started tutorial](../../tutorials/theta#set-up-your-apps) to see a quick example of this in action.
+Each Site is linked to a set of `ApplicationDefinition` Python classes: check the [Getting Started tutorial](../../tutorials/quickstart#set-up-your-apps) to see a quick example of this in action.
 You can create and register `ApplicationDefinition` subclasses from any Python
 session.  For instance, Balsam supports interactive workflows in Jupyter
 notebooks, or workflows driven by any other Python software.
