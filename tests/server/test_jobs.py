@@ -305,7 +305,7 @@ def test_update_to_running_does_not_release_lock(auth_client, job_dict, create_s
             "id": j["id"],
             "state": "RUNNING",
             "state_timestamp": ts,
-            "state_message": "Running on Theta nid00139",
+            "state_message": "Running on Polaris/Theta nid00139",
         }
         for j, ts in zip(acquired, run_start_times)
     ]

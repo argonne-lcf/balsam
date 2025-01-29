@@ -160,6 +160,6 @@ class TestSingleNode:
             jobs[3].result_nowait()
 
 
-@pytest.mark.alcf_theta
+@pytest.mark.alcf_polaris
 def test_cc_depth() -> None:
     assert 1
