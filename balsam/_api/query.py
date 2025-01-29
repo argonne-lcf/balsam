@@ -49,8 +49,7 @@ class Query(Iterable[T]):
         self._result_cache[k] = v
 
     @overload
-    def __getitem__(self, k: int) -> T:
-        ...
+    def __getitem__(self, k: int) -> T: ...
 
     @overload
     def __getitem__(self, k: slice) -> Union[List[T], "Query[T]"]:  # noqa: F811

@@ -9,7 +9,7 @@ from .util import create_site
 def test_create_site(auth_client):
     posted_site = create_site(
         auth_client,
-        name="thetalogin3.alcf.anl.gov",
+        name="polarislogin3.alcf.anl.gov",
         path="/projects/myProject/balsam-site",
     )
     assert isinstance(posted_site["id"], int)
@@ -22,13 +22,13 @@ def test_create_site(auth_client):
 def test_cannot_create_duplicate_site(auth_client):
     create_site(
         auth_client,
-        name="theta",
+        name="polaris",
         path="/projects/mysite1",
         check=status.HTTP_201_CREATED,
     )
     create_site(
         auth_client,
-        name="theta",
+        name="polaris",
         path="/projects/mysite1",
         check=status.HTTP_400_BAD_REQUEST,
     )

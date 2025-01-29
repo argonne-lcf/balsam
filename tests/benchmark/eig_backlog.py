@@ -17,7 +17,7 @@ class Conf(BaseSettings):
     project: str = "WorkExpFacil"
     queue: str = "R.WorkExpFacil"
     site_id: int = 11
-    experiment_tag: str = "eig-backlog-theta1"
+    experiment_tag: str = "eig-backlog-polaris1"
 
     remote_alias: str = "aps_dtn"
     result_dir: Path = Path("/gdata/lcfwork/results-2021-03-24/")
