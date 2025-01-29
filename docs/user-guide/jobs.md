@@ -14,7 +14,7 @@ executed by Balsam over time.
 
 !!! note "Jobs do not automatically run!"
     As mentioned in the
-    [quickstart](../tutorials/theta-quickstart.md#queueing-a-batchjob),
+    [quickstart](../tutorials/quickstart.md#queueing-a-batchjob),
     Jobs only specify the CPU/GPU resources needed for each task.  In
     order to **run** Jobs, we then request a block of node-hours
     by [submitting a BatchJob](./batchjob.md).  This section goes into
@@ -122,7 +122,7 @@ At a minimum, we must always supply:
 We can also create `Jobs` [using the `ApplicationDefinition.submit()` shorthand](./appdef.md#the-submit-shortcut): this removes the need for `app_id` because the value is inferred from the application class itself.
 ### CLI Job Creation
 
-The [quickstart tutorial](../tutorials/theta-quickstart.md#submitting-jobs-from-the-command-line) showed an example of CLI job creation:
+The [quickstart tutorial](../tutorials/quickstart.md#submitting-jobs-from-the-command-line) showed an example of CLI job creation:
 
 ```bash
 $ balsam job create --site=laptop --app Hello --workdir demo/hello2 --param say_hello_to="world2" 
@@ -177,7 +177,7 @@ If you don't want to lookup and hard-code the `app_id`, you can provide the app 
 ```python
 job = Job(
     app_id="Hello",
-    site_name="theta-gpu",
+    site_name="polaris",
     workdir="test/1",
     parameters={"name": "world!"}
 )
@@ -306,9 +306,12 @@ Python API or CLI when creating new Jobs.
 - `threads_per_rank`: number of threads per rank
 - `threads_per_core`: number of threads per physical CPU core
 - `launch_params`: optional pass-through parameters to MPI launcher
-- `gpus_per_rank`: number of GPU accelerators per rank
+- `gpus_per_rank`: number of GPU accelerators per rank<sup>*</sup>
 - `node_packing_count`: maximum number of `Jobs` that may run simultaneously on the same compute node
 - `wall_time_min`: optional Job execution time estimate, in minutes
+
+!!! note "Aurora and Sunspot GPUS
+    On Aurora and Sunspot, Balsam considers a GPU tile to be a GPU for the purposes of setting `gpus_per_rank`.  Setting `gpus_per_rank=1` on Aurora and Sunspot will place one rank per tile.  To set one rank per full GPU, set `gpus_per_rank=2`.
 
 Balsam dynamically schedules `Jobs` onto the available compute resources over
 the course of each launcher (pilot batch job). Each `Job` is considered to fully
@@ -443,11 +446,11 @@ and
 from balsam.api import Site, Job
 
 # This hits the network and immediately returns ONE Site object:
-theta_site = Site.objects.get(name="theta", path="my-site")
+my_site = Site.objects.get(name="my-site", path="my-site")
 
 # This doesn't hit the network yet:
 foo_jobs = Job.objects.filter(
-    site_id=theta_site.id, 
+    site_id=my_site.id, 
     tags={"experiment": "foo"},
 )
 
