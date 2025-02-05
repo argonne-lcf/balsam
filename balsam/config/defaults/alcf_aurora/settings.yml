@@ -10,10 +10,18 @@ serial_mode_startup_params:
 
 scheduler_class: balsam.platform.scheduler.PBSScheduler
 allowed_queues:
-    workq:
-        max_nodes: 128
+    debug:
+        max_nodes: 2
         max_queued_jobs: 1
-        max_walltime: 240
+        max_walltime: 60
+    debug-scaling:
+        max_nodes: 31
+        max_queued_jobs: 1
+        max_walltime: 60
+    prod:
+        max_nodes: 2048
+        max_queued_jobs: 100
+        max_walltime: 1080
 
 allowed_projects:
 - Aurora_deployment
