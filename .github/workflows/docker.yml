@@ -33,7 +33,7 @@ jobs:
           docker exec gunicorn make install-dev
           docker exec -e BALSAM_LOG_DIR="/balsam/log" -e BALSAM_TEST_API_URL="http://localhost:8000" gunicorn make testcov
       - name: Archive test logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: test-logs
