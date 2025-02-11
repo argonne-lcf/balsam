@@ -92,28 +92,7 @@ of `settings.yml`. This expects a dictionary mapping parameter **names** to **de
 
 These "pass-through" parameters can then be provided as
 extras on the command line via `-x/--extra-param` flags.
-For instance, the ALCF-Theta job template supports a `singularity_prime_cache` option that allows you to enable this
-feature using `-x singularity_prime_cache=yes` on the `balsam queue submit`
-command.  Here's how that option is implemented:
 
-```yaml
-# In settings.yml
-scheduler:
-  optional_batch_job_params:
-      singularity_prime_cache: 'no'
-```
-
-```bash
-# In job-template.sh
-{% if optional_params.get("singularity_prime_cache") == 'yes' %}
-  # Prime LDAP for large-scale Singularity runs
-  aprun -N 1 -n $COBALT_JOBSIZE /soft/tools/prime-cache
-  sleep 10
-{% endif %}
-```
-
-Users of ThetaGPU at the ALCF can similarly leverage the MIG partitioning
-capability of A100 GPUs by passing the optional parameter `-x mig_count=N` (three possible split values of `N` equal to `2`, `3`, and `7` are currently supported).
 
 ## Customizing the Settings
 

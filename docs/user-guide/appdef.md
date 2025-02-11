@@ -2,7 +2,7 @@
 
 ## Registering `ApplicationDefinitions`
 Once you have a Site, the next step is to define the applications that Balsam may run.
-Each Site is linked to a set of `ApplicationDefinition` Python classes: check the [Getting Started tutorial](../../tutorials/theta-quickstart#set-up-your-apps) to see a quick example of this in action.
+Each Site is linked to a set of `ApplicationDefinition` Python classes: check the [Getting Started tutorial](../../tutorials/quickstart#set-up-your-apps) to see a quick example of this in action.
 You can create and register `ApplicationDefinition` subclasses from any Python
 session.  For instance, Balsam supports interactive workflows in Jupyter
 notebooks, or workflows driven by any other Python software.
@@ -14,7 +14,7 @@ At a minimum, `ApplicationDefinitions` must declare the `site` and a
 from balsam.api import ApplicationDefinition
 
 class Sleeper(ApplicationDefinition):
-    site = "theta-gpu"
+    site = "polaris"
     command_template = 'sleep {{ sleeptime }} && echo goodbye'
 
 Sleeper.sync()
@@ -22,11 +22,11 @@ Sleeper.sync()
 
 The `site` attribute must be present on each `ApplicationDefinition` subclass to identify where the app runs.  The `site` can take any of the following types unambiguously specifying a Site:
 
-- Site name (uniquely assigned during `balsam site init`, like `"theta-gpu"`)
+- Site name (uniquely assigned during `balsam site init`, like `"polaris"`)
 - Site ID (e.g. `142`)
 - `Site` object (fetched from the [API](./api.md))
 
-The `ApplicationDefinition` is uniquely identified by its **class name and site**.   In the above example, we defined the `Sleeper` application at the `theta-gpu` Site.  When `Sleeper.sync()` is called, the Python class and associated metadata is *serialized* and shipped to the Balsam web API. The `Sleeper` `ApplicationDefinition` is thereafter linked to the Site named `theta-gpu`, and workflows can proceed to submit `Sleeper` Jobs to `theta-gpu` from anywhere!
+The `ApplicationDefinition` is uniquely identified by its **class name and site**.   In the above example, we defined the `Sleeper` application at the `polaris` Site.  When `Sleeper.sync()` is called, the Python class and associated metadata is *serialized* and shipped to the Balsam web API. The `Sleeper` `ApplicationDefinition` is thereafter linked to the Site named `polaris`, and workflows can proceed to submit `Sleeper` Jobs to `polaris` from anywhere!
 
 !!! warning "`ApplicationDefinitions` must be named uniquely!"
     If another Python session syncs a different `Sleeper` class belonging to
@@ -81,7 +81,7 @@ define a `run()` method that will be launched using the exact same rules as ordi
 
 ```python
 class Adder(ApplicationDefinition):
-    site = "theta-gpu"
+    site = "polaris"
 
     def run(self, x, y):
         return x + y
@@ -106,7 +106,7 @@ import numpy as np
 
 
 class NumpyPlusMPI(ApplicationDefinition):
-    site = "theta-gpu"
+    site = "polaris"
 
     def run(self, *dims):
         from mpi4py import MPI
@@ -131,11 +131,11 @@ The `run` function can generally refer to imported modules and objects from othe
 The same constraint holds true when the `ApplicationDefinitions` themselves are located in an imported module.  For example, if your Balsam code is packaged in `my_science_package`, that module/package must be installed in the Site environment where the `ApplicationDefinition` is synced to.
 
 ```python
-# This import line must work on theta-gpu...
+# This import line must work on polaris...
 from my_science_package import setup_workflow
 
-# If this method syncs apps to theta-gpu:
-setup_workflow(site="theta-gpu")
+# If this method syncs apps to polaris:
+setup_workflow(site="polaris")
 ```
 
 !!! note "Technical Details"
@@ -176,7 +176,7 @@ name (string), ID (integer), or reference to a loaded `ApplicationDefinition`.
 For example, you can load the set of applications registered at a given Site as follows:
 
 ```python
-apps_by_name = ApplicationDefinition.load_by_site("theta-gpu")
+apps_by_name = ApplicationDefinition.load_by_site("polaris")
 Sleeper = apps_by_name["Sleeper"]
 ```
 
@@ -228,7 +228,7 @@ class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
-    site = "theta-gpu"
+    site = "polaris"
 ```
 
 ### Environment Variables
@@ -244,7 +244,7 @@ class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
-    site = "theta-gpu"
+    site = "polaris"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
@@ -259,7 +259,7 @@ class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
-    site = "theta-gpu"
+    site = "polaris"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
@@ -277,7 +277,7 @@ When the `ApplicationDefinition` contains a `run()` method, this function is lau
 import numpy as np
 
 class VecNorm(ApplicationDefinition):
-    site = "theta-gpu"
+    site = "polaris"
 
     def run(self, vec):
         return np.linalg.norm(vec)
@@ -296,7 +296,7 @@ You should override `python_exe` if you wish to invoke the `run` function using 
 import numpy as np
 
 class VecNorm(ApplicationDefinition):
-    site = "theta-gpu"
+    site = "polaris"
     python_exe = "/path/to/bin/python3.8"
 
     def run(self, vec):
@@ -315,7 +315,7 @@ class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
-    site = "theta-gpu"
+    site = "polaris"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
@@ -410,7 +410,7 @@ class MySimulation(ApplicationDefinition):
     """
     Some description of the app goes here
     """
-    site = "theta-gpu"
+    site = "polaris"
     environment_variables = {
         "HDF5_USE_FILE_LOCKING": "FALSE",
     }
