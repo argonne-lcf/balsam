@@ -1,0 +1,1743 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://balsam.readthedocs.io/en/latest/development/layout/">
+      
+      
+        <link rel="prev" href="../data-model/">
+      
+      
+        <link rel="next" href="../porting/">
+      
+      
+      <link rel="icon" href="../../img/balsam_favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Project Layout - Balsam</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#project-layout" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Balsam" class="md-header__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Balsam
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Project Layout
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/quickstart/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/installation/" class="md-tabs__link">
+          
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../contributing/" class="md-tabs__link">
+          
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../deploy/" class="md-tabs__link">
+        
+  
+    
+  
+  Admin Guide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../community/publications/" class="md-tabs__link">
+        
+  
+    
+  
+  Publications
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../LICENSE/" class="md-tabs__link">
+        
+  
+    
+  
+  License
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Balsam" class="md-nav__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    Balsam
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/site-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating Balsam Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/appdef/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Defining Apps
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Command Line
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/jobs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Managing Jobs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/batchjob/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Executing Jobs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/monitoring/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Workflow Monitoring and Analytics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/elastic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Auto Scaling
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/transfer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Data Transfers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Instructions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Understanding the Data Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Project Layout
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Project Layout
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamschemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.schemas
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.server
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamclient" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.client
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsam_api" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam._api
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam._api">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#applicationdefinition" class="md-nav__link">
+    <span class="md-ellipsis">
+      ApplicationDefinition
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamplatform" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.platform
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam.platform">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apprun" class="md-nav__link">
+    <span class="md-ellipsis">
+      AppRun
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#computenode" class="md-nav__link">
+    <span class="md-ellipsis">
+      ComputeNode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scheduler
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transferinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      TransferInterface
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.config
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamsite" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.site
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam.site">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#jobsource" class="md-nav__link">
+    <span class="md-ellipsis">
+      JobSource
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#statusupdater" class="md-nav__link">
+    <span class="md-ellipsis">
+      StatusUpdater
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scripttemplate" class="md-nav__link">
+    <span class="md-ellipsis">
+      ScriptTemplate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#launcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      Launcher
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamsiteservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.site.service
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam.site.service">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main" class="md-nav__link">
+    <span class="md-ellipsis">
+      main
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schedulerservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      SchedulerService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#elasticqueueservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      ElasticQueueService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#queuemaintainerservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      QueueMaintainerService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processingservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProcessingService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transferservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      TransferService
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamcmdline" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.cmdline
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../porting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Porting to New Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Integration Testing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../client/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python REST Client
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Admin Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/publications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publications
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LICENSE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamschemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.schemas
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.server
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamclient" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.client
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsam_api" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam._api
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam._api">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#applicationdefinition" class="md-nav__link">
+    <span class="md-ellipsis">
+      ApplicationDefinition
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamplatform" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.platform
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam.platform">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apprun" class="md-nav__link">
+    <span class="md-ellipsis">
+      AppRun
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#computenode" class="md-nav__link">
+    <span class="md-ellipsis">
+      ComputeNode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scheduler
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transferinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      TransferInterface
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.config
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamsite" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.site
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam.site">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#jobsource" class="md-nav__link">
+    <span class="md-ellipsis">
+      JobSource
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#statusupdater" class="md-nav__link">
+    <span class="md-ellipsis">
+      StatusUpdater
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scripttemplate" class="md-nav__link">
+    <span class="md-ellipsis">
+      ScriptTemplate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#launcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      Launcher
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamsiteservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.site.service
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="balsam.site.service">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main" class="md-nav__link">
+    <span class="md-ellipsis">
+      main
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schedulerservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      SchedulerService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#elasticqueueservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      ElasticQueueService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#queuemaintainerservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      QueueMaintainerService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processingservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProcessingService
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transferservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      TransferService
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balsamcmdline" class="md-nav__link">
+    <span class="md-ellipsis">
+      balsam.cmdline
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="project-layout">Project Layout<a class="headerlink" href="#project-layout" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>This page summarizes Balsam architecture at a high level in terms of the roles that various modules play.  Here are the files and folders you'll find right under <code>balsam/</code>:</p>
+<ul>
+<li><code>balsam.schemas</code>: The source of truth on the REST API schema is here.  This defines the various resources which are imported by FastAPI code in <code>balsam.server</code>.  FastAPI uses this to generate the OpenAPI schema and interactive documentation at <code>/docs</code>. Moreover, the <strong>user-facing</strong> SDK in <code>balsam/_api/models.py</code> is dynamically-generated from the schemas herein. Running <code>make generate-api</code> (which is invoked during <code>make all</code>) will re-generate <code>_api/models.py</code> from the schemas.</li>
+<li><code>balsam.server</code> the backend REST API server code that is deployed using Gunicorn, alongside PostgreSQL, to host the Balsam web service. Virtually all User or Site-initiated actions via <code>balsam.api</code> will ultimately create an HTTPS request in <code>balsam.client</code> that gets handled by this server.</li>
+<li><code>balsam.client</code>:  Implementation of the lower-level HTTP clients that are <strong>used by</strong> the Managers of <code>balsam._api</code>.  Auth and retry logic is here.  This is what ultimately talks to the server.</li>
+<li><code>balsam._api</code>:  implementation of a Django ORM-like library for interacting with the Balsam REST API (e.g. look here to understand how <code>Job.objects.filter()</code> is implemented)</li>
+<li><code>balsam.api</code>: public re-export of the user-facing resources in <code>_api</code></li>
+<li><code>balsam.analytics</code>: user-facing helper functions to analyze Job statistics</li>
+<li><code>balsam.cmdline</code>: The command line interfaces.</li>
+<li><code>balsam.config.config</code>: defines the central <code>ClientSettings</code> class, which loads credentials from <code>~/.balsam/client.yml</code>, as well as the <code>Settings</code> class, which loads Site-local settings from <code>settings.yml</code>.  To understand the magic in these classes look at <a href="https://pydantic-docs.helpmanual.io/usage/settings/">Pydantic Settings management</a>.</li>
+<li><code>balsam.config.site_builder</code>: Does the heavy lifting for <code>balsam site init</code>.</li>
+<li><code>balsam.config.defaults</code>:  The default settings for various HPC platforms that Balsam supports out-of-the-box.  Add new defaults here to extend the list of systems that users are prompted to select from <code>balsam site init.</code></li>
+<li><code>balsam.platform</code>: This package defines generic interfaces to compute nodes, MPI app launchers, and schedulers. Concrete subclasses of these implement the platform-specific interfaces (e.g. Theta <code>aprun</code> launcher or Slurm scheduler)</li>
+<li><code>balsam.shared_apps</code>: pre-packaged <code>ApplicationDefinitions</code> that users can import, subclass, and deploy to their Sites. </li>
+<li><code>balsam.site</code>: The implementation of the Balsam Site Agent and the Launcher pilot jobs that it ultimately dispatches. Thanks to the generic platform interfaces, all the code that does heavy lifting here is <strong>totally platform-agnostic</strong>: if you find yourself modifying code in here to accomodate new systems, you're doing it wrong!</li>
+<li><code>balsam.util</code>: logging, signal handling, datetime parsing, and miscellaneous helpers.</li>
+</ul>
+<h2 id="balsamschemas"><code>balsam.schemas</code><a class="headerlink" href="#balsamschemas" title="Permanent link">&para;</a></h2>
+<p><a href="https://pydantic-docs.helpmanual.io/">Pydantic</a> is used to define the REST API data structures, (de-)serialize HTTP JSON payloads, and perform validation. The schemas under <code>balsam.schemas</code> are used <em>both</em> by the user-facing <code>balsam._api</code> classes and the backend <code>balsam.server.routers</code> API. Thus when an update to the schema is made, both the client and server-side code inherit the change.</p>
+<p>The script <code>schemas/api_generator.py</code> is invoked to re-generate the <code>balsam/_api/models.py</code> whenever the schema changes. Thus, users benefit from always-up-to-date docstrings and type annotations across the Balsam SDK, while the implementation is handled by the internal Models, Managers, and Query classes in <code>balsam/_api</code>.</p>
+<h2 id="balsamserver"><code>balsam.server</code><a class="headerlink" href="#balsamserver" title="Permanent link">&para;</a></h2>
+<p>This is the self-contained codebase for the API server, implemented with <a href="https://fastapi.tiangolo.com/">FastAPI</a> and <a href="https://docs.sqlalchemy.org/en/13/">SQLAlchemy</a>.  We do not expect Balsam users to ever run or touch this code, unless they are interested in standing up their own server.</p>
+<ul>
+<li><code>server/conf.py</code> contains the server settings class which loads server settings from the environment using Pydantic.</li>
+<li><code>server/main.py</code> imports all of the API routers which define the HTTP endpoints for <code>/auth/</code>, <code>/jobs</code>, etc...</li>
+<li><code>server/auth</code> contains authentication routes and logic.<ul>
+<li><code>__init__.py::build_auth_router</code> uses the server settings to determine which login methods will be exposed under the API <code>/auth</code> URLs.  </li>
+<li><code>authorization_code_login.py</code> and <code>device_code_login.py</code> comprise the OAuth2 login capability.</li>
+<li><code>db_sessions.py</code> defines the <code>get_admin_session</code> and <code>get_webuser_session</code> functions that manage database connections and connection pooling.  The latter can be used to obtain user-level sessions with RLS (row-level security).</li>
+<li><code>token.py</code> has the JWT logic which is used <strong>on every single request</strong> (not just login!) to authenticate the client request prior to invoking the FastAPI route handler.</li>
+</ul>
+</li>
+<li><code>server.main</code> defines the top-level URL routes into views located in <code>balsam.server.routers</code></li>
+<li><code>balsam.server.routers</code> defines the possible API actions.  These routes ultimately call into various methods under <code>balsam.server.models.crud</code>, where the business logic is defined.</li>
+<li><code>balsam.server.models</code> encapsulates the database and any actions that involve database communication.<ul>
+<li><code>alembic</code> contains the database migrations</li>
+<li><code>crud</code> contains the business logic invoked by the various FastAPI routes</li>
+<li><code>tables.py</code> contains the SQLAlchemy model definitions</li>
+</ul>
+</li>
+</ul>
+<h2 id="balsamclient"><code>balsam.client</code><a class="headerlink" href="#balsamclient" title="Permanent link">&para;</a></h2>
+<p>This package defines the low-level <code>RESTClient</code> interface used by all the Balsam Python clients.<br />
+The implementations capture the details of authentication to the Balsam API and performing HTTP requests.</p>
+<h2 id="balsam_api"><code>balsam._api</code><a class="headerlink" href="#balsam_api" title="Permanent link">&para;</a></h2>
+<p>Whereas the <code>RESTClient</code> provides a lower-level interface (exchanging JSON data over HTTP),
+the <code>balsam._api</code> defines Django ORM-like <code>Models</code> and <code>Managers</code> to emulate the original Balsam API:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">Job</span>
+
+<span class="n">finished_jobs</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;JOB_FINISHED&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>This is the primary user-facing SDK.  Under the hood, it uses a <code>RESTClient</code> implementation  from the <code>balsam.client</code> subpackage to actually make HTTP requests.</p>
+<p>For example, the <code>Job</code> model has access via <code>Job.objects</code> to an instance of <code>JobManager</code> which in turn was initialized with an authenticated <code>RESTClient</code>.  The Manager is responsible for auto-chunking large requests, lazy-loading queries, handling pagination transparently, and other features inspired by Django ORM that go beyond a typical auto-generated OpenAPI SDK.  <em>Rather than emitting SQL, these Models and Managers work together to generate HTTP requests.</em></p>
+<h3 id="applicationdefinition"><code>ApplicationDefinition</code><a class="headerlink" href="#applicationdefinition" title="Permanent link">&para;</a></h3>
+<p>Users write their own subclasses of <code>ApplicationDefinition</code> (defined in
+<code>_api/app.py</code>) to configure the Apps that may run at a particular Balsam Site.</p>
+<p>Each <code>ApplicationDefinition</code> is serialized and synchronized with the API when users run the <code>sync()</code> method or submit Jobs using the App.</p>
+<h2 id="balsamplatform"><code>balsam.platform</code><a class="headerlink" href="#balsamplatform" title="Permanent link">&para;</a></h2>
+<p>The <code>platform</code> subpackage contains all the <strong>platform-specific</strong> interfaces to various HPC systems.
+The goal of this architecture is to make porting Balsam to new HPC systems easier: a developer
+should <strong>only</strong> have to write minimal interface code under <code>balsam.platform</code> that subclasses and implements well-defined interfaces.</p>
+<p>Here is a summary of the key Balsam platform interfaces:</p>
+<h3 id="apprun"><code>AppRun</code><a class="headerlink" href="#apprun" title="Permanent link">&para;</a></h3>
+<p>This is the application launcher (<code>mpirun</code>, <code>aprun</code>, <code>jsrun</code>) interface used by the Balsam launcher (pilot job). 
+It encapsulates the environment, workdir, output streams, compute resource specification (such as MPI ranks and GPUs), and the running process.
+<code>AppRun</code> implementations may or may not use a subprocess implementation to invoke the run.</p>
+<h3 id="computenode"><code>ComputeNode</code><a class="headerlink" href="#computenode" title="Permanent link">&para;</a></h3>
+<p>The Balsam launcher uses this interface to discover available compute resources within a batch job, as well as to enumerate resources (CPU cores, GPUs) on a node and track their occupancy.</p>
+<h3 id="scheduler"><code>Scheduler</code><a class="headerlink" href="#scheduler" title="Permanent link">&para;</a></h3>
+<p>The Balsam Site uses this interface to interact with the local resource manager (e.g. Slurm, Cobalt) to submit new batch jobs, check on job statuses, and inspect other system-wide metrics (e.g. backfill availability).</p>
+<h3 id="transferinterface"><code>TransferInterface</code><a class="headerlink" href="#transferinterface" title="Permanent link">&para;</a></h3>
+<p>The Balsam Site uses this interface to submit new transfer tasks and poll on their status. A GlobusTransfer interface is implemented for batching Job stage-ins/stage-outs into Globus Transfer tasks.</p>
+<h2 id="balsamconfig"><code>balsam.config</code><a class="headerlink" href="#balsamconfig" title="Permanent link">&para;</a></h2>
+<p>A comprehensive configuration is stored in each Balsam Site as <code>settings.yml</code>.
+This <em>per-site</em> config improves isolation between sites, and enables more flexible configs when multiple sites share a filesystem.</p>
+<p>The Settings are also described by a Pydantic schema, which is used to validate
+the YAML file every time it is loaded.  The loaded settings are held in a
+<code>SiteConfig</code> instance that's defined within this subpackage. </p>
+<p>The SiteConfig is available to all users via:
+<code>from balsam.api import site_config</code>.  This import statement depends on the resolution of the Balsam site path from the local filesystem (i.e. it can only work when <code>cwd</code> is inside of a Balsam site, which is the case wherever a <code>Job</code> is running or pre/post-proccesing.)</p>
+<h2 id="balsamsite"><code>balsam.site</code><a class="headerlink" href="#balsamsite" title="Permanent link">&para;</a></h2>
+<p>This subpackage contains the real functional core of Balsam: the various
+components that run on a Site to execute workflows.  The Site <code>settings.yml</code>
+specifies which platform adapters are needed, and these adapters are <em>injected</em>
+into the Site components, which use them generically.  This enables all the code
+under <code>balsam.site</code> to run  across platforms without modification.</p>
+<h3 id="jobsource"><code>JobSource</code><a class="headerlink" href="#jobsource" title="Permanent link">&para;</a></h3>
+<p>Launchers and pre/post-processing modules use this interface to fetch <code>Jobs</code> from the API. The abstraction
+keeps specific API calls out of the launcher code base, and permits different implementation strategies:</p>
+<ul>
+<li><code>FixedDepthJobSource</code> maintains a queue of pre-fetched jobs using a background process</li>
+<li><code>SynchronousJobSource</code> performs a blocking API call to fetch jobs according to a specification of available resources.</li>
+</ul>
+<p>Most importantly, both <code>JobSources</code> use the Balsam <code>Session</code> API to <strong>acquire</strong>
+Jobs by performing an HTTP <code>POST /sessions/{session_id}</code>.  This prevents race
+conditions when concurrent launchers acquire Jobs at the same Site, and it
+ensures that Jobs are not locked in perpetuity if a Session expires. Sessions
+are ticked with a periodic heartbeat to refresh the lock on long-running jobs.
+Eventually, Sessions are deleted when the corresponding launcher ends.  Details of the job acquisition API are in <code>schemas/sessions.py::SessionAcquire</code>.</p>
+<h3 id="statusupdater"><code>StatusUpdater</code><a class="headerlink" href="#statusupdater" title="Permanent link">&para;</a></h3>
+<p>The <code>StatusUpdater</code> interface is used to manage job status updates, and also helps to keep API-specific code out of the other Balsam internals. The primary implementation <code>BulkStatusUpdater</code> pools update events that are passed via queue to a background process, and performs bulk API updates to reduce the frequency of API calls.</p>
+<h3 id="scripttemplate"><code>ScriptTemplate</code><a class="headerlink" href="#scripttemplate" title="Permanent link">&para;</a></h3>
+<p>The <code>ScriptTemplate</code> is used to generate shell scripts for submission to the local resource manager, using a Site-specific job template file.</p>
+<h3 id="launcher"><code>Launcher</code><a class="headerlink" href="#launcher" title="Permanent link">&para;</a></h3>
+<p>The <code>MPI</code> and <code>serial</code> job modes of the Balsam launcher are implemented here. These are standalone, executable Python scripts that carry out the execution of Balsam <code>Jobs</code> (sometimes called a <strong>pilot job</strong> mechanism). The launchers are invoked from a shell script generated by the <code>ScriptTemplate</code> which is submitted to the local resource manager (via the <code>Scheduler</code> interface).</p>
+<p>The <code>mpi</code> mode is a simpler implementation that runs a single process on the
+head node of a batch job which launches each job with the MPI launcher (e.g.
+<code>aprun</code>, <code>mpiexec</code>).  The <code>serial</code> mode is more involved: a <strong>Worker</strong> process
+is first started on each compute node; these workers then receive <code>Jobs</code> and
+send status updates to a Master process.  The advantage of Serial mode is that
+very large numbers of node-local jobs can be launched without incurring the
+overhead of a single <code>mpiexec</code> per job.</p>
+<p>In both <code>mpi</code> and <code>serial</code> modes, the leader process uses a <code>JobSource</code> to acquire jobs and <code>StatusUpdater</code> to send state updates back to the API (see above).</p>
+<p>Serial mode differs from MPI mode by using ZeroMQ to forward jobs from the
+leader to the Workers.  Moreover, users can pass the <code>--partitions</code> flag to
+split a single Batch job allocation into multiple leader/worker groups.  This
+allows for scalable launch to hundreds of thousands of simultaneous tasks.  For
+instance on ThetaKNL, one can launch 131,072 simultaneous jobs across 2048
+nodes by packing 64 Jobs per node with <code>node_packing_count=64</code>.  The Workers
+will prefetch Jobs and launch them, thereby hiding the overhead of communication
+with the leader.  To further speed this process, the 2048 node batch job can be
+split into <code>16</code> partitions of <code>128 nodes</code> each. Thus: 1 central API server fans
+out to 16 serial mode leaders, each of which fan out to 128 workers, and each
+worker prefetches Jobs and launches 64 concurrently. Job launch and polling are almost entirely overlapped with communication in this paradigm, and the serial mode leaders use background processes for the <code>JobSource</code> and <code>StatusUpdater</code>, leaving the leader highly available to forward jobs to Workers and route updates back to the <code>StatusUpdater</code>'s queue.</p>
+<h2 id="balsamsiteservice"><code>balsam.site.service</code><a class="headerlink" href="#balsamsiteservice" title="Permanent link">&para;</a></h2>
+<p>The Balsam Site daemon comprises a group of background processes that run on behalf of the user. The daemon may run on a login node, or on any other resource appropriate for a long-running background process. The only requirements are that:</p>
+<ul>
+<li>The Site daemon can access the filesystem with the Site directory, and</li>
+<li>The Site daemon can access the local resource manager (e.g. perform <code>qsub</code>)</li>
+<li>The Site daemon can access the Balsam API</li>
+</ul>
+<p>The Site daemon is organized as a collection of <code>BalsamService</code> classes, each of which describes a particular
+background process. This setup is highly modular: users can easily configure which service modules are in use, and developers can implement additional services that hook directly into the Site.</p>
+<h3 id="main"><code>main</code><a class="headerlink" href="#main" title="Permanent link">&para;</a></h3>
+<p>The <code>balsam/site/service/main.py</code> is the entry point that ultimately loads <code>settings.yml</code> into a <code>SiteConfig</code> instance, which defines the various services that the Site Agent will run.  Each of these services is launched as a background process and monitored here after invoking <code>balsam site start</code>.  When terminated (e.g. with <code>balsam site stop</code>) -- the teardown happens here as well.</p>
+<p>The following are some of the most common plugins to the Balsam site agent.</p>
+<h3 id="schedulerservice"><code>SchedulerService</code><a class="headerlink" href="#schedulerservice" title="Permanent link">&para;</a></h3>
+<p>This <code>BalsamService</code> component syncs with <code>BatchJobs</code> in the Balsam API and <strong>uses the <code>Scheduler</code> platform interface</strong> to submit new <code>BatchJobs</code> and update the status of existing <code>BatchJobs</code>. <strong>It does not automate the process of job submission</strong> -- it only serves to keep the API state and local resource manager state synchronized.</p>
+<p>For example, a user performs <code>balsam queue submit</code> to add a new <code>BatchJob</code> to the REST API.
+The <code>SchedulerService</code> <strong>eventually</strong> detects this new <code>BatchJob</code>, generates an appropriate script from the <code>ScriptTemplate</code> and <code>job-template.sh</code> (see above), and submits it to the local Slurm scheduler.</p>
+<h3 id="elasticqueueservice"><code>ElasticQueueService</code><a class="headerlink" href="#elasticqueueservice" title="Permanent link">&para;</a></h3>
+<p>This <code>BalsamService</code> monitors the backlog of <code>Jobs</code> and locally available compute resources, and it automatically submits new <code>BatchJobs</code> to the API to adapt to realtime workloads. This is a form of automated job submission, which works together with the <code>SchedulerService</code> to fully automate resource allocation and execution.</p>
+<h3 id="queuemaintainerservice"><code>QueueMaintainerService</code><a class="headerlink" href="#queuemaintainerservice" title="Permanent link">&para;</a></h3>
+<p>This is another, simpler, form of automated job submission, in which a constant number of fixed-size <code>BatchJobs</code> are maintained at a Site (e.g. keep 5 jobs queued at all times). Intended to get through a long campaign of runs.</p>
+<h3 id="processingservice"><code>ProcessingService</code><a class="headerlink" href="#processingservice" title="Permanent link">&para;</a></h3>
+<p>This service carries out the execution of various workflow steps that are defined on the <code>ApplicationDefinition</code>:</p>
+<ul>
+<li><code>preprocess()</code></li>
+<li><code>postprocess()</code></li>
+<li><code>handle_error()</code></li>
+<li><code>handle_timeout()</code></li>
+</ul>
+<p>These are meant to be lightweight and IO-bound tasks that run in a process pool on the login node or similar resource.
+Compute-intensive tasks should be performed in the main body of an App.</p>
+<h3 id="transferservice"><code>TransferService</code><a class="headerlink" href="#transferservice" title="Permanent link">&para;</a></h3>
+<p>This service automates staging in data from remote locations prior to the <code>preprocess()</code> step of a Job, and staging results out to other remote locations after <code>postprocess()</code>. The service batches files and directories that are to be moved between a certain pair of endpoints, and creates batch Transfer tasks via the <code>TransferInterface</code>.</p>
+<h2 id="balsamcmdline"><code>balsam.cmdline</code><a class="headerlink" href="#balsamcmdline" title="Permanent link">&para;</a></h2>
+<p>The command line interfaces to Balsam are written as Python functions decorated with <a href="https://click.palletsprojects.com/en/7.x/">Click</a></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/argonne-lcf/balsam" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

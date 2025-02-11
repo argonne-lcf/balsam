@@ -1,0 +1,2165 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://balsam.readthedocs.io/en/latest/development/data-model/">
+      
+      
+        <link rel="prev" href="../contributing/">
+      
+      
+        <link rel="next" href="../layout/">
+      
+      
+      <link rel="icon" href="../../img/balsam_favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Understanding the Data Model - Balsam</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#understanding-balsam" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Balsam" class="md-header__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Balsam
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Understanding the Data Model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/quickstart/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/installation/" class="md-tabs__link">
+          
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../contributing/" class="md-tabs__link">
+          
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../deploy/" class="md-tabs__link">
+        
+  
+    
+  
+  Admin Guide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../community/publications/" class="md-tabs__link">
+        
+  
+    
+  
+  Publications
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../LICENSE/" class="md-tabs__link">
+        
+  
+    
+  
+  License
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Balsam" class="md-nav__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    Balsam
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/site-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating Balsam Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/appdef/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Defining Apps
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Command Line
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/jobs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Managing Jobs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/batchjob/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Executing Jobs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/monitoring/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Workflow Monitoring and Analytics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/elastic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Auto Scaling
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/transfer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Data Transfers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Instructions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Understanding the Data Model
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Understanding the Data Model
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Database Schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      The REST API
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-a-note-on-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      User &amp; a note on Auth
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary-of-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary of Endpoints
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#site" class="md-nav__link">
+    <span class="md-ellipsis">
+      Site
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#app" class="md-nav__link">
+    <span class="md-ellipsis">
+      App
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batchjob" class="md-nav__link">
+    <span class="md-ellipsis">
+      BatchJob
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transferitem" class="md-nav__link">
+    <span class="md-ellipsis">
+      TransferItem
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logevent" class="md-nav__link">
+    <span class="md-ellipsis">
+      LogEvent
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Project Layout
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../porting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Porting to New Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Integration Testing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../client/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python REST Client
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Admin Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/publications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publications
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LICENSE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Database Schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      The REST API
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-a-note-on-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      User &amp; a note on Auth
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary-of-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary of Endpoints
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#site" class="md-nav__link">
+    <span class="md-ellipsis">
+      Site
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#app" class="md-nav__link">
+    <span class="md-ellipsis">
+      App
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batchjob" class="md-nav__link">
+    <span class="md-ellipsis">
+      BatchJob
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transferitem" class="md-nav__link">
+    <span class="md-ellipsis">
+      TransferItem
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logevent" class="md-nav__link">
+    <span class="md-ellipsis">
+      LogEvent
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="understanding-balsam">Understanding Balsam<a class="headerlink" href="#understanding-balsam" title="Permanent link">&para;</a></h1>
+<p>Balsam is made up of:</p>
+<ul>
+<li>A centrally-managed, multi-tenant web application for securely curating HPC applications,  authoring workflows, and managing high-throughput job campaigns across one or many computing facilities.</li>
+<li>Distributed, user-run <strong>Balsam Sites</strong> that sync with the central API to orchestrate and carry out the workflows defined by users on a given HPC platform.</li>
+</ul>
+<p>In order to understand how Balsam is organized, one should first consider the
+server side entities. This graph shows the database schema of the Balsam
+application. Each node is a table in the database, represented by one of the
+model classes in the ORM. Each arrow represents a ForeignKey (or
+<a href="https://docs.djangoproject.com/en/3.0/topics/db/examples/many_to_one/">many-to-one</a>) relationship between two tables.</p>
+<p><img alt="Database Schema" src="../../graphs/db.png" /></p>
+<h2 id="the-database-schema">The Database Schema<a class="headerlink" href="#the-database-schema" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>A <code>User</code> represents a Balsam user account.  <strong>All items in the database
+     are linked to a single owner (tenant)</strong>, which is reflected in the connectivity of
+     the graph. For example, to get all the jobs belonging to <code>current_user</code>,
+     join the tables via <code>Job.objects.filter(app__site__user=current_user)</code></p>
+</li>
+<li>
+<p>A <code>Site</code> must have a globally unique <code>name</code> which corresponds to a
+  directory on some machine. One user can own several Balsam sites located
+  across one or several machines.  Each site is an <em>independent</em> endpoint where
+  applications are registered, data is transferred in and out, and Job working
+  directories are located. <strong>Each Balsam site runs a daemon on behalf of the
+  user that communicates with the central API.</strong> If a user has multiple active
+  Balsam Sites, then a separate daemon runs at each of them.  The authenticated
+  daemons communicate with the central Balsam API to fetch jobs, orchestrate the
+  workflow locally, and update the database state. </p>
+</li>
+<li>
+<p><strong>An <code>App</code> represents a runnable application at a particular Balsam Site.</strong>
+     Every Balsam Site contains an <code>apps/</code> directory with Python modules
+     containing <code>ApplicationDefinition</code> classes.  The set of
+     <code>ApplicationDefinitions</code> determines the applications which may run at the
+     Site.  An <code>App</code> instance in the data model is merely a reference to an
+     <code>ApplicationDefinition</code> class, uniquely identified by the Site ID and
+     class path.</p>
+</li>
+<li>
+<p>A <code>Job</code> represents a single run of an <code>App</code> at a particular <code>Site</code>.  The
+     <code>Job</code> contains both application-specific data (like command line
+     arguments) and resource requirements (like number of MPI ranks per node)
+     for the run. It is important to note that Job--&gt;App--&gt;Site are
+     non-nullable relations, so <strong>a <code>Job</code> is always bound
+     to run at a particular <code>Site</code> from the moment its created</strong>.  Therefore, the corresponding Balsam service
+     daemon may begin staging-in data as soon as a <code>Job</code> becomes visible, as appropriate.</p>
+</li>
+<li>
+<p>A <code>BatchJob</code> represents a job launch script and resource request submitted
+     by the <code>Site</code> to the local workload manager (e.g. Slurm). Notice that
+     the relation of <code>BatchJob</code> to <code>Site</code> is many-to-one, and that <code>Job</code> to
+     <code>BatchJob</code> is many-to-one. That is, <strong>many <code>Jobs</code> run in a single
+     <code>BatchJob</code></strong>, and many <code>BatchJobs</code> are submitted at a <code>Site</code> over time.</p>
+</li>
+<li>
+<p>The <code>Session</code> is an <strong>internal</strong> model representing an active Balsam launcher
+     session.  <code>Jobs</code> have a nullable relationship to <code>Session</code>; when it is not
+     null, the job is said to be <em>locked</em> by a launcher, and no other launcher
+     should try running it.  The Balsam <strong>session API</strong> is used by launchers 
+     acquiring jobs concurrently to avoid race conditions.  Sessions contain a
+     heartbeat timestamp that must be periodically ticked to maintain the session.</p>
+</li>
+<li>
+<p>A <code>TransferItem</code> is created for each stage-in or stage-out task
+      associated with a <code>Job</code>. This permits the transfer module of the Balsam
+      service to group transfers according to the remote source or destination,
+      and therefore batch small transfers efficiently. When all the stage-in <code>TransferItems</code>
+      linked to a <code>Job</code> are finished, it is considered "staged-in" and moves ahead to
+      preprocessing.</p>
+</li>
+<li>
+<p>A <code>LogEvent</code> contains a <code>timestamp</code>, <code>from_state</code>, <code>to_state</code>, and <code>message</code> for each
+   state transition linked to a <code>Job</code>.  The benefit of breaking a Job's state history out into
+   a separate Table is that it becomes easy to query for aggregate throughput, etc... without
+   having to first parse and accumulate timestamps nested inside a <code>Job</code> field.</p>
+</li>
+</ol>
+<h2 id="the-rest-api">The REST API<a class="headerlink" href="#the-rest-api" title="Permanent link">&para;</a></h2>
+<p>Refer to the interactive document located under the <code>/docs</code> URL of your Balsam server for detailed information about each endpoint. For instance, launch a local server with <code>docker-compose up</code> and visit <a href="http://localhost:8000/docs">localhost:8000/docs</a>.</p>
+<p><img alt="Swagger UI" src="../../graphs/swagger.png" /></p>
+<h2 id="user-a-note-on-auth">User &amp; a note on Auth<a class="headerlink" href="#user-a-note-on-auth" title="Permanent link">&para;</a></h2>
+<p>Generally, Balsam will need two types of Auth to function:</p>
+<ol>
+<li><strong>Login auth:</strong> This will likely be an pair of views providing an
+   OAuth flow, where Balsam redirects the user to an external auth system,
+   and upon successful authentication, user information is redirected <em>back</em>
+   to a Balsam callback view. For testing purposes, basic password-based login
+   could be used instead.</li>
+<li><strong>Token auth:</strong> After the initial login, Balsam clients need a way to
+   authenticate subsequent requests to the API.  This can be performed with
+   Token authentication and a secure setup like <a href="https://github.com/James1345/django-rest-knox">Django REST
+   Knox</a>.  Upon successful
+   <em>login</em> authentication (step 1), a Token is generated and stored (encrypted)
+   for the User.  This token is returned to the client in the login response.
+   The client then stores this token, which has some expiration date, and
+   includes it as a HTTP header on every subsequent request to the API (e.g.
+   <code>Authorization: Token 4789ac8372...</code>). This is both how Javascript web clients and automated Balsam Site services can communicate with the API.</li>
+</ol>
+<h2 id="summary-of-endpoints">Summary of Endpoints<a class="headerlink" href="#summary-of-endpoints" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>HTTP Method</th>
+<th>URL</th>
+<th>Description</th>
+<th>Example usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td>/sites/</td>
+<td>Retrieve the current user's list of sites</td>
+<td>A user checks their Balsam site statuses on dashboard</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/sites/</td>
+<td>Create a new Site</td>
+<td><code>balsam init</code> creates a Site and stores new <code>id</code> locally</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>/sites/{id}</td>
+<td>Update Site information</td>
+<td>Service daemon syncs <code>backfill_windows</code> periodically</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>/sites/{id}</td>
+<td>Delete Site</td>
+<td>User deletes their Site with <code>balsam rm site</code></td>
+</tr>
+<tr>
+<td>-----------</td>
+<td>---------------</td>
+<td>--------------------</td>
+<td>-------------------</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/apps/</td>
+<td>Retrieve the current user's list of Apps</td>
+<td><code>balsam ls apps</code> shows Apps across sites</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/apps/</td>
+<td>Create a new <code>App</code></td>
+<td><code>balsam app sync</code> creates new <code>Apps</code> from local <code>ApplicationDefinitions</code></td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>/apps/{id}</td>
+<td>Update <code>App</code> information</td>
+<td><code>balsam app sync</code> updates existing <code>Apps</code> with changes from local <code>ApplicationDefinitions</code></td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>/apps/{id}</td>
+<td>Delete <code>App</code></td>
+<td>User deletes an <code>App</code>; all related <code>Jobs</code> are deleted</td>
+</tr>
+<tr>
+<td>-----------</td>
+<td>---------------</td>
+<td>--------------------</td>
+<td>-------------------</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/jobs/</td>
+<td>Get paginated Job lists, filtered by site, state, tags, BatchJob, or App</td>
+<td><code>balsam ls</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/jobs/</td>
+<td>Bulk-create <code>Jobs</code></td>
+<td>Create 1k jobs with single API call</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>/jobs/{id}</td>
+<td>Update <code>Job</code> information</td>
+<td>Tweak a single job in web UI</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>/jobs/{id}</td>
+<td>Delete <code>Job</code></td>
+<td>Delete a single job in web UI</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>/jobs/</td>
+<td>Bulk-update Jobs: apply same update to all jobs matching query</td>
+<td>Restart all jobs at Site X with tag workflow="foo"</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>/jobs/</td>
+<td>Bulk-update Jobs: apply list of patches job-wise</td>
+<td>Balsam StatusUpdater component sends a list of status updates to API</td>
+</tr>
+<tr>
+<td>-----------</td>
+<td>---------------</td>
+<td>--------------------</td>
+<td>-------------------</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/batch-jobs/</td>
+<td>Get BatchJobs</td>
+<td>Web client lists recent BatchJobs</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/batch-jobs/</td>
+<td>Create BatchJob</td>
+<td>Web client or ElasticQueue submits a new BatchJob</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>/batch-jobs/{id}</td>
+<td>Alter BatchJob by ID</td>
+<td>Web client alters job runtime while queued</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>/batch-jobs/{id}</td>
+<td>Delete BatchJob by ID</td>
+<td>User deletes job before it was ever submitted</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>/batch-jobs/</td>
+<td>Bulk Update batch jobs by patch list</td>
+<td>Service syncs BatchJob states</td>
+</tr>
+<tr>
+<td>-----------</td>
+<td>---------------</td>
+<td>--------------------</td>
+<td>-------------------</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/sessions</td>
+<td>Get Sessions List</td>
+<td>BatchJob Web view shows "Last Heartbeat" for each running</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/sessions</td>
+<td>Create new <code>Session</code></td>
+<td>Launcher <code>JobSource</code> initialized</td>
+</tr>
+<tr>
+<td><strong>POST</strong></td>
+<td>/sessions/{id}/acquire</td>
+<td><strong>Acquire</strong> Jobs for launcher</td>
+<td><code>JobSource</code> acquires new jobs to run</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>/sessions/{id}</td>
+<td>Tick <code>Session</code> heartbeat</td>
+<td><code>JobSource</code> ticks Session periodically</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>/sessions/{id}</td>
+<td>Destroy <code>Session</code> and release Jobs</td>
+<td>Final <code>JobSource</code> <code>release()</code> call</td>
+</tr>
+<tr>
+<td>-----------</td>
+<td>---------------</td>
+<td>--------------------</td>
+<td>-------------------</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/transfers/</td>
+<td>List <code>TransferItems</code></td>
+<td>Transfer module gets list of pending Transfers</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>/transfers/{id}</td>
+<td>Update <code>TransferItem</code>  State</td>
+<td>Transfer module updates status</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>/transfers/</td>
+<td>Bulk update <code>TransferItems</code> via patch list</td>
+<td>Transfer module bulk-updates statuses of finished transfers</td>
+</tr>
+<tr>
+<td>-----------</td>
+<td>---------------</td>
+<td>--------------------</td>
+<td>-------------------</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/events</td>
+<td>Fetch EventLogs</td>
+<td>Web client filters by Job <code>tags</code> and last 24 hours to get a quick view at throughput/utilization for a particular job type</td>
+</tr>
+</tbody>
+</table>
+<h2 id="site">Site<a class="headerlink" href="#site" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique Site ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>The unique site name like <code>theta-knl</code></td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>Absolute POSIX path to the Site directory</td>
+</tr>
+<tr>
+<td><code>last_refresh</code></td>
+<td>Automatically updated timestamp: last update to Site information</td>
+</tr>
+<tr>
+<td><code>creation_date</code></td>
+<td>Timestamp when Site was created</td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>ForeignKey to <code>User</code> model</td>
+</tr>
+<tr>
+<td><code>globus_endpoint_id</code></td>
+<td>Optional <code>UUID</code>: setting an associated endpoint for data transfer</td>
+</tr>
+<tr>
+<td><code>num_nodes</code></td>
+<td>Number of compute nodes available at the Site</td>
+</tr>
+<tr>
+<td><code>backfill_windows</code></td>
+<td>JSONField: array of <code>[queue, num_nodes, wall_time_min]</code> tuples indicating backfill slots</td>
+</tr>
+<tr>
+<td><code>queued_jobs</code></td>
+<td>JSONField: array of <code>[queue, num_nodes, wall_time_min, state]</code> indicating currently queued and running jobs</td>
+</tr>
+<tr>
+<td><code>optional_batch_job_params</code></td>
+<td>JSONField used in BatchJob forms/validation <code>{name: default_value}</code>. Taken from site config.</td>
+</tr>
+<tr>
+<td><code>allowed_projects</code></td>
+<td>JSONField used in BatchJob forms/validation: <code>[ name: str ]</code></td>
+</tr>
+<tr>
+<td><code>allowed_queues</code></td>
+<td>JSONField used in BatchJob forms/validation: <code>{name: {max_nodes, max_walltime, max_queued}}</code></td>
+</tr>
+<tr>
+<td><code>transfer_locations</code></td>
+<td>JSONField used in Job stage-in/stage-out validation: <code>{alias: {protocol, netloc}}</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="app">App<a class="headerlink" href="#app" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique App ID</td>
+</tr>
+<tr>
+<td><code>site</code></td>
+<td>Foreign Key to <code>Site</code> instance containing this App</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Short name identifying the app.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Text description (useful in generating Web forms)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of <code>ApplicationDefinition</code> class</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>Command line template or function parameters. A dict of dicts with the structure: <code>{name: {required: bool, default: str, help: str}}</code></td>
+</tr>
+<tr>
+<td><code>transfers</code></td>
+<td>A dict of stage-in/stage-out slots with the structure: <code>{name: {required: bool, direction: ["in"|"out"], target_path: str, help: str}}</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>App</code> model is used to merely <em>index</em> the <code>ApplicationDefinition</code> classes
+that a user has registered at their Balsam Sites. </p>
+<p>The <code>parameters</code> field represents "slots" for each adjustable command line parameter.<br />
+For example, an <code>ApplicationDefinition</code> command template of
+<code>"echo hello, {{first_name}}!"</code> would result in an <code>App</code> having the <code>parameters</code> list: 
+<code>[ {name: "first_name", required: true, default: "", help: ""} ]</code>.  None of the Balsam
+site components use <code>App.parameters</code> internally; the purpose of mirroring this field in 
+the database is simply to facilitate Job validation and create App-tailored web forms.</p>
+<p>Similarly, <code>transfers</code>  mirrors data on the <code>ApplicationDefinition</code> for
+Job input and validation purposes only.</p>
+<p>For security reasons, the
+validation of Job input parameters takes place in the site-local <code>ApplicationDefinition</code>
+module. Even if a malicious user altered the <code>parameters</code> field in the API, they would not
+be able to successfully run a Job with injected parameters.</p>
+<h2 id="job">Job<a class="headerlink" href="#job" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique Job ID</td>
+</tr>
+<tr>
+<td><code>workdir</code></td>
+<td>Working directory, <em>relative</em> to the Site <code>data/</code> directory</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>JSON <code>{str: str}</code> mappings for tagging and selecting jobs</td>
+</tr>
+<tr>
+<td><code>session</code></td>
+<td>ForeignKey to <code>Session</code> instance</td>
+</tr>
+<tr>
+<td><code>app</code></td>
+<td>ForeignKey to <code>App</code> instance</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>JSON <code>{paramName: paramValue}</code> for the <code>App</code> command template parameters</td>
+</tr>
+<tr>
+<td><code>batch_job</code></td>
+<td>ForeignKey to current or most recent <code>BatchJob</code> instance in which this <code>Job</code> ran</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>Current state of the <code>Job</code></td>
+</tr>
+<tr>
+<td><code>last_update</code></td>
+<td>Timestamp of last modification to Job</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>Arbitrary JSON data storage</td>
+</tr>
+<tr>
+<td><code>return_code</code></td>
+<td>Most recent return code of job</td>
+</tr>
+<tr>
+<td><code>parents</code></td>
+<td>Non-symmetric ManyToMany  Parent --&gt; Child relations between Jobs</td>
+</tr>
+<tr>
+<td><code>num_nodes</code></td>
+<td>Number of compute nodes required (&gt; 1 implies MPI usage)</td>
+</tr>
+<tr>
+<td><code>ranks_per_node</code></td>
+<td>Number of ranks per node (&gt; 1 implies MPI usage)</td>
+</tr>
+<tr>
+<td><code>threads_per_rank</code></td>
+<td>Number of logical threads per MPI rank</td>
+</tr>
+<tr>
+<td><code>threads_per_core</code></td>
+<td>Number of logical threads per hardware core</td>
+</tr>
+<tr>
+<td><code>launch_params</code></td>
+<td>Optional pass-through parameters to MPI launcher (e.g -cc depth)</td>
+</tr>
+<tr>
+<td><code>gpus_per_rank</code></td>
+<td>Number of GPUs per MPI rank</td>
+</tr>
+<tr>
+<td><code>node_packing_count</code></td>
+<td>Maximum number of instances that can run on a single node</td>
+</tr>
+<tr>
+<td><code>wall_time_min</code></td>
+<td>Lower bound estimate for runtime of the Job (leaving at default 0 is allowed)</td>
+</tr>
+</tbody>
+</table>
+<p>Let workdir uniqueness be the user's problem.  If they put 2
+jobs with same workdir, assume it's intentional.  We can
+ensure that "stdout" of each job goes into a file named by
+Job ID, so multiple runs do not collide.</p>
+<div class="mermaid">stateDiagram-v2
+    created: Created
+    awaiting_parents: Awaiting Parents
+    ready: Ready
+    staged_in: Staged In
+    preprocessed: Preprocessed
+    restart_ready: Restart Ready
+    running: Running
+    run_done: Run Done
+    postprocessed: Postprocessed
+    staged_out: Staged Out
+    finished: Job Finished
+    run_error: Run Error
+    run_timeout: Run Timeout
+    failed: Failed
+
+    created --&gt; ready: No parents
+    created --&gt; awaiting_parents: Pending dependencies
+    awaiting_parents --&gt; ready: Dependencies finished
+    ready --&gt; staged_in: Transfer external data in
+    staged_in --&gt; preprocessed: Run preprocess script
+    preprocessed --&gt; running: Launch job
+
+    running --&gt; run_done: Return code 0
+    running --&gt; run_error: Nonzero return
+    running --&gt; run_timeout: Early termination
+
+    run_timeout --&gt; restart_ready: Auto retry
+    run_error --&gt; restart_ready: Run error handler
+    run_error --&gt; failed: No error handler
+    restart_ready --&gt; running: Launch job
+
+    run_done --&gt; postprocessed: Run postprocess script
+    postprocessed --&gt; staged_out: Transfer data out
+    staged_out --&gt; finished: Job Finished</div>
+<p>A user can only access Jobs they own. The related App, BatchJob, and parents
+are included by ID in the serialized representation. The <code>session</code> is excluded
+since it is only used internally.   Reverse relationships (one-to-many) with
+<code>transfers</code> and <code>events</code> are also not included in the Job representation, as
+they can be accessed through separate API endpoints.</p>
+<p>The related entities are represented in JSON as follows:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Serialized</th>
+<th>Deserialized</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Primary Key</td>
+<td>Fetch Job from user-filtered queryset</td>
+</tr>
+<tr>
+<td><code>app_id</code></td>
+<td>Primary Key</td>
+<td>Fetch App from user-filtered queryset</td>
+</tr>
+<tr>
+<td><code>batch_job_id</code></td>
+<td>Primary Key</td>
+<td>Fetch BatchJob from user-filtered queryset</td>
+</tr>
+<tr>
+<td><code>parent_ids</code></td>
+<td>Primary Key list</td>
+<td>Fetch parent jobs from user-filtered queryset</td>
+</tr>
+<tr>
+<td><code>transfers</code></td>
+<td><strong>N/A</strong></td>
+<td><em>Create only:</em> Dict of <code>{transfer_item_name: {location_alias: str, path: str}}</code></td>
+</tr>
+<tr>
+<td><code>events</code></td>
+<td><strong>N/A</strong></td>
+<td><strong>N/A</strong></td>
+</tr>
+<tr>
+<td><code>session</code></td>
+<td><strong>N/A</strong></td>
+<td><strong>N/A</strong></td>
+</tr>
+</tbody>
+</table>
+<p><code>transfers</code> are nested in the Job for <code>POST</code> only: <code>Job</code> creation is an atomic transaction grouping addition of the <code>Job</code> with its related <code>TransferItems</code>.
+The API fetches the related <code>App.transfers</code>  and <code>Site.transfer_locations</code> to validate each transfer item:</p>
+<ul>
+<li><code>transfer_item_name</code> must match one of the keys in <code>App.transfers</code>, which
+     determines the <code>direction</code> and local path</li>
+<li>The <code>location_alias</code> must match one of the keys in <code>Site.transfer_locations</code>,
+     which determines the <code>protocol</code> and <code>remote_netloc</code></li>
+<li>Finally, the remote path is determined by the <code>path</code> key in each <code>Job</code> transfer item</li>
+</ul>
+<h2 id="batchjob">BatchJob<a class="headerlink" href="#batchjob" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique ID. Not to be confused with Scheduler ID, which is not necessarily unique across Sites!</td>
+</tr>
+<tr>
+<td><code>site</code></td>
+<td>ForeignKey to <code>Site</code> where submitted</td>
+</tr>
+<tr>
+<td><code>scheduler_id</code></td>
+<td>ID assigned by Site's batch scheduler (null if unassigned)</td>
+</tr>
+<tr>
+<td><code>project</code></td>
+<td>Project/allocation to be charged for the job submission</td>
+</tr>
+<tr>
+<td><code>queue</code></td>
+<td>Which scheduler queue the batchjob is submitted to</td>
+</tr>
+<tr>
+<td><code>num_nodes</code></td>
+<td>Number of nodes requested for batchjob</td>
+</tr>
+<tr>
+<td><code>wall_time_min</code></td>
+<td>Wall time, in minutes, requested</td>
+</tr>
+<tr>
+<td><code>job_mode</code></td>
+<td>Balsam launcher job mode</td>
+</tr>
+<tr>
+<td><code>optional_params</code></td>
+<td>Extra pass-through parameters to Job Template</td>
+</tr>
+<tr>
+<td><code>filter_tags</code></td>
+<td>Restrict launcher to run jobs with matching tags. JSONField dict: <code>{tag_key: tag_val}</code></td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>Current status of BatchJob</td>
+</tr>
+<tr>
+<td><code>status_info</code></td>
+<td>JSON: Error or custom data received from scheduler</td>
+</tr>
+<tr>
+<td><code>start_time</code></td>
+<td>DateTime when BatchJob started running</td>
+</tr>
+<tr>
+<td><code>end_time</code></td>
+<td>DateTime when BatchJob ended</td>
+</tr>
+</tbody>
+</table>
+<p>Every workload manager is different and there are numerous job states
+intentionally <strong>not</strong> considered in the <code>BatchJob</code> model, including <code>starting</code>,
+<code>exiting</code>, <code>user_hold</code>, <code>dep_hold</code>, etc.  It is the responsibility of the
+site's Scheduler interface to translate real scheduler states to one of the few
+coarse-grained Balsam <code>BatchJob</code> states: <code>queued</code>, <code>running</code>, or <code>finished</code>.</p>
+<div class="mermaid">stateDiagram-v2
+    pending_submission  --&gt; queued
+    pending_submission --&gt; submit_failed
+    queued --&gt; running
+    running --&gt; finished
+
+    pending_submission --&gt; pending_deletion
+    queued --&gt; pending_deletion
+    running --&gt; pending_deletion
+    pending_deletion --&gt; finished</div>
+<h2 id="session">Session<a class="headerlink" href="#session" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique ID</td>
+</tr>
+<tr>
+<td><code>heartbeat</code></td>
+<td>DateTime of last session tick API call</td>
+</tr>
+<tr>
+<td><code>batch_job</code></td>
+<td>Non-nullable ForeignKey to <code>BatchJob</code> this Session is running under</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>Session</code> creation only requires providing <code>batch_job_id</code>. </li>
+<li><code>Session</code> tick has empty payload</li>
+<li><code>Session</code> <strong>acquire</strong> endpoint uses a special <code>JobAcquireSerializer</code> representation:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>states</code></td>
+<td><code>list</code> of states to acquire</td>
+</tr>
+<tr>
+<td><code>max_num_acquire</code></td>
+<td>limit number of jobs to acquire</td>
+</tr>
+<tr>
+<td><code>filter_tags</code></td>
+<td>filter <code>Jobs</code> for which <code>job.tags</code> contains all <code>{tag_name: tag_value}</code> pairs</td>
+</tr>
+<tr>
+<td><code>node_resources</code></td>
+<td>Nested <code>NodeResource</code> representation placing resource constraints on what Jobs may be acquired</td>
+</tr>
+<tr>
+<td><code>order_by</code></td>
+<td>order returned jobs according to a set of Job fields (may include ascending or descending <code>num_nodes</code>, <code>node_packing_count</code>, <code>wall_time_min</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>The nested <code>NodeResource</code> representation is provided as a dict with the structure:
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+    <span class="s2">&quot;max_jobs_per_node&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># Determined by Site settings for each Launcher job mode</span>
+    <span class="s2">&quot;max_wall_time_min&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span>
+    <span class="s2">&quot;running_job_counts&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;node_occupancies&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+    <span class="s2">&quot;idle_cores&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">63</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span>
+    <span class="s2">&quot;idle_gpus&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<h2 id="transferitem">TransferItem<a class="headerlink" href="#transferitem" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique TransferItem ID</td>
+</tr>
+<tr>
+<td><code>job</code></td>
+<td>ForeignKey to Job</td>
+</tr>
+<tr>
+<td><code>protocol</code></td>
+<td><code>globus</code> or <code>rsync</code></td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td><code>in</code> or <code>out</code>. If <code>in</code>, the transfer is from <code>remote_netloc:source_path</code> to <code>Job.workdir/destination_path</code>. If <code>out</code>, the transfer is from <code>Job.workdir/src_path</code> to <code>remote_netloc:dest_path</code>.</td>
+</tr>
+<tr>
+<td><code>remote_netloc</code></td>
+<td>The Globus endpoint UUID or user@hostname of the remote data location</td>
+</tr>
+<tr>
+<td><code>source_path</code></td>
+<td>If stage-<code>in</code>: the remote path. If stage-<code>out</code>: the local path</td>
+</tr>
+<tr>
+<td><code>destination_path</code></td>
+<td>If stage-<code>in</code>: the local path. If stage-<code>out</code>: the remote path.</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td><code>pending</code> -&gt; <code>active</code> -&gt; <code>done</code> or <code>error</code></td>
+</tr>
+<tr>
+<td><code>task_id</code></td>
+<td>Unique identifier of the Transfer task (e.g. Globus Task UUID)</td>
+</tr>
+<tr>
+<td><code>transfer_info</code></td>
+<td>JSONField for Error messages, average bandwidth, transfer time, etc...</td>
+</tr>
+<tr>
+<td>There is no create (<code>POST</code>) method on the <code>/transfers</code> endpoint, because <code>TransferItem</code> creation is directly linked with <code>Job</code> creation. The related Transfers are nested in the <code>Job</code> representation when <code>POSTING</code> new jobs. The following fields are <strong>fixed</strong> at creation time:</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>id</code></li>
+<li><code>job</code></li>
+<li><code>protocol</code></li>
+<li><code>direction</code></li>
+<li><code>remote_netloc</code></li>
+<li><code>source_path</code></li>
+<li><code>dest_path</code></li>
+</ul>
+<p>For <code>list</code> (GET), the representation includes all fields. <code>job_id</code> represents the <code>Job</code> by primary key.</p>
+<p>For <code>update</code> (PUT and PATCH), <em>only</em> <code>state</code>, <code>task_id</code>, and <code>transfer_info</code> may be modified. The update of a state to <code>done</code> triggers a check of the related <code>Job</code>'s transfers to determine whether the job can be advanced to <code>STAGED_IN</code>.</p>
+<h2 id="logevent">LogEvent<a class="headerlink" href="#logevent" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique ID</td>
+</tr>
+<tr>
+<td><code>job</code></td>
+<td>ForeignKey to <code>Job</code> undergoing event</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>DateTime of event</td>
+</tr>
+<tr>
+<td><code>from_state</code></td>
+<td>Job state before transition</td>
+</tr>
+<tr>
+<td><code>to_state</code></td>
+<td>Job state after transition</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>JSONField containing <code>{message: str}</code> and other optional data</td>
+</tr>
+</tbody>
+</table>
+<p>For transitions to or from <code>RUNNING</code>, the <code>data</code> includes <code>nodes</code> as a fractional
+number of occupied nodes. This enables clients to generate throughput and utilization views without having to fetch entire related Jobs.</p>
+<p>This is a read only-API with all fields included.  The related Job is represented by primary key <code>job_id</code> field.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/argonne-lcf/balsam" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

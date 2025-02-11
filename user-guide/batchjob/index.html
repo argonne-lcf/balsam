@@ -1,0 +1,1373 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://balsam.readthedocs.io/en/latest/user-guide/batchjob/">
+      
+      
+        <link rel="prev" href="../api/">
+      
+      
+        <link rel="next" href="../monitoring/">
+      
+      
+      <link rel="icon" href="../../img/balsam_favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Executing Jobs - Balsam</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#scheduling-launchers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Balsam" class="md-header__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Balsam
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Executing Jobs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/quickstart/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/contributing/" class="md-tabs__link">
+          
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../development/deploy/" class="md-tabs__link">
+        
+  
+    
+  
+  Admin Guide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../community/publications/" class="md-tabs__link">
+        
+  
+    
+  
+  Publications
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../LICENSE/" class="md-tabs__link">
+        
+  
+    
+  
+  License
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Balsam" class="md-nav__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    Balsam
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../site-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating Balsam Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../appdef/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Defining Apps
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Command Line
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jobs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Managing Jobs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Executing Jobs
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Executing Jobs
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the CLI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#selecting-a-launcher-job-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Selecting a Launcher Job Mode
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ordering-job-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ordering Job Execution
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the API
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-templates-and-specialized-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Templates and specialized parameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restricting-batchjobs-with-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restricting BatchJobs with tags
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#partitioning-batchjobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Partitioning BatchJobs
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Workflow Monitoring and Analytics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../elastic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Auto Scaling
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transfer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Data Transfers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/contributing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Instructions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/data-model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Understanding the Data Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/layout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Project Layout
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/porting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Porting to New Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Integration Testing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/client/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python REST Client
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/deploy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Admin Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/publications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publications
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LICENSE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the CLI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#selecting-a-launcher-job-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Selecting a Launcher Job Mode
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ordering-job-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ordering Job Execution
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the API
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-templates-and-specialized-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Templates and specialized parameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restricting-batchjobs-with-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restricting BatchJobs with tags
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#partitioning-batchjobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Partitioning BatchJobs
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="scheduling-launchers">Scheduling Launchers<a class="headerlink" href="#scheduling-launchers" title="Permanent link">&para;</a></h1>
+<p>Unless <a href="../elastic/">Auto Scaling</a> is enabled, Jobs do not automatically run in
+Balsam.  After the Site agent completes data staging and preprocessing for a
+Job, it waits in the <code>PREPROCESSED</code> state until a launcher (pilot job) submitted
+to the HPC batch scheduler takes over.</p>
+<p>Launchers run independently of the Site agent, continuously fetching and 
+executing runnable Jobs on the available compute resources.  They track
+occupancy of the allocated CPUs/GPUs while launching Jobs with the requested
+resources. Because launchers acquire Jobs on-the-fly, you can submit Jobs to any
+system, and they will execute
+<em>in real-time</em> on an existing allocation!</p>
+<p>The Balsam launcher thus handles the compute-intensive core of the Job
+lifecycle: from <code>PREPROCESSED</code> to <code>RUNNING</code> to <code>RUN_DONE</code>. As users, we need
+only submit a <code>BatchJob</code> to any one of our Sites.  The <code>BatchJob</code> represents an
+HPC resource allocation as a fixed block of node-hours.  Sites will
+handle new <code>BatchJobs</code> by generating the script to run a launcher and submitting
+it to the local HPC scheduler.</p>
+<h2 id="using-the-cli">Using the CLI<a class="headerlink" href="#using-the-cli" title="Permanent link">&para;</a></h2>
+<p>If we are <em>inside</em> a Site directory, we can submit a <code>BatchJob</code> to that Site
+from the CLI:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>queue<span class="w"> </span>submit<span class="w"> </span>-q<span class="w"> </span>QUEUE<span class="w"> </span>-A<span class="w"> </span>PROJECT<span class="w"> </span>-n<span class="w"> </span><span class="m">128</span><span class="w"> </span>-t<span class="w"> </span><span class="m">70</span><span class="w"> </span>-j<span class="w"> </span>mpi<span class="w"> </span>
+</code></pre></div>
+<p>The CLI works remotely, too: we just need to <a href="../cli/">target a specific <code>--site</code></a> so Balsam knows where you want things to run:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>queue<span class="w"> </span>submit<span class="w"> </span>--site<span class="o">=</span>my-site<span class="w"> </span>-q<span class="w"> </span>QUEUE<span class="w"> </span>-A<span class="w"> </span>PROJECT<span class="w"> </span>-n<span class="w"> </span><span class="m">128</span><span class="w"> </span>-t<span class="w"> </span><span class="m">70</span><span class="w"> </span>-j<span class="w"> </span>mpi<span class="w"> </span>
+</code></pre></div>
+<p>Balsam will perform the appropriate submission to the underlying HPC scheduler
+and synchronize your <code>BatchJobs</code> with the local scheduler state. Therefore, instead of checking queues locally (e.g. <code>qstat</code>), we can check on <code>BatchJobs</code> across all of our Sites with a simple command:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>queue<span class="w"> </span>ls<span class="w"> </span>--site<span class="o">=</span>all
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Systems without a batch scheduler</p>
+<p>Use <code>-n 1 -q local -A local</code> when creating <code>BatchJobs</code> at generic
+MacOS/Linux Sites without a real batch scheduler or multiple nodes. The OS
+process manager takes the place of the resource manager, but everything else
+looks the same!</p>
+</div>
+<h2 id="selecting-a-launcher-job-mode">Selecting a Launcher Job Mode<a class="headerlink" href="#selecting-a-launcher-job-mode" title="Permanent link">&para;</a></h2>
+<p>All of the <code>queue submit</code> options pass through to the usual scheduler interface
+(like <code>sbatch</code> or <code>qsub</code>), except for the <code>-j/--job-mode</code>  flag, which may be
+either <code>mpi</code> or <code>serial</code>. These refer to the <strong>launcher job modes</strong>, which determines the pilot job implementation that will actually run.</p>
+<ul>
+<li><code>mpi</code> mode is the most flexible and should be preferred unless you have a
+particularly extreme throughput requirement or need to use one of the
+workarounds offered by <code>serial</code> mode.  The <code>mpi</code> launcher runs on the head-node
+of the <code>BatchJob</code> and executes each job using the system's MPI launch command
+(e.g. <code>srun</code> or <code>mpirun</code>).</li>
+<li><code>serial</code> mode only handles single-process (non-distributed memory) Jobs that
+run within a single compute node.  Higher throughput of fine-grained tasks (e.g.
+millions of single-core tasks) is achieved by running a worker process on <em>each
+compute node</em> and fanning out cached <code>Jobs</code> acquired from the REST API.</li>
+</ul>
+<p>Both launcher modes can simultaneously execute multiple applications per node,
+as long as the underlying HPC system provides support.</p>
+<div class="admonition note">
+<p class="admonition-title">You can submit multiple BatchJobs to a Site</p>
+<p>Balsam launchers cooperatively divide and conquer the runnable Jobs at a
+Site.  You may therefore choose between queueing up <em>fewer large</em> BatchJobs
+or <em>several smaller</em> BatchJobs simultaneously.  On a busy HPC cluster,
+smaller BatchJobs can get through the queues faster and improve overall
+throughput.</p>
+</div>
+<h2 id="ordering-job-execution">Ordering Job Execution<a class="headerlink" href="#ordering-job-execution" title="Permanent link">&para;</a></h2>
+<p>By default, Balsam will sort jobs that are ready to run first by <code>num_nodes</code> 
+in acending order, then by <code>node_packing_count</code> in decending order, and finally 
+by <code>wall_time_min</code> in decending order.  This default behavior will result in 
+the smallest jobs by node count starting first.</p>
+<p>There is an alternative sorting model that can be enabled that sorts jobs first 
+by <code>wall_time_min</code> in decending order, then by <code>num_nodes</code> in decending order, 
+and finally by <code>node_packing_count</code> in decending order.  This alternative 
+sorting behavior will start the longest running jobs, as estimated by 
+<code>wall_time_min</code>, first.  If jobs have no <code>wall_time_min</code> set, it will start 
+the largest jobs by node count first.  This alternative sorting model can be 
+enabled for the site by modifying the site's configuration <code>settings.yml</code> file.<br />
+Under <code>launcher</code>, add this option:
+<div class="highlight"><pre><span></span><code><span class="nt">sort_by</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">long_large_first</span><span class="err"> </span><span class="l l-Scalar l-Scalar-Plain"># set this to enable alternative sorting model that starts the longest running and largest node count jobs first</span>
+</code></pre></div>
+Restart the site after changing <code>settings.yml</code> for the changes to take effect.</p>
+<h2 id="using-the-api">Using the API<a class="headerlink" href="#using-the-api" title="Permanent link">&para;</a></h2>
+<p>A unique capability of the <a href="../api/">Balsam Python API</a> is that it allows us
+programmatically manage HPC resources (via <code>BatchJob</code>) and tasks (via <code>Job</code>) on
+equal footing. We can submit and monitor <code>Jobs</code> and <code>BatchJobs</code> at any Site with
+ease, using a single, consistent programming model.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">Job</span><span class="p">,</span> <span class="n">BatchJob</span>
+<span class="c1"># Create Jobs:</span>
+<span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="n">site_name</span><span class="o">=</span><span class="s2">&quot;myProject&quot;</span><span class="p">,</span>
+    <span class="n">app_id</span><span class="o">=</span><span class="s2">&quot;SimulationX&quot;</span><span class="p">,</span>
+    <span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;test-runs/foo/1&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Or allocate resources:</span>
+<span class="n">BatchJob</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="n">site_id</span><span class="o">=</span><span class="n">job</span><span class="o">.</span><span class="n">site_id</span><span class="p">,</span>
+    <span class="n">num_nodes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">wall_time_min</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">job_mode</span><span class="o">=</span><span class="s2">&quot;mpi&quot;</span><span class="p">,</span>
+    <span class="n">project</span><span class="o">=</span><span class="s2">&quot;datascience&quot;</span><span class="p">,</span>
+    <span class="n">queue</span><span class="o">=</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>We can query <code>BatchJobs</code> to track how many resources are currently available or waiting in the queue at each Site:</p>
+<div class="highlight"><pre><span></span><code><span class="n">queued_nodes</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+    <span class="n">batch_job</span><span class="o">.</span><span class="n">num_nodes</span>
+    <span class="k">for</span> <span class="n">batch_job</span> <span class="ow">in</span> <span class="n">BatchJob</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">site_id</span><span class="o">=</span><span class="mi">123</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="s2">&quot;queued&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Or we can instruct Balsam to cleanly terminate an allocation:</p>
+<div class="highlight"><pre><span></span><code><span class="n">BatchJob</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">scheduler_id</span><span class="o">=</span><span class="mi">1234</span><span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;pending_deletion&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Jobs running in that <code>BatchJob</code> will be marked <code>RUN_TIMEOUT</code> and handled by
+their respective Apps' <code>handle_timeout</code> hooks.</p>
+<h2 id="job-templates-and-specialized-parameters">Job Templates and specialized parameters<a class="headerlink" href="#job-templates-and-specialized-parameters" title="Permanent link">&para;</a></h2>
+<p>Behind the scenes, each <code>BatchJob</code> materializes as a batch job script rendered
+from the Site's <a href="../site-config/#customizing-the-job-template">job template</a>.
+These templates can be customized to support new scheduler flags, load global
+modules, or perform general pre-execution logic. These templates also accept
+optional, system-specific parameters that can be passed on the CLI via <code>-x</code> or
+to the BatchJob <code>optional_params</code> dictionary.</p>
+<h2 id="restricting-batchjobs-with-tags">Restricting BatchJobs with tags<a class="headerlink" href="#restricting-batchjobs-with-tags" title="Permanent link">&para;</a></h2>
+<p>We strongly encourage the use of <a href="../jobs/#tagging-jobs">descriptive
+tags</a> to facilitate monitoring Jobs.
+Another major use of tags is to <em>restrict</em> which Jobs can run in a given BatchJob.</p>
+<p>The default behavior is that a BatchJob will run <strong>as many Jobs as possible</strong>:
+Balsam decides what runs in any given allocation. But perhaps we wish to prioritize a certain group of runs, or deliberately run Jobs in separate partitions as part of a scalability study.  </p>
+<p>This is easy with the CLI:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Only run jobs with tags system=H2O and scale=4</span>
+$<span class="w"> </span>balsam<span class="w"> </span>queue<span class="w"> </span>submit<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span><span class="w"> </span>--tag<span class="w"> </span><span class="nv">system</span><span class="o">=</span>H2O<span class="w"> </span>--tag<span class="w"> </span><span class="nv">scale</span><span class="o">=</span><span class="m">4</span><span class="w">  </span><span class="c1"># ...other args</span>
+</code></pre></div>
+<p>Or with the API:
+<div class="highlight"><pre><span></span><code><span class="n">BatchJob</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="c1"># ...other kwargs</span>
+    <span class="n">num_nodes</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">filter_tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;system&quot;</span><span class="p">:</span> <span class="s2">&quot;H2O&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">:</span> <span class="s2">&quot;4&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+</code></pre></div></p>
+<h2 id="partitioning-batchjobs">Partitioning BatchJobs<a class="headerlink" href="#partitioning-batchjobs" title="Permanent link">&para;</a></h2>
+<p>By default, a single launcher process manages the entire allocation of compute nodes with a single job mode of either <code>mpi</code> or <code>serial</code>.  In advanced use-cases, we can actually divide a single queue submission/allocation into <em>multiple</em> launcher partitions.</p>
+<p>Each of this partitions can have its own number of compute nodes, job mode, and filter tags.  This can be useful in different contexts: </p>
+<ul>
+<li>Dividing an allocation to run a mixed workload of MPI applications and high-throughput sub-node applications.  </li>
+<li>Improving scalability to large node counts by parallelizing the job launcher.</li>
+</ul>
+<p>We can request that a BatchJob is split into partitions on the CLI. In this
+example, we split a 128-node allocation into a 2-node MPI launcher (to run some
+"leader" MPI app on 2 nodes), while the remaining 126 nodes are managed by the
+efficient <code>serial</code> mode launcher for high-throughput.</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>queue<span class="w"> </span>submit<span class="w"> </span>-n<span class="w"> </span><span class="m">128</span><span class="w"> </span>-p<span class="w"> </span>mpi:2<span class="w"> </span>-p<span class="w"> </span>serial:126<span class="w"> </span><span class="c1"># ...other args</span>
+</code></pre></div>
+<p>We could also apply tag restrictions to ensure that the right Jobs run in the
+right partition:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>balsam<span class="w"> </span>queue<span class="w"> </span>submit<span class="w"> </span>-n<span class="w"> </span><span class="m">128</span><span class="w"> </span>-p<span class="w"> </span>mpi:2:role<span class="o">=</span>leader<span class="w"> </span>-p<span class="w"> </span>serial:126:role<span class="o">=</span>worker<span class="w"> </span><span class="c1"># ...other args</span>
+</code></pre></div>
+<p>With the Python API, this looks like:
+<div class="highlight"><pre><span></span><code><span class="n">BatchJob</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="c1"># ...other kwargs</span>
+    <span class="n">num_nodes</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">partitions</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;job_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;mpi&quot;</span><span class="p">,</span> <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;filter_tags&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;leader&quot;</span><span class="p">}},</span>
+        <span class="p">{</span><span class="s2">&quot;job_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;serial&quot;</span><span class="p">,</span> <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="mi">126</span><span class="p">,</span> <span class="s2">&quot;filter_tags&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;worker&quot;</span><span class="p">}},</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+</code></pre></div></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/argonne-lcf/balsam" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2013 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://balsam.readthedocs.io/en/latest/user-guide/appdef/">
+      
+      
+        <link rel="prev" href="../site-config/">
+      
+      
+        <link rel="next" href="../cli/">
+      
+      
+      <link rel="icon" href="../../img/balsam_favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Defining Apps - Balsam</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#defining-applications" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Balsam" class="md-header__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Balsam
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Defining Apps
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/quickstart/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/contributing/" class="md-tabs__link">
+          
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../development/deploy/" class="md-tabs__link">
+        
+  
+    
+  
+  Admin Guide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../community/publications/" class="md-tabs__link">
+        
+  
+    
+  
+  Publications
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../LICENSE/" class="md-tabs__link">
+        
+  
+    
+  
+  License
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Balsam" class="md-nav__button md-logo" aria-label="Balsam" data-md-component="logo">
+      
+  <img src="../../img/balsam_favicon.ico" alt="logo">
+
+    </a>
+    Balsam
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/argonne-lcf/balsam" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    argonne-lcf/balsam
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../site-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating Balsam Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Defining Apps
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Defining Apps
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#registering-applicationdefinitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Registering ApplicationDefinitions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-submit-shortcut" class="md-nav__link">
+    <span class="md-ellipsis">
+      The submit() shortcut
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-applications" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Applications
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Python Applications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python-app-capabilities-and-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python App Capabilities and Limitations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#listing-and-refreshing-applications" class="md-nav__link">
+    <span class="md-ellipsis">
+      Listing and Refreshing Applications
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-existing-applicationdefinitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading Existing ApplicationDefinitions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-applicationdefinitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Writing ApplicationDefinitions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Writing ApplicationDefinitions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-class-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Class Path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Description
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-site-identifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Site Identifier
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment Variables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      Command Template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-run-function" class="md-nav__link">
+    <span class="md-ellipsis">
+      The run function
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#python-executable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python executable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameter-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameter Spec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transfer-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transfer Slots
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cleanup-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cleanup Files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-lifecycle-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Lifecycle Hooks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job Lifecycle Hooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-preprocess-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Preprocess Hook
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-shell-preamble" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Shell Preamble
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-postprocess-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Postprocess Hook
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeout-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      Timeout Handler
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handler
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Command Line
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jobs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Managing Jobs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batchjob/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Executing Jobs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Workflow Monitoring and Analytics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../elastic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Auto Scaling
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transfer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Data Transfers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/contributing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Instructions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/data-model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Understanding the Data Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/layout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Project Layout
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/porting/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Porting to New Sites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Integration Testing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/client/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Python REST Client
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/deploy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Admin Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/publications/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publications
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LICENSE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#registering-applicationdefinitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Registering ApplicationDefinitions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-submit-shortcut" class="md-nav__link">
+    <span class="md-ellipsis">
+      The submit() shortcut
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-applications" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Applications
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Python Applications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python-app-capabilities-and-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python App Capabilities and Limitations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#listing-and-refreshing-applications" class="md-nav__link">
+    <span class="md-ellipsis">
+      Listing and Refreshing Applications
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-existing-applicationdefinitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading Existing ApplicationDefinitions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-applicationdefinitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Writing ApplicationDefinitions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Writing ApplicationDefinitions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-class-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Class Path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Description
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-site-identifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Site Identifier
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment Variables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      Command Template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-run-function" class="md-nav__link">
+    <span class="md-ellipsis">
+      The run function
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#python-executable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python executable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameter-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameter Spec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transfer-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transfer Slots
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cleanup-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cleanup Files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-lifecycle-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Lifecycle Hooks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job Lifecycle Hooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-preprocess-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Preprocess Hook
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-shell-preamble" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Shell Preamble
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-postprocess-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Postprocess Hook
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeout-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      Timeout Handler
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handler
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="defining-applications">Defining Applications<a class="headerlink" href="#defining-applications" title="Permanent link">&para;</a></h1>
+<h2 id="registering-applicationdefinitions">Registering <code>ApplicationDefinitions</code><a class="headerlink" href="#registering-applicationdefinitions" title="Permanent link">&para;</a></h2>
+<p>Once you have a Site, the next step is to define the applications that Balsam may run.
+Each Site is linked to a set of <code>ApplicationDefinition</code> Python classes: check the <a href="../../tutorials/quickstart#set-up-your-apps">Getting Started tutorial</a> to see a quick example of this in action.
+You can create and register <code>ApplicationDefinition</code> subclasses from any Python
+session.  For instance, Balsam supports interactive workflows in Jupyter
+notebooks, or workflows driven by any other Python software.</p>
+<p>At a minimum, <code>ApplicationDefinitions</code> must declare the <code>site</code> and a
+<code>command_template</code> for a shell command:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">ApplicationDefinition</span>
+
+<span class="k">class</span> <span class="nc">Sleeper</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+    <span class="n">command_template</span> <span class="o">=</span> <span class="s1">&#39;sleep {{ sleeptime }} &amp;&amp; echo goodbye&#39;</span>
+
+<span class="n">Sleeper</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span>
+</code></pre></div>
+<p>The <code>site</code> attribute must be present on each <code>ApplicationDefinition</code> subclass to identify where the app runs.  The <code>site</code> can take any of the following types unambiguously specifying a Site:</p>
+<ul>
+<li>Site name (uniquely assigned during <code>balsam site init</code>, like <code>"polaris"</code>)</li>
+<li>Site ID (e.g. <code>142</code>)</li>
+<li><code>Site</code> object (fetched from the <a href="../api/">API</a>)</li>
+</ul>
+<p>The <code>ApplicationDefinition</code> is uniquely identified by its <strong>class name and site</strong>.   In the above example, we defined the <code>Sleeper</code> application at the <code>polaris</code> Site.  When <code>Sleeper.sync()</code> is called, the Python class and associated metadata is <em>serialized</em> and shipped to the Balsam web API. The <code>Sleeper</code> <code>ApplicationDefinition</code> is thereafter linked to the Site named <code>polaris</code>, and workflows can proceed to submit <code>Sleeper</code> Jobs to <code>polaris</code> from anywhere!</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>ApplicationDefinitions</code> must be named uniquely!</p>
+<p>If another Python session syncs a different <code>Sleeper</code> class belonging to
+the same Site, <strong>the previous application will be overwritten!</strong>  This is
+because apps are uniquely resolved by the pair (<code>site</code>, <code>class_name</code>).  This
+is typically the desired behavior: simply running <code>sync()</code> 
+will ensure that Balsam applications stay
+up-to-date with your source code.  However, inadvertent name collisions can
+cause unexpected results when you overwrite the implementation of an
+existing <code>ApplicationDefinition</code>.</p>
+</div>
+<h2 id="the-submit-shortcut">The <code>submit()</code> shortcut<a class="headerlink" href="#the-submit-shortcut" title="Permanent link">&para;</a></h2>
+<p>To run an application, we then <a href="../jobs/">submit
+a
+<strong>Job</strong></a> to invoke the command with specific resources and
+parameters. The <code>submit()</code> class method provides a convenient syntax to combine the <code>sync</code> initialization step with job submission in a single call:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Implicitly sync (updates or creates the App) and submit a Job:</span>
+<span class="n">job</span> <span class="o">=</span> <span class="n">Sleeper</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;test/sleep_3&quot;</span><span class="p">,</span> <span class="n">sleeptime</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</code></pre></div>
+<p>This shorthand syntax is completely equivalent to the following:
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">Job</span>
+
+<span class="n">Sleeper</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span>
+
+<span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;test/sleep_3&quot;</span><span class="p">,</span> <span class="n">app_id</span><span class="o">=</span><span class="n">Sleeper</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;sleeptime&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">})</span>
+<span class="n">job</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</code></pre></div></p>
+<p>It's more efficient to <a href="../api/#creating">use bulk-creation</a> to submit large numbers of Jobs in a single network call.  This is possible by passing the special keyword argument <code>save=False</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">jobs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">Sleeper</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;test/</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">sleeptime</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">]</span>
+<span class="n">jobs</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">bulk_create</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
+</code></pre></div>
+<p>Besides the special <code>save</code> kwarg, The <code>submit()</code> method has the same signature as the <a href="../jobs/"><code>Job()</code> constructor which is covered in-depth on the next page</a>.</p>
+<h2 id="python-applications">Python Applications<a class="headerlink" href="#python-applications" title="Permanent link">&para;</a></h2>
+<p>Besides running shell commands, Balsam can run Python applications directly on the compute nodes.  This paradigm significantly cuts down
+boilerplate and reduces the need for creating "entry point" scripts.</p>
+<p>Instead of using <code>command_template</code>, the <code>ApplicationDefinition</code> can simply
+define a <code>run()</code> method that will be launched using the exact same rules as ordinary shell applications.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">Adder</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+
+<span class="n">job</span> <span class="o">=</span> <span class="n">Adder</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="s2">&quot;test/5plus5&quot;</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">job</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="o">==</span> <span class="mi">10</span>  <span class="c1"># This will block until a BatchJob starts</span>
+</code></pre></div>
+<p><code>run</code> is an instance method and should take <code>self</code> as the first argument.  Additional positional or keyword arguments can be supplied as well.  When submitting <code>Jobs</code>, the parameters are serialized (under the hood <code>job.parameters = {"x": 5, "y": 5}</code> is converted to a Base64-encoded byte string with <code>dill</code> and stored as part of the <code>Job</code> in the Balsam web API.)</p>
+<p>The submitted <code>Jobs</code> behave <em>partially</em> like <code>concurrent.futures.Future</code> objects: namely, the return value or Exception raised by <code>run()</code> will propagate to the <code>result()</code> method.  Refer to the <a href="../jobs/">Jobs documentation</a> for more details on these <code>Future</code>-like APIs.</p>
+<h3 id="python-app-capabilities-and-limitations">Python App Capabilities and Limitations<a class="headerlink" href="#python-app-capabilities-and-limitations" title="Permanent link">&para;</a></h3>
+<p>Python <code>run()</code> function-based <code>ApplicationDefinitions</code> enjoy all the same
+lifecycle hooks and flexible resource launching capabilities as ordinary
+<code>ApplicationDefinitions</code>.  For instance, your Balsam apps can directly call into
+<code>mpi4py</code> code and be launched onto multiple compute nodes:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+
+<span class="k">class</span> <span class="nc">NumpyPlusMPI</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">dims</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+        <span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="o">*</span><span class="n">dims</span><span class="p">)</span>
+
+
+<span class="n">job</span> <span class="o">=</span> <span class="n">NumpyPlusMPI</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+    <span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;test/parallel&quot;</span><span class="p">,</span> 
+    <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+    <span class="n">ranks_per_node</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The <code>run</code> function can generally refer to imported modules and objects from other namespaces, <strong>as long as they are importable in the Balsam Site's Python environment</strong>.  This is a crucial constraint to understand when writing <code>ApplicationDefinitions</code>: all import statements are essentially <em>replayed</em> in the Balsam Site environment when the <code>ApplicationDefinition</code> is loaded and de-serialized.  This will fail if any any object referenced by the <code>ApplicationDefinition</code> cannot be imported from <code>sys.path</code>!</p>
+<div class="admonition warning">
+<p class="admonition-title">Import statements will replay on the Balsam Site</p>
+<p>The issues above are easily avoided by ensuring that your codes and their dependencies are installed in the Python virtual environment where the Balsam Site runs.  </p>
+<p>Just remember that the Balsam app serializer does not recurse and ship other modules over the wire. <strong>Virtually any import statement referenced by the <code>ApplicationDefintion</code> must work on both sides.</strong></p>
+</div>
+<p>The same constraint holds true when the <code>ApplicationDefinitions</code> themselves are located in an imported module.  For example, if your Balsam code is packaged in <code>my_science_package</code>, that module/package must be installed in the Site environment where the <code>ApplicationDefinition</code> is synced to.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># This import line must work on polaris...</span>
+<span class="kn">from</span> <span class="nn">my_science_package</span> <span class="kn">import</span> <span class="n">setup_workflow</span>
+
+<span class="c1"># If this method syncs apps to polaris:</span>
+<span class="n">setup_workflow</span><span class="p">(</span><span class="n">site</span><span class="o">=</span><span class="s2">&quot;polaris&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Technical Details</p>
+<p>Under the hood, all <code>ApplicationDefinitions</code>, <code>Job</code> parameters, return values, and exceptions are serialized and deserialized using <code>dill</code> with the <code>recurse=True</code> option.</p>
+</div>
+<p>Besides the issue of software dependencies, the following additional limitations should be kept in mind when writing <code>ApplicationDefinitions</code>:</p>
+<ul>
+<li><strong>Do not use any <code>multiprocessing.Process</code>.</strong> You can spawn background <code>Thread</code> tasks, but <code>Process</code> workers will attempt to communicate using <code>pickle</code> in a fashion that is incompatible with the serialization scheme used by Balsam.</li>
+<li><strong>Do not use the <code>super()</code> syntax anywhere in the <code>ApplicationDefinition</code>.</strong>  This is a <a href="https://github.com/uqfoundation/dill/issues/300">known issue with <code>dill</code></a>.  If you are writing your own class hierarchies, you can always get around this by referencing the parent class directly.</li>
+<li><strong>Avoid referring to <code>balsam.api</code> in the <code>ApplicationDefinition</code>.</strong> Instead, you will need to manually initialize the client to fetch resources as follows:
+    <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.config</span> <span class="kn">import</span> <span class="n">SiteConfig</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">SiteConfig</span><span class="p">()</span><span class="o">.</span><span class="n">client</span>  <span class="c1"># Loads a fresh RESTClient</span>
+<span class="n">Job</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">Job</span>  <span class="c1"># Use just like balsam.api.Job</span>
+</code></pre></div></li>
+<li><strong><code>ApplicationDefinitions</code>, parameters, return values, and exceptions should be lean.</strong>  Do not rely on the Balsam API to move large quantities of data (instead, the <a href="#transfer-slots">Transfer API</a> is designed for easy interoperability with out-of-band transfer methods like Globus).  Balsam imposes limits on the order of 100KB for each serialized entity.</li>
+</ul>
+<h2 id="listing-and-refreshing-applications">Listing and Refreshing Applications<a class="headerlink" href="#listing-and-refreshing-applications" title="Permanent link">&para;</a></h2>
+<p>You can check the Apps registered at a site using the CLI:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># List apps across all Sites</span>
+$<span class="w"> </span>balsam<span class="w"> </span>app<span class="w"> </span>ls<span class="w"> </span>--site<span class="o">=</span>all
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Restart Sites to Reload <code>ApplicationDefinitions</code></p>
+<p>A new <code>ApplicationDefinition</code> will be automatically loaded by a running
+Site agent or launcher BatchJob.  However, if you modify an <em>existing</em> app
+while it is loaded in a running Site or launcher, the change will not 
+propagate!  You <strong>must</strong> remember to run <code>balsam site sync</code> to refresh
+the loaded apps in a running Site.</p>
+</div>
+<h2 id="loading-existing-applicationdefinitions">Loading Existing <code>ApplicationDefinitions</code><a class="headerlink" href="#loading-existing-applicationdefinitions" title="Permanent link">&para;</a></h2>
+<p>You don't need a handle on the <code>ApplicationDefinition</code> source code to submit
+<code>Jobs</code> with it.  Instead, the <code>app_id</code> argument to <code>Job()</code> can take an application by 
+name (string), ID (integer), or reference to a loaded <code>ApplicationDefinition</code>.
+For example, you can load the set of applications registered at a given Site as follows:</p>
+<div class="highlight"><pre><span></span><code><span class="n">apps_by_name</span> <span class="o">=</span> <span class="n">ApplicationDefinition</span><span class="o">.</span><span class="n">load_by_site</span><span class="p">(</span><span class="s2">&quot;polaris&quot;</span><span class="p">)</span>
+<span class="n">Sleeper</span> <span class="o">=</span> <span class="n">apps_by_name</span><span class="p">[</span><span class="s2">&quot;Sleeper&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p><code>ApplicationDefinitions</code> can then be used from this dictionary as if you had
+defined them in the current Python session.</p>
+<h2 id="writing-applicationdefinitions">Writing ApplicationDefinitions<a class="headerlink" href="#writing-applicationdefinitions" title="Permanent link">&para;</a></h2>
+<p>At their simplest, <code>ApplicationDefinitions</code> provide a declarative template for a
+shell command and its adjustable parameters. Alternatively, they define a Python <code>run()</code> function that takes arbitrary inputs. To run an application, we submit a
+Job that provides values for these parameters. </p>
+<p>Importantly, we <strong>do not</strong> specify how the application is launched (<code>mpiexec</code>)
+or its CPU/GPU resources in the <code>ApplicationDefinition</code>.  Instead, Balsam takes
+care of managing resources and building the command lines to efficiently launch our Jobs.</p>
+<p>Besides the fundamental <code>site</code>, <code>command_template</code>, and <code>run</code> attributes discussed above, <code>ApplicationDefinitions</code>
+provide other special attributes and methods that we can override to build more
+complex and useful workflow components.</p>
+<h3 id="the-class-path">The Class Path<a class="headerlink" href="#the-class-path" title="Permanent link">&para;</a></h3>
+<p>Balsam Apps are uniquely identified by:</p>
+<ol>
+<li>The <code>Site</code> that they belong to</li>
+<li>Their <code>ApplicationDefinition</code> class <code>__name__</code></li>
+</ol>
+<p>For instance, the <code>Sleeper</code> application we defined above in <code>test.py</code> has a <code>name</code> of <code>Sleeper</code>. We use this to uniquely identify each <code>ApplicationDefinition</code> class later on.</p>
+<h3 id="the-description">The Description<a class="headerlink" href="#the-description" title="Permanent link">&para;</a></h3>
+<p>The docstring that follows the <code>class</code> statement is captured by Balsam 
+and stored as a <code>description</code> with the REST API.  This is purely
+human-readable text that can be displayed in your App catalog.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+<span class="hll"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span class="hll"><span class="sd">    Some description of the app goes here</span>
+</span><span class="hll"><span class="sd">    &quot;&quot;&quot;</span>
+</span></code></pre></div>
+<h3 id="the-site-identifier">The Site Identifier<a class="headerlink" href="#the-site-identifier" title="Permanent link">&para;</a></h3>
+<p>The <code>site</code> attribute is required on <strong>all</strong> <code>ApplicationDefinitions</code> and it must unambiguously refer to one of your existing Sites.  This class attribute can be a string (site name), integer (site ID), or a <code>Site</code> object loaded from the Balsam SDK.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Some description of the app goes here</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<span class="hll">    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+</span></code></pre></div>
+<h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
+<p>The <code>environment_variables</code> attribute should be a <code>Dict[str, str]</code>
+mapping environment variable names to values.  This is useful for
+constant environment variables that <strong>do not vary</strong> across runs.
+This environment is merged with the environment established in the job 
+template.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Some description of the app goes here</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+<span class="hll">    <span class="n">environment_variables</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class="hll">        <span class="s2">&quot;HDF5_USE_FILE_LOCKING&quot;</span><span class="p">:</span> <span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+</span><span class="hll">    <span class="p">}</span>
+</span></code></pre></div>
+<h3 id="command-template">Command Template<a class="headerlink" href="#command-template" title="Permanent link">&para;</a></h3>
+<p>As we have seen, <code>ApplicationDefinitions</code> must contain <em>either</em> a <code>command_template</code> or a <code>run()</code> method.  These are mutually exclusive: you must set one or the other. The <code>command_template</code> is interpreted as a Jinja2 template; therefore,
+parameters must be enclosed in double-curly braces.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Some description of the app goes here</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+    <span class="n">environment_variables</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;HDF5_USE_FILE_LOCKING&quot;</span><span class="p">:</span> <span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="hll">    <span class="n">command_template</span> <span class="o">=</span> <span class="s2">&quot;/path/to/simulation.exe -inp {{ input_filename }}&quot;</span>
+</span></code></pre></div>
+<p>By default, all app parameters are <strong>required</strong> parameters: it is an error
+to omit any parameter named in the template.  We can change this behavior below.</p>
+<h3 id="the-run-function">The <code>run</code> function<a class="headerlink" href="#the-run-function" title="Permanent link">&para;</a></h3>
+<p>When the <code>ApplicationDefinition</code> contains a <code>run()</code> method, this function is launched onto compute resources using the parameters set on the corresponding <code>Job</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="k">class</span> <span class="nc">VecNorm</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+
+<span class="hll">    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vec</span><span class="p">):</span>
+</span><span class="hll">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="python-executable">Python executable<a class="headerlink" href="#python-executable" title="Permanent link">&para;</a></h3>
+<p>When using a <code>run()</code> function, it is important that the execution-side Python
+environment has the necessary dependencies installed. The optional class
+attribute <code>python_exe</code> defaults to <code>sys.executable</code> and should not be changed if
+the app runs in the same environment Balsam is installed in. </p>
+<p>You should override <code>python_exe</code> if you wish to invoke the <code>run</code> function using a <em>different</em> Python environment from the one in which Balsam is installed.  This setting has no effect for <code>command_template</code> apps.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="k">class</span> <span class="nc">VecNorm</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+<span class="hll">    <span class="n">python_exe</span> <span class="o">=</span> <span class="s2">&quot;/path/to/bin/python3.8&quot;</span>
+</span>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vec</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span> <span class="c1"># Loaded from `python_exe`</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="parameter-spec">Parameter Spec<a class="headerlink" href="#parameter-spec" title="Permanent link">&para;</a></h3>
+<p>Maybe we want to have some <strong>optional</strong> parameters in the <code>command_template</code>,
+which take on a default value in the absence of a value specified in the Job.
+We can do this by providing the <code>parameters</code> dictionary:</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Some description of the app goes here</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+    <span class="n">environment_variables</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;HDF5_USE_FILE_LOCKING&quot;</span><span class="p">:</span> <span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">command_template</span> <span class="o">=</span> <span class="s2">&quot;/path/to/sim.exe --mode {{ mode }} -inp {{ input_filename }}&quot;</span>
+<span class="hll">    <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class="hll">        <span class="s2">&quot;input_filename&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+</span><span class="hll">        <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class="hll">            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> 
+</span><span class="hll">            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;explore&quot;</span><span class="p">,</span> 
+</span><span class="hll">            <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="s2">&quot;The simulation mode (default: explore)&quot;</span><span class="p">,</span>
+</span><span class="hll">        <span class="p">}</span>
+</span><span class="hll">    <span class="p">}</span>
+</span></code></pre></div>
+<p>Notice that parameters are either required, in which case it doesn't make
+sense to have a default value, or not. If a parameter's <code>required</code> value is <code>False</code>, you <strong>must</strong> provide a <code>default</code> value that is used when the parameter is not passed.</p>
+<p>The <code>help</code> field is another optional, human-readable field, to assist with
+App curation in the Web interface.</p>
+<div class="admonition note">
+<p class="admonition-title">Valid Python Identifiers</p>
+<p>App parameters can only contain valid Python identifiers, so names with <code>-</code>, for instance, will be rejected when you 
+attempt to run <code>balsam app sync</code>.</p>
+</div>
+<h3 id="transfer-slots">Transfer Slots<a class="headerlink" href="#transfer-slots" title="Permanent link">&para;</a></h3>
+<p>A core feature of Balsam, described in more detail in the <a href="../transfer/">Data Transfers section</a>, is the ability to write distributed workflows, where
+data products move between Sites, and Jobs can be triggered when data arrives at its destination.</p>
+<p>We create this behavior starting at the <code>ApplicationDefinition</code> level, by defining <strong>Transfer Slots</strong> for data that needs to be <strong>staged in</strong> before or <strong>staged out</strong> after execution.  You can think of the Job workdir as an ephemeral sandbox where data arrives, computation happens, and then results are staged out to a more accessible location for further analysis.</p>
+<p>Each <code>ApplicationDefinition</code> may declare a <code>transfers</code> dictionary, where each
+string key names a Transfer Slot.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+<span class="hll">    <span class="n">transfers</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class="hll">        <span class="s2">&quot;input_file&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class="hll">            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;direction&quot;</span><span class="p">:</span> <span class="s2">&quot;in&quot;</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;local_path&quot;</span><span class="p">:</span> <span class="s2">&quot;input.nw&quot;</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Input Deck&quot;</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;recursive&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+</span><span class="hll">        <span class="p">},</span>
+</span><span class="hll">        <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class="hll">            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;direction&quot;</span><span class="p">:</span> <span class="s2">&quot;out&quot;</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;local_path&quot;</span><span class="p">:</span> <span class="s2">&quot;job.out&quot;</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Calculation stdout&quot;</span><span class="p">,</span>
+</span><span class="hll">            <span class="s2">&quot;recursive&quot;</span><span class="p">:</span> <span class="kc">False</span>
+</span><span class="hll">        <span class="p">},</span>
+</span><span class="hll">    <span class="p">},</span>
+</span></code></pre></div>
+<p>In order to fill the slots, each <code>Job</code> invoking this application must then provide concrete URIs of the external files:</p>
+<div class="highlight"><pre><span></span><code><span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="n">workdir</span><span class="o">=</span><span class="s2">&quot;ensemble/1&quot;</span><span class="p">,</span>
+    <span class="n">app_name</span><span class="o">=</span><span class="s2">&quot;sim.MySimulation&quot;</span><span class="p">,</span>
+<span class="hll">    <span class="n">transfers</span><span class="o">=</span><span class="p">{</span>
+</span><span class="hll">        <span class="c1"># Using &#39;laptop&#39; alias defined in settings.yml</span>
+</span><span class="hll">        <span class="s2">&quot;input_file&quot;</span><span class="p">:</span> <span class="s2">&quot;laptop:/path/to/input.dat&quot;</span><span class="p">,</span>
+</span><span class="hll">        <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="s2">&quot;laptop:/path/to/output.json&quot;</span><span class="p">,</span>
+</span><span class="hll">    <span class="p">},</span>
+</span><span class="p">)</span>
+</code></pre></div>
+<p>Transfer slots with <code>required=False</code> are optional when creating Jobs.
+The <code>direction</code> key must contain the value <code>"in"</code> or <code>"out"</code> for stage-in and stage-out, respectively.
+The <code>description</code> is an optional, human-readable parameter to assist in App curation. The <code>recursive</code> flag should be <code>True</code> for directory transfers; otherwise, the transfer is treated as a single file. </p>
+<p>Finally, <code>local_path</code> must always be given <strong>relative to the Job workdir</strong>.  When <code>direction=in</code>, the <code>local_path</code> refers to the transfer <em>destination</em>.  When <code>direction=out</code>, the <code>local_path</code> refers to the transfer <em>source</em>. 
+This <code>local_path</code> behavior encourages a pattern where files in the working directory are always named identically, and only the <em>remote</em> sources and destinations vary. If you need to stage-in remote files <em>without renaming</em> them, a <code>local_path</code> value of <code>.</code> can be used.</p>
+<p>After running <code>balsam app sync</code>, the command <code>balsam app ls --verbose</code> will show any transfer slots registered for each of your apps.</p>
+<h3 id="cleanup-files">Cleanup Files<a class="headerlink" href="#cleanup-files" title="Permanent link">&para;</a></h3>
+<p>In long-running data-intensive workflows, a Balsam site may exhaust its HPC storage
+allocation and trigger disk quota errors.  To avoid this problem, valuable data
+products should be packaged and staged out, while   intermediate files are
+periodically deleted to free storage space.  The Site <code>file_cleaner</code> service can
+be enabled in <code>settings.yml</code> to safely remove files from working directories of
+finished jobs.  Cleanup does not occur until a job reaches the <code>JOB_FINISHED</code>
+state, after all stage out tasks have completed.</p>
+<p>By default, the <code>file_cleaner</code> will not delete anything, even when it has been enabled.  The <code>ApplicationDefinition</code> must <em>also</em> define a list of glob patterns in the <code>cleanup_files</code> attribute, for which matching files will be removed upon job completion.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Some description of the app goes here</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="s2">&quot;polaris&quot;</span>
+    <span class="n">environment_variables</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;HDF5_USE_FILE_LOCKING&quot;</span><span class="p">:</span> <span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">command_template</span> <span class="o">=</span> <span class="s2">&quot;/path/to/simulation.exe -inp {{ input_filename }}&quot;</span>
+<span class="hll">    <span class="n">cleanup_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;*.hdf&quot;</span><span class="p">,</span> <span class="s2">&quot;*.imm&quot;</span><span class="p">,</span> <span class="s2">&quot;*.h5&quot;</span><span class="p">]</span>
+</span></code></pre></div>
+<p>Cleanup occurs once for each finished Job and reads the list of deletion patterns from the <code>cleanup_files</code> attribute in the <code>ApplicationDefinition</code>.</p>
+<h2 id="job-lifecycle-hooks">Job Lifecycle Hooks<a class="headerlink" href="#job-lifecycle-hooks" title="Permanent link">&para;</a></h2>
+<p>The <code>ApplicationDefinition</code> class provides several <em>hooks</em> into stages of the
+<a href="../jobs/">Balsam Job lifecycle</a>, in the form of overridable methods on the
+class.  These methods are called by the Balsam Site as it handles your Jobs,
+advancing them from <code>CREATED</code> to <code>JOB_FINISHED</code> through a series of state
+transitions.</p>
+<p>To be more specific, an <em>instance</em> of the <code>ApplicationDefinition</code> class is
+created for each <code>Job</code> as it undergoes processing. The hooks are called as ordinary
+<em>instance methods</em>, where <code>self</code> refers to an <code>ApplicationDefinition</code> object handling a particular <code>Job</code>.  The current <code>Job</code> can be accessed via the <code>self.job</code> attribute (see examples below).  Of course, you
+may define any additional methods on the class and access them as usual.</p>
+<div class="admonition note">
+<p class="admonition-title"><code>ApplicationDefinitions</code> are not persistent!</p>
+<p><code>ApplicationDefinition</code> instances are created and torn down after each invocation of a hook for a particular Job.  This is because they might execute days or weeks apart on different physical hosts.  Therefore, any data that you set on the <code>self</code> object within the hook will <em>not</em> persist.
+Instead, hooks can persist arbitrary JSON-serializable data on the <code>Job</code> object itself via <code>self.job.data</code>.</p>
+</div>
+<p>Hook methods are always executed in the current <code>Job</code>'s working directory with
+stdout/stderr routed into the file <code>balsam.log</code>.  All of the methods described
+below are <strong>optional</strong>: the default implementation is essentially a
+no-op that moves the <code>Job</code> state forward.  However, if you <em>do</em> choose to
+override a lifecycle hook, it is your responsibility to set the <code>Job</code> state
+appropriately (e.g. you must write <code>self.job.state = "PREPROCESSED"</code> in the <code>preprocess()</code>
+function).  The reason for this is that hooks may choose to <em>retry</em> or <em>fail</em> a
+particular state transition; the <code>ApplicationDefinition</code> should be the explicit
+source of truth on these possible actions.</p>
+<h3 id="the-preprocess-hook">The Preprocess Hook<a class="headerlink" href="#the-preprocess-hook" title="Permanent link">&para;</a></h3>
+<p>The <code>preprocess</code> method advances jobs from <code>STAGED_IN</code> to <code>PREPROCESSED</code>.  This represents an opportunity to run lightweight or I/O-bound code on the login node after any data for a Job has been staged in, and <em>before</em> the application begins executing. This runs in the <code>processing</code> service on the host where the Site Agent is running.</p>
+<p>In the following example, <code>preprocess</code> is used to read some user-defined data from the <code>Job</code> object, attempt to generate an input file, and advance the job state only if the generated input was valid.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">preprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Can read anything from self.job.data</span>
+        <span class="n">coordinates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;input_coords&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Run arbitrary methods defined on the class:</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_input</span><span class="p">(</span><span class="n">coordinates</span><span class="p">)</span>
+
+        <span class="c1"># Advance the job state</span>
+        <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+            <span class="c1"># Ready to run</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;PREPROCESSED&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Fail the job and attach searchable data</span>
+            <span class="c1"># to the failure event</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;FAILED&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="s2">&quot;Preproc got bad coordinates&quot;</span><span class="p">}</span>
+</code></pre></div>
+<h3 id="the-shell-preamble">The Shell Preamble<a class="headerlink" href="#the-shell-preamble" title="Permanent link">&para;</a></h3>
+<p>The <code>shell_preamble</code> method can return a <strong>multi-line string</strong> <em>or</em> a <strong>list of
+strings</strong>, which are executed in an ephemeral <code>bash</code> shell immediately preceding the
+application launch command.  This hook directly affects the environment of the
+<code>mpirun</code> (or equivalent) command used to launch each Job; therefore, it is
+appropriate for loading modules or exporting environment variables in an App- or
+Job-specific manner. Unlike <code>preprocess</code>, this hook is executed by the launcher (pilot
+job) on the application launch node.  </p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">shell_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">        module load conda/tensorflow</span>
+<span class="s1">        export FOO=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;env_vars&quot;</span><span class="p">][</span><span class="s2">&quot;foo&quot;</span><span class="p">]</span><span class="si">}</span>
+<span class="s1">        &#39;&#39;&#39;</span>
+</code></pre></div>
+<h3 id="the-postprocess-hook">The Postprocess Hook<a class="headerlink" href="#the-postprocess-hook" title="Permanent link">&para;</a></h3>
+<p>The <code>postprocess</code> hook is exactly like the <code>preprocess</code> hook, except that it
+runs <strong>after</strong> Jobs have successfully executed.  In Balsam a "successful
+execution" simply means the application command return code was <code>0</code>, and the
+job is advanced by the launcher from <code>RUNNING</code> to <code>RUN_DONE</code>. Some common patterns in the <code>postprocess</code> hook include: </p>
+<ul>
+<li>parsing output files</li>
+<li>summarizing/archiving useful data to be staged out</li>
+<li>persisting data on the <code>job.data</code> attribute</li>
+<li>dynamically creating <em>additional</em> <code>Jobs</code> to continue the workflow</li>
+</ul>
+<p>Upon successful postprocessing, the job state should be advanced to
+<code>POSTPROCESSED</code>.  However, a return code of 0 does not necessarily imply a
+successful run. The method may therefore choose to set a job as
+<code>FAILED</code> (to halt further processing) or <code>RESTART_READY</code> (to run again, perhaps
+after changing some input).</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">postprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;out.hdf&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+            <span class="c1"># Call your own result parser:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_results</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_converged</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;POSTPROCESSED&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Call your own input file fixer:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fix_input</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;RESTART_READY&quot;</span>
+</code></pre></div>
+<h3 id="timeout-handler">Timeout Handler<a class="headerlink" href="#timeout-handler" title="Permanent link">&para;</a></h3>
+<p>We have just seen how the <code>postprocess</code> hook handles the return code <code>0</code> scenario by moving jobs from <code>RUN_DONE</code> to <code>POSTPROCESSED</code>.  There are two less happy scenarios that Balsam handles:</p>
+<ol>
+<li>The launcher wallclock time expired and the Job was terminated while still running.  The launcher marks the job state as <code>RUN_TIMEOUT</code>.</li>
+<li>The application finished with a nonzero exit code. This is interpreted by the launcher as an <em>error</em>, and the job state is set to <code>RUN_ERROR</code>.</li>
+</ol>
+<p>The <code>handle_timeout</code> hook gives us an opportunity to manage timed-out jobs in
+the <code>RUN_TIMEOUT</code> state. The <em>default</em> Balsam action is to immediately mark the
+timed out job as <code>RESTART_READY</code>: it is simply eligible to run again as soon as
+resources are available.  If you wish to <em>fail</em> the job or tweak inputs before running again, this is the right place to do it.  </p>
+<p>In this example, we choose to mark the timed out job as <code>FAILED</code> but dynamically generate a follow-up job with related parameters.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">balsam.api</span> <span class="kn">import</span> <span class="n">Job</span>
+
+<span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">handle_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Sorry, not retrying slow runs:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;FAILED&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="s2">&quot;Job Timed out&quot;</span><span class="p">}</span>
+
+        <span class="c1"># Create another, faster run:</span>
+        <span class="n">new_job_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">next_run_kwargs</span><span class="p">()</span>
+        <span class="n">Job</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="o">**</span><span class="n">new_job_params</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="error-handler">Error Handler<a class="headerlink" href="#error-handler" title="Permanent link">&para;</a></h3>
+<p>The <code>handle_error</code> hook handles the second scenario listed in the previous
+section: when the job terminates with a nonzero exit code.  If you can fix the
+error and try again, set the job state to <code>RESTART_READY</code>; otherwise, the
+default implementation simply fails jobs that encountered a <code>RUN_ERROR</code> state.</p>
+<p>The following example calls some user-defined <code>fix_inputs()</code> to retry a failed
+run up to three times before declaring the job as <code>FAILED</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">MySimulation</span><span class="p">(</span><span class="n">ApplicationDefinition</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">handle_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">dat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">data</span>
+        <span class="n">retry_count</span> <span class="o">=</span> <span class="n">dat</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;retry_count&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">retry_count</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fix_inputs</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;RESTART_READY&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">dat</span><span class="p">,</span> <span class="s2">&quot;retry_count&quot;</span><span class="p">:</span> <span class="n">retry_count</span><span class="o">+</span><span class="mi">1</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;FAILED&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">job</span><span class="o">.</span><span class="n">state_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="s2">&quot;Exceeded maximum retries&quot;</span><span class="p">}</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Be careful when updating <code>job.data</code>!</p>
+<p>Notice in the example above that we did not simply update <code>self.job.data["retry_count"]</code>, even though that's the only value that changed.  Instead, we created a <strong>new dictionary</strong> <em>merging</em> the existing contents of <code>data</code> with the incremented value for <code>retry_count</code>. If we had attempted the former method, <strong><code>job.data</code> would not have been updated</strong>.</p>
+<p>This is a subtle consequence of the Balsam Python API, which <a href="https://docs.python.org/3/howto/descriptor.html"><em>tracks</em>
+mutated data</a> on the <code>Job</code> object whenever a new value is assigned to one of the object's fields. This works great for immutable values, but unfortunately, updates to mutable fields (like appending to a list or setting a new key:value pair on a dictionary)  are not currently intercepted.</p>
+<p>The Balsam <code>processing</code> service that runs these lifecycle hooks inspects
+mutations on each <code>Job</code> and propagates efficient bulk-updates to the REST
+API.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/argonne-lcf/balsam" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
