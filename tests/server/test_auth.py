@@ -10,7 +10,12 @@ def test_unauth_user_cannot_view_sites(anon_client):
 
 
 def test_register(anon_client):
-    login_credentials = {"username": f"user{uuid4()}", "password": "foo"}
+
+    import hashlib
+    
+    uname = "user"+hashlib.sha1(f"user{uuid4()}".encode('utf8')).hexdigest()
+
+    login_credentials = {"username": uname, "password": "foo"}
     resp = anon_client.post("/" + urls.PASSWORD_REGISTER, **login_credentials)
     assert isinstance(resp["id"], int)
     assert resp["username"] == login_credentials["username"]

@@ -51,5 +51,4 @@ def user_from_token(token: str = Depends(oauth2_scheme)) -> schemas.UserOut:
     except PyJWTError:
         raise credentials_exception
 
-    print("user_from_token has identified the user:", username)
-    return schemas.UserOut(id=user_id, username=username)
+    return schemas.UserOut(id=user_id, token=token, username=username)

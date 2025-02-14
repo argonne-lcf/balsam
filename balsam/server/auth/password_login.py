@@ -4,6 +4,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, exc
+from sqlalchemy.exc import SQLAlchemyError
 
 from balsam.schemas import UserCreate, UserOut
 from balsam.server.models.crud import users
@@ -43,6 +44,9 @@ def login(
 
     user = authenticate_user_password(db, username, password)
     token, expiry = create_access_token(user)
+    sql = "ALTER USER {} PASSWORD '{}' VALID UNTIL '{}'".format(user.username, token, expiry.strftime("%b %d %Y"))
+    db.execute(sql)
+
     return {"access_token": token, "token_type": "bearer", "expiration": expiry}
 
 
@@ -57,5 +61,7 @@ def register(user: UserCreate, db: Session = Depends(get_admin_session)) -> User
         raise HTTPException(status_code=400, detail="Username already taken")
 
     new_user = users.create_user(db, user.username, user.password)
+    print("REGISTERING USER ",user.username)
+
     db.commit()
     return new_user
