@@ -6,6 +6,7 @@ __pycache__
 
 .*
 !.env.example
+!.env.test-server
 !.gitignore
 !.readthedocs.yml
 !.readthedocs.yaml

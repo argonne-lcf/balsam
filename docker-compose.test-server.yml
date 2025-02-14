@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  gunicorn:
+    container_name: gunicorn-test
+    build: .
+    image: masalim2/balsam
+    restart: always
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    # Vars in env_file are exported to the containers
+    # Vars in ".env" specifically are also usable in the compose file as ${VAR}
+    env_file: ".env"
+    environment:
+      SERVER_PORT: ${SERVER_PORT}
+      BALSAM_LOG_DIR: ${BALSAM_LOG_DIR}
+    volumes:
+      - "${BALSAM_LOG_DIR}:/balsam/log"
+      - "./balsam:/balsam/balsam:ro"
+      - "./tests:/balsam/tests:ro"
+      - "${PWD}/${GUNICORN_CONFIG_FILE}:/balsam/gunicorn.conf.py:ro" # Must be abs path
+    networks:
+      - balsam-test
+
+  postgres:
+    container_name: postgres-test
+    image: postgres
+    restart: always
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: balsam
+    volumes:
+      - "pgdata-test:/var/lib/postgresql/data"
+    command: "-c log_min_duration_statement=0"
+    logging:
+      options:
+        max-size: "50m"
+        max-file: "5"
+      driver: "json-file"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+    networks:
+      - balsam-test
+
+  redis:
+    container_name: redis-test
+    image: redis
+    restart: always
+    ports:
+      - 6380:6379
+    networks:
+      - balsam-test
+
+volumes:
+  pgdata-test:
+
+networks:
+  balsam-test:
+    driver: bridge
