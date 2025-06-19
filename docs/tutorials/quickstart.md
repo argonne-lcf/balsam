@@ -5,20 +5,17 @@ Balsam is highly platform-agnostic, you can follow along by choosing from any of
 the available default site setups:
 
 - A local MacOS or Linux system
-- Polaris
-- Theta-GPU
-- Theta-KNL
-- Cooley
+- Aurora
 - Perlmutter
-- Summit
-- Aurora (coming soon)
+- Polaris
+- Sunspot
 
 ## Install
 
 First create a new virtualenv and install Balsam:
 
 ```bash
-$ /soft/datascience/create_env.sh my-env # Or DIY
+$ python -m venv my-env
 $ source my-env/bin/activate
 $ pip install --pre balsam
 ```
@@ -53,7 +50,7 @@ Let's start by creating a Balsam Site in a folder named `./my-site`:
 
 ```bash
 $ balsam site init ./my-site
-# Select the default configuration for Theta-KNL
+# Select the default configuration for your machine, e.g. Polaris
 ```
 
 You will be prompted to select a default Site configuration and to enter a
@@ -91,20 +88,20 @@ command, with any workflow variables enclosed in double-curly braces:
 from balsam.api import ApplicationDefinition
 
 class Hello(ApplicationDefinition):
-    site = "theta-demo"
+    site = "my-site"
     command_template = "echo Hello, {{ say_hello_to }}!"
 
 Hello.sync()
 ```
 
-Notice the attribute `site = "theta-demo"` which is **required** to associate the App `"Hello"` to the Site `"theta-demo"`. 
+Notice the attribute `site = "my-site"` which is **required** to associate the App `"Hello"` to the Site `"my-site"`. 
 
 In addition to shell command templates, we can define Apps that invoke a Python `run()`
 function on a compute node:
 
 ```python
 class VecNorm(ApplicationDefinition):
-    site = "theta-demo"
+    site = "my-site"
 
     def run(self, vec):
         return sum(x**2 for x in vec)**0.5
@@ -129,7 +126,7 @@ norm = VecNorm.submit(workdir="demo/norm", vec=[3, 4])
 ```
 
 Notice how shell command parameters (for `Hello`) and Python function parameters
-(for `VecNorm`) are treated on the same footing.  We have now created two Jobs that will eventually run on the Site `theta-demo`, once compute resources are available.  These Jobs can be seen by running `balsam job ls`.
+(for `VecNorm`) are treated on the same footing.  We have now created two Jobs that will eventually run on the Site `my-site`, once compute resources are available.  These Jobs can be seen by running `balsam job ls`.
 
 
 ## Make it run
@@ -182,9 +179,9 @@ When the BatchJob with `job_mode="mpi"` starts, an [MPI mode launcher](../../use
 ```
 $ balsam job ls
 
-ID       Site                  App          Workdir   State          Tags  
-267280   thetalogin4:my-site   Hello        test/2    JOB_FINISHED   {}    
-267279   thetalogin4:my-site   Hello        test/1    JOB_FINISHED   {} 
+ID       Site      App          Workdir   State          Tags  
+267280   my-site   Hello        test/2    JOB_FINISHED   {}    
+267279   my-site   Hello        test/1    JOB_FINISHED   {} 
 ```
 
 
@@ -218,9 +215,13 @@ BatchJob.objects.create(
     project="local",
 )
 
+# This check will block until jobs are completed; 
+# remove these lines if you don't want to wait for jobs to finish
 for job in Job.objects.as_completed(jobs):
     print(job.workdir, job.result())
 ```
+
+Note that this example script will block until the jobs are completed.
 
 ## Submitting Jobs from the command line
 
@@ -255,5 +256,5 @@ ID       Site     App        Workdir          State          Tags
 BatchJobs can be submitted from the CLI, with parameters that mimic a standard scheduler interface:
 ```bash
 # Substitute -q QUEUE and -A ALLOCATION for your project:
-$ balsam queue submit -q debug-cache-quad -A datascience -n 1 -t 10 -j mpi 
+$ balsam queue submit -q debug -A datascience -n 1 -t 10 -j mpi 
 ```

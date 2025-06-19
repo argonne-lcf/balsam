@@ -196,12 +196,12 @@ def test_update_valid(auth_client):
 
 
 def test_bulk_status_update_batch_jobs(auth_client):
-    theta = create_site(auth_client, name="theta")
-    cooley = create_site(auth_client, name="cooley")
+    polaris = create_site(auth_client, name="polaris")
+    aurora = create_site(auth_client, name="aurora")
     for _ in range(10):
         auth_client.post(
             "/batch-jobs/",
-            site_id=theta["id"],
+            site_id=polaris["id"],
             project="datascience",
             queue="default",
             num_nodes=4,
@@ -210,7 +210,7 @@ def test_bulk_status_update_batch_jobs(auth_client):
         )
         auth_client.post(
             "/batch-jobs/",
-            site_id=cooley["id"],
+            site_id=aurora["id"],
             project="datascience",
             queue="default",
             num_nodes=4,
@@ -219,7 +219,7 @@ def test_bulk_status_update_batch_jobs(auth_client):
         )
 
     # scheduler agent receives 10 batchjobs; sends back bulk-state updates
-    jobs = auth_client.get("/batch-jobs/", site_id=cooley["id"])
+    jobs = auth_client.get("/batch-jobs/", site_id=aurora["id"])
     assert jobs["count"] == 10
     jobs = jobs["results"]
     for job in jobs[:5]:
@@ -236,12 +236,12 @@ def test_bulk_status_update_batch_jobs(auth_client):
         expected_state = next(j["state"] for j in jobs if j["id"] == id)
         assert updated_job["state"] == expected_state
 
-    jobs = auth_client.get("/batch-jobs/", site_id=cooley["id"], state="running")
+    jobs = auth_client.get("/batch-jobs/", site_id=aurora["id"], state="running")
     assert jobs["count"] == len(jobs["results"]) == 5
 
 
 def test_delete_running_batchjob(auth_client):
-    site = create_site(auth_client, name="theta")
+    site = create_site(auth_client, name="polaris")
     bjob = auth_client.post(
         "/batch-jobs/",
         site_id=site["id"],
@@ -287,7 +287,7 @@ def test_delete_running_batchjob(auth_client):
 
 
 def test_delete_api_endpoint(auth_client):
-    site = create_site(auth_client, name="theta")
+    site = create_site(auth_client, name="polaris")
     bjob = auth_client.post(
         "/batch-jobs/",
         site_id=site["id"],

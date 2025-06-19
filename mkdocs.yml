@@ -3,7 +3,7 @@ site_url: https://balsam.readthedocs.io/en/latest/
 nav:
   - Home: README.md
   - Tutorials:
-    - Getting Started: tutorials/theta-quickstart.md
+    - Getting Started: tutorials/quickstart.md
   - User Guide:
     - Installation: user-guide/installation.md
     - Creating Balsam Sites: user-guide/site-config.md

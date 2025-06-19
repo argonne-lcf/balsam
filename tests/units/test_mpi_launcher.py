@@ -5,7 +5,7 @@ import pytest
 from balsam._api.models import Job
 from balsam.api import ApplicationDefinition
 from balsam.platform.app_run import MPICHRun
-from balsam.platform.compute_node import ThetaGPUNode
+from balsam.platform.compute_node import PolarisNode
 from balsam.site.launcher._mpi_mode import Launcher
 from balsam.site.launcher.node_manager import NodeManager
 
@@ -24,7 +24,7 @@ def launcher(mocker, tmp_path):
     mock_client = mocker.patch("balsam.client.BasicAuthRequestsClient", autospec=True)
     client = mock_client("http://test:1234", "testuser", token="foo")
 
-    nodes = [ThetaGPUNode(nid, "thetagpu{nid:02d}") for nid in range(1, 12)]
+    nodes = [PolarisNode(nid, "polaris{nid:02d}") for nid in range(1, 12)]
     node_manager = NodeManager(nodes, allow_node_packing=True)
 
     mock_job_source.get_jobs.return_value = [

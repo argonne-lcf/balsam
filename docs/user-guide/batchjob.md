@@ -65,9 +65,7 @@ millions of single-core tasks) is achieved by running a worker process on *each
 compute node* and fanning out cached `Jobs` acquired from the REST API.
 
 Both launcher modes can simultaneously execute multiple applications per node,
-as long as the underlying HPC system provides support.  This is not always the
-case: for example, on ALCF's Theta-KNL system, `serial` mode is required to pack
-multiple runs per node.
+as long as the underlying HPC system provides support.
 
 !!! note "You can submit multiple BatchJobs to a Site"
     Balsam launchers cooperatively divide and conquer the runnable Jobs at a
@@ -107,7 +105,7 @@ ease, using a single, consistent programming model.
 from balsam.api import Job, BatchJob
 # Create Jobs:
 job = Job.objects.create(
-    site_name="myProject-theta-gpu",
+    site_name="myProject",
     app_id="SimulationX",
     workdir="test-runs/foo/1",
 )
@@ -119,7 +117,7 @@ BatchJob.objects.create(
     wall_time_min=20,
     job_mode="mpi",
     project="datascience",
-    queue="full-node",
+    queue="debug",
 )
 ```
 
@@ -149,43 +147,6 @@ modules, or perform general pre-execution logic. These templates also accept
 optional, system-specific parameters that can be passed on the CLI via `-x` or
 to the BatchJob `optional_params` dictionary.
 
-
-### Theta-KNL Optional Params
-On Theta-KNL, we can prime the LDAP cache on each compute node prior to a large-scale ensemble of Singularity jobs.  This is necessary to avoid a system error that arises in Singularity startup at scale.
-
-With the CLI:
-```bash
-$ balsam queue submit -x singularity_prime_cache=yes  # ..other args
-```
-
-With the Python API:
-```python
-BatchJob.objects.create(
-    # ...other kwargs
-    optional_params={"singularity_prime_cache": "yes"}
-)
-```
- 
-### ThetaGPU
-On Theta-GPU, we can partition each of the 8 physical A100 GPUs into 2, 3, or 7
-Multi-Instance GPU (MIG) resources.  This allows us to achieve higher GPU
-utilization with high-throughput tasks consuming a fraction of the 40 GB device
-memory.  Jobs using a MIG instance should still request a single logical GPU
-with `gpus_per_rank=1` but specify a higher node-packing (e.g.
-`node_packing_count` should be 8*3 = `24` for a 3-way MIG partitioning).
-
-With the CLI:
-```bash
-$ balsam queue submit -x mig_count=3  # ..other args
-```
-
-With the Python API:
-```python
-BatchJob.objects.create(
-    # ...other kwargs
-    optional_params={"mig_count": "3"}
-)
-```
 
 ## Restricting BatchJobs with tags
 We strongly encourage the use of [descriptive

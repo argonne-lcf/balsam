@@ -188,8 +188,8 @@ class LauncherSettings(BaseSettings):
     delay_sec: int = 1
     error_tail_num_lines: int = 10
     max_concurrent_mpiruns: int = 1000
-    compute_node: Type[ComputeNode] = Field("balsam.platform.compute_node.ThetaKNLNode")
-    mpi_app_launcher: Type[AppRun] = Field("balsam.platform.app_run.ThetaAprun")
+    compute_node: Type[ComputeNode] = Field("balsam.platform.compute_node.ComputeNode")
+    mpi_app_launcher: Type[AppRun] = Field("balsam.platform.app_run.AppRun")
     local_app_launcher: Type[AppRun] = Field("balsam.platform.app_run.LocalAppRun")
     mpirun_allows_node_packing: bool = False
     serial_mode_prefetch_per_rank: int = 64

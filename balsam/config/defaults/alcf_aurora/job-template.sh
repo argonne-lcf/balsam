@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -l select={{ num_nodes }}:system=aurora,place=scatter
 #PBS -l walltime={{ wall_time_min//60 | int }}:{{ wall_time_min | int }}:00
-#PBS -l filesystems=home
+#PBS -l filesystems=home:flare:daos_user:daos_perf
 #PBS -A {{ project }}
 #PBS -q {{ queue }}
 

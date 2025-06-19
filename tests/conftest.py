@@ -29,8 +29,8 @@ from .test_platform import PLATFORMS, get_platform, get_test_api_url, get_test_d
 def pytest_runtest_setup(item: Any) -> None:
     """
     PyTest calls this hook before each test.
-    To mark a test for running only on Theta, use
-    @pytest.mark.alcf_theta
+    To mark a test for running only on Polaris, use
+    @pytest.mark.alcf_polaris
     """
     supported_platforms = PLATFORMS.intersection(mark.name for mark in item.iter_markers())
     plat = get_platform()
