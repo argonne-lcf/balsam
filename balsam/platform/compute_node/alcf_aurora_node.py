@@ -65,8 +65,8 @@ class AuroraNode(ComputeNode):
         # On an aurora node, gpus 0-2 should be assigned to cpus 1-51
         #                    gpus 3-5 should be assigned to cpus 53-103
         # Also, cpus should be assigned from the same socket
-        idle_socket0_cpus = [cpu for cpu in self.idle_cpus if cpu < 52]
-        idle_socket1_cpus = [cpu for cpu in self.idle_cpus if cpu > 52]
+        idle_socket0_cpus = [cpu for cpu in self.idle_cpus if int(cpu) < 52]
+        idle_socket1_cpus = [cpu for cpu in self.idle_cpus if int(cpu) > 52]
         idle_socket0_cpus.sort()
         idle_socket1_cpus.sort()
 
