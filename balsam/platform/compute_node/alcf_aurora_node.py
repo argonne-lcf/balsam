@@ -10,7 +10,7 @@ IntStr = Union[int, str]
 
 class AuroraNode(ComputeNode):
     # skip cores 0 and 52 which are reserved for system procs
-    cpu_ids = list(range(1,52)) + list(range(53,104))
+    cpu_ids = list(range(1, 52)) + list(range(53, 104))
     gpu_ids: List[IntStr]
 
     gpu_ids = []
