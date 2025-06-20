@@ -10,7 +10,7 @@ IntStr = Union[int, str]
 
 class AuroraNode(ComputeNode):
     # skip cores 0 and 52 which are reserved for system procs
-    cpu_ids = list(range(1,52))+list(range(53,104))
+    cpu_ids = list(range(1,52)) + list(range(53,104))
     gpu_ids: List[IntStr]
 
     gpu_ids = []
@@ -73,7 +73,7 @@ class AuroraNode(ComputeNode):
         assigned_gpus = self.idle_gpus[:num_gpus]
         if assigned_gpus:
             assigned_sockets = [0 if float(gpu) < 3 else 1 for gpu in assigned_gpus]
-            num_cpus_per_gpu = num_cpus//num_gpus
+            num_cpus_per_gpu = num_cpus // num_gpus
             assigned_cpus = []
             for sock in assigned_sockets:
                 if sock == 0:
@@ -84,7 +84,7 @@ class AuroraNode(ComputeNode):
                     idle_socket1_cpus = [i for i in idle_socket1_cpus if i not in assigned_cpus]
             if len(assigned_cpus) < num_cpus:
                 num_remainder = num_cpus - len(assigned_cpus)
-                idle_both_sockets = idle_socket0_cpus+idle_socket1_cpus
+                idle_both_sockets = idle_socket0_cpus + idle_socket1_cpus
                 assigned_cpus += idle_both_sockets[:num_remainder]
         else:
             if len(idle_socket0_cpus) > num_cpus:
