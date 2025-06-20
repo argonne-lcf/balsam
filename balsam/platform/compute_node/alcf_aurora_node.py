@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List, Optional, Union, Dict, Any
+from typing import Any, Dict, List, Optional, Union
 
 from .compute_node import ComputeNode
 
