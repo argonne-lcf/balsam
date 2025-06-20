@@ -1,7 +1,6 @@
 import logging
 import os
 from typing import List, Optional, Union, Dict, Any
-#from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from .compute_node import ComputeNode
 
@@ -70,7 +69,7 @@ class AuroraNode(ComputeNode):
         idle_socket1_cpus = [cpu for cpu in self.idle_cpus if cpu > 52]
         idle_socket0_cpus.sort()
         idle_socket1_cpus.sort()
-        
+
         assigned_gpus = self.idle_gpus[:num_gpus]
         if assigned_gpus:
             assigned_sockets = [0 if float(gpu) < 3 else 1 for gpu in assigned_gpus]
@@ -106,7 +105,5 @@ class AuroraNode(ComputeNode):
             "gpu_ids": assigned_gpus,
             "occupancy": occupancy,
         }
-        logger.info(f"Job id {job_id} AuroraNode assign: {resource_spec=}") 
         self.jobs[job_id] = resource_spec
         return resource_spec
-    
