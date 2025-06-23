@@ -154,6 +154,8 @@ class SubprocessAppRun(AppRun):
         # Check the assigned GPU ID list from the first compute node:
         gpu_ids = self._node_spec.gpu_ids[0]
         if gpu_ids:
+            envs["ZE_ENABLE_PCI_ID_DEVICE_ORDER"] = "1"
+            envs["ZE_AFFINITY_MASK"] = ",".join(map(str, gpu_ids))
             envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
             envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))
         envs["OMP_NUM_THREADS"] = str(self._threads_per_rank)

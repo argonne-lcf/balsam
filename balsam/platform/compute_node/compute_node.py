@@ -6,7 +6,7 @@ U = TypeVar("U")
 
 
 class ComputeNode:
-    cpu_ids: List[IntStr] = []
+    cpu_ids: List[int] = []
     gpu_ids: List[IntStr] = []
 
     def __init__(self, node_id: IntStr, hostname: str, gpu_ids: Optional[List[IntStr]] = None) -> None:
