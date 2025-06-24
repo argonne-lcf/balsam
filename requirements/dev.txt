@@ -6,7 +6,7 @@
 mypy==0.971
 mkdocs-material>=7.1.9,<9.0.0
 coverage 
-black
+black<=23.11.0
 #jupyter-black
 build
 twine
