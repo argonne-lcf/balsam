@@ -20,7 +20,7 @@ logger = getLogger(__name__)
 
 def owned_job_selector(owner: schemas.UserOut, columns: Optional[List[Column[Any]]] = None) -> Select:
     if columns is None:
-        stmt = select(models.Job.__table__)  # type: ignore[arg-type]
+        stmt = select(models.Job.__table__)  # type: ignore[arg-type] # noqa
     else:
         stmt = select(columns)
     return (  # type: ignore
@@ -249,7 +249,7 @@ def update_waiting_children(db: Session, finished_parent_ids: Iterable[int]) -> 
     qs = (
         select((models.Job.__table__,))
         .where(models.Job.state == "AWAITING_PARENTS")
-        .where(models.Job.parent_ids.overlap(finished_parent_ids))  # type: ignore[attr-defined]
+        .where(models.Job.parent_ids.overlap(finished_parent_ids))  # type: ignore[attr-defined] # noqa
     )
     children, transfer_items_by_jobid = select_jobs_for_update(db, qs, extra_cols=[models.Job.parent_ids])
 
@@ -329,9 +329,37 @@ def do_update_jobs(
     transfer_items_by_jobid: Dict[int, List[Any]],
     patch_dicts: Dict[int, Dict[str, Any]],
 ) -> None:
+    # This wrapper to the original do_update_jobs was created because
+    # sometimes the list of jobs to be updated have different columns
+    # and SQLAlchemy does not support bulk updates unless every row
+    # contains the same columns to be updated. This code loops over
+    # the jobs and groups them by unique tuples of column names, then
+    # calls the original update function on each group.
+    grouped_update_jobs: Dict[Tuple[str, ...], List[Any]] = {}
+    grouped_patch_dicts: Dict[Tuple[str, ...], Dict[int, Any]] = {}
+
+    for job in update_jobs:
+        update_data = patch_dicts[job.id]
+        keytuple = tuple(sorted(list(update_data.keys())))
+        try:
+            grouped_update_jobs[keytuple].append(job)
+            grouped_patch_dicts[keytuple][job.id] = patch_dicts[job.id]
+        except KeyError:
+            grouped_update_jobs[keytuple] = [job]
+            grouped_patch_dicts[keytuple] = {job.id: patch_dicts[job.id]}
+
+    for keys, jobs in grouped_update_jobs.items():
+        do_update_jobs_orig(db, jobs, transfer_items_by_jobid, grouped_patch_dicts[keys])
+
+
+def do_update_jobs_orig(
+    db: Session,
+    update_jobs: List[Any],
+    transfer_items_by_jobid: Dict[int, List[Any]],
+    patch_dicts: Dict[int, Dict[str, Any]],
+) -> None:
     events: List[Dict[str, Any]] = []
     ready_transfers: List[int] = []
-
     # First, perform job-wise updates:
     for job in update_jobs:
         update_data = patch_dicts[job.id]
