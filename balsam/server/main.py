@@ -1,4 +1,5 @@
 import logging
+import uvicorn
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, status
 from fastapi.responses import JSONResponse
@@ -117,3 +118,6 @@ async def subscribe_user(websocket: WebSocket) -> None:
 app.add_middleware(TimingMiddleware, router=app.router)
 logger.info("Loaded balsam.server.main")
 logger.info(settings.serialize_without_secrets())
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

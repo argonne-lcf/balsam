@@ -19,7 +19,8 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects import postgresql as pg
-
+from sqlalchemy import Enum, Table, Column, Integer, LargeBinary, Text, String, ForeignKey, DateTime, Boolean, Float, Sequence, INTEGER, literal_column, select, column
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from balsam.schemas.transfer import TransferDirection, TransferItemState
 
 from .base import Base
@@ -27,16 +28,26 @@ from .base import Base
 # PK automatically has nullable=False, autoincrement
 # Postgres auto-creates index for unique constraint and primary key constraint
 
+class BalsamBase(Base):
+    __abstract__ = True
 
-class User(Base):
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(40), autoincrement=False, default=literal_column(
+        'uuid_generate_v4()'), unique=True)
+    owner = Column(String(40), default=literal_column('current_user'))
+
+    created = Column(DateTime, default=datetime.now, nullable=False)
+    lastupdated = Column(DateTime, default=datetime.now,
+                         onupdate=datetime.now, nullable=False)
+
+class User(BalsamBase):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
     username = Column(String(100), unique=True)
     hashed_password = Column(String(128), nullable=True, default=None)
 
 
-class DeviceCodeAttempt(Base):
+class DeviceCodeAttempt(BalsamBase):
     __tablename__ = "device_code_attempts"
 
     client_id = Column(pg.UUID(as_uuid=True), primary_key=True)
@@ -49,17 +60,15 @@ class DeviceCodeAttempt(Base):
     user = orm.relationship(User)
 
 
-class AuthorizationState(Base):
+class AuthorizationState(BalsamBase):
     __tablename__ = "auth_states"
-    id = Column(Integer, primary_key=True)
     state = Column(String(512), unique=True)
 
 
-class Site(Base):
+class Site(BalsamBase):
     __tablename__ = "sites"
     __table_args__ = (UniqueConstraint("owner_id", "name"),)
 
-    id = Column(Integer, primary_key=True)
     name = Column(String(100))
     path = Column(String(512))
     last_refresh = Column(DateTime)
@@ -98,11 +107,10 @@ class Site(Base):
     )
 
 
-class App(Base):
+class App(BalsamBase):
     __tablename__ = "apps"
     __table_args__ = (UniqueConstraint("site_id", "name"),)
 
-    id = Column(Integer, primary_key=True)
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"))
     name = Column(String(200), nullable=False)
     description = Column(Text)
@@ -115,10 +123,9 @@ class App(Base):
     jobs = orm.relationship("Job", back_populates="app", cascade="all, delete-orphan", passive_deletes=True)
 
 
-class Job(Base):
+class Job(BalsamBase):
     __tablename__ = "jobs"
 
-    id = Column(Integer, primary_key=True, index=True)
     workdir = Column(String(256), nullable=False)
 
     # https://www.postgresql.org/docs/9.4/datatype-json.html
@@ -175,10 +182,9 @@ class Job(Base):
     )
 
 
-class BatchJob(Base):
+class BatchJob(BalsamBase):
     __tablename__ = "batch_jobs"
 
-    id = Column(Integer, primary_key=True)
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
     scheduler_id = Column(Integer, nullable=True)
     project = Column(String(64), nullable=False)
@@ -199,10 +205,9 @@ class BatchJob(Base):
     sessions = orm.relationship("Session", back_populates="batch_job")
 
 
-class Session(Base):
+class Session(BalsamBase):
     __tablename__ = "sessions"
 
-    id = Column(Integer, primary_key=True)
     heartbeat = Column(DateTime, default=datetime.utcnow)
     batch_job_id = Column(Integer, ForeignKey("batch_jobs.id", ondelete="SET NULL"), nullable=True)
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
@@ -212,10 +217,9 @@ class Session(Base):
     jobs: "orm.Query[Job]" = orm.relationship("Job", lazy="dynamic", back_populates="session")  # type: ignore
 
 
-class TransferItem(Base):
+class TransferItem(BalsamBase):
     __tablename__ = "transfer_items"
 
-    id = Column(Integer, primary_key=True)
     job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
     direction = Column(Enum(TransferDirection), nullable=False)
     local_path = Column(String(256))
@@ -229,10 +233,9 @@ class TransferItem(Base):
     job = orm.relationship(Job, back_populates="transfer_items")
 
 
-class LogEvent(Base):
+class LogEvent(BalsamBase):
     __tablename__ = "log_events"
 
-    id = Column(Integer, primary_key=True)
     job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"))
     timestamp = Column(DateTime)
     from_state = Column(String(32))

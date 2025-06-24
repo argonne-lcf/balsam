@@ -49,8 +49,8 @@ def setup_database() -> Optional[str]:
     env_url = get_test_db_url()
     pg.configure_balsam_server_from_dsn(env_url)
     try:
-        session = models.get_session()
-        if not session.engine.database.endswith("test"):  # type: ignore
+        session = next(models.get_session())
+        if not str(session.get_bind().url).endswith("test"):  # type: ignore
             raise RuntimeError("Database name used for testing must end with 'test'")
         pg.run_alembic_migrations(env_url)
         session.execute("""TRUNCATE TABLE users CASCADE;""")
@@ -141,7 +141,10 @@ def _server_health_check(url: str, timeout: float = 10.0, check_interval: float 
 
 def _make_user_client(url: str) -> BasicAuthRequestsClient:
     """Create a basicauth client to the given url"""
-    login_credentials: Dict[str, Any] = {"username": f"user{uuid4()}", "password": "test-password"}
+    import hashlib
+    
+    uname = "user"+hashlib.sha1(f"user{uuid4()}".encode('utf8')).hexdigest()
+    login_credentials: Dict[str, Any] = {"username": uname, "password": "test-password"}
     requests.post(
         url.rstrip("/") + "/" + urls.PASSWORD_REGISTER,
         json=login_credentials,
