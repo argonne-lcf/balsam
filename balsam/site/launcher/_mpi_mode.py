@@ -108,7 +108,7 @@ class Launcher:
         max_num_to_acquire = max(0, self.max_concurrent_runs - len(self.active_runs))
         if not self.node_manager.allow_node_packing:
             max_num_to_acquire = min(max_num_to_acquire, int(max_aggregate_nodes))
-        if max_aggregate_nodes < 0.01:
+        if max_num_to_acquire <= 0 or max_aggregate_nodes < 0.01:
             return []
 
         acquired = self.job_source.get_jobs(
