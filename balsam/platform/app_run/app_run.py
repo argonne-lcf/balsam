@@ -11,6 +11,8 @@ import psutil  # type: ignore
 from balsam.platform.compute_node import ComputeNode
 from balsam.site.launcher import NodeSpec
 
+from .aurora import _convert_gpu_bindings
+
 logger = logging.getLogger(__name__)
 
 
@@ -155,6 +157,11 @@ class SubprocessAppRun(AppRun):
         gpu_ids = self._node_spec.gpu_ids[0]
         if gpu_ids:
             envs["ZE_ENABLE_PCI_ID_DEVICE_ORDER"] = "1"
+            if "ZE_FLAT_DEVICE_HIERARCHY" in envs:
+                gpu_hierarchy_type = envs["ZE_FLAT_DEVICE_HIERARCHY"]
+                selected_gpu_hierarchy_type = "COMPOSITE" if "." in gpu_ids[0] else "FLAT"
+                if gpu_hierarchy_type != selected_gpu_hierarchy_type:
+                    gpu_ids = _convert_gpu_bindings(gpu_ids)
             envs["ZE_AFFINITY_MASK"] = ",".join(map(str, gpu_ids))
             envs["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
             envs["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_ids))

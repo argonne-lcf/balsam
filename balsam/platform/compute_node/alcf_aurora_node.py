@@ -13,10 +13,14 @@ class AuroraNode(ComputeNode):
     cpu_ids = list(range(1, 52)) + list(range(53, 104))
     gpu_ids: List[IntStr]
 
-    gpu_ids = []
-    for gid in range(6):
-        for tid in range(2):
-            gpu_ids.append(str(gid) + "." + str(tid))
+    gpu_hierarchy_type = os.environ["ZE_FLAT_DEVICE_HIERARCHY"]
+    if gpu_hierarchy_type == "COMPOSITE":
+        gpu_ids = []
+        for gid in range(6):
+            for tid in range(2):
+                gpu_ids.append(str(gid) + "." + str(tid))
+    else: # FLAT mode
+        gpu_ids = [str(gid) for gid in range(12)]
 
     @classmethod
     def get_job_nodelist(cls) -> List["AuroraNode"]:
